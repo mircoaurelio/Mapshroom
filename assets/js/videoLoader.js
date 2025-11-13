@@ -622,9 +622,8 @@ const attachPrecisionControl = (precisionRange, controller) => {
   });
 };
 
-const attachControlButtons = (playBtn, resetBtn, controller) => {
+const attachControlButtons = (playBtn, controller) => {
   playBtn.addEventListener('click', controller.handlePlay);
-  resetBtn.addEventListener('click', controller.handleReset);
 };
 
 const setupVisibilityPause = (video) => {
@@ -748,7 +747,7 @@ const init = async () => {
     initialIndex: persisted.state?.currentIndex ?? -1,
   });
   attachPrecisionControl(elements.precisionRange, controller);
-  attachControlButtons(elements.playBtn, elements.resetBtn, controller);
+  attachControlButtons(elements.playBtn, controller);
   setupVisibilityPause(elements.video);
   setupZoomPrevention();
 };
