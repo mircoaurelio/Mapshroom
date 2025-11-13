@@ -1202,21 +1202,19 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const rect =
       typeof videoWrapper?.getBoundingClientRect === 'function' ? videoWrapper.getBoundingClientRect() : null;
     const visualViewport = typeof window !== 'undefined' ? window.visualViewport : null;
+    const fallbackViewportWidth =
+      rect && Number.isFinite(rect.width) && rect.width > 0 ? rect.width : window.innerWidth || 1;
+    const fallbackViewportHeight =
+      rect && Number.isFinite(rect.height) && rect.height > 0 ? rect.height : window.innerHeight || 1;
     const viewportWidth = Math.max(
       1,
-      Number.isFinite(visualViewport?.width) && visualViewport.width > 0
-        ? visualViewport.width
-        : rect && Number.isFinite(rect.width) && rect.width > 0
-          ? rect.width
-          : window.innerWidth || 1,
+      Number.isFinite(visualViewport?.width) && visualViewport.width > 0 ? visualViewport.width : fallbackViewportWidth,
     );
     const viewportHeight = Math.max(
       1,
       Number.isFinite(visualViewport?.height) && visualViewport.height > 0
         ? visualViewport.height
-        : rect && Number.isFinite(rect.height) && rect.height > 0
-          ? rect.height
-          : window.innerHeight || 1,
+        : fallbackViewportHeight,
     );
 
     const safeAreaInsets = readSafeAreaInsets();
@@ -1225,46 +1223,34 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const safeTop = Math.max(0, safeAreaInsets.top);
     const safeBottom = Math.max(0, safeAreaInsets.bottom);
 
-    const baseWidth = viewportWidth;
-    const baseHeight = viewportHeight;
-    const contentWidth = Math.max(baseWidth, rect?.width || 0);
-    const contentHeight = Math.max(baseHeight, rect?.height || 0);
-    const totalWidth = contentWidth + safeLeft + safeRight;
-    const totalHeight = contentHeight + safeTop + safeBottom;
+    const screenWidth = Number.isFinite(window.screen?.width) && window.screen.width > 0 ? window.screen.width : null;
+    const screenHeight =
+      Number.isFinite(window.screen?.height) && window.screen.height > 0 ? window.screen.height : null;
 
-    const baseFrameWidth = Math.max(1, totalWidth + state.widthAdjust);
-    const baseFrameHeight = Math.max(1, totalHeight + state.heightAdjust);
+    const baseContentWidth = Math.max(
+      viewportWidth,
+      rect?.width || 0,
+      screenWidth !== null ? Math.max(0, screenWidth - safeLeft - safeRight) : 0,
+    );
+    const baseContentHeight = Math.max(
+      viewportHeight,
+      rect?.height || 0,
+      screenHeight !== null ? Math.max(0, screenHeight - safeTop - safeBottom) : 0,
+    );
 
-    const preparedItems = [];
-    let maxScale = 1;
+    const totalWidth = safeLeft + baseContentWidth + safeRight;
+    const totalHeight = safeTop + baseContentHeight + safeBottom;
 
-    try {
-      for (const item of playableItems) {
-        // eslint-disable-next-line no-await-in-loop
-        const videoEl = await loadVideoElementForExport(item);
-        const naturalWidth =
-          Number.isFinite(videoEl.videoWidth) && videoEl.videoWidth > 0 ? videoEl.videoWidth : baseFrameWidth;
-        const naturalHeight =
-          Number.isFinite(videoEl.videoHeight) && videoEl.videoHeight > 0 ? videoEl.videoHeight : baseFrameHeight;
-        const widthScale = naturalWidth / baseFrameWidth;
-        const heightScale = naturalHeight / baseFrameHeight;
-        const scaleForItem = Math.min(widthScale, heightScale);
-        if (Number.isFinite(scaleForItem) && scaleForItem > maxScale) {
-          maxScale = scaleForItem;
-        }
-        preparedItems.push({ item, videoEl });
-      }
-    } catch (error) {
-      preparedItems.forEach(({ videoEl }) => cleanupExportVideoElement(videoEl));
-      throw error;
-    }
+    const videoWidth = Math.max(1, baseContentWidth + state.widthAdjust);
+    const videoHeight = Math.max(1, baseContentHeight + state.heightAdjust);
+
 
     const desiredScale =
       window.devicePixelRatio && Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
-    const exportScale = Math.max(1, Math.min(maxScale, desiredScale));
+    const exportScale = Math.max(1, desiredScale);
 
-    const canvasWidth = Math.max(1, Math.round(Math.max(totalWidth, baseFrameWidth) * exportScale));
-    const canvasHeight = Math.max(1, Math.round(Math.max(totalHeight, baseFrameHeight) * exportScale));
+    const canvasWidth = Math.max(1, Math.round(totalWidth * exportScale));
+    const canvasHeight = Math.max(1, Math.round(totalHeight * exportScale));
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
@@ -1272,21 +1258,19 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     const context = canvas.getContext('2d');
     if (!context) {
-      preparedItems.forEach(({ videoEl }) => cleanupExportVideoElement(videoEl));
       throw new Error('Unable to prepare drawing surface for export.');
     }
 
     const stream = canvas.captureStream(30);
     if (!stream) {
-      preparedItems.forEach(({ videoEl }) => cleanupExportVideoElement(videoEl));
       throw new Error('Canvas capture stream is not supported in this browser.');
     }
 
     const exportFrame = {
       offsetX: Math.round((safeLeft + state.offsetX) * exportScale),
       offsetY: Math.round((safeTop + state.offsetY) * exportScale),
-      width: Math.max(1, Math.round(baseFrameWidth * exportScale)),
-      height: Math.max(1, Math.round(baseFrameHeight * exportScale)),
+      width: Math.max(1, Math.round(videoWidth * exportScale)),
+      height: Math.max(1, Math.round(videoHeight * exportScale)),
     };
 
     return new Promise((resolve, reject) => {
@@ -1311,12 +1295,6 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         settled = true;
         stopDrawing();
         cleanupExportVideoElement(activeVideo);
-        preparedItems.forEach(({ videoEl }) => {
-          if (videoEl !== activeVideo) {
-            cleanupExportVideoElement(videoEl);
-          }
-        });
-        preparedItems.length = 0;
         stream.getTracks().forEach((track) => track.stop());
         if (error) {
           reject(error);
@@ -1379,11 +1357,17 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
       (async () => {
         try {
-          for (const { videoEl } of preparedItems) {
-            activeVideo = videoEl;
-            await playVideoElementForExport(videoEl);
-            cleanupExportVideoElement(videoEl);
-            activeVideo = null;
+          for (const item of playableItems) {
+            let videoEl = null;
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              videoEl = await loadVideoElementForExport(item);
+              activeVideo = videoEl;
+              await playVideoElementForExport(videoEl);
+            } finally {
+              cleanupExportVideoElement(videoEl);
+              activeVideo = null;
+            }
           }
 
           if (!settled && recorder.state !== 'inactive') {
