@@ -251,11 +251,13 @@ export const createAiController = ({
     if (!message) {
       aiStatus.textContent = '';
       aiStatus.removeAttribute('data-tone');
+      aiStatus.removeAttribute('role');
       return;
     }
 
     aiStatus.textContent = message;
     aiStatus.dataset.tone = tone;
+    aiStatus.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   };
 
   const clearStatus = () => setStatus('');
@@ -349,6 +351,7 @@ export const createAiController = ({
       }
       aiPreviewVideo.hidden = true;
       aiPreviewVideo.removeAttribute('data-visible');
+      aiPreviewVideo.removeAttribute('data-error');
       return;
     }
 
@@ -370,6 +373,7 @@ export const createAiController = ({
 
     aiPreviewVideo.hidden = false;
     aiPreviewVideo.dataset.visible = 'true';
+    aiPreviewVideo.removeAttribute('data-error');
   };
 
   const applySelectionState = () => {
@@ -644,19 +648,41 @@ export const createAiController = ({
       ) {
         setStatus('Downloading generated video…', { tone: 'info' });
         try {
-          const downloadResponse = await fetch(urls[0]);
-          if (!downloadResponse.ok) {
-            throw new Error('Unable to download generated video automatically.');
-          }
-          const generatedBlob = await downloadResponse.blob();
+          const downloadResults = await Promise.all(
+            urls.map(async (url, index) => {
+              const response = await fetch(url, { mode: 'cors' });
+              if (!response.ok) {
+                throw new Error(`Unable to download generated video (file ${index + 1}).`);
+              }
+              const contentType = response.headers.get('content-type') || 'video/mp4';
+              const blob = await response.blob();
+              const typedBlob =
+                blob.type && blob.type.trim().length
+                  ? blob
+                  : new Blob([blob], { type: contentType || 'video/mp4' });
+              return { index, blob: typedBlob, url, contentType };
+            }),
+          );
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          await playlistController.addVideoFromBlob({
-            blob: generatedBlob,
-            name: `Runway Output ${timestamp}`,
-            type: generatedBlob.type,
-            makeCurrent: true,
-            autoplay: false,
-          });
+          const addedItems = [];
+
+          for (const result of downloadResults) {
+            // eslint-disable-next-line no-await-in-loop
+            const added = await playlistController.addVideoFromBlob({
+              blob: result.blob,
+              name:
+                downloadResults.length > 1
+                  ? `Runway Output ${timestamp} (${result.index + 1})`
+                  : `Runway Output ${timestamp}`,
+              type: result.blob.type || result.contentType || 'video/mp4',
+              makeCurrent: result.index === 0,
+              autoplay: false,
+            });
+            if (added) {
+              addedItems.push(added);
+            }
+          }
+
           setStatus('Generation complete and added to your playlist!', { tone: 'success' });
         } catch (downloadError) {
           console.error('Unable to add generated video to playlist.', downloadError);
@@ -827,6 +853,24 @@ export const createAiController = ({
   aiBtn.addEventListener('click', handleAiButtonClick);
   aiBackBtn.addEventListener('click', closePanel);
   aiGrid.addEventListener('click', handlePlaylistClick);
+  const handlePreviewError = () => {
+    if (!aiPreviewVideo) {
+      return;
+    }
+    aiPreviewVideo.dataset.error = 'true';
+    setStatus(
+      'Safari could not load the preview. Use the playlist or download links to view the video.',
+      { tone: 'warning' },
+    );
+  };
+
+  const handlePreviewLoaded = () => {
+    if (!aiPreviewVideo) {
+      return;
+    }
+    aiPreviewVideo.removeAttribute('data-error');
+  };
+
   aiGenerationForm.addEventListener('submit', handleGenerate);
   aiEphemeralCheckbox.addEventListener('change', handleEphemeralChange);
   aiModelSelect.addEventListener('change', handleModelChange);
@@ -836,6 +880,10 @@ export const createAiController = ({
   aiSaveKeyBtn.addEventListener('click', handleSaveKey);
   aiClearKeyBtn.addEventListener('click', handleClearKey);
   document.addEventListener('keydown', handleGlobalKeydown);
+  if (aiPreviewVideo) {
+    aiPreviewVideo.addEventListener('error', handlePreviewError);
+    aiPreviewVideo.addEventListener('loadeddata', handlePreviewLoaded);
+  }
 
   aiApiKeyInput.value = state.apiKey;
   aiEphemeralCheckbox.checked = state.useEphemeralUploads;
@@ -873,6 +921,10 @@ export const createAiController = ({
       aiSaveKeyBtn.removeEventListener('click', handleSaveKey);
       aiClearKeyBtn.removeEventListener('click', handleClearKey);
       document.removeEventListener('keydown', handleGlobalKeydown);
+      if (aiPreviewVideo) {
+        aiPreviewVideo.removeEventListener('error', handlePreviewError);
+        aiPreviewVideo.removeEventListener('loadeddata', handlePreviewLoaded);
+      }
       if (unsubscribe) {
         unsubscribe();
       }
