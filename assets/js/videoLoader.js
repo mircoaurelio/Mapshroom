@@ -8,7 +8,9 @@ import {
   savePlaylistMetadata,
   persistVideoFile,
   deleteVideoFile,
+  saveAiSettings as persistAiSettings,
 } from './storage.js';
+import { createAiController } from './ai.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -163,6 +165,74 @@ const readSafeAreaInsets = () => {
     console.debug('Unable to read safe-area insets, defaulting to zero.', error);
     return { top: 0, right: 0, bottom: 0, left: 0 };
   }
+};
+
+const shouldShowExportDiagnostics = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  if (window.location?.hash && window.location.hash.toLowerCase().includes('debug-export')) {
+    return true;
+  }
+  try {
+    return window.localStorage?.getItem('mapshroom:debug-export') === 'true';
+  } catch (error) {
+    return false;
+  }
+};
+
+const showExportDiagnostics = (info) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.__mapshroomLastExportMetrics = info;
+
+  if (!shouldShowExportDiagnostics()) {
+    return;
+  }
+
+  const existing = document.getElementById('export-debug-overlay');
+  if (existing) {
+    existing.remove();
+  }
+
+  const overlay = document.createElement('aside');
+  overlay.id = 'export-debug-overlay';
+  overlay.className = 'export-debug-overlay';
+
+  const title = document.createElement('h3');
+  title.textContent = 'Export Diagnostics';
+  overlay.appendChild(title);
+
+  const list = document.createElement('dl');
+
+  const appendEntry = (label, value) => {
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.textContent = String(value);
+    list.append(dt, dd);
+  };
+
+  Object.entries(info).forEach(([key, value]) => {
+    appendEntry(key, value);
+  });
+
+  overlay.appendChild(list);
+
+  const hint = document.createElement('p');
+  hint.className = 'export-debug-hint';
+  hint.textContent = 'Panel hides in 10s. Add #debug-export to the URL to keep showing it.';
+  overlay.appendChild(hint);
+
+  document.body.appendChild(overlay);
+
+  window.setTimeout(() => {
+    if (overlay.isConnected) {
+      overlay.remove();
+    }
+  }, 10000);
 };
 
 const loadImageElement = (file) =>
@@ -330,12 +400,115 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   let upcomingIndexCache = null;
   let exportInProgress = false;
   const exportButtonDefaultLabel = timelineExportBtn?.textContent?.trim() || 'Export Video';
+  const playlistSubscribers = new Set();
+
+  const notifyPlaylistSubscribers = () => {
+    const snapshot = playlist.map((item) => ({ ...item }));
+    playlistSubscribers.forEach((callback) => {
+      try {
+        callback(snapshot);
+      } catch (error) {
+        console.warn('Playlist subscriber failed.', error);
+      }
+    });
+  };
 
   const refreshExportButtonState = () => {
     if (!timelineExportBtn) {
       return;
     }
     timelineExportBtn.disabled = exportInProgress || !playlist.length;
+  };
+
+  const addFileToPlaylist = async (file, { makeCurrent = false, autoplay = false } = {}) => {
+    if (!(file instanceof File)) {
+      console.warn('Attempted to add a non-file object to the playlist.');
+      return null;
+    }
+
+    const now = Date.now();
+    const objectUrl = URL.createObjectURL(file);
+    const item = {
+      id: `${now}-${Math.random().toString(16).slice(2)}`,
+      name: file.name,
+      url: objectUrl,
+      type: file.type,
+      size: file.size,
+      lastModified: file.lastModified,
+      thumbnailUrl: null,
+      blob: file,
+    };
+
+    playlist.push(item);
+    urlRegistry.add(objectUrl);
+    prepareVideoElementForItem(item);
+    ensureThumbnail(item).catch(() => {});
+
+    if (persistence && typeof persistence.storeVideo === 'function') {
+      try {
+        const stored = await persistence.storeVideo(item.id, file);
+        if (!stored) {
+          console.warn('The selected video could not be saved for future sessions.');
+        }
+      } catch (error) {
+        console.warn('Unable to store video in IndexedDB.', error);
+      }
+    }
+
+    setPlaylist([...playlist]);
+    renderTimelineGrid();
+    persistPlaylist();
+    notifyPlaylistSubscribers();
+    clearUpcomingIndexCache();
+    preloadUpcomingVideo();
+    rescheduleCrossfadeWatcher();
+
+    if (makeCurrent) {
+      try {
+        await loadVideoAtIndex(playlist.length - 1, {
+          autoplay,
+          preserveTransform: false,
+          waitForReady: true,
+        });
+      } catch (error) {
+        console.warn('Unable to load newly added video.', error);
+      }
+    }
+
+    return item;
+  };
+
+  const addVideoFromBlob = async ({
+    blob,
+    name,
+    type,
+    makeCurrent = true,
+    autoplay = false,
+  } = {}) => {
+    if (!(blob instanceof Blob)) {
+      throw new Error('Expected a Blob when adding a generated video.');
+    }
+
+    const inferredType = type || blob.type || 'video/mp4';
+    const baseName =
+      typeof name === 'string' && name.trim().length ? name.trim() : 'Runway Output';
+    const hasExtension = /\.[a-z0-9]{2,}$/i.test(baseName);
+    let extension = '.mp4';
+    if (inferredType.includes('webm')) {
+      extension = '.webm';
+    } else if (inferredType.includes('quicktime') || inferredType.includes('mov')) {
+      extension = '.mov';
+    } else if (inferredType.includes('ogg')) {
+      extension = '.ogv';
+    }
+    const finalName = hasExtension ? baseName : `${baseName}${extension}`;
+
+    const file =
+      blob instanceof File
+        ? blob
+        : new File([blob], finalName, { type: inferredType, lastModified: Date.now() });
+
+    return addFileToPlaylist(file, { makeCurrent, autoplay });
   };
 
   const ensureVideoIsAttached = (videoEl) => {
@@ -518,7 +691,19 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     if (nextIndex === -1) {
       return;
     }
-    if (nextIndex === state.currentIndex && playlist.length <= 1) {
+
+    if (playlist.length <= 1) {
+      const targetIndex = state.currentIndex >= 0 ? state.currentIndex : nextIndex;
+      if (targetIndex === -1) {
+        return;
+      }
+      loadVideoAtIndex(targetIndex, {
+        autoplay: autoplayHint,
+        preserveTransform: true,
+        waitForReady: false,
+      }).catch((error) => {
+        console.warn('Unable to restart video playback.', error);
+      });
       return;
     }
 
@@ -980,6 +1165,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     setPlaylist([...playlist]);
     persistPlaylist();
     clearUpcomingIndexCache();
+    notifyPlaylistSubscribers();
 
     if (removedVideoEl) {
       const wasActive = removedVideoEl === activeVideoElement;
@@ -1223,21 +1409,18 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const safeTop = Math.max(0, safeAreaInsets.top);
     const safeBottom = Math.max(0, safeAreaInsets.bottom);
 
-    const cssScreenWidth =
-      Number.isFinite(window.screen?.width) && window.screen.width > 0 ? window.screen.width : viewportWidth;
-    const cssScreenHeight =
-      Number.isFinite(window.screen?.height) && window.screen.height > 0 ? window.screen.height : viewportHeight;
-
     const viewportOffsetLeft = Number.isFinite(visualViewport?.offsetLeft) ? visualViewport.offsetLeft : 0;
     const viewportOffsetTop = Number.isFinite(visualViewport?.offsetTop) ? visualViewport.offsetTop : 0;
 
     const inferredSafeLeft = safeLeft || viewportOffsetLeft;
     const inferredSafeTop = safeTop || viewportOffsetTop;
-    const inferredSafeRight = safeRight || Math.max(0, cssScreenWidth - viewportWidth - inferredSafeLeft);
-    const inferredSafeBottom = safeBottom || Math.max(0, cssScreenHeight - viewportHeight - inferredSafeTop);
+    const inferredSafeRight =
+      safeRight || Math.max(0, (visualViewport?.offsetLeft ?? 0) - inferredSafeLeft + (window.innerWidth - viewportWidth));
+    const inferredSafeBottom =
+      safeBottom || Math.max(0, (visualViewport?.offsetTop ?? 0) - inferredSafeTop + (window.innerHeight - viewportHeight));
 
-    const totalWidth = Math.max(1, cssScreenWidth);
-    const totalHeight = Math.max(1, cssScreenHeight);
+    const totalWidth = Math.max(1, viewportWidth + inferredSafeLeft + inferredSafeRight);
+    const totalHeight = Math.max(1, viewportHeight + inferredSafeTop + inferredSafeBottom);
 
     const videoWidth = Math.max(1, viewportWidth + state.widthAdjust);
     const videoHeight = Math.max(1, viewportHeight + state.heightAdjust);
@@ -1249,6 +1432,36 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     const canvasWidth = Math.max(1, Math.round(totalWidth * exportScale));
     const canvasHeight = Math.max(1, Math.round(totalHeight * exportScale));
+
+    showExportDiagnostics({
+      viewportWidth,
+      viewportHeight,
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      visualViewportWidth: visualViewport?.width ?? null,
+      visualViewportHeight: visualViewport?.height ?? null,
+      visualViewportOffsetLeft: visualViewport?.offsetLeft ?? null,
+      visualViewportOffsetTop: visualViewport?.offsetTop ?? null,
+      safeLeft,
+      safeTop,
+      safeRight,
+      safeBottom,
+      inferredSafeLeft,
+      inferredSafeTop,
+      inferredSafeRight,
+      inferredSafeBottom,
+      totalWidth,
+      totalHeight,
+      videoWidth,
+      videoHeight,
+      exportScale,
+      canvasWidth,
+      canvasHeight,
+      offsetX: state.offsetX,
+      offsetY: state.offsetY,
+      widthAdjust: state.widthAdjust,
+      heightAdjust: state.heightAdjust,
+    });
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
@@ -1457,11 +1670,14 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     });
 
     if (!files.length) {
+      if (event.target) {
+        event.target.value = '';
+      }
       return;
     }
 
     const wasEmpty = playlist.length === 0;
-    const now = Date.now();
+    let addedAny = false;
 
     for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
       const originalFile = files[fileIndex];
@@ -1488,43 +1704,20 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         continue;
       }
 
-      const url = URL.createObjectURL(processedFile);
-      const item = {
-        id: `${now}-${fileIndex}-${Math.random().toString(16).slice(2)}`,
-        name: processedFile.name,
-        url,
-        type: processedFile.type,
-        size: processedFile.size,
-        lastModified: processedFile.lastModified,
-        thumbnailUrl: null,
-      };
+      // eslint-disable-next-line no-await-in-loop
+      const item = await addFileToPlaylist(processedFile, {
+        makeCurrent: wasEmpty && !addedAny,
+        autoplay: wasEmpty && !addedAny,
+      });
 
-      playlist.push(item);
-      urlRegistry.add(url);
-      prepareVideoElementForItem(item);
-      ensureThumbnail(item).catch(() => {});
-
-      if (persistence && typeof persistence.storeVideo === 'function') {
-        // eslint-disable-next-line no-await-in-loop
-        const stored = await persistence.storeVideo(item.id, processedFile);
-        if (!stored) {
-          console.warn('The selected video could not be saved for future sessions.');
-        }
+      if (item) {
+        addedAny = true;
       }
     }
 
-    setPlaylist([...playlist]);
-    renderTimelineGrid();
-    persistPlaylist();
-
-    if (wasEmpty) {
-      await loadVideoAtIndex(0);
+    if (event.target) {
+      event.target.value = '';
     }
-
-    clearUpcomingIndexCache();
-    preloadUpcomingVideo();
-    rescheduleCrossfadeWatcher();
-    event.target.value = '';
   };
 
   const handleTimelineToggle = () => {
@@ -1662,6 +1855,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   updateFadeValueDisplay();
   renderTimelineGrid();
   applyTimelineVisibility(false);
+  notifyPlaylistSubscribers();
 
   if (playlist.length) {
     setPlaylist([...playlist]);
@@ -1676,6 +1870,22 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     loadVideoAtIndex,
     renderTimelineGrid,
     getActiveVideo: () => activeVideoElement,
+    getPlaylistSnapshot: () => playlist.map((item) => ({ ...item })),
+    addVideoFromBlob,
+    subscribeToPlaylist: (callback) => {
+      if (typeof callback !== 'function') {
+        return () => {};
+      }
+      playlistSubscribers.add(callback);
+      try {
+        callback(playlist.map((item) => ({ ...item })));
+      } catch (error) {
+        console.warn('Playlist subscriber failed during initial call.', error);
+      }
+      return () => {
+        playlistSubscribers.delete(callback);
+      };
+    },
     cleanup,
   };
 };
@@ -1787,7 +1997,7 @@ const setupZoomPrevention = (() => {
 const init = async () => {
   const elements = getDomElements();
 
-  let persisted = { state: {}, playlist: [] };
+  let persisted = { state: {}, playlist: [], ai: {} };
   try {
     persisted = await loadPersistedData();
   } catch (error) {
@@ -1803,6 +2013,13 @@ const init = async () => {
     saveMoveMode: (active) => saveOptionsState({ moveMode: active }),
     storeVideo: (id, file) => persistVideoFile(id, file),
     deleteVideo: (id) => deleteVideoFile(id),
+    getAiSettings: () => ({ ...(persisted.ai || {}) }),
+    saveAiSettings: (partial) => {
+      const next = { ...(persisted.ai || {}), ...(partial || {}) };
+      persistAiSettings(partial || {});
+      persisted.ai = next;
+      return next;
+    },
   };
 
   const store = createState(elements.precisionRange, persisted.state);
@@ -1822,6 +2039,14 @@ const init = async () => {
     persistence,
     initialItems: persisted.playlist ?? [],
     initialIndex: persisted.state?.currentIndex ?? -1,
+  });
+  createAiController({
+    elements,
+    controller,
+    playlistController,
+    persistence,
+    aiSettings: persisted.ai || {},
+    store,
   });
   attachPrecisionControl(elements.precisionRange, controller);
   attachControlButtons(elements.playBtn, elements.moveBtn, controller);

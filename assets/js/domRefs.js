@@ -4,6 +4,7 @@ export const getDomElements = () => {
   const video = document.getElementById('video');
   const playBtn = document.getElementById('playBtn');
   const moveBtn = document.getElementById('moveBtn');
+  const aiBtn = document.getElementById('aiBtn');
   const timelineBtn = document.getElementById('timelineBtn');
   const timelinePanel = document.getElementById('timeline-panel');
   const timelineGrid = document.getElementById('timelineGrid');
@@ -18,6 +19,26 @@ export const getDomElements = () => {
   const chooseLabel = document.querySelector('label.picker');
   const controls = document.querySelector('.controls');
   const timelineExportBtn = document.getElementById('timelineExportBtn');
+  const aiPanel = document.getElementById('ai-panel');
+  const aiBackBtn = document.getElementById('aiBackBtn');
+  const aiGrid = document.getElementById('aiGrid');
+  const aiGenerationForm = document.getElementById('aiGenerationForm');
+  const aiGenerationFieldset = document.getElementById('aiGenerationFieldset');
+  const aiPromptInput = document.getElementById('aiPromptInput');
+  const aiModelSelect = document.getElementById('aiModelSelect');
+  const aiRatioSelect = document.getElementById('aiRatioSelect');
+  const aiSeedInput = document.getElementById('aiSeedInput');
+  const aiEphemeralCheckbox = document.getElementById('aiEphemeralCheckbox');
+  const aiPrimaryCheckbox = document.getElementById('aiPrimaryCheckbox');
+  const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+  const aiPreviewVideo = document.getElementById('aiPreviewVideo');
+  const aiStatus = document.getElementById('aiStatus');
+  const aiOutputList = document.getElementById('aiOutputList');
+  const aiApiKeyInput = document.getElementById('aiApiKeyInput');
+  const aiSaveKeyBtn = document.getElementById('aiSaveKeyBtn');
+  const aiClearKeyBtn = document.getElementById('aiClearKeyBtn');
+  const aiSelectedVideoName = document.getElementById('aiSelectedVideoName');
+  const aiNoVideosMessage = document.getElementById('aiNoVideosMessage');
 
   if (
     !videoWrapper ||
@@ -25,6 +46,7 @@ export const getDomElements = () => {
     !video ||
     !playBtn ||
     !moveBtn ||
+    !aiBtn ||
     !timelineBtn ||
     !timelinePanel ||
     !timelineGrid ||
@@ -38,7 +60,27 @@ export const getDomElements = () => {
     !precisionRange ||
     !chooseLabel ||
     !controls ||
-    !timelineExportBtn
+    !timelineExportBtn ||
+    !aiPanel ||
+    !aiBackBtn ||
+    !aiGrid ||
+    !aiGenerationForm ||
+    !aiGenerationFieldset ||
+    !aiPromptInput ||
+    !aiModelSelect ||
+    !aiRatioSelect ||
+    !aiSeedInput ||
+    !aiEphemeralCheckbox ||
+    !aiPrimaryCheckbox ||
+    !aiGenerateBtn ||
+    !aiPreviewVideo ||
+    !aiStatus ||
+    !aiOutputList ||
+    !aiApiKeyInput ||
+    !aiSaveKeyBtn ||
+    !aiClearKeyBtn ||
+    !aiSelectedVideoName ||
+    !aiNoVideosMessage
   ) {
     throw new Error('Missing expected DOM elements.');
   }
@@ -49,6 +91,7 @@ export const getDomElements = () => {
     video,
     playBtn,
     moveBtn,
+    aiBtn,
     timelineBtn,
     timelinePanel,
     timelineGrid,
@@ -63,6 +106,26 @@ export const getDomElements = () => {
     chooseLabel,
     controls,
     timelineExportBtn,
+    aiPanel,
+    aiBackBtn,
+    aiGrid,
+    aiGenerationForm,
+    aiGenerationFieldset,
+    aiPromptInput,
+    aiModelSelect,
+    aiRatioSelect,
+    aiSeedInput,
+    aiEphemeralCheckbox,
+    aiPrimaryCheckbox,
+    aiGenerateBtn,
+    aiPreviewVideo,
+    aiStatus,
+    aiOutputList,
+    aiApiKeyInput,
+    aiSaveKeyBtn,
+    aiClearKeyBtn,
+    aiSelectedVideoName,
+    aiNoVideosMessage,
   };
 };
 

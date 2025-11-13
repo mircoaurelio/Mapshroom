@@ -48,6 +48,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     video: initialVideo,
     playBtn,
     moveBtn,
+    aiBtn,
     timelineBtn,
     precisionControl,
     gridOverlay,
@@ -106,6 +107,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     gridOverlay.dataset.moveMode = active ? 'active' : 'inactive';
     updateMoveButton();
     toggleVisibility(precisionControl, state.hasVideo && state.moveMode);
+    toggleVisibility(chooseLabel, !state.moveMode);
 
     if (persist && persistence && typeof persistence.saveMoveMode === 'function') {
       persistence.saveMoveMode(state.moveMode);
@@ -120,14 +122,14 @@ export const createTransformController = ({ elements, store, persistence }) => {
       return;
     }
 
-    const shouldShow = active;
+    const shouldShow = active && !state.moveMode;
     toggleVisibility(chooseLabel, shouldShow);
     toggleVisibility(controls, shouldShow);
     toggleVisibility(precisionControl, shouldShow && state.moveMode);
   };
 
   const enableControls = (enabled) => {
-    setControlsEnabled(playBtn, moveBtn, enabled);
+    setControlsEnabled([playBtn, moveBtn, aiBtn], enabled);
     if (timelineBtn) {
       timelineBtn.disabled = !enabled;
     }
@@ -136,7 +138,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     const shouldShowControls = enabled;
     toggleVisibility(controls, shouldShowControls);
     toggleVisibility(precisionControl, enabled && state.moveMode);
-    toggleVisibility(chooseLabel, true);
+    toggleVisibility(chooseLabel, !state.moveMode);
 
     applyOverlayUI(enabled, { toggleUI: false });
 
