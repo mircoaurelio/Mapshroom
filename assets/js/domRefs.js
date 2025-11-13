@@ -9,6 +9,14 @@ export const getDomElements = () => {
   const precisionValue = document.getElementById('precisionValue');
   const chooseLabel = document.querySelector('label.picker');
   const controls = document.querySelector('.controls');
+  const timelineBtn = document.getElementById('timelineBtn');
+  const timelinePanel = document.getElementById('timeline-panel');
+  const closeTimelineBtn = document.getElementById('closeTimelineBtn');
+  const randomToggleBtn = document.getElementById('randomToggleBtn');
+  const fadeToggleBtn = document.getElementById('fadeToggleBtn');
+  const fadeSlider = document.getElementById('fadeSlider');
+  const fadeSliderValue = document.getElementById('fadeSliderValue');
+  const timelineGrid = document.getElementById('timeline-grid');
 
   if (
     !fileInput ||
@@ -20,7 +28,15 @@ export const getDomElements = () => {
     !precisionRange ||
     !precisionValue ||
     !chooseLabel ||
-    !controls
+    !controls ||
+    !timelineBtn ||
+    !timelinePanel ||
+    !closeTimelineBtn ||
+    !randomToggleBtn ||
+    !fadeToggleBtn ||
+    !fadeSlider ||
+    !fadeSliderValue ||
+    !timelineGrid
   ) {
     throw new Error('Missing expected DOM elements.');
   }
@@ -36,6 +52,14 @@ export const getDomElements = () => {
     precisionValue,
     chooseLabel,
     controls,
+    timelineBtn,
+    timelinePanel,
+    closeTimelineBtn,
+    randomToggleBtn,
+    fadeToggleBtn,
+    fadeSlider,
+    fadeSliderValue,
+    timelineGrid,
   };
 };
 
