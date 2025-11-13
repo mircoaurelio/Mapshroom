@@ -5,8 +5,15 @@
   <title>Mapshroom Pocket</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="runway-proxy-base" content="/proxy" />
   <meta name="apple-mobile-web-app-title" content="Mapshroom Pocket" />
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%230d1117'/%3E%3Cpath d='M15 35L23 13h2l8 22h-3.2l-1.6-4.6h-8.4L18.2 35H15Zm6.8-7.6h6.4L24.98 17.7h-.12l-3.06 9.7Z' fill='%23f5f9ff'/%3E%3C/svg%3E"
+    type="image/svg+xml"
+  />
   <link rel="stylesheet" href="assets/css/ios.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
 </head>
@@ -66,12 +73,8 @@
       </div>
       <div class="ai-content">
         <section class="ai-videos">
-          <header class="ai-section-header">
-            <h3>Playlist</h3>
-            <p>Select a video to use as the starting point.</p>
-          </header>
-          <p id="aiNoVideosMessage" class="ai-empty-message">Load a video to get started.</p>
           <div id="aiGrid" class="ai-grid" role="list"></div>
+          <p id="aiNoVideosMessage" class="ai-empty-message">Load a video to get started.</p>
         </section>
         <section class="ai-form-section">
           <form id="aiGenerationForm" class="ai-form" autocomplete="off">
@@ -89,21 +92,9 @@
             </fieldset>
             <fieldset id="aiGenerationFieldset" class="ai-fieldset">
               <legend>Generation Settings</legend>
-              <div class="ai-selected-video">
-                <span class="ai-selected-label">Selected video:</span>
-                <span id="aiSelectedVideoName" class="ai-selected-name">None</span>
-              </div>
-              <div class="ai-preview-wrapper">
-                <video
-                  id="aiPreviewVideo"
-                  class="ai-preview-video"
-                  playsinline
-                  muted
-                  controls
-                  loop
-                  preload="metadata"
-                  hidden
-                ></video>
+              <div class="ai-selected-preview">
+                <img id="aiSelectedThumbnail" class="ai-selected-thumbnail" alt="Selected video thumbnail" hidden />
+                <div id="aiSelectedPlaceholder" class="ai-selected-placeholder">Choose a video from your playlist.</div>
               </div>
               <label class="ai-label">
                 <span>Prompt</span>
@@ -145,8 +136,12 @@
           </form>
           <div id="aiStatus" class="ai-status" role="status" aria-live="polite"></div>
           <div class="ai-results">
-            <h3>Recent Generations</h3>
-            <ul id="aiOutputList" class="ai-output-list"></ul>
+            <button id="aiResultsToggle" class="ai-results-toggle" type="button" aria-expanded="false">
+              Show Recent Generations
+            </button>
+            <div id="aiResultsBody" class="ai-results-body" hidden>
+              <ul id="aiOutputList" class="ai-output-list"></ul>
+            </div>
           </div>
         </section>
       </div>

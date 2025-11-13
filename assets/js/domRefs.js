@@ -30,15 +30,17 @@ export const getDomElements = () => {
   const aiSeedInput = document.getElementById('aiSeedInput');
   const aiEphemeralCheckbox = document.getElementById('aiEphemeralCheckbox');
   const aiPrimaryCheckbox = document.getElementById('aiPrimaryCheckbox');
+  const aiSelectedThumbnail = document.getElementById('aiSelectedThumbnail');
+  const aiSelectedPlaceholder = document.getElementById('aiSelectedPlaceholder');
   const aiGenerateBtn = document.getElementById('aiGenerateBtn');
-  const aiPreviewVideo = document.getElementById('aiPreviewVideo');
   const aiStatus = document.getElementById('aiStatus');
   const aiOutputList = document.getElementById('aiOutputList');
   const aiApiKeyInput = document.getElementById('aiApiKeyInput');
   const aiSaveKeyBtn = document.getElementById('aiSaveKeyBtn');
   const aiClearKeyBtn = document.getElementById('aiClearKeyBtn');
-  const aiSelectedVideoName = document.getElementById('aiSelectedVideoName');
   const aiNoVideosMessage = document.getElementById('aiNoVideosMessage');
+  const aiResultsToggle = document.getElementById('aiResultsToggle');
+  const aiResultsBody = document.getElementById('aiResultsBody');
 
   if (
     !videoWrapper ||
@@ -72,15 +74,17 @@ export const getDomElements = () => {
     !aiSeedInput ||
     !aiEphemeralCheckbox ||
     !aiPrimaryCheckbox ||
+    !aiSelectedThumbnail ||
+    !aiSelectedPlaceholder ||
     !aiGenerateBtn ||
-    !aiPreviewVideo ||
     !aiStatus ||
     !aiOutputList ||
     !aiApiKeyInput ||
     !aiSaveKeyBtn ||
     !aiClearKeyBtn ||
-    !aiSelectedVideoName ||
-    !aiNoVideosMessage
+    !aiNoVideosMessage ||
+    !aiResultsToggle ||
+    !aiResultsBody
   ) {
     throw new Error('Missing expected DOM elements.');
   }
@@ -117,15 +121,17 @@ export const getDomElements = () => {
     aiSeedInput,
     aiEphemeralCheckbox,
     aiPrimaryCheckbox,
+    aiSelectedThumbnail,
+    aiSelectedPlaceholder,
     aiGenerateBtn,
-    aiPreviewVideo,
     aiStatus,
     aiOutputList,
     aiApiKeyInput,
     aiSaveKeyBtn,
     aiClearKeyBtn,
-    aiSelectedVideoName,
     aiNoVideosMessage,
+    aiResultsToggle,
+    aiResultsBody,
   };
 };
 
