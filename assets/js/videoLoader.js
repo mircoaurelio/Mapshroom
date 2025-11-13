@@ -111,40 +111,20 @@ const waitForFirstFrame = (video, url, onReady) =>
     video.addEventListener('error', onError, { once: true });
   });
 
-const attachFilePicker = (fileInput, video, controller) => {
-  let activeUrl = null;
-
-  const revokeActiveUrl = () => {
-    if (activeUrl) {
-      URL.revokeObjectURL(activeUrl);
-      activeUrl = null;
-    }
-  };
-
+const attachFilePicker = (fileInput, controller) => {
   fileInput.addEventListener('change', async (event) => {
-    const files = event.target && event.target.files;
-    const file = files && files[0];
-    if (!file) {
+    const fileList = (event.target && event.target.files) || [];
+    const files = Array.from(fileList);
+
+    if (!files.length) {
       return;
     }
 
-    revokeActiveUrl();
-
-    const url = URL.createObjectURL(file);
-    activeUrl = url;
-
-    video.src = url;
-    video.load();
-    video.pause();
-    controller.enableControls(false);
-    controller.handleOverlayState(false);
-    controller.updateTransform();
-
-    await waitForFirstFrame(video, url, () => {
-      controller.enableControls(true);
-    });
-
-    fileInput.value = '';
+    try {
+      await controller.handleFileSelection(files);
+    } finally {
+      fileInput.value = '';
+    }
   });
 };
 
@@ -158,6 +138,21 @@ const attachPrecisionControl = (precisionRange, controller) => {
 const attachControlButtons = (playBtn, resetBtn, controller) => {
   playBtn.addEventListener('click', controller.handlePlay);
   resetBtn.addEventListener('click', controller.handleReset);
+};
+
+const attachTimelineControls = (elements, controller) => {
+  const { timelineBtn, timelinePanel, randomToggle, fadeToggle, fadeRange } = elements;
+
+  timelineBtn.addEventListener('click', () => controller.handleTimelineToggle());
+  randomToggle.addEventListener('click', controller.handleRandomToggle);
+  fadeToggle.addEventListener('click', controller.handleFadeToggle);
+  fadeRange.addEventListener('input', () => controller.handleFadeDurationChange(Number(fadeRange.value)));
+
+  timelinePanel.addEventListener('click', (event) => {
+    if (event.target === timelinePanel) {
+      controller.handleTimelineToggle(false);
+    }
+  });
 };
 
 const setupVisibilityPause = (video) => {
@@ -215,7 +210,7 @@ const setupZoomPrevention = (() => {
 const init = () => {
   const elements = getDomElements();
   const store = createState(elements.precisionRange);
-  const controller = createTransformController({ elements, store });
+  const controller = createTransformController({ elements, store, waitForFirstFrame });
 
   elements.video.loop = true;
 
@@ -225,9 +220,10 @@ const init = () => {
   controller.showPreloadUI();
 
   setupGridOverlayListeners(elements.gridOverlay, controller.handleZoneAction);
-  attachFilePicker(elements.fileInput, elements.video, controller);
+  attachFilePicker(elements.fileInput, controller);
   attachPrecisionControl(elements.precisionRange, controller);
   attachControlButtons(elements.playBtn, elements.resetBtn, controller);
+  attachTimelineControls(elements, controller);
   setupVisibilityPause(elements.video);
   setupZoomPrevention();
 };
