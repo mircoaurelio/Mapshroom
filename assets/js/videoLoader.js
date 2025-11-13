@@ -168,6 +168,50 @@ const setupVisibilityPause = (video) => {
   });
 };
 
+const setupZoomPrevention = (() => {
+  let initialized = false;
+
+  return () => {
+    if (initialized) {
+      return;
+    }
+
+    initialized = true;
+
+    let lastTouchEnd = 0;
+
+    document.addEventListener(
+      'touchend',
+      (event) => {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      },
+      { passive: false },
+    );
+
+    document.addEventListener(
+      'gesturestart',
+      (event) => {
+        event.preventDefault();
+      },
+      { passive: false },
+    );
+
+    document.addEventListener(
+      'wheel',
+      (event) => {
+        if (event.ctrlKey) {
+          event.preventDefault();
+        }
+      },
+      { passive: false },
+    );
+  };
+})();
+
 const init = () => {
   const elements = getDomElements();
   const store = createState(elements.precisionRange);
@@ -185,6 +229,7 @@ const init = () => {
   attachPrecisionControl(elements.precisionRange, controller);
   attachControlButtons(elements.playBtn, elements.resetBtn, controller);
   setupVisibilityPause(elements.video);
+  setupZoomPrevention();
 };
 
 document.addEventListener('DOMContentLoaded', init);
