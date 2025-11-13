@@ -1227,8 +1227,13 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     const baseWidth = viewportWidth;
     const baseHeight = viewportHeight;
-    const baseFrameWidth = Math.max(1, baseWidth + state.widthAdjust);
-    const baseFrameHeight = Math.max(1, baseHeight + state.heightAdjust);
+    const contentWidth = Math.max(baseWidth, rect?.width || 0);
+    const contentHeight = Math.max(baseHeight, rect?.height || 0);
+    const totalWidth = contentWidth + safeLeft + safeRight;
+    const totalHeight = contentHeight + safeTop + safeBottom;
+
+    const baseFrameWidth = Math.max(1, totalWidth + state.widthAdjust);
+    const baseFrameHeight = Math.max(1, totalHeight + state.heightAdjust);
 
     const preparedItems = [];
     let maxScale = 1;
@@ -1258,14 +1263,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       window.devicePixelRatio && Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
     const exportScale = Math.max(1, Math.min(maxScale, desiredScale));
 
-    const canvasWidth = Math.max(
-      1,
-      Math.round((Math.max(baseWidth, baseFrameWidth) + safeLeft + safeRight) * exportScale),
-    );
-    const canvasHeight = Math.max(
-      1,
-      Math.round((Math.max(baseHeight, baseFrameHeight) + safeTop + safeBottom) * exportScale),
-    );
+    const canvasWidth = Math.max(1, Math.round(Math.max(totalWidth, baseFrameWidth) * exportScale));
+    const canvasHeight = Math.max(1, Math.round(Math.max(totalHeight, baseFrameHeight) * exportScale));
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
