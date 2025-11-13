@@ -119,6 +119,145 @@ const waitForFirstFrame = (video, url, onReady) =>
     video.addEventListener('error', onError, { once: true });
   });
 
+const MEDIA_RECORDER_PREFERRED_TYPES = [
+  'video/mp4;codecs=hvc1',
+  'video/mp4;codecs=avc1.42E01E',
+  'video/mp4',
+];
+
+const getSupportedMediaRecorderMimeType = () => {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return null;
+  }
+
+  for (const candidate of MEDIA_RECORDER_PREFERRED_TYPES) {
+    if (MediaRecorder.isTypeSupported(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const loadImageElement = (file) =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = (event) => {
+      URL.revokeObjectURL(url);
+      reject(event?.error || new Error('Unable to load image.'));
+    };
+    image.src = url;
+  });
+
+const sanitizeFileName = (name, nextExtension) => {
+  const dotIndex = name.lastIndexOf('.');
+  const base = dotIndex > 0 ? name.slice(0, dotIndex) : name;
+  return `${base}.${nextExtension}`;
+};
+
+const createVideoFromImage = async (file, { durationSeconds = 5, fps = 30 } = {}) => {
+  const mimeType = getSupportedMediaRecorderMimeType();
+  if (!mimeType) {
+    throw new Error('This browser is unable to create MP4 videos.');
+  }
+
+  const image = await loadImageElement(file);
+  const width = image.naturalWidth || image.width || 1280;
+  const height = image.naturalHeight || image.height || 720;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    throw new Error('Unable to prepare drawing surface for image conversion.');
+  }
+
+  const drawFrame = () => {
+    context.drawImage(image, 0, 0, width, height);
+  };
+
+  drawFrame();
+
+  if (typeof canvas.captureStream !== 'function') {
+    throw new Error('Canvas streaming is not supported in this browser.');
+  }
+
+  const stream = canvas.captureStream(fps);
+  if (!stream) {
+    throw new Error('Unable to capture video stream from canvas.');
+  }
+
+  const recorder = new MediaRecorder(stream, { mimeType });
+  const chunks = [];
+
+  return new Promise((resolve, reject) => {
+    let stopTimeoutId = null;
+    let drawIntervalId = null;
+    let completed = false;
+
+    const cleanup = () => {
+      if (completed) {
+        return;
+      }
+      completed = true;
+      if (stopTimeoutId !== null) {
+        window.clearTimeout(stopTimeoutId);
+      }
+      if (drawIntervalId !== null) {
+        window.clearInterval(drawIntervalId);
+      }
+      stream.getTracks().forEach((track) => track.stop());
+    };
+
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data && event.data.size > 0) {
+        chunks.push(event.data);
+      }
+    });
+
+    recorder.addEventListener('stop', () => {
+      cleanup();
+      if (!chunks.length) {
+        reject(new Error('No video data was captured.'));
+        return;
+      }
+      const blob = new Blob(chunks, { type: mimeType });
+      resolve({
+        blob,
+        mimeType,
+        name: sanitizeFileName(file.name, 'mp4'),
+      });
+    });
+
+    recorder.addEventListener('error', (event) => {
+      cleanup();
+      reject(event?.error || new Error('Unable to record video frames.'));
+    });
+
+    try {
+      recorder.start();
+    } catch (error) {
+      cleanup();
+      reject(error);
+      return;
+    }
+
+    drawIntervalId = window.setInterval(drawFrame, Math.max(1, Math.round(1000 / fps)));
+    stopTimeoutId = window.setTimeout(() => {
+      if (recorder.state !== 'inactive') {
+        recorder.stop();
+      }
+    }, durationSeconds * 1000);
+  });
+};
+
 const setToggleState = (button, active) => {
   button.setAttribute('aria-pressed', active ? 'true' : 'false');
 };
@@ -914,9 +1053,16 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   }
 
   const handleFileSelection = async (event) => {
-    const files = Array.from((event.target && event.target.files) || []).filter((file) =>
-      file.type.startsWith('video/'),
-    );
+    const files = Array.from((event.target && event.target.files) || []).filter((file) => {
+      if (file.type.startsWith('video/')) {
+        return true;
+      }
+      if (file.type.startsWith('image/')) {
+        return true;
+      }
+      console.warn('Skipping unsupported file type:', file.type);
+      return false;
+    });
 
     if (!files.length) {
       return;
@@ -926,15 +1072,38 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const now = Date.now();
 
     for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
-      const file = files[fileIndex];
-      const url = URL.createObjectURL(file);
+      const originalFile = files[fileIndex];
+      let processedFile = originalFile;
+
+      if (originalFile.type.startsWith('image/')) {
+        try {
+          const conversion = await createVideoFromImage(originalFile);
+          processedFile = new File([conversion.blob], conversion.name, {
+            type: conversion.mimeType,
+            lastModified: Date.now(),
+          });
+        } catch (error) {
+          console.warn('Unable to convert image to video.', error);
+          alert('One of the selected images could not be converted into a video.');
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+      }
+
+      if (!processedFile.type.startsWith('video/')) {
+        console.warn('Skipping file because it is not a supported video type after processing.');
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      const url = URL.createObjectURL(processedFile);
       const item = {
         id: `${now}-${fileIndex}-${Math.random().toString(16).slice(2)}`,
-        name: file.name,
+        name: processedFile.name,
         url,
-        type: file.type,
-        size: file.size,
-        lastModified: file.lastModified,
+        type: processedFile.type,
+        size: processedFile.size,
+        lastModified: processedFile.lastModified,
         thumbnailUrl: null,
       };
 
@@ -945,7 +1114,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
       if (persistence && typeof persistence.storeVideo === 'function') {
         // eslint-disable-next-line no-await-in-loop
-        const stored = await persistence.storeVideo(item.id, file);
+        const stored = await persistence.storeVideo(item.id, processedFile);
         if (!stored) {
           console.warn('The selected video could not be saved for future sessions.');
         }
