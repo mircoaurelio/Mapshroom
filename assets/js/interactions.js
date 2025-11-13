@@ -45,7 +45,7 @@ const adjustDimensions = (state, action, wrapper) => {
 export const createTransformController = ({ elements, store, persistence }) => {
   const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, setMoveMode } = store;
   const {
-    video,
+    video: initialVideo,
     playBtn,
     moveBtn,
     timelineBtn,
@@ -53,7 +53,12 @@ export const createTransformController = ({ elements, store, persistence }) => {
     gridOverlay,
     chooseLabel,
     controls,
+    videoWrapper,
   } = elements;
+
+  let currentVideo = initialVideo || null;
+  let playButtonPrimed = false;
+  const videoListeners = new WeakMap();
 
   const persistTransform = () => {
     if (persistence && typeof persistence.saveTransform === 'function') {
@@ -68,20 +73,21 @@ export const createTransformController = ({ elements, store, persistence }) => {
   };
 
   const updateTransform = () => {
-    updateTransformUI({ state, video });
+    updateTransformUI({ state, video: currentVideo });
     persistTransform();
   };
   const playIconImg = playBtn.querySelector('img');
   const updatePlayButton = () => {
-    const isPaused = video.paused;
-    const nextLabel = isPaused ? 'Play video' : 'Pause video';
+    const shouldShowPausedState = !playButtonPrimed || !currentVideo || currentVideo.paused;
+    const nextLabel = shouldShowPausedState ? 'Play video' : 'Pause video';
 
     if (playIconImg) {
-      const nextSrc = isPaused ? playBtn.getAttribute('data-icon-play') || playIconImg.dataset.play || 'assets/icons/play.svg'
+      const nextSrc = shouldShowPausedState
+        ? playBtn.getAttribute('data-icon-play') || playIconImg.dataset.play || 'assets/icons/play.svg'
         : playBtn.getAttribute('data-icon-pause') || playIconImg.dataset.pause || 'assets/icons/pause.svg';
       playIconImg.src = nextSrc;
     } else {
-      playBtn.textContent = isPaused ? 'play_circle' : 'pause_circle';
+      playBtn.textContent = shouldShowPausedState ? 'play_circle' : 'pause_circle';
     }
 
     playBtn.setAttribute('aria-label', nextLabel);
@@ -138,6 +144,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
       resetTransform();
       updateTransform();
       gridOverlay.dataset.moveMode = 'inactive';
+      playButtonPrimed = false;
     }
 
     updatePlayButton();
@@ -155,7 +162,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
       return;
     }
 
-    const wrapper = video.parentElement;
+    const wrapper = currentVideo?.parentElement || initialVideo?.parentElement || videoWrapper;
     const movementActions = ['move-up', 'move-down', 'move-left', 'move-right'];
     const dimensionActions = ['height-plus', 'height-minus', 'width-plus', 'width-minus'];
 
@@ -189,8 +196,12 @@ export const createTransformController = ({ elements, store, persistence }) => {
   };
 
   const handleReset = () => {
-    video.pause();
-    video.currentTime = 0;
+    if (!currentVideo) {
+      return;
+    }
+
+    currentVideo.pause();
+    currentVideo.currentTime = 0;
     resetTransform();
     updateTransform();
     updatePlayButton();
@@ -202,14 +213,19 @@ export const createTransformController = ({ elements, store, persistence }) => {
   };
 
   const handlePlay = async () => {
-    if (video.paused) {
+    if (!currentVideo) {
+      return;
+    }
+
+    playButtonPrimed = true;
+    if (currentVideo.paused) {
       try {
-        await video.play();
+        await currentVideo.play();
       } catch (error) {
         console.warn('Autoplay blocked:', error);
       }
     } else {
-      video.pause();
+      currentVideo.pause();
     }
 
     updatePlayButton();
@@ -219,8 +235,57 @@ export const createTransformController = ({ elements, store, persistence }) => {
     applyOverlayUI(active, options);
   };
 
-  video.addEventListener('play', updatePlayButton);
-  video.addEventListener('pause', updatePlayButton);
+  const detachVideoListeners = (videoEl) => {
+    if (!videoEl) {
+      return;
+    }
+    const listeners = videoListeners.get(videoEl);
+    if (listeners) {
+      videoEl.removeEventListener('play', listeners.handlePlay);
+      videoEl.removeEventListener('pause', listeners.handlePause);
+      videoListeners.delete(videoEl);
+    }
+  };
+
+  const attachVideoListeners = (videoEl) => {
+    if (!videoEl) {
+      return;
+    }
+    if (videoListeners.has(videoEl)) {
+      return;
+    }
+
+    const handlePlay = () => {
+      playButtonPrimed = true;
+      updatePlayButton();
+    };
+
+    const handlePause = () => {
+      updatePlayButton();
+    };
+
+    videoEl.addEventListener('play', handlePlay);
+    videoEl.addEventListener('pause', handlePause);
+    videoListeners.set(videoEl, { handlePlay, handlePause });
+  };
+
+  const setVideoElement = (videoEl) => {
+    if (videoEl === currentVideo) {
+      updateTransformUI({ state, video: currentVideo });
+      updatePlayButton();
+      updateMoveButton();
+      return;
+    }
+
+    detachVideoListeners(currentVideo);
+    currentVideo = videoEl || null;
+    attachVideoListeners(currentVideo);
+    updateTransformUI({ state, video: currentVideo });
+    updatePlayButton();
+    updateMoveButton();
+  };
+
+  attachVideoListeners(currentVideo);
 
   requestAnimationFrame(() => {
     gridOverlay.dataset.moveMode = state.moveMode ? 'active' : 'inactive';
@@ -229,6 +294,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
   });
 
   return {
+    setVideoElement,
     updateTransform,
     enableControls,
     showPreloadUI,

@@ -28,6 +28,8 @@ body {
 
 #video-wrapper > video,
 .main-video {
+  position: absolute;
+  inset: 0;
   width: calc(100vw + var(--width-adjust));
   height: calc(100vh + var(--height-adjust));
   display: block;
@@ -35,6 +37,13 @@ body {
   transform: translate(var(--offset-x), var(--offset-y));
   transform-origin: center;
   background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.main-video[data-active='true'] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 #grid-overlay {
