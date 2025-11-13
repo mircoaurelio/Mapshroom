@@ -44,7 +44,7 @@ const adjustDimensions = (state, action, wrapper) => {
 };
 
 export const createTransformController = ({ elements, store }) => {
-  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo } = store;
+  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, persistState } = store;
   const {
     video,
     playBtn,
@@ -126,12 +126,14 @@ export const createTransformController = ({ elements, store }) => {
     if (['move-up', 'move-down', 'move-left', 'move-right'].includes(action)) {
       adjustOffsets(state, action);
       updateTransform();
+      persistState();
       return;
     }
 
     if (['height-plus', 'height-minus', 'width-plus', 'width-minus'].includes(action)) {
       adjustDimensions(state, action, wrapper);
       updateTransform();
+      persistState();
       return;
     }
 
