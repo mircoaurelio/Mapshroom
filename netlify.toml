@@ -1,0 +1,8 @@
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/proxy/*"
+  to = "/.netlify/functions/runway-proxy"
+  status = 200
+  force = true
