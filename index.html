@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapshroom Pocket</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="assets/css/ios.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="picker-container">
+      <label class="picker" for="fileInput">Choose Video</label>
+      <input id="fileInput" type="file" accept="video/*" />
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section id="video-wrapper">
+      <video id="video" playsinline preload="metadata"></video>
+      <div id="grid-overlay" class="overlay-disabled">
+        <div class="grid-zone" data-action="height-minus"></div>
+        <div class="grid-zone" data-action="move-up"></div>
+        <div class="grid-zone" data-action="height-plus"></div>
+        <div class="grid-zone" data-action="move-left"></div>
+        <div class="grid-zone" data-action="toggle-overlay"></div>
+        <div class="grid-zone" data-action="move-right"></div>
+        <div class="grid-zone" data-action="width-minus"></div>
+        <div class="grid-zone" data-action="move-down"></div>
+        <div class="grid-zone" data-action="width-plus"></div>
+      </div>
+    </section>
+
+    <section id="precision-control" class="hidden">
+      <span>Step</span>
+      <input id="precisionRange" type="range" min="1" max="20" value="10" />
+      <span id="precisionValue">10px</span>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="controls">
+      <button id="playBtn" class="icon-button" disabled aria-label="Play video">play_circle</button>
+      <button id="resetBtn" class="icon-button" disabled aria-label="Reset video">restart_alt</button>
+    </div>
+  </footer>
+
+  <script type="module" src="assets/js/videoLoader.js"></script>
+</body>
+</html>
