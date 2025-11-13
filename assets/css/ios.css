@@ -66,52 +66,10 @@ body {
 
 label.picker {
   position: fixed;
-  top: 1.5rem;
+  top: 2rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.85rem 1.4rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(31, 136, 255, 0.95), rgba(92, 201, 255, 0.95));
-  color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 12px 24px rgba(31, 136, 255, 0.25);
-  font-size: 1.05rem;
-  letter-spacing: 0.03em;
-  min-width: 160px;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-label.picker::before {
-  content: '+';
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  font-weight: 600;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-label.picker:hover,
-label.picker:focus-visible {
-  transform: translateX(-50%) translateY(-2px);
-  box-shadow: 0 18px 32px rgba(31, 136, 255, 0.35);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-label.picker:focus-visible {
-  outline: 3px solid rgba(255, 255, 255, 0.4);
-  outline-offset: 3px;
 }
 
 #precision-control {
@@ -169,8 +127,7 @@ button {
   align-items: center;
   justify-content: center;
   background: rgba(128, 128, 128, 0.5);
-  border: 2px solid transparent;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .icon-button img {
@@ -179,10 +136,10 @@ button {
   display: block;
 }
 
-.icon-button.is-active {
-  background: rgba(31, 136, 255, 0.85);
-  border-color: rgba(31, 136, 255, 0.9);
-  box-shadow: 0 0 12px rgba(31, 136, 255, 0.45);
+.icon-button[aria-pressed='true'] {
+  background: rgba(31, 136, 255, 0.4);
+  border-color: rgba(31, 136, 255, 0.6);
+  transform: translateY(-2px);
 }
 
 #timeline-panel {
@@ -314,6 +271,12 @@ button {
   letter-spacing: 0.02em;
 }
 
+.timeline-item-wrapper {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
 .timeline-item {
   position: relative;
   padding: 0;
@@ -321,9 +284,8 @@ button {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  width: 100%;
   cursor: pointer;
   transition: transform 0.2s ease, border-color 0.2s ease;
   outline: none;
@@ -337,10 +299,38 @@ button {
   box-shadow: 0 12px 24px rgba(31, 136, 255, 0.2);
 }
 
-.timeline-item img {
+.timeline-thumbnail-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.timeline-thumbnail {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+  transition: opacity 0.25s ease;
+}
+
+.timeline-thumbnail[data-state='loading'] {
+  opacity: 0;
+}
+
+.timeline-thumbnail-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.timeline-thumbnail-wrapper[data-loading='true']::after {
+  opacity: 1;
 }
 
 .timeline-item-label {
@@ -357,6 +347,40 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.timeline-delete {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+  z-index: 1;
+}
+
+.timeline-delete span {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.timeline-delete:hover,
+.timeline-delete:focus-visible {
+  background: rgba(255, 82, 82, 0.85);
+  transform: scale(1.05);
+}
+
+.timeline-delete:focus-visible {
+  outline: 2px solid #ff5252;
+  outline-offset: 2px;
 }
 
 .timeline-item.active::after {

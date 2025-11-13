@@ -20,6 +20,7 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     randomPlay: Boolean(initialState.randomPlay),
     fadeEnabled: Boolean(initialState.fadeEnabled),
     fadeDuration: typeof initialState.fadeDuration === 'number' ? initialState.fadeDuration : 1.5,
+    moveMode: Boolean(initialState.moveMode),
   };
 
   if (persistedPrecision !== null) {
@@ -69,6 +70,10 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     state.fadeDuration = value;
   };
 
+  const setMoveMode = (value) => {
+    state.moveMode = value;
+  };
+
   return {
     state,
     resetTransform,
@@ -81,6 +86,7 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     setRandomPlay,
     setFadeEnabled,
     setFadeDuration,
+    setMoveMode,
   };
 };
 

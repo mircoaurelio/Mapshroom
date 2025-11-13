@@ -1,7 +1,14 @@
 import { getDomElements } from './domRefs.js';
 import { createState } from './state.js';
 import { createTransformController } from './interactions.js';
-import { loadPersistedData, saveTransformState, saveOptionsState, savePlaylistMetadata, persistVideoFile } from './storage.js';
+import {
+  loadPersistedData,
+  saveTransformState,
+  saveOptionsState,
+  savePlaylistMetadata,
+  persistVideoFile,
+  deleteVideoFile,
+} from './storage.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -282,12 +289,18 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
 
     playlist.forEach((item, index) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'timeline-item-wrapper';
+      wrapper.setAttribute('role', 'listitem');
+
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'timeline-item';
       button.dataset.index = String(index);
-      button.setAttribute('role', 'listitem');
       button.setAttribute('aria-label', `Play ${item.name}`);
+
+      const previewWrapper = document.createElement('div');
+      previewWrapper.className = 'timeline-thumbnail-wrapper';
 
       const preview = document.createElement('img');
       preview.className = 'timeline-thumbnail';
@@ -298,22 +311,47 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
       if (item.thumbnailUrl) {
         preview.src = item.thumbnailUrl;
+        preview.removeAttribute('data-state');
+        previewWrapper.removeAttribute('data-loading');
       } else {
-        preview.src = '';
-        ensureThumbnail(item).then((thumbnailUrl) => {
-          if (!thumbnailUrl || !button.isConnected) {
-            return;
-          }
-          preview.src = thumbnailUrl;
-        });
+        preview.removeAttribute('src');
+        preview.dataset.state = 'loading';
+        previewWrapper.dataset.loading = 'true';
+        ensureThumbnail(item)
+          .then((thumbnailUrl) => {
+            if (!wrapper.isConnected) {
+              return;
+            }
+            if (thumbnailUrl) {
+              preview.src = thumbnailUrl;
+            }
+          })
+          .finally(() => {
+            preview.removeAttribute('data-state');
+            previewWrapper.removeAttribute('data-loading');
+          });
       }
 
       const label = document.createElement('span');
       label.className = 'timeline-item-label';
       label.textContent = item.name;
 
-      button.append(preview, label);
-      timelineGrid.appendChild(button);
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'timeline-delete';
+      deleteBtn.setAttribute('aria-label', `Remove ${item.name}`);
+      deleteBtn.title = 'Remove from playlist';
+      deleteBtn.innerHTML = '<span aria-hidden="true">&times;</span>';
+      deleteBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        removeItemById(item.id);
+      });
+
+      previewWrapper.appendChild(preview);
+      button.append(previewWrapper, label);
+      wrapper.append(button, deleteBtn);
+      timelineGrid.appendChild(wrapper);
     });
 
     updateActiveTiles();
@@ -360,6 +398,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     video.load();
 
     await waitForFirstFrame(video, item.url, () => {});
+    ensureThumbnail(item).catch(() => {});
 
     if (token !== loadToken) {
       return;
@@ -383,6 +422,70 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       }
     }
   };
+
+  async function removeItemById(itemId) {
+    const removeIndex = playlist.findIndex((entry) => entry.id === itemId);
+    if (removeIndex === -1) {
+      return;
+    }
+
+    const [removed] = playlist.splice(removeIndex, 1);
+
+    if (removed?.url) {
+      if (urlRegistry.has(removed.url)) {
+        urlRegistry.delete(removed.url);
+      }
+      URL.revokeObjectURL(removed.url);
+    }
+
+    if (removed?.id) {
+      thumbnailCache.delete(removed.id);
+    }
+
+    if (persistence && typeof persistence.deleteVideo === 'function' && removed?.id) {
+      persistence
+        .deleteVideo(removed.id)
+        .catch((error) => console.warn('Unable to delete persisted video.', error));
+    }
+
+    const previousIndex = state.currentIndex;
+
+    setPlaylist([...playlist]);
+    persistPlaylist();
+
+    if (!playlist.length) {
+      setCurrentIndex(-1);
+      persistCurrentIndex(-1);
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      controller.enableControls(false);
+      renderTimelineGrid();
+      return;
+    }
+
+    if (removeIndex === previousIndex) {
+      setCurrentIndex(-1);
+      persistCurrentIndex(-1);
+      renderTimelineGrid();
+      const nextIndex = Math.min(removeIndex, playlist.length - 1);
+      try {
+        await loadVideoAtIndex(nextIndex, { autoplay: false, preserveTransform: false });
+      } catch (error) {
+        console.warn('Unable to load next video after deletion.', error);
+      }
+      return;
+    }
+
+    if (removeIndex < previousIndex) {
+      const nextIndex = previousIndex - 1;
+      setCurrentIndex(nextIndex);
+      persistCurrentIndex(nextIndex);
+    }
+
+    renderTimelineGrid();
+    updateActiveTiles();
+  }
 
   const getNextIndex = () => {
     if (!playlist.length) {
@@ -458,6 +561,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
       playlist.push(item);
       urlRegistry.add(url);
+      ensureThumbnail(item).catch(() => {});
 
       if (persistence && typeof persistence.storeVideo === 'function') {
         // eslint-disable-next-line no-await-in-loop
@@ -622,8 +726,9 @@ const attachPrecisionControl = (precisionRange, controller) => {
   });
 };
 
-const attachControlButtons = (playBtn, controller) => {
+const attachControlButtons = (playBtn, moveBtn, controller) => {
   playBtn.addEventListener('click', controller.handlePlay);
+  moveBtn.addEventListener('click', controller.handleMoveToggle);
 };
 
 const setupVisibilityPause = (video) => {
@@ -725,7 +830,9 @@ const init = async () => {
     savePlaylistMetadata: (items) => savePlaylistMetadata(items),
     savePlaybackOptions: (options) => saveOptionsState(options),
     saveCurrentIndex: (index) => saveOptionsState({ currentIndex: index }),
+    saveMoveMode: (active) => saveOptionsState({ moveMode: active }),
     storeVideo: (id, file) => persistVideoFile(id, file),
+    deleteVideo: (id) => deleteVideoFile(id),
   };
 
   const store = createState(elements.precisionRange, persisted.state);
@@ -747,7 +854,7 @@ const init = async () => {
     initialIndex: persisted.state?.currentIndex ?? -1,
   });
   attachPrecisionControl(elements.precisionRange, controller);
-  attachControlButtons(elements.playBtn, controller);
+  attachControlButtons(elements.playBtn, elements.moveBtn, controller);
   setupVisibilityPause(elements.video);
   setupZoomPrevention();
 };

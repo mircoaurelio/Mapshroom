@@ -44,7 +44,7 @@ const adjustDimensions = (state, action, wrapper) => {
 };
 
 export const createTransformController = ({ elements, store, persistence }) => {
-  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo } = store;
+  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, setMoveMode } = store;
   const {
     video,
     playBtn,
@@ -89,25 +89,36 @@ export const createTransformController = ({ elements, store, persistence }) => {
     playBtn.setAttribute('aria-label', nextLabel);
   };
 
+  const updateMoveButton = () => {
+    const active = state.moveMode;
+    moveBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    moveBtn.disabled = !state.hasVideo;
+    const nextLabel = active ? 'Disable move mode' : 'Enable move mode';
+    moveBtn.setAttribute('aria-label', nextLabel);
+  };
+
+  const applyMoveMode = (active, { persist = true } = {}) => {
+    setMoveMode(active);
+    gridOverlay.dataset.moveMode = active ? 'active' : 'inactive';
+    updateMoveButton();
+
+    if (persist && persistence && typeof persistence.saveMoveMode === 'function') {
+      persistence.saveMoveMode(state.moveMode);
+    }
+  };
+
   const applyOverlayUI = (active, { toggleUI = true } = {}) => {
     setOverlayActive(active);
     toggleOverlayDisplay(gridOverlay, state.overlayActive);
-
-    if (moveBtn) {
-      moveBtn.classList.toggle('is-active', state.overlayActive);
-      moveBtn.setAttribute('aria-pressed', state.overlayActive ? 'true' : 'false');
-      moveBtn.setAttribute('aria-label', state.overlayActive ? 'Disable move mode' : 'Enable move mode');
-    }
-
-    const shouldShowPrecision = state.hasVideo && state.overlayActive;
-    toggleVisibility(precisionControl, shouldShowPrecision);
 
     if (!toggleUI || !state.hasVideo) {
       return;
     }
 
-    toggleVisibility(chooseLabel, true);
-    toggleVisibility(controls, true);
+    const shouldShow = active;
+    toggleVisibility(chooseLabel, shouldShow);
+    toggleVisibility(controls, shouldShow);
+    toggleVisibility(precisionControl, shouldShow);
   };
 
   const enableControls = (enabled) => {
@@ -119,6 +130,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
     const shouldShowControls = enabled;
     toggleVisibility(controls, shouldShowControls);
+    toggleVisibility(precisionControl, shouldShowControls);
     toggleVisibility(chooseLabel, true);
 
     applyOverlayUI(enabled, { toggleUI: false });
@@ -126,9 +138,11 @@ export const createTransformController = ({ elements, store, persistence }) => {
     if (!enabled) {
       resetTransform();
       updateTransform();
+      gridOverlay.dataset.moveMode = 'inactive';
     }
 
     updatePlayButton();
+    updateMoveButton();
   };
 
   const showPreloadUI = () => {
@@ -143,14 +157,22 @@ export const createTransformController = ({ elements, store, persistence }) => {
     }
 
     const wrapper = video.parentElement;
+    const movementActions = ['move-up', 'move-down', 'move-left', 'move-right'];
+    const dimensionActions = ['height-plus', 'height-minus', 'width-plus', 'width-minus'];
 
-    if (['move-up', 'move-down', 'move-left', 'move-right'].includes(action)) {
+    if (movementActions.includes(action) || dimensionActions.includes(action)) {
+      if (!state.moveMode) {
+        return;
+      }
+    }
+
+    if (movementActions.includes(action)) {
       adjustOffsets(state, action);
       updateTransform();
       return;
     }
 
-    if (['height-plus', 'height-minus', 'width-plus', 'width-minus'].includes(action)) {
+    if (dimensionActions.includes(action)) {
       adjustDimensions(state, action, wrapper);
       updateTransform();
       return;
@@ -166,6 +188,19 @@ export const createTransformController = ({ elements, store, persistence }) => {
     updatePrecision(nextPrecision);
     updatePrecisionDisplay(precisionValue, state.precision);
     persistPrecision();
+  };
+
+  const handleReset = () => {
+    video.pause();
+    video.currentTime = 0;
+    resetTransform();
+    updateTransform();
+    updatePlayButton();
+  };
+
+  const handleMoveToggle = () => {
+    const next = !state.moveMode;
+    applyMoveMode(next);
   };
 
   const handlePlay = async () => {
@@ -188,15 +223,11 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
   video.addEventListener('play', updatePlayButton);
   video.addEventListener('pause', updatePlayButton);
-  if (moveBtn) {
-    moveBtn.addEventListener('click', () => {
-      if (moveBtn.disabled) {
-        return;
-      }
-      const nextActive = !state.overlayActive;
-      applyOverlayUI(nextActive);
-    });
-  }
+
+  requestAnimationFrame(() => {
+    gridOverlay.dataset.moveMode = state.moveMode ? 'active' : 'inactive';
+    updateMoveButton();
+  });
 
   return {
     updateTransform,
@@ -204,8 +235,10 @@ export const createTransformController = ({ elements, store, persistence }) => {
     showPreloadUI,
     handleZoneAction,
     handlePrecisionChange,
+    handleReset,
     handlePlay,
     handleOverlayState,
+    handleMoveToggle,
   };
 };
 
