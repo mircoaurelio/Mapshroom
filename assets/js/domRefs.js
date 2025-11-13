@@ -6,6 +6,7 @@ export const getDomElements = () => {
   const timelineBtn = document.getElementById('timelineBtn');
   const timelinePanel = document.getElementById('timeline-panel');
   const timelineGrid = document.getElementById('timelineGrid');
+  const timelineBackBtn = document.getElementById('timelineBackBtn');
   const randomToggle = document.getElementById('randomToggle');
   const fadeToggle = document.getElementById('fadeToggle');
   const fadeSlider = document.getElementById('fadeSlider');
@@ -25,6 +26,7 @@ export const getDomElements = () => {
     !timelineBtn ||
     !timelinePanel ||
     !timelineGrid ||
+    !timelineBackBtn ||
     !randomToggle ||
     !fadeToggle ||
     !fadeSlider ||
@@ -47,6 +49,7 @@ export const getDomElements = () => {
     timelineBtn,
     timelinePanel,
     timelineGrid,
+    timelineBackBtn,
     randomToggle,
     fadeToggle,
     fadeSlider,
