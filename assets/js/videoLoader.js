@@ -2,7 +2,6 @@ import { getDomElements } from './domRefs.js';
 import { createState } from './state.js';
 import { createTransformController } from './interactions.js';
 import { createTimelineController } from './timelineController.js';
-import { createLogger } from './logger.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -24,7 +23,7 @@ const setupGridOverlayListeners = (gridOverlay, handler) => {
   });
 };
 
-const createWaitForFirstFrame = (logger) => (video, url, onReady) =>
+const waitForFirstFrame = (video, url, onReady) =>
   new Promise((resolve) => {
     const cleanup = () => {
       video.removeEventListener('loadeddata', onLoadedData);
@@ -33,24 +32,20 @@ const createWaitForFirstFrame = (logger) => (video, url, onReady) =>
 
     const ensureFrame = () => {
       video.pause();
-      logger?.log('First frame ready');
       onReady();
       resolve();
     };
 
     const onLoadedData = () => {
-      logger?.log(`loadeddata fired for ${video.currentSrc || url}`);
       cleanup();
       video.currentTime = 0;
 
       const onSeeked = () => {
         video.removeEventListener('seeked', onSeeked);
-        logger?.log('Initial frame seeked');
         ensureFrame();
       };
 
       if (video.readyState >= 2) {
-        logger?.log('readyState >= 2, seeking tiny offset');
         video.addEventListener('seeked', onSeeked, { once: true });
         video.currentTime = 0.0001;
       } else {
@@ -60,7 +55,6 @@ const createWaitForFirstFrame = (logger) => (video, url, onReady) =>
 
     const onError = (error) => {
       cleanup();
-      logger?.log(`Video error: ${error?.message || 'unknown error'}`);
       alert('Unable to load this video.');
       console.error(error);
       URL.revokeObjectURL(url);
@@ -90,31 +84,15 @@ const setupVisibilityPause = (video) => {
   });
 };
 
-const setupViewportSize = () => {
-  const updateViewportVars = () => {
-    const { innerWidth, innerHeight } = window;
-    document.documentElement.style.setProperty('--app-width', `${innerWidth}px`);
-    document.documentElement.style.setProperty('--app-height', `${innerHeight}px`);
-  };
-
-  updateViewportVars();
-  window.addEventListener('resize', updateViewportVars, { passive: true });
-  window.addEventListener('orientationchange', updateViewportVars);
-};
-
 const init = () => {
-  setupViewportSize();
   const elements = getDomElements();
   const store = createState(elements.precisionRange);
   const controller = createTransformController({ elements, store });
-  const logger = createLogger();
-  const waitForFirstFrame = createWaitForFirstFrame(logger);
   createTimelineController({
     elements,
     store,
     controller,
     waitForFirstFrame,
-    logger,
   });
 
   elements.video.loop = false;
