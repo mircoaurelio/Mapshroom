@@ -142,11 +142,93 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     setTimelineOpen,
   } = store;
 
-  const playlist = [...initialItems.map((item) => ({ ...item }))];
+  const playlist = [...initialItems.map((item) => ({ thumbnailUrl: null, ...item }))];
   const urlRegistry = new Set(playlist.map((item) => item.url).filter(Boolean));
   let loadToken = 0;
   let pendingFade = false;
   let overlayWasActive = false;
+  const thumbnailCache = new Map();
+  const ensureThumbnail = (item) => {
+    if (!item || !item.url) {
+      return Promise.resolve('');
+    }
+
+    if (item.thumbnailUrl) {
+      return Promise.resolve(item.thumbnailUrl);
+    }
+
+    if (thumbnailCache.has(item.id)) {
+      return thumbnailCache.get(item.id);
+    }
+
+    const promise = new Promise((resolve) => {
+      const tempVideo = document.createElement('video');
+      tempVideo.muted = true;
+      tempVideo.preload = 'auto';
+      tempVideo.playsInline = true;
+      tempVideo.src = item.url;
+
+      let settled = false;
+
+      const cleanup = () => {
+        tempVideo.removeEventListener('loadeddata', handleLoaded);
+        tempVideo.removeEventListener('error', handleError);
+        tempVideo.pause();
+        tempVideo.src = '';
+      };
+
+      const finalize = (dataUrl) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        if (dataUrl) {
+          item.thumbnailUrl = dataUrl;
+        }
+        resolve(dataUrl || '');
+      };
+
+      const handleLoaded = () => {
+        try {
+          const width = tempVideo.videoWidth || 320;
+          const height = tempVideo.videoHeight || 180;
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+
+          if (!context) {
+            finalize('');
+            return;
+          }
+
+          context.drawImage(tempVideo, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/png');
+          finalize(dataUrl);
+        } catch (error) {
+          console.warn('Unable to create video thumbnail.', error);
+          finalize('');
+        }
+      };
+
+      const handleError = (error) => {
+        console.warn('Error loading thumbnail video preview.', error);
+        finalize('');
+      };
+
+      tempVideo.addEventListener('loadeddata', handleLoaded, { once: true });
+      tempVideo.addEventListener('error', handleError, { once: true });
+      tempVideo.load();
+    })
+      .catch(() => '')
+      .finally(() => {
+        thumbnailCache.delete(item.id);
+      });
+
+    thumbnailCache.set(item.id, promise);
+    return promise;
+  };
 
   const updateFadeValueDisplay = () => {
     fadeValue.textContent = formatDurationSeconds(state.fadeDuration);
@@ -207,23 +289,24 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       button.setAttribute('role', 'listitem');
       button.setAttribute('aria-label', `Play ${item.name}`);
 
-      const preview = document.createElement('video');
-      preview.src = item.url;
-      preview.muted = true;
-      preview.loop = true;
-      preview.playsInline = true;
-      preview.preload = 'metadata';
+      const preview = document.createElement('img');
+      preview.className = 'timeline-thumbnail';
+      preview.alt = '';
+      preview.decoding = 'async';
+      preview.loading = 'lazy';
+      preview.draggable = false;
 
-      preview.addEventListener(
-        'loadeddata',
-        () => {
-          preview.currentTime = 0;
-          preview.pause();
-        },
-        { once: true },
-      );
-
-      preview.play().catch(() => {});
+      if (item.thumbnailUrl) {
+        preview.src = item.thumbnailUrl;
+      } else {
+        preview.src = '';
+        ensureThumbnail(item).then((thumbnailUrl) => {
+          if (!thumbnailUrl || !button.isConnected) {
+            return;
+          }
+          preview.src = thumbnailUrl;
+        });
+      }
 
       const label = document.createElement('span');
       label.className = 'timeline-item-label';
@@ -254,7 +337,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
   };
 
-  const loadVideoAtIndex = async (index, { autoplay = false, preserveTransform = false } = {}) => {
+  const loadVideoAtIndex = async (index, { autoplay = false, preserveTransform = true } = {}) => {
     const item = playlist[index];
     if (!item) {
       return;
@@ -370,6 +453,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         type: file.type,
         size: file.size,
         lastModified: file.lastModified,
+        thumbnailUrl: null,
       };
 
       playlist.push(item);
@@ -487,6 +571,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   };
 
   const cleanup = () => {
+    thumbnailCache.clear();
     urlRegistry.forEach((url) => {
       URL.revokeObjectURL(url);
     });
