@@ -156,10 +156,6 @@ input[type='file'] {
   display: none;
 }
 
-#precision-control.hidden {
-  display: none;
-}
-
 .concealed {
   opacity: 0;
   visibility: hidden;
