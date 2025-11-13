@@ -1,7 +1,7 @@
 import { updateTransformStyles, updatePrecisionDisplay, toggleOverlayDisplay, toggleVisibility, setControlsEnabled } from './ui.js';
 
-const updateTransformUI = ({ state, precisionValue }) => {
-  updateTransformStyles(state);
+const updateTransformUI = ({ state, precisionValue, video }) => {
+  updateTransformStyles(state, video);
   updatePrecisionDisplay(precisionValue, state.precision);
 };
 
@@ -70,7 +70,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
   };
 
   const updateTransform = () => {
-    updateTransformUI({ state, precisionValue });
+    updateTransformUI({ state, precisionValue, video });
     persistTransform();
   };
   const playIconImg = playBtn.querySelector('img');
