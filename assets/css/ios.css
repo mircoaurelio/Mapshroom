@@ -750,6 +750,11 @@ input[type='file'] {
   display: block;
 }
 
+.ai-preview-video[data-error='true'] {
+  border-color: rgba(255, 138, 138, 0.8);
+  background: rgba(255, 138, 138, 0.15);
+}
+
 .ai-fieldset {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1rem;
