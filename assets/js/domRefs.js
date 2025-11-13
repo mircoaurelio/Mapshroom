@@ -17,6 +17,7 @@ export const getDomElements = () => {
   const precisionRange = document.getElementById('precisionRange');
   const chooseLabel = document.querySelector('label.picker');
   const controls = document.querySelector('.controls');
+  const timelineExportBtn = document.getElementById('timelineExportBtn');
 
   if (
     !videoWrapper ||
@@ -36,7 +37,8 @@ export const getDomElements = () => {
     !precisionControl ||
     !precisionRange ||
     !chooseLabel ||
-    !controls
+    !controls ||
+    !timelineExportBtn
   ) {
     throw new Error('Missing expected DOM elements.');
   }
@@ -60,6 +62,7 @@ export const getDomElements = () => {
     precisionRange,
     chooseLabel,
     controls,
+    timelineExportBtn,
   };
 };
 

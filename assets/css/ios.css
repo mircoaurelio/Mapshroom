@@ -230,6 +230,35 @@ button {
   color: #fff;
 }
 
+.timeline-export {
+  margin-left: auto;
+  background: rgba(31, 136, 255, 0.25);
+  border: 1px solid rgba(31, 136, 255, 0.6);
+  border-radius: 999px;
+  color: #fff;
+  padding: 0.55rem 1.4rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.timeline-export:hover,
+.timeline-export:focus-visible {
+  background: rgba(31, 136, 255, 0.4);
+  border-color: rgba(31, 136, 255, 0.75);
+}
+
+.timeline-export:focus-visible {
+  outline: 2px solid #1f88ff;
+  outline-offset: 2px;
+}
+
+.timeline-export[disabled] {
+  opacity: 0.65;
+  cursor: progress;
+  transform: none;
+}
+
 .fade-slider {
   display: flex;
   align-items: center;
