@@ -180,10 +180,14 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     videoEl.classList.add('main-video');
     videoEl.setAttribute('playsinline', '');
+    videoEl.setAttribute('muted', '');
     videoEl.playsInline = true;
     videoEl.preload = 'metadata';
     videoEl.loop = false;
     videoEl.controls = false;
+    videoEl.muted = true;
+    videoEl.defaultMuted = true;
+    videoEl.volume = 0;
     videoEl.dataset.active = 'false';
     videoEl.style.opacity = '0';
     videoEl.style.transition = '';
@@ -291,6 +295,11 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       videoElements.set(item.id, videoEl);
       videoEl.addEventListener('ended', handleVideoEnded);
     }
+
+    videoEl.muted = true;
+    videoEl.defaultMuted = true;
+    videoEl.setAttribute('muted', '');
+    videoEl.volume = 0;
 
     if (videoEl.dataset.sourceId !== item.id) {
       videoEl.dataset.sourceId = item.id;
