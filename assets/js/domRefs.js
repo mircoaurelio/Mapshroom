@@ -2,7 +2,7 @@ export const getDomElements = () => {
   const fileInput = document.getElementById('fileInput');
   const video = document.getElementById('video');
   const playBtn = document.getElementById('playBtn');
-  const resetBtn = document.getElementById('resetBtn');
+  const moveBtn = document.getElementById('moveBtn');
   const timelineBtn = document.getElementById('timelineBtn');
   const timelinePanel = document.getElementById('timeline-panel');
   const timelineGrid = document.getElementById('timelineGrid');
@@ -22,7 +22,7 @@ export const getDomElements = () => {
     !fileInput ||
     !video ||
     !playBtn ||
-    !resetBtn ||
+    !moveBtn ||
     !timelineBtn ||
     !timelinePanel ||
     !timelineGrid ||
@@ -45,7 +45,8 @@ export const getDomElements = () => {
     fileInput,
     video,
     playBtn,
-    resetBtn,
+    moveBtn,
+    moveBtn,
     timelineBtn,
     timelinePanel,
     timelineGrid,

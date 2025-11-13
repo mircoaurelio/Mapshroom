@@ -48,7 +48,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
   const {
     video,
     playBtn,
-    resetBtn,
+    moveBtn,
     timelineBtn,
     precisionControl,
     precisionValue,
@@ -93,18 +93,25 @@ export const createTransformController = ({ elements, store, persistence }) => {
     setOverlayActive(active);
     toggleOverlayDisplay(gridOverlay, state.overlayActive);
 
+    if (moveBtn) {
+      moveBtn.classList.toggle('is-active', state.overlayActive);
+      moveBtn.setAttribute('aria-pressed', state.overlayActive ? 'true' : 'false');
+      moveBtn.setAttribute('aria-label', state.overlayActive ? 'Disable move mode' : 'Enable move mode');
+    }
+
+    const shouldShowPrecision = state.hasVideo && state.overlayActive;
+    toggleVisibility(precisionControl, shouldShowPrecision);
+
     if (!toggleUI || !state.hasVideo) {
       return;
     }
 
-    const shouldShow = active;
-    toggleVisibility(chooseLabel, shouldShow);
-    toggleVisibility(controls, shouldShow);
-    toggleVisibility(precisionControl, shouldShow);
+    toggleVisibility(chooseLabel, true);
+    toggleVisibility(controls, true);
   };
 
   const enableControls = (enabled) => {
-    setControlsEnabled(playBtn, resetBtn, enabled);
+    setControlsEnabled(playBtn, moveBtn, enabled);
     if (timelineBtn) {
       timelineBtn.disabled = !enabled;
     }
@@ -112,7 +119,6 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
     const shouldShowControls = enabled;
     toggleVisibility(controls, shouldShowControls);
-    toggleVisibility(precisionControl, shouldShowControls);
     toggleVisibility(chooseLabel, true);
 
     applyOverlayUI(enabled, { toggleUI: false });
@@ -162,14 +168,6 @@ export const createTransformController = ({ elements, store, persistence }) => {
     persistPrecision();
   };
 
-  const handleReset = () => {
-    video.pause();
-    video.currentTime = 0;
-    resetTransform();
-    updateTransform();
-    updatePlayButton();
-  };
-
   const handlePlay = async () => {
     if (video.paused) {
       try {
@@ -190,6 +188,15 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
   video.addEventListener('play', updatePlayButton);
   video.addEventListener('pause', updatePlayButton);
+  if (moveBtn) {
+    moveBtn.addEventListener('click', () => {
+      if (moveBtn.disabled) {
+        return;
+      }
+      const nextActive = !state.overlayActive;
+      applyOverlayUI(nextActive);
+    });
+  }
 
   return {
     updateTransform,
@@ -197,7 +204,6 @@ export const createTransformController = ({ elements, store, persistence }) => {
     showPreloadUI,
     handleZoneAction,
     handlePrecisionChange,
-    handleReset,
     handlePlay,
     handleOverlayState,
   };

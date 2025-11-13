@@ -127,12 +127,20 @@ button {
   align-items: center;
   justify-content: center;
   background: rgba(128, 128, 128, 0.5);
+  border: 2px solid transparent;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .icon-button img {
   width: 36px;
   height: 36px;
   display: block;
+}
+
+.icon-button.is-active {
+  background: rgba(31, 136, 255, 0.85);
+  border-color: rgba(31, 136, 255, 0.9);
+  box-shadow: 0 0 12px rgba(31, 136, 255, 0.45);
 }
 
 #timeline-panel {
