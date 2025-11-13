@@ -1,8 +1,7 @@
-import { updateTransformStyles, updatePrecisionDisplay, toggleOverlayDisplay, toggleVisibility, setControlsEnabled } from './ui.js';
+import { updateTransformStyles, toggleOverlayDisplay, toggleVisibility, setControlsEnabled } from './ui.js';
 
-const updateTransformUI = ({ state, precisionValue, video }) => {
+const updateTransformUI = ({ state, video }) => {
   updateTransformStyles(state, video);
-  updatePrecisionDisplay(precisionValue, state.precision);
 };
 
 const adjustOffsets = (state, direction) => {
@@ -51,7 +50,6 @@ export const createTransformController = ({ elements, store, persistence }) => {
     moveBtn,
     timelineBtn,
     precisionControl,
-    precisionValue,
     gridOverlay,
     chooseLabel,
     controls,
@@ -70,7 +68,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
   };
 
   const updateTransform = () => {
-    updateTransformUI({ state, precisionValue, video });
+    updateTransformUI({ state, video });
     persistTransform();
   };
   const playIconImg = playBtn.querySelector('img');
@@ -101,6 +99,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     setMoveMode(active);
     gridOverlay.dataset.moveMode = active ? 'active' : 'inactive';
     updateMoveButton();
+    toggleVisibility(precisionControl, state.hasVideo && state.moveMode);
 
     if (persist && persistence && typeof persistence.saveMoveMode === 'function') {
       persistence.saveMoveMode(state.moveMode);
@@ -118,7 +117,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     const shouldShow = active;
     toggleVisibility(chooseLabel, shouldShow);
     toggleVisibility(controls, shouldShow);
-    toggleVisibility(precisionControl, shouldShow);
+    toggleVisibility(precisionControl, shouldShow && state.moveMode);
   };
 
   const enableControls = (enabled) => {
@@ -130,7 +129,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
     const shouldShowControls = enabled;
     toggleVisibility(controls, shouldShowControls);
-    toggleVisibility(precisionControl, shouldShowControls);
+    toggleVisibility(precisionControl, enabled && state.moveMode);
     toggleVisibility(chooseLabel, true);
 
     applyOverlayUI(enabled, { toggleUI: false });
@@ -186,7 +185,6 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
   const handlePrecisionChange = (nextPrecision) => {
     updatePrecision(nextPrecision);
-    updatePrecisionDisplay(precisionValue, state.precision);
     persistPrecision();
   };
 
@@ -227,6 +225,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
   requestAnimationFrame(() => {
     gridOverlay.dataset.moveMode = state.moveMode ? 'active' : 'inactive';
     updateMoveButton();
+    toggleVisibility(precisionControl, state.hasVideo && state.moveMode);
   });
 
   return {
