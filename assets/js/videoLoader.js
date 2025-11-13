@@ -329,7 +329,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
   });
 
-  function advanceToNextVideo({ autoplayHint = true } = {}) {
+  function advanceToNextVideo({ autoplayHint = true, previousThreshold = null } = {}) {
     const nextIndex = getNextIndex({ reuseCached: true });
     if (nextIndex === -1) {
       return;
@@ -353,6 +353,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
 
     crossfadeWatcherVideo = videoEl;
+    let lastThreshold = null;
+
     const tick = () => {
       if (!state.fadeEnabled || crossfadeWatcherVideo !== videoEl || videoEl !== activeVideoElement) {
         detachCrossfadeWatcher();
@@ -368,18 +370,19 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       const availableLead = Math.max(duration - 0.1, 0);
       const leadTime = Math.min(state.fadeDuration, availableLead);
       const threshold = Math.max(0, duration - leadTime);
+      lastThreshold = threshold;
 
       if (videoEl.currentTime >= threshold) {
         const shouldAutoplay = !videoEl.paused && !videoEl.ended;
         detachCrossfadeWatcher();
-        advanceToNextVideo({ autoplayHint: shouldAutoplay });
+        advanceToNextVideo({ autoplayHint: shouldAutoplay, previousThreshold: threshold });
         return;
       }
 
       crossfadeMonitorId = window.requestAnimationFrame(tick);
     };
 
-    tick();
+    crossfadeMonitorId = window.requestAnimationFrame(tick);
   }
 
   function rescheduleCrossfadeWatcher() {
