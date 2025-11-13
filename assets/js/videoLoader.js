@@ -1223,26 +1223,24 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const safeTop = Math.max(0, safeAreaInsets.top);
     const safeBottom = Math.max(0, safeAreaInsets.bottom);
 
-    const screenWidth = Number.isFinite(window.screen?.width) && window.screen.width > 0 ? window.screen.width : null;
-    const screenHeight =
-      Number.isFinite(window.screen?.height) && window.screen.height > 0 ? window.screen.height : null;
+    const cssScreenWidth =
+      Number.isFinite(window.screen?.width) && window.screen.width > 0 ? window.screen.width : viewportWidth;
+    const cssScreenHeight =
+      Number.isFinite(window.screen?.height) && window.screen.height > 0 ? window.screen.height : viewportHeight;
 
-    const baseContentWidth = Math.max(
-      viewportWidth,
-      rect?.width || 0,
-      screenWidth !== null ? Math.max(0, screenWidth - safeLeft - safeRight) : 0,
-    );
-    const baseContentHeight = Math.max(
-      viewportHeight,
-      rect?.height || 0,
-      screenHeight !== null ? Math.max(0, screenHeight - safeTop - safeBottom) : 0,
-    );
+    const viewportOffsetLeft = Number.isFinite(visualViewport?.offsetLeft) ? visualViewport.offsetLeft : 0;
+    const viewportOffsetTop = Number.isFinite(visualViewport?.offsetTop) ? visualViewport.offsetTop : 0;
 
-    const totalWidth = safeLeft + baseContentWidth + safeRight;
-    const totalHeight = safeTop + baseContentHeight + safeBottom;
+    const inferredSafeLeft = safeLeft || viewportOffsetLeft;
+    const inferredSafeTop = safeTop || viewportOffsetTop;
+    const inferredSafeRight = safeRight || Math.max(0, cssScreenWidth - viewportWidth - inferredSafeLeft);
+    const inferredSafeBottom = safeBottom || Math.max(0, cssScreenHeight - viewportHeight - inferredSafeTop);
 
-    const videoWidth = Math.max(1, baseContentWidth + state.widthAdjust);
-    const videoHeight = Math.max(1, baseContentHeight + state.heightAdjust);
+    const totalWidth = Math.max(1, cssScreenWidth);
+    const totalHeight = Math.max(1, cssScreenHeight);
+
+    const videoWidth = Math.max(1, viewportWidth + state.widthAdjust);
+    const videoHeight = Math.max(1, viewportHeight + state.heightAdjust);
 
 
     const desiredScale =
@@ -1267,8 +1265,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
 
     const exportFrame = {
-      offsetX: Math.round((safeLeft + state.offsetX) * exportScale),
-      offsetY: Math.round((safeTop + state.offsetY) * exportScale),
+      offsetX: Math.round((inferredSafeLeft + state.offsetX) * exportScale),
+      offsetY: Math.round((inferredSafeTop + state.offsetY) * exportScale),
       width: Math.max(1, Math.round(videoWidth * exportScale)),
       height: Math.max(1, Math.round(videoHeight * exportScale)),
     };
