@@ -1,4 +1,5 @@
 export const getDomElements = () => {
+  const videoWrapper = document.getElementById('video-wrapper');
   const fileInput = document.getElementById('fileInput');
   const video = document.getElementById('video');
   const playBtn = document.getElementById('playBtn');
@@ -18,6 +19,7 @@ export const getDomElements = () => {
   const controls = document.querySelector('.controls');
 
   if (
+    !videoWrapper ||
     !fileInput ||
     !video ||
     !playBtn ||
@@ -40,6 +42,7 @@ export const getDomElements = () => {
   }
 
   return {
+    videoWrapper,
     fileInput,
     video,
     playBtn,

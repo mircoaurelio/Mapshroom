@@ -127,6 +127,7 @@ const formatDurationSeconds = (value) => `${value.toFixed(1)}s`;
 
 const createPlaylistController = ({ elements, controller, store, persistence, initialItems = [], initialIndex = -1 }) => {
   const {
+    videoWrapper,
     fileInput,
     video,
     timelineBtn,
@@ -137,6 +138,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     fadeToggle,
     fadeSlider,
     fadeValue,
+    gridOverlay,
   } = elements;
   const {
     state,
@@ -152,9 +154,244 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   const playlist = [...initialItems.map((item) => ({ thumbnailUrl: null, ...item }))];
   const urlRegistry = new Set(playlist.map((item) => item.url).filter(Boolean));
   let loadToken = 0;
-  let pendingFade = false;
   let overlayWasActive = false;
   const thumbnailCache = new Map();
+  const videoElements = new Map();
+  let activeVideoElement = null;
+  let crossfadeWatcherVideo = null;
+  let crossfadeMonitorId = null;
+  let upcomingIndexCache = null;
+
+  const ensureVideoIsAttached = (videoEl) => {
+    if (!videoEl || !videoWrapper) {
+      return;
+    }
+
+    if (videoEl.parentElement !== videoWrapper) {
+      videoWrapper.insertBefore(videoEl, gridOverlay);
+    }
+  };
+
+  const configureVideoElement = (videoEl) => {
+    if (!videoEl) {
+      return;
+    }
+
+    videoEl.classList.add('main-video');
+    videoEl.setAttribute('playsinline', '');
+    videoEl.playsInline = true;
+    videoEl.preload = 'metadata';
+    videoEl.loop = false;
+    videoEl.controls = false;
+    videoEl.dataset.active = 'false';
+    videoEl.style.opacity = '0';
+    videoEl.style.transition = '';
+  };
+
+  configureVideoElement(video);
+  ensureVideoIsAttached(video);
+
+
+  const pauseAndResetVideo = (videoEl) => {
+    if (!videoEl) {
+      return;
+    }
+    try {
+      videoEl.pause();
+    } catch (error) {
+      console.debug('Unable to pause video element during reset.', error);
+    }
+    try {
+      videoEl.currentTime = 0;
+    } catch (error) {
+      console.debug('Unable to reset currentTime during pause.', error);
+    }
+    videoEl.dataset.active = 'false';
+    videoEl.style.opacity = '0';
+    videoEl.style.pointerEvents = 'none';
+    videoEl.style.zIndex = '1';
+  };
+
+  const detachCrossfadeWatcher = () => {
+    if (crossfadeMonitorId !== null) {
+      window.cancelAnimationFrame(crossfadeMonitorId);
+      crossfadeMonitorId = null;
+    }
+    crossfadeWatcherVideo = null;
+  };
+
+  const detachVideoElement = (videoEl) => {
+    if (!videoEl) {
+      return;
+    }
+    videoEl.removeAttribute('src');
+    try {
+      videoEl.load();
+    } catch (error) {
+      console.debug('Unable to reload video element during detach.', error);
+    }
+    videoEl.remove();
+    delete videoEl.dataset.sourceId;
+    delete videoEl.dataset.objectUrl;
+    videoEl.dataset.active = 'false';
+  };
+
+  const prepareVideoElementForItem = (item, { eager = false } = {}) => {
+    if (!item) {
+      return null;
+    }
+
+    let videoEl = videoElements.get(item.id) || null;
+
+    if (!videoEl) {
+      if (!videoElements.size && (!video.dataset.sourceId || video.dataset.sourceId === item.id)) {
+        videoEl = video;
+      } else {
+        videoEl = document.createElement('video');
+      }
+      configureVideoElement(videoEl);
+      ensureVideoIsAttached(videoEl);
+      videoElements.set(item.id, videoEl);
+      videoEl.addEventListener('ended', handleVideoEnded);
+    }
+
+    if (videoEl.dataset.sourceId !== item.id) {
+      videoEl.dataset.sourceId = item.id;
+    }
+
+    if (videoEl.dataset.objectUrl !== item.url) {
+      videoEl.dataset.objectUrl = item.url;
+      videoEl.src = item.url;
+      videoEl.preload = eager ? 'auto' : 'metadata';
+      if (eager) {
+        try {
+          videoEl.load();
+        } catch (error) {
+          console.warn('Unable to load video source.', error);
+        }
+      }
+    } else if (eager && videoEl.readyState === 0) {
+      try {
+        videoEl.preload = 'auto';
+        videoEl.load();
+      } catch (error) {
+        console.warn('Unable to prepare video element for playback.', error);
+      }
+    }
+
+    return videoEl;
+  };
+
+  playlist.forEach((item) => {
+    if (item?.url) {
+      prepareVideoElementForItem(item);
+    }
+  });
+
+  function advanceToNextVideo({ autoplayHint = true } = {}) {
+    const nextIndex = getNextIndex({ reuseCached: true });
+    if (nextIndex === -1) {
+      return;
+    }
+    if (nextIndex === state.currentIndex && playlist.length <= 1) {
+      return;
+    }
+
+    loadVideoAtIndex(nextIndex, { autoplay: autoplayHint, preserveTransform: true }).catch((error) => {
+      console.warn('Unable to cross-fade to next video.', error);
+    });
+  }
+
+  function attachCrossfadeWatcher(videoEl) {
+    if (!state.fadeEnabled || !videoEl || playlist.length <= 1) {
+      return;
+    }
+
+    crossfadeWatcherVideo = videoEl;
+    const tick = () => {
+      if (!state.fadeEnabled || crossfadeWatcherVideo !== videoEl || videoEl !== activeVideoElement) {
+        detachCrossfadeWatcher();
+        return;
+      }
+
+      const duration = videoEl.duration;
+      if (!Number.isFinite(duration) || duration <= 0) {
+        crossfadeMonitorId = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      const availableLead = Math.max(duration - 0.1, 0);
+      const leadTime = Math.min(state.fadeDuration, availableLead);
+      const threshold = Math.max(0, duration - leadTime);
+
+      if (videoEl.currentTime >= threshold) {
+        const shouldAutoplay = !videoEl.paused && !videoEl.ended;
+        detachCrossfadeWatcher();
+        advanceToNextVideo({ autoplayHint: shouldAutoplay });
+        return;
+      }
+
+      crossfadeMonitorId = window.requestAnimationFrame(tick);
+    };
+
+    tick();
+  }
+
+  function rescheduleCrossfadeWatcher() {
+    detachCrossfadeWatcher();
+    if (!state.fadeEnabled || playlist.length <= 1 || !activeVideoElement) {
+      return;
+    }
+    attachCrossfadeWatcher(activeVideoElement);
+  }
+
+  const preloadUpcomingVideo = () => {
+    if (!playlist.length) {
+      clearUpcomingIndexCache();
+      return;
+    }
+
+    const upcomingIndex = getNextIndex();
+    if (upcomingIndex === -1 || upcomingIndex === state.currentIndex) {
+      return;
+    }
+
+    const upcomingItem = playlist[upcomingIndex];
+    if (upcomingItem) {
+      prepareVideoElementForItem(upcomingItem, { eager: true });
+    }
+  };
+
+  const applyVideoActivation = (nextVideo, previousVideo) => {
+    if (previousVideo && previousVideo !== nextVideo) {
+      previousVideo.dataset.active = 'false';
+      previousVideo.style.pointerEvents = 'none';
+      previousVideo.style.zIndex = '1';
+      previousVideo.style.transition = state.fadeEnabled ? `opacity ${state.fadeDuration}s ease` : '';
+      previousVideo.style.opacity = '0';
+    }
+
+    if (!nextVideo) {
+      return;
+    }
+
+    nextVideo.style.zIndex = '2';
+    nextVideo.style.pointerEvents = 'auto';
+    nextVideo.dataset.active = 'true';
+
+    if (!state.fadeEnabled) {
+      nextVideo.style.transition = '';
+      nextVideo.style.opacity = '1';
+      return;
+    }
+
+    nextVideo.style.transition = '';
+    nextVideo.style.opacity = '0';
+    requestAnimationFrame(() => {
+      nextVideo.style.transition = `opacity ${state.fadeDuration}s ease`;
+      nextVideo.style.opacity = '1';
+    });
+  };
   const ensureThumbnail = (item) => {
     if (!item || !item.url) {
       return Promise.resolve('');
@@ -245,9 +482,12 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     fadeSlider.disabled = !state.fadeEnabled;
     fadeSlider.setAttribute('aria-disabled', state.fadeEnabled ? 'false' : 'true');
     if (!state.fadeEnabled) {
-      video.style.transition = '';
-      video.style.opacity = 1;
+      videoElements.forEach((videoEl) => {
+        videoEl.style.transition = '';
+        videoEl.style.opacity = videoEl.dataset.active === 'true' ? '1' : '0';
+      });
     }
+    rescheduleCrossfadeWatcher();
   };
 
   const applyTimelineVisibility = (open) => {
@@ -375,53 +615,84 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
   };
 
-  const loadVideoAtIndex = async (index, { autoplay = false, preserveTransform = true } = {}) => {
+  async function loadVideoAtIndex(index, { autoplay = false, preserveTransform = true } = {}) {
     const item = playlist[index];
     if (!item) {
       return;
     }
 
     const token = ++loadToken;
-    pendingFade = state.fadeEnabled;
-
-    video.pause();
+    detachCrossfadeWatcher();
+    const previousVideo = activeVideoElement;
     controller.handleOverlayState(false, { toggleUI: false });
 
     if (!preserveTransform) {
       resetTransform();
     }
 
-    controller.updateTransform();
+    const nextVideo = prepareVideoElementForItem(item, { eager: true });
+    if (!nextVideo) {
+      return;
+    }
 
-    video.src = item.url;
-    video.dataset.sourceId = item.id;
-    video.load();
-
-    await waitForFirstFrame(video, item.url, () => {});
+    await waitForFirstFrame(nextVideo, item.url, () => {});
+    try {
+      nextVideo.currentTime = 0;
+    } catch (error) {
+      console.debug('Unable to reset currentTime after preloading.', error);
+    }
     ensureThumbnail(item).catch(() => {});
 
     if (token !== loadToken) {
       return;
     }
 
+    activeVideoElement = nextVideo;
     setCurrentIndex(index);
     persistCurrentIndex(index);
     updateActiveTiles();
-    controller.enableControls(true);
-
-    if (!state.fadeEnabled) {
-      video.style.transition = '';
-      video.style.opacity = 1;
+    controller.setVideoElement(nextVideo);
+    controller.updateTransform();
+    if (!state.hasVideo) {
+      controller.enableControls(true);
     }
+    clearUpcomingIndexCache();
 
-    if (autoplay) {
-      try {
-        await video.play();
-      } catch (error) {
-        console.warn('Autoplay blocked:', error);
+    applyVideoActivation(nextVideo, previousVideo);
+    preloadUpcomingVideo();
+
+    if (previousVideo && previousVideo !== nextVideo) {
+      let timeoutId = null;
+      const onTransitionEnd = (event) => {
+        if (event && event.target !== previousVideo) {
+          return;
+        }
+        previousVideo.removeEventListener('transitionend', onTransitionEnd);
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        pauseAndResetVideo(previousVideo);
+      };
+
+      if (state.fadeEnabled) {
+        timeoutId = window.setTimeout(() => {
+          onTransitionEnd(null);
+        }, Math.max(state.fadeDuration * 1000 + 50, 150));
+        previousVideo.addEventListener('transitionend', onTransitionEnd);
+      } else {
+        pauseAndResetVideo(previousVideo);
       }
     }
-  };
+
+    rescheduleCrossfadeWatcher();
+
+    if (autoplay) {
+      nextVideo.play().catch((error) => {
+        console.warn('Autoplay blocked:', error);
+      });
+    }
+  }
 
   async function removeItemById(itemId) {
     const removeIndex = playlist.findIndex((entry) => entry.id === itemId);
@@ -438,8 +709,14 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       URL.revokeObjectURL(removed.url);
     }
 
+    let removedVideoEl = null;
     if (removed?.id) {
       thumbnailCache.delete(removed.id);
+      removedVideoEl = videoElements.get(removed.id) || null;
+      if (removedVideoEl) {
+        removedVideoEl.removeEventListener('ended', handleVideoEnded);
+        videoElements.delete(removed.id);
+      }
     }
 
     if (persistence && typeof persistence.deleteVideo === 'function' && removed?.id) {
@@ -452,15 +729,29 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     setPlaylist([...playlist]);
     persistPlaylist();
+    clearUpcomingIndexCache();
+
+    if (removedVideoEl) {
+      const wasActive = removedVideoEl === activeVideoElement;
+      if (wasActive) {
+        activeVideoElement = null;
+        controller.setVideoElement(null);
+        detachCrossfadeWatcher();
+      }
+      pauseAndResetVideo(removedVideoEl);
+      detachVideoElement(removedVideoEl);
+      if (wasActive) {
+        controller.enableControls(false);
+      }
+    }
 
     if (!playlist.length) {
       setCurrentIndex(-1);
       persistCurrentIndex(-1);
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
+      controller.setVideoElement(null);
       controller.enableControls(false);
       renderTimelineGrid();
+      detachCrossfadeWatcher();
       return;
     }
 
@@ -485,9 +776,11 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     renderTimelineGrid();
     updateActiveTiles();
+    preloadUpcomingVideo();
+    rescheduleCrossfadeWatcher();
   }
 
-  const getNextIndex = () => {
+  const computeNextIndexInternal = () => {
     if (!playlist.length) {
       return -1;
     }
@@ -521,18 +814,30 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     return (current + 1) % playlist.length;
   };
 
-  const handleVideoEnded = () => {
+  const getNextIndex = ({ reuseCached = false } = {}) => {
+    if (reuseCached && upcomingIndexCache !== null) {
+      return upcomingIndexCache;
+    }
+    const nextIndex = computeNextIndexInternal();
+    upcomingIndexCache = nextIndex;
+    return nextIndex;
+  };
+
+  const clearUpcomingIndexCache = () => {
+    upcomingIndexCache = null;
+  };
+
+  function handleVideoEnded(event) {
+    if (event && event.target && event.target !== activeVideoElement) {
+      return;
+    }
+
     if (!playlist.length) {
       return;
     }
 
-    const nextIndex = getNextIndex();
-    if (nextIndex === -1) {
-      return;
-    }
-
-    loadVideoAtIndex(nextIndex, { autoplay: true });
-  };
+    advanceToNextVideo({ autoplayHint: true });
+  }
 
   const handleFileSelection = async (event) => {
     const files = Array.from((event.target && event.target.files) || []).filter((file) =>
@@ -561,6 +866,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
       playlist.push(item);
       urlRegistry.add(url);
+      prepareVideoElementForItem(item);
       ensureThumbnail(item).catch(() => {});
 
       if (persistence && typeof persistence.storeVideo === 'function') {
@@ -580,6 +886,9 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       await loadVideoAtIndex(0);
     }
 
+    clearUpcomingIndexCache();
+    preloadUpcomingVideo();
+    rescheduleCrossfadeWatcher();
     event.target.value = '';
   };
 
@@ -593,6 +902,9 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     setRandomPlay(next);
     setToggleState(randomToggle, next);
     persistPlaybackOptions({ randomPlay: state.randomPlay });
+    clearUpcomingIndexCache();
+    preloadUpcomingVideo();
+    rescheduleCrossfadeWatcher();
   };
 
   const handleFadeToggle = () => {
@@ -602,12 +914,21 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     setToggleState(fadeToggle, next);
 
     if (!next) {
-      video.style.opacity = 1;
-    } else {
-      pendingFade = true;
+      videoElements.forEach((videoEl) => {
+        videoEl.style.transition = '';
+        videoEl.style.opacity = videoEl.dataset.active === 'true' ? '1' : '0';
+      });
+    } else if (activeVideoElement) {
+      activeVideoElement.style.transition = '';
+      activeVideoElement.style.opacity = '0';
+      requestAnimationFrame(() => {
+        activeVideoElement.style.transition = `opacity ${state.fadeDuration}s ease`;
+        activeVideoElement.style.opacity = '1';
+      });
     }
 
     persistPlaybackOptions({ fadeEnabled: state.fadeEnabled, fadeDuration: state.fadeDuration });
+    rescheduleCrossfadeWatcher();
   };
 
   const handleFadeSliderInput = () => {
@@ -616,6 +937,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     setFadeDuration(nextDuration);
     updateFadeValueDisplay();
     persistPlaybackOptions({ fadeDuration: state.fadeDuration });
+    rescheduleCrossfadeWatcher();
   };
 
   const handleTimelineGridClick = (event) => {
@@ -657,24 +979,24 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
   };
 
-  const handlePlayEvent = () => {
-    if (!pendingFade || !state.fadeEnabled) {
-      pendingFade = false;
-      return;
-    }
-
-    pendingFade = false;
-    video.style.transition = `opacity ${state.fadeDuration}s ease`;
-    video.style.opacity = 0;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        video.style.opacity = 1;
-      });
-    });
-  };
-
   const cleanup = () => {
+    detachCrossfadeWatcher();
+    clearUpcomingIndexCache();
+    videoElements.forEach((videoEl) => {
+      videoEl.removeEventListener('ended', handleVideoEnded);
+      pauseAndResetVideo(videoEl);
+      if (videoEl !== video && videoEl.isConnected) {
+        detachVideoElement(videoEl);
+      }
+    });
+    videoElements.clear();
+    activeVideoElement = null;
+    delete video.dataset.sourceId;
+    delete video.dataset.objectUrl;
+    video.dataset.active = 'false';
+    video.style.opacity = '0';
+    video.style.pointerEvents = 'none';
+    video.style.zIndex = '1';
     thumbnailCache.clear();
     urlRegistry.forEach((url) => {
       URL.revokeObjectURL(url);
@@ -691,8 +1013,6 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   timelineGrid.addEventListener('keydown', handleTimelineGridKeydown);
   timelineBackBtn.addEventListener('click', () => applyTimelineVisibility(false));
   document.addEventListener('keydown', handleKeydownGlobal);
-  video.addEventListener('ended', handleVideoEnded);
-  video.addEventListener('play', handlePlayEvent);
   window.addEventListener('beforeunload', cleanup);
 
   setToggleState(randomToggle, state.randomPlay);
@@ -715,6 +1035,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   return {
     loadVideoAtIndex,
     renderTimelineGrid,
+    getActiveVideo: () => activeVideoElement,
     cleanup,
   };
 };
@@ -731,10 +1052,19 @@ const attachControlButtons = (playBtn, moveBtn, controller) => {
   moveBtn.addEventListener('click', controller.handleMoveToggle);
 };
 
-const setupVisibilityPause = (video) => {
+const setupVisibilityPause = (getActiveVideo) => {
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      video.pause();
+    if (!document.hidden) {
+      return;
+    }
+
+    const activeVideo = typeof getActiveVideo === 'function' ? getActiveVideo() : getActiveVideo;
+    if (activeVideo && !activeVideo.paused) {
+      try {
+        activeVideo.pause();
+      } catch (error) {
+        console.debug('Unable to pause active video on visibility change.', error);
+      }
     }
   });
 };
@@ -845,7 +1175,7 @@ const init = async () => {
   controller.showPreloadUI();
 
   setupGridOverlayListeners(elements.gridOverlay, controller.handleZoneAction);
-  createPlaylistController({
+  const playlistController = createPlaylistController({
     elements,
     controller,
     store,
@@ -855,7 +1185,7 @@ const init = async () => {
   });
   attachPrecisionControl(elements.precisionRange, controller);
   attachControlButtons(elements.playBtn, elements.moveBtn, controller);
-  setupVisibilityPause(elements.video);
+  setupVisibilityPause(() => playlistController.getActiveVideo());
   setupZoomPrevention();
 };
 
