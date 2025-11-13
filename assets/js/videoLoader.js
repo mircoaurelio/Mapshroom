@@ -139,6 +139,32 @@ const getSupportedMediaRecorderMimeType = () => {
   return null;
 };
 
+const parseCssNumber = (value) => {
+  if (typeof value !== 'string') {
+    return 0;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const readSafeAreaInsets = () => {
+  if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+    return { top: 0, right: 0, bottom: 0, left: 0 };
+  }
+  try {
+    const styles = window.getComputedStyle(document.documentElement);
+    return {
+      top: parseCssNumber(styles.getPropertyValue('--safe-area-top') || '0'),
+      right: parseCssNumber(styles.getPropertyValue('--safe-area-right') || '0'),
+      bottom: parseCssNumber(styles.getPropertyValue('--safe-area-bottom') || '0'),
+      left: parseCssNumber(styles.getPropertyValue('--safe-area-left') || '0'),
+    };
+  } catch (error) {
+    console.debug('Unable to read safe-area insets, defaulting to zero.', error);
+    return { top: 0, right: 0, bottom: 0, left: 0 };
+  }
+};
+
 const loadImageElement = (file) =>
   new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -1175,9 +1201,32 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     const rect =
       typeof videoWrapper?.getBoundingClientRect === 'function' ? videoWrapper.getBoundingClientRect() : null;
-    const baseWidth = rect && Number.isFinite(rect.width) && rect.width > 0 ? rect.width : window.innerWidth || 1;
-    const baseHeight = rect && Number.isFinite(rect.height) && rect.height > 0 ? rect.height : window.innerHeight || 1;
+    const visualViewport = typeof window !== 'undefined' ? window.visualViewport : null;
+    const viewportWidth = Math.max(
+      1,
+      Number.isFinite(visualViewport?.width) && visualViewport.width > 0
+        ? visualViewport.width
+        : rect && Number.isFinite(rect.width) && rect.width > 0
+          ? rect.width
+          : window.innerWidth || 1,
+    );
+    const viewportHeight = Math.max(
+      1,
+      Number.isFinite(visualViewport?.height) && visualViewport.height > 0
+        ? visualViewport.height
+        : rect && Number.isFinite(rect.height) && rect.height > 0
+          ? rect.height
+          : window.innerHeight || 1,
+    );
 
+    const safeAreaInsets = readSafeAreaInsets();
+    const safeLeft = Math.max(0, safeAreaInsets.left);
+    const safeRight = Math.max(0, safeAreaInsets.right);
+    const safeTop = Math.max(0, safeAreaInsets.top);
+    const safeBottom = Math.max(0, safeAreaInsets.bottom);
+
+    const baseWidth = viewportWidth;
+    const baseHeight = viewportHeight;
     const baseFrameWidth = Math.max(1, baseWidth + state.widthAdjust);
     const baseFrameHeight = Math.max(1, baseHeight + state.heightAdjust);
 
@@ -1205,13 +1254,18 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       throw error;
     }
 
-    const desiredScale = window.devicePixelRatio && Number.isFinite(window.devicePixelRatio)
-      ? window.devicePixelRatio
-      : 1;
+    const desiredScale =
+      window.devicePixelRatio && Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
     const exportScale = Math.max(1, Math.min(maxScale, desiredScale));
 
-    const canvasWidth = Math.max(1, Math.round(baseWidth * exportScale));
-    const canvasHeight = Math.max(1, Math.round(baseHeight * exportScale));
+    const canvasWidth = Math.max(
+      1,
+      Math.round((Math.max(baseWidth, baseFrameWidth) + safeLeft + safeRight) * exportScale),
+    );
+    const canvasHeight = Math.max(
+      1,
+      Math.round((Math.max(baseHeight, baseFrameHeight) + safeTop + safeBottom) * exportScale),
+    );
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
@@ -1230,8 +1284,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
 
     const exportFrame = {
-      offsetX: Math.round(state.offsetX * exportScale),
-      offsetY: Math.round(state.offsetY * exportScale),
+      offsetX: Math.round((safeLeft + state.offsetX) * exportScale),
+      offsetY: Math.round((safeTop + state.offsetY) * exportScale),
       width: Math.max(1, Math.round(baseFrameWidth * exportScale)),
       height: Math.max(1, Math.round(baseFrameHeight * exportScale)),
     };
