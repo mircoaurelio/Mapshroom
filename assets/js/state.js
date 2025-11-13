@@ -2,7 +2,6 @@ const MIN_VISIBLE_SIZE = 80;
 
 export const createState = (precisionRangeEl) => {
   const initialPrecision = Number(precisionRangeEl.value);
-  const videoSignatures = new Set();
 
   const state = {
     MIN_VISIBLE_SIZE,
@@ -13,12 +12,12 @@ export const createState = (precisionRangeEl) => {
     precision: Number.isNaN(initialPrecision) ? 10 : initialPrecision,
     overlayActive: false,
     hasVideo: false,
-    videos: [],
-    activeVideoId: null,
     timelineOpen: false,
-    randomEnabled: false,
+    playlist: [],
+    currentIndex: -1,
+    randomPlay: false,
     fadeEnabled: false,
-    fadeDuration: 500,
+    fadeDuration: 1.5,
   };
 
   const resetTransform = () => {
@@ -38,46 +37,30 @@ export const createState = (precisionRangeEl) => {
 
   const setHasVideo = (value) => {
     state.hasVideo = value;
-    if (!value) {
-      state.activeVideoId = null;
-    }
-  };
-
-  const addVideos = (videos) => {
-    const added = [];
-    videos.forEach((video) => {
-      const signature = video.signature;
-      if (signature && videoSignatures.has(signature)) {
-        return;
-      }
-      if (signature) {
-        videoSignatures.add(signature);
-      }
-
-      state.videos.push(video);
-      added.push(video);
-    });
-    return added;
-  };
-
-  const setActiveVideoId = (id) => {
-    state.activeVideoId = id;
   };
 
   const setTimelineOpen = (open) => {
     state.timelineOpen = open;
   };
 
-  const setRandomEnabled = (enabled) => {
-    state.randomEnabled = enabled;
+  const setPlaylist = (items) => {
+    state.playlist = items;
   };
 
-  const setFadeEnabled = (enabled) => {
-    state.fadeEnabled = enabled;
+  const setCurrentIndex = (index) => {
+    state.currentIndex = index;
   };
 
-  const setFadeDuration = (duration) => {
-    state.fadeDuration = duration;
+  const setRandomPlay = (value) => {
+    state.randomPlay = value;
+  };
+
+  const setFadeEnabled = (value) => {
+    state.fadeEnabled = value;
+  };
+
+  const setFadeDuration = (value) => {
+    state.fadeDuration = value;
   };
 
   return {
@@ -86,10 +69,10 @@ export const createState = (precisionRangeEl) => {
     updatePrecision,
     setOverlayActive,
     setHasVideo,
-    addVideos,
-    setActiveVideoId,
     setTimelineOpen,
-    setRandomEnabled,
+    setPlaylist,
+    setCurrentIndex,
+    setRandomPlay,
     setFadeEnabled,
     setFadeDuration,
   };
