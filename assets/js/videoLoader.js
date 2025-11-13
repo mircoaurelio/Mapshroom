@@ -25,43 +25,62 @@ const setupGridOverlayListeners = (gridOverlay, handler) => {
 
 const waitForFirstFrame = (video, url, onReady) =>
   new Promise((resolve) => {
+    let resolved = false;
+    let fallbackTimer;
+
     const cleanup = () => {
-      video.removeEventListener('loadeddata', onLoadedData);
-      video.removeEventListener('error', onError);
+      ['loadeddata', 'loadedmetadata', 'canplay', 'canplaythrough'].forEach((eventName) =>
+        video.removeEventListener(eventName, handleReady)
+      );
+      video.removeEventListener('error', handleError);
+      if (fallbackTimer) {
+        clearTimeout(fallbackTimer);
+      }
     };
 
-    const ensureFrame = () => {
-      video.pause();
+    const finalize = () => {
+      if (resolved) {
+        return;
+      }
+
+      resolved = true;
+      cleanup();
+
+      try {
+        video.pause();
+        if (video.readyState >= HTMLMediaElement.HAVE_METADATA && video.currentTime !== 0) {
+          video.currentTime = 0;
+        }
+      } catch (seekError) {
+        console.warn('Unable to reset video to start:', seekError);
+      }
+
       onReady();
       resolve();
     };
 
-    const onLoadedData = () => {
-      cleanup();
-      video.currentTime = 0;
-
-      const onSeeked = () => {
-        video.removeEventListener('seeked', onSeeked);
-        ensureFrame();
-      };
-
-      if (video.readyState >= 2) {
-        video.addEventListener('seeked', onSeeked, { once: true });
-        video.currentTime = 0.0001;
-      } else {
-        ensureFrame();
-      }
+    const handleReady = () => {
+      finalize();
     };
 
-    const onError = (error) => {
+    const handleError = (error) => {
       cleanup();
       alert('Unable to load this video.');
       console.error(error);
-      URL.revokeObjectURL(url);
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
     };
 
-    video.addEventListener('loadeddata', onLoadedData, { once: true });
-    video.addEventListener('error', onError, { once: true });
+    ['loadeddata', 'loadedmetadata', 'canplay', 'canplaythrough'].forEach((eventName) =>
+      video.addEventListener(eventName, handleReady, { once: true })
+    );
+    video.addEventListener('error', handleError, { once: true });
+
+    fallbackTimer = setTimeout(() => {
+      console.warn('Timed out waiting for first frame; proceeding regardless.');
+      finalize();
+    }, 4000);
   });
 
 const attachPrecisionControl = (precisionRange, controller) => {
