@@ -1,7 +1,7 @@
 import { getDomElements } from './domRefs.js';
 import { createState } from './state.js';
 import { createTransformController } from './interactions.js';
-import { saveVideoBlob, readVideoBlob, pruneVideoStore, canPersistVideos } from './storage.js';
+import { loadPersistedData, saveTransformState, saveOptionsState, savePlaylistMetadata, persistVideoFile } from './storage.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -118,7 +118,7 @@ const setToggleState = (button, active) => {
 
 const formatDurationSeconds = (value) => `${value.toFixed(1)}s`;
 
-const createPlaylistController = ({ elements, controller, store }) => {
+const createPlaylistController = ({ elements, controller, store, persistence, initialItems = [], initialIndex = -1 }) => {
   const {
     fileInput,
     video,
@@ -142,32 +142,8 @@ const createPlaylistController = ({ elements, controller, store }) => {
     setTimelineOpen,
   } = store;
 
-  const playlist = [];
-  const urlRegistry = new Set();
-  const persistedIds = new Set(
-    Array.isArray(state.playlist)
-      ? state.playlist
-          .map((item) => (item && typeof item.id === 'string' ? item.id : null))
-          .filter((id) => id)
-      : [],
-  );
-  const syncStoredPlaylistMetadata = () => {
-    const metadata = playlist
-      .filter((item) => persistedIds.has(item.id))
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        type: item.type,
-      }));
-
-    setPlaylist(metadata);
-
-    if (!metadata.length && state.currentIndex !== -1) {
-      setCurrentIndex(-1);
-    } else if (metadata.length && (state.currentIndex < -1 || state.currentIndex >= metadata.length)) {
-      setCurrentIndex(Math.max(0, metadata.length - 1));
-    }
-  };
+  const playlist = [...initialItems.map((item) => ({ ...item }))];
+  const urlRegistry = new Set(playlist.map((item) => item.url).filter(Boolean));
   let loadToken = 0;
   let pendingFade = false;
   let overlayWasActive = false;
@@ -201,82 +177,6 @@ const createPlaylistController = ({ elements, controller, store }) => {
 
     if (open) {
       timelinePanel.focus();
-    }
-  };
-
-  const restorePlaylistFromStorage = async () => {
-    const metadata = Array.isArray(state.playlist) ? state.playlist : [];
-
-    if (!metadata.length) {
-      return;
-    }
-
-    if (!canPersistVideos()) {
-      console.warn('Video persistence is not available; clearing stored playlist metadata.');
-      setPlaylist([]);
-      setCurrentIndex(-1);
-      persistedIds.clear();
-      return;
-    }
-
-    const restoredItems = [];
-
-    for (const entry of metadata) {
-      if (!entry || typeof entry.id !== 'string') {
-        continue;
-      }
-
-      try {
-        const record = await readVideoBlob(entry.id);
-        if (!record || !record.blob) {
-          console.warn(`No stored data found for video "${entry.name || entry.id}".`);
-          persistedIds.delete(entry.id);
-          continue;
-        }
-
-        const objectUrl = URL.createObjectURL(record.blob);
-        urlRegistry.add(objectUrl);
-
-        restoredItems.push({
-          id: entry.id,
-          name: entry.name || record.name || 'Video',
-          type: entry.type || record.type,
-          url: objectUrl,
-        });
-
-        persistedIds.add(entry.id);
-      } catch (error) {
-        console.warn(`Unable to restore video "${entry.name || entry.id}" from persistence.`, error);
-        persistedIds.delete(entry.id);
-      }
-    }
-
-    if (!restoredItems.length) {
-      setPlaylist([]);
-      setCurrentIndex(-1);
-      persistedIds.clear();
-      return;
-    }
-
-    playlist.splice(0, playlist.length, ...restoredItems);
-    syncStoredPlaylistMetadata();
-    renderTimelineGrid();
-
-    try {
-      await pruneVideoStore(persistedIds);
-    } catch (error) {
-      console.warn('Unable to prune stale videos from persistence.', error);
-    }
-
-    const indexToLoad =
-      state.currentIndex >= 0 && state.currentIndex < playlist.length ? state.currentIndex : 0;
-
-    try {
-      await loadVideoAtIndex(indexToLoad, { preserveTransform: true, preserveOverlay: true });
-      controller.handleOverlayState(state.overlayActive, { toggleUI: true });
-      controller.updateTransform();
-    } catch (error) {
-      console.warn('Failed to load persisted video after restoration.', error);
     }
   };
 
@@ -336,10 +236,25 @@ const createPlaylistController = ({ elements, controller, store }) => {
     updateActiveTiles();
   };
 
-  const loadVideoAtIndex = async (
-    index,
-    { autoplay = false, preserveTransform = false, preserveOverlay = false } = {},
-  ) => {
+  const persistPlaylist = () => {
+    if (persistence && typeof persistence.savePlaylistMetadata === 'function') {
+      persistence.savePlaylistMetadata(playlist);
+    }
+  };
+
+  const persistPlaybackOptions = (partial) => {
+    if (persistence && typeof persistence.savePlaybackOptions === 'function') {
+      persistence.savePlaybackOptions(partial);
+    }
+  };
+
+  const persistCurrentIndex = (index) => {
+    if (persistence && typeof persistence.saveCurrentIndex === 'function') {
+      persistence.saveCurrentIndex(index);
+    }
+  };
+
+  const loadVideoAtIndex = async (index, { autoplay = false } = {}) => {
     const item = playlist[index];
     if (!item) {
       return;
@@ -349,12 +264,8 @@ const createPlaylistController = ({ elements, controller, store }) => {
     pendingFade = state.fadeEnabled;
 
     video.pause();
-    if (!preserveOverlay) {
-      controller.handleOverlayState(false, { toggleUI: false });
-    }
-    if (!preserveTransform) {
-      resetTransform();
-    }
+    controller.handleOverlayState(false, { toggleUI: false });
+    resetTransform();
     controller.updateTransform();
 
     video.src = item.url;
@@ -368,6 +279,7 @@ const createPlaylistController = ({ elements, controller, store }) => {
     }
 
     setCurrentIndex(index);
+    persistCurrentIndex(index);
     updateActiveTiles();
     controller.enableControls(true);
 
@@ -443,48 +355,36 @@ const createPlaylistController = ({ elements, controller, store }) => {
 
     const wasEmpty = playlist.length === 0;
     const now = Date.now();
-    const canStoreVideos = canPersistVideos();
 
-    for (const [indexOffset, file] of files.entries()) {
+    for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+      const file = files[fileIndex];
       const url = URL.createObjectURL(file);
-      const id = `${now}-${indexOffset}-${Math.random().toString(16).slice(2)}`;
       const item = {
-        id,
+        id: `${now}-${fileIndex}-${Math.random().toString(16).slice(2)}`,
         name: file.name,
         url,
         type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
       };
 
       playlist.push(item);
       urlRegistry.add(url);
 
-      if (canStoreVideos) {
-        try {
-          await saveVideoBlob(id, file);
-          persistedIds.add(id);
-        } catch (error) {
-          console.warn(`Unable to persist "${file.name}" for future sessions.`, error);
-          alert(
-            `"${file.name}" will remain available for this session only because it could not be saved locally.`,
-          );
+      if (persistence && typeof persistence.storeVideo === 'function') {
+        // eslint-disable-next-line no-await-in-loop
+        const stored = await persistence.storeVideo(item.id, file);
+        if (!stored) {
+          console.warn('The selected video could not be saved for future sessions.');
         }
       }
     }
 
-    syncStoredPlaylistMetadata();
+    setPlaylist([...playlist]);
     renderTimelineGrid();
+    persistPlaylist();
 
-    if (canStoreVideos && persistedIds.size) {
-      try {
-        await pruneVideoStore(persistedIds);
-      } catch (error) {
-        console.warn('Unable to remove unused persisted videos.', error);
-      }
-    }
-
-    if (wasEmpty && playlist.length) {
-      await loadVideoAtIndex(0);
-    } else if (state.currentIndex === -1 && playlist.length) {
+    if (wasEmpty) {
       await loadVideoAtIndex(0);
     }
 
@@ -500,6 +400,7 @@ const createPlaylistController = ({ elements, controller, store }) => {
     const next = !state.randomPlay;
     setRandomPlay(next);
     setToggleState(randomToggle, next);
+    persistPlaybackOptions({ randomPlay: state.randomPlay });
   };
 
   const handleFadeToggle = () => {
@@ -513,6 +414,8 @@ const createPlaylistController = ({ elements, controller, store }) => {
     } else {
       pendingFade = true;
     }
+
+    persistPlaybackOptions({ fadeEnabled: state.fadeEnabled, fadeDuration: state.fadeDuration });
   };
 
   const handleFadeSliderInput = () => {
@@ -520,6 +423,7 @@ const createPlaylistController = ({ elements, controller, store }) => {
     const nextDuration = Number.isNaN(value) ? state.fadeDuration : value;
     setFadeDuration(nextDuration);
     updateFadeValueDisplay();
+    persistPlaybackOptions({ fadeDuration: state.fadeDuration });
   };
 
   const handleTimelineGridClick = (event) => {
@@ -606,9 +510,14 @@ const createPlaylistController = ({ elements, controller, store }) => {
   renderTimelineGrid();
   applyTimelineVisibility(false);
 
-  restorePlaylistFromStorage().catch((error) => {
-    console.warn('Failed to restore playlist from persistence.', error);
-  });
+  if (playlist.length) {
+    setPlaylist([...playlist]);
+    persistPlaylist();
+    const safeIndex = initialIndex >= 0 && initialIndex < playlist.length ? initialIndex : 0;
+    loadVideoAtIndex(safeIndex).catch((error) => {
+      console.warn('Unable to restore previously selected video.', error);
+    });
+  }
 
   return {
     loadVideoAtIndex,
@@ -712,26 +621,53 @@ const setupZoomPrevention = (() => {
   };
 })();
 
-const init = () => {
+const init = async () => {
   const elements = getDomElements();
-  const store = createState(elements.precisionRange);
-  const controller = createTransformController({ elements, store });
+
+  let persisted = { state: {}, playlist: [] };
+  try {
+    persisted = await loadPersistedData();
+  } catch (error) {
+    console.warn('Unable to load persisted data, continuing with defaults.', error);
+  }
+
+  const persistence = {
+    saveTransform: (state) => saveTransformState(state),
+    savePrecision: (precision) => saveOptionsState({ precision }),
+    savePlaylistMetadata: (items) => savePlaylistMetadata(items),
+    savePlaybackOptions: (options) => saveOptionsState(options),
+    saveCurrentIndex: (index) => saveOptionsState({ currentIndex: index }),
+    storeVideo: (id, file) => persistVideoFile(id, file),
+  };
+
+  const store = createState(elements.precisionRange, persisted.state);
+  const controller = createTransformController({ elements, store, persistence });
 
   elements.video.loop = false;
 
-  elements.precisionRange.value = String(store.state.precision);
   controller.enableControls(false);
   controller.handlePrecisionChange(store.state.precision);
   controller.updateTransform();
   controller.showPreloadUI();
 
   setupGridOverlayListeners(elements.gridOverlay, controller.handleZoneAction);
-  createPlaylistController({ elements, controller, store });
+  createPlaylistController({
+    elements,
+    controller,
+    store,
+    persistence,
+    initialItems: persisted.playlist ?? [],
+    initialIndex: persisted.state?.currentIndex ?? -1,
+  });
   attachPrecisionControl(elements.precisionRange, controller);
   attachControlButtons(elements.playBtn, elements.resetBtn, controller);
   setupVisibilityPause(elements.video);
   setupZoomPrevention();
 };
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch((error) => {
+    console.error('Unable to initialize application.', error);
+  });
+});
 
