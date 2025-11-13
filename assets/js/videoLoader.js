@@ -1178,8 +1178,40 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const baseWidth = rect && Number.isFinite(rect.width) && rect.width > 0 ? rect.width : window.innerWidth || 1;
     const baseHeight = rect && Number.isFinite(rect.height) && rect.height > 0 ? rect.height : window.innerHeight || 1;
 
-    const canvasWidth = Math.max(1, Math.round(baseWidth));
-    const canvasHeight = Math.max(1, Math.round(baseHeight));
+    const baseFrameWidth = Math.max(1, baseWidth + state.widthAdjust);
+    const baseFrameHeight = Math.max(1, baseHeight + state.heightAdjust);
+
+    const preparedItems = [];
+    let maxScale = 1;
+
+    try {
+      for (const item of playableItems) {
+        // eslint-disable-next-line no-await-in-loop
+        const videoEl = await loadVideoElementForExport(item);
+        const naturalWidth =
+          Number.isFinite(videoEl.videoWidth) && videoEl.videoWidth > 0 ? videoEl.videoWidth : baseFrameWidth;
+        const naturalHeight =
+          Number.isFinite(videoEl.videoHeight) && videoEl.videoHeight > 0 ? videoEl.videoHeight : baseFrameHeight;
+        const widthScale = naturalWidth / baseFrameWidth;
+        const heightScale = naturalHeight / baseFrameHeight;
+        const scaleForItem = Math.min(widthScale, heightScale);
+        if (Number.isFinite(scaleForItem) && scaleForItem > maxScale) {
+          maxScale = scaleForItem;
+        }
+        preparedItems.push({ item, videoEl });
+      }
+    } catch (error) {
+      preparedItems.forEach(({ videoEl }) => cleanupExportVideoElement(videoEl));
+      throw error;
+    }
+
+    const desiredScale = window.devicePixelRatio && Number.isFinite(window.devicePixelRatio)
+      ? window.devicePixelRatio
+      : 1;
+    const exportScale = Math.max(1, Math.min(maxScale, desiredScale));
+
+    const canvasWidth = Math.max(1, Math.round(baseWidth * exportScale));
+    const canvasHeight = Math.max(1, Math.round(baseHeight * exportScale));
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasWidth;
@@ -1187,19 +1219,21 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     const context = canvas.getContext('2d');
     if (!context) {
+      preparedItems.forEach(({ videoEl }) => cleanupExportVideoElement(videoEl));
       throw new Error('Unable to prepare drawing surface for export.');
     }
 
     const stream = canvas.captureStream(30);
     if (!stream) {
+      preparedItems.forEach(({ videoEl }) => cleanupExportVideoElement(videoEl));
       throw new Error('Canvas capture stream is not supported in this browser.');
     }
 
     const exportFrame = {
-      offsetX: state.offsetX,
-      offsetY: state.offsetY,
-      width: Math.max(1, canvasWidth + state.widthAdjust),
-      height: Math.max(1, canvasHeight + state.heightAdjust),
+      offsetX: Math.round(state.offsetX * exportScale),
+      offsetY: Math.round(state.offsetY * exportScale),
+      width: Math.max(1, Math.round(baseFrameWidth * exportScale)),
+      height: Math.max(1, Math.round(baseFrameHeight * exportScale)),
     };
 
     return new Promise((resolve, reject) => {
@@ -1224,6 +1258,12 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         settled = true;
         stopDrawing();
         cleanupExportVideoElement(activeVideo);
+        preparedItems.forEach(({ videoEl }) => {
+          if (videoEl !== activeVideo) {
+            cleanupExportVideoElement(videoEl);
+          }
+        });
+        preparedItems.length = 0;
         stream.getTracks().forEach((track) => track.stop());
         if (error) {
           reject(error);
@@ -1286,8 +1326,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
       (async () => {
         try {
-          for (const item of playableItems) {
-            const videoEl = await loadVideoElementForExport(item);
+          for (const { videoEl } of preparedItems) {
             activeVideo = videoEl;
             await playVideoElementForExport(videoEl);
             cleanupExportVideoElement(videoEl);
