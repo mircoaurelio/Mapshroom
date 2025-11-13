@@ -36,8 +36,6 @@ export const toggleVisibility = (element, visible) => {
 
 export const setControlsEnabled = (playBtn, moveBtn, enabled) => {
   playBtn.disabled = !enabled;
-  if (moveBtn) {
-    moveBtn.disabled = !enabled;
-  }
+  moveBtn.disabled = !enabled;
 };
 

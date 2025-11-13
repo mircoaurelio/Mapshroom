@@ -17,6 +17,7 @@ const defaultSettings = () => ({
     fadeEnabled: false,
     fadeDuration: 1.5,
     currentIndex: -1,
+    moveMode: false,
   },
   playlist: [],
 });
@@ -47,6 +48,7 @@ const normalizeSettings = (rawSettings) => {
     fadeEnabled: Boolean(normalized.options?.fadeEnabled),
     fadeDuration: normalizeNumber(normalized.options?.fadeDuration, defaults.options.fadeDuration),
     currentIndex: normalizeNumber(normalized.options?.currentIndex, defaults.options.currentIndex),
+    moveMode: Boolean(normalized.options?.moveMode),
   };
 
   const playlist = Array.isArray(normalized.playlist)
@@ -194,6 +196,22 @@ const storeVideo = async (id, file) => {
   }
 };
 
+const deleteVideo = async (id) => {
+  if (!id) {
+    return false;
+  }
+
+  try {
+    const success = await withStore('readwrite', (store) => {
+      store.delete(id);
+    });
+    return Boolean(success);
+  } catch (error) {
+    console.warn('Unable to delete video from IndexedDB.', error);
+    return false;
+  }
+};
+
 const readVideoBlob = async (id) => {
   if (!id) {
     return null;
@@ -258,6 +276,7 @@ export const loadPersistedData = async () => {
       fadeEnabled: settings.options.fadeEnabled,
       fadeDuration: settings.options.fadeDuration,
       currentIndex: settings.options.currentIndex,
+      moveMode: settings.options.moveMode,
     },
     playlist,
   };
@@ -313,4 +332,5 @@ export const savePlaylistMetadata = (playlist) => {
 };
 
 export const persistVideoFile = storeVideo;
+export const deleteVideoFile = deleteVideo;
 
