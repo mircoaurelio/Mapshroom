@@ -25,62 +25,43 @@ const setupGridOverlayListeners = (gridOverlay, handler) => {
 
 const waitForFirstFrame = (video, url, onReady) =>
   new Promise((resolve) => {
-    let resolved = false;
-    let fallbackTimer;
-
     const cleanup = () => {
-      ['loadeddata', 'loadedmetadata', 'canplay', 'canplaythrough'].forEach((eventName) =>
-        video.removeEventListener(eventName, handleReady)
-      );
-      video.removeEventListener('error', handleError);
-      if (fallbackTimer) {
-        clearTimeout(fallbackTimer);
-      }
+      video.removeEventListener('loadeddata', onLoadedData);
+      video.removeEventListener('error', onError);
     };
 
-    const finalize = () => {
-      if (resolved) {
-        return;
-      }
-
-      resolved = true;
-      cleanup();
-
-      try {
-        video.pause();
-        if (video.readyState >= HTMLMediaElement.HAVE_METADATA && video.currentTime !== 0) {
-          video.currentTime = 0;
-        }
-      } catch (seekError) {
-        console.warn('Unable to reset video to start:', seekError);
-      }
-
+    const ensureFrame = () => {
+      video.pause();
       onReady();
       resolve();
     };
 
-    const handleReady = () => {
-      finalize();
-    };
-
-    const handleError = (error) => {
+    const onLoadedData = () => {
       cleanup();
-      alert('Unable to load this video.');
-      console.error(error);
-      if (url) {
-        URL.revokeObjectURL(url);
+      video.currentTime = 0;
+
+      const onSeeked = () => {
+        video.removeEventListener('seeked', onSeeked);
+        ensureFrame();
+      };
+
+      if (video.readyState >= 2) {
+        video.addEventListener('seeked', onSeeked, { once: true });
+        video.currentTime = 0.0001;
+      } else {
+        ensureFrame();
       }
     };
 
-    ['loadeddata', 'loadedmetadata', 'canplay', 'canplaythrough'].forEach((eventName) =>
-      video.addEventListener(eventName, handleReady, { once: true })
-    );
-    video.addEventListener('error', handleError, { once: true });
+    const onError = (error) => {
+      cleanup();
+      alert('Unable to load this video.');
+      console.error(error);
+      URL.revokeObjectURL(url);
+    };
 
-    fallbackTimer = setTimeout(() => {
-      console.warn('Timed out waiting for first frame; proceeding regardless.');
-      finalize();
-    }, 4000);
+    video.addEventListener('loadeddata', onLoadedData, { once: true });
+    video.addEventListener('error', onError, { once: true });
   });
 
 const attachPrecisionControl = (precisionRange, controller) => {
@@ -117,15 +98,19 @@ const setupVisibilityPause = (video) => {
 };
 
 const init = () => {
-  const elements = getDomElements();
+  const { base: baseElements, timeline } = getDomElements();
+  const elements = baseElements;
   const store = createState(elements.precisionRange);
   const controller = createTransformController({ elements, store });
-  createTimelineController({
-    elements,
-    store,
-    controller,
-    waitForFirstFrame,
-  });
+
+  if (timeline) {
+    createTimelineController({
+      elements: { ...elements, ...timeline },
+      store,
+      controller,
+      waitForFirstFrame,
+    });
+  }
 
   elements.video.loop = false;
   ensureIOSInlineSupport(elements.video);
