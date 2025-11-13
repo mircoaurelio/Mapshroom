@@ -12,11 +12,6 @@ export const createState = (precisionRangeEl) => {
     precision: Number.isNaN(initialPrecision) ? 10 : initialPrecision,
     overlayActive: false,
     hasVideo: false,
-    playlist: [],
-    currentIndex: -1,
-    randomPlayback: false,
-    fadeInEnabled: false,
-    fadeInDuration: 800,
   };
 
   const resetTransform = () => {
@@ -38,43 +33,12 @@ export const createState = (precisionRangeEl) => {
     state.hasVideo = value;
   };
 
-  const addToPlaylist = (entries) => {
-    state.playlist = [...state.playlist, ...entries];
-  };
-
-  const clearPlaylist = () => {
-    state.playlist = [];
-    state.currentIndex = -1;
-  };
-
-  const setCurrentIndex = (index) => {
-    state.currentIndex = index;
-  };
-
-  const setRandomPlayback = (value) => {
-    state.randomPlayback = value;
-  };
-
-  const setFadeInEnabled = (value) => {
-    state.fadeInEnabled = value;
-  };
-
-  const setFadeInDuration = (value) => {
-    state.fadeInDuration = value;
-  };
-
   return {
     state,
     resetTransform,
     updatePrecision,
     setOverlayActive,
     setHasVideo,
-    addToPlaylist,
-    clearPlaylist,
-    setCurrentIndex,
-    setRandomPlayback,
-    setFadeInEnabled,
-    setFadeInDuration,
   };
 };
 
