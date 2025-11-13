@@ -1,15 +1,5 @@
+const RUNWAY_API_BASE = 'https://api.dev.runwayml.com/v1';
 const RUNWAY_API_VERSION = '2024-11-06';
-
-const resolveProxyBase = () => {
-  const metaValue = document.querySelector('meta[name="runway-proxy-base"]')?.content?.trim();
-  if (metaValue) {
-    return metaValue.endsWith('/') ? metaValue.slice(0, -1) : metaValue;
-  }
-  return '/proxy';
-};
-
-const RUNWAY_PROXY_BASE = resolveProxyBase();
-const RUNWAY_API_BASE = RUNWAY_PROXY_BASE + '/v1';
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_ATTEMPTS = 60;
 const DATA_URI_LIMIT_BYTES = 16 * 1024 * 1024;
@@ -38,18 +28,11 @@ const normalizeModel = (selectEl, fallback) => {
   return options.includes(fallback) ? fallback : options[0];
 };
 
-const makeRunwayHeaders = (apiKey, { contentType = 'application/json' } = {}) => {
-  const headers = {
-    'X-Runway-Api-Key': apiKey,
-    'X-Runway-Version': RUNWAY_API_VERSION,
-  };
-
-  if (contentType) {
-    headers['Content-Type'] = contentType;
-  }
-
-  return headers;
-};
+const makeRunwayHeaders = (apiKey) => ({
+  Authorization: `Bearer ${apiKey}`,
+  'X-Runway-Version': RUNWAY_API_VERSION,
+  'Content-Type': 'application/json',
+});
 
 const fetchJson = async (url, { headers = {}, ...options } = {}) => {
   const response = await fetch(url, {
@@ -169,7 +152,7 @@ const pollRunwayTask = async (taskId, apiKey, setStatus) => {
 
     const task = await fetchJson(`${RUNWAY_API_BASE}/tasks/${taskId}`, {
       method: 'GET',
-      headers: makeRunwayHeaders(apiKey, { contentType: null }),
+      headers: makeRunwayHeaders(apiKey),
     });
 
     const status = (task?.status || '').toUpperCase();
@@ -282,7 +265,7 @@ export const createAiController = ({
 
   const clearStatus = () => setStatus('');
 
-  const updateResultsToggleLabel = ({ toggleEl, expanded, count }) => {
+const updateResultsToggleLabel = ({ toggleEl, expanded, count }) => {
   if (!toggleEl) {
     return;
   }
@@ -938,6 +921,5 @@ updateResultsVisibility(false);
     },
   };
 };
-
 
 
