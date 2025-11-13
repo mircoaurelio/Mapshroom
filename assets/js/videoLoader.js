@@ -1,6 +1,7 @@
 import { getDomElements } from './domRefs.js';
 import { createState } from './state.js';
 import { createTransformController } from './interactions.js';
+import { createTimelineController } from './timelineController.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -63,27 +64,6 @@ const waitForFirstFrame = (video, url, onReady) =>
     video.addEventListener('error', onError, { once: true });
   });
 
-const attachFilePicker = (fileInput, video, controller) => {
-  fileInput.addEventListener('change', async (event) => {
-    const files = event.target && event.target.files;
-    const file = files && files[0];
-    if (!file) {
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
-    video.src = url;
-    video.pause();
-    controller.enableControls(false);
-    controller.handleOverlayState(false);
-    controller.updateTransform();
-
-    await waitForFirstFrame(video, url, () => {
-      controller.enableControls(true);
-    });
-  });
-};
-
 const attachPrecisionControl = (precisionRange, controller) => {
   precisionRange.addEventListener('input', () => {
     const nextPrecision = Number(precisionRange.value);
@@ -108,8 +88,14 @@ const init = () => {
   const elements = getDomElements();
   const store = createState(elements.precisionRange);
   const controller = createTransformController({ elements, store });
+  createTimelineController({
+    elements,
+    store,
+    controller,
+    waitForFirstFrame,
+  });
 
-  elements.video.loop = true;
+  elements.video.loop = false;
 
   controller.enableControls(false);
   controller.handlePrecisionChange(store.state.precision);
@@ -117,7 +103,6 @@ const init = () => {
   controller.showPreloadUI();
 
   setupGridOverlayListeners(elements.gridOverlay, controller.handleZoneAction);
-  attachFilePicker(elements.fileInput, elements.video, controller);
   attachPrecisionControl(elements.precisionRange, controller);
   attachControlButtons(elements.playBtn, elements.resetBtn, controller);
   setupVisibilityPause(elements.video);
