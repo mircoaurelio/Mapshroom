@@ -46,7 +46,6 @@ export const getDomElements = () => {
     video,
     playBtn,
     moveBtn,
-    moveBtn,
     timelineBtn,
     timelinePanel,
     timelineGrid,
