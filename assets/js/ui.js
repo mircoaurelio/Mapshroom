@@ -21,10 +21,6 @@ export const updateTransformStyles = ({ offsetX, offsetY, widthAdjust, heightAdj
   applyInlineTransform(video, { offsetX, offsetY, widthAdjust, heightAdjust });
 };
 
-export const updatePrecisionDisplay = (precisionValueEl, precision) => {
-  precisionValueEl.textContent = `${precision}px`;
-};
-
 export const toggleOverlayDisplay = (gridOverlay, active) => {
   gridOverlay.classList.toggle('overlay-disabled', !active);
 };
