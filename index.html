@@ -34,6 +34,21 @@
       </div>
     </section>
 
+    <aside id="timeline-panel" class="concealed" aria-hidden="true" tabindex="-1">
+      <div class="timeline-controls">
+        <div class="toggle-group">
+          <button id="randomToggle" class="toggle-button" type="button" aria-pressed="false">Random</button>
+          <button id="fadeToggle" class="toggle-button" type="button" aria-pressed="false">Fade In</button>
+        </div>
+        <label class="fade-slider">
+          <span>Fade Duration</span>
+          <input id="fadeSlider" type="range" min="0" max="5" step="0.1" value="1.5" />
+          <span id="fadeValue">1.5s</span>
+        </label>
+      </div>
+      <div id="timelineGrid" class="timeline-grid" role="list"></div>
+    </aside>
+
     <section id="precision-control" class="concealed">
       <span>Step</span>
       <input id="precisionRange" type="range" min="1" max="20" value="10" />
@@ -44,16 +59,6 @@
   <footer class="app-footer">
     <div class="controls">
       <button
-        id="timelineBtn"
-        class="icon-button"
-        disabled
-        aria-label="Open timeline panel"
-        aria-expanded="false"
-        aria-controls="timeline-panel"
-      >
-        <img src="assets/icons/film.svg" alt="" role="presentation" />
-      </button>
-      <button
         id="playBtn"
         class="icon-button"
         disabled
@@ -63,43 +68,14 @@
       >
         <img src="assets/icons/play.svg" alt="" role="presentation" data-play="assets/icons/play.svg" data-pause="assets/icons/pause.svg" />
       </button>
+      <button id="timelineBtn" class="icon-button" aria-label="Open timeline" disabled>
+        <img src="assets/icons/film.svg" alt="" role="presentation" />
+      </button>
       <button id="resetBtn" class="icon-button" disabled aria-label="Reset video">
         <img src="assets/icons/reset.svg" alt="" role="presentation" />
       </button>
     </div>
   </footer>
-
-  <section
-    id="timeline-panel"
-    class="timeline-panel concealed"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="timelineTitle"
-    tabindex="-1"
-  >
-    <div class="timeline-content">
-      <header class="timeline-header">
-        <h2 id="timelineTitle">Timeline</h2>
-        <div class="timeline-actions">
-          <button id="randomToggle" type="button" class="chip-toggle" aria-pressed="false">Random</button>
-          <button id="fadeToggle" type="button" class="chip-toggle" aria-pressed="false">Fade In</button>
-          <div class="fade-control">
-            <label for="fadeRange">Fade Duration</label>
-            <input id="fadeRange" type="range" min="0" max="3000" step="100" value="500" disabled />
-            <span id="fadeValue" class="fade-value">0.5s</span>
-          </div>
-        </div>
-      </header>
-      <div
-        id="timelineGrid"
-        class="timeline-grid"
-        role="list"
-        aria-live="polite"
-        aria-label="Loaded videos"
-        data-empty="true"
-      ></div>
-    </div>
-  </section>
 
   <script type="module" src="assets/js/videoLoader.js"></script>
 </body>

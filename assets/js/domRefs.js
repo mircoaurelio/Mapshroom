@@ -3,38 +3,38 @@ export const getDomElements = () => {
   const video = document.getElementById('video');
   const playBtn = document.getElementById('playBtn');
   const resetBtn = document.getElementById('resetBtn');
+  const timelineBtn = document.getElementById('timelineBtn');
+  const timelinePanel = document.getElementById('timeline-panel');
+  const timelineGrid = document.getElementById('timelineGrid');
+  const randomToggle = document.getElementById('randomToggle');
+  const fadeToggle = document.getElementById('fadeToggle');
+  const fadeSlider = document.getElementById('fadeSlider');
+  const fadeValue = document.getElementById('fadeValue');
   const gridOverlay = document.getElementById('grid-overlay');
   const precisionControl = document.getElementById('precision-control');
   const precisionRange = document.getElementById('precisionRange');
   const precisionValue = document.getElementById('precisionValue');
   const chooseLabel = document.querySelector('label.picker');
   const controls = document.querySelector('.controls');
-  const timelineBtn = document.getElementById('timelineBtn');
-  const timelinePanel = document.getElementById('timeline-panel');
-  const timelineGrid = document.getElementById('timelineGrid');
-  const randomToggle = document.getElementById('randomToggle');
-  const fadeToggle = document.getElementById('fadeToggle');
-  const fadeRange = document.getElementById('fadeRange');
-  const fadeValue = document.getElementById('fadeValue');
 
   if (
     !fileInput ||
     !video ||
     !playBtn ||
     !resetBtn ||
-    !gridOverlay ||
-    !precisionControl ||
-    !precisionRange ||
-    !precisionValue ||
-    !chooseLabel ||
-    !controls ||
     !timelineBtn ||
     !timelinePanel ||
     !timelineGrid ||
     !randomToggle ||
     !fadeToggle ||
-    !fadeRange ||
-    !fadeValue
+    !fadeSlider ||
+    !fadeValue ||
+    !gridOverlay ||
+    !precisionControl ||
+    !precisionRange ||
+    !precisionValue ||
+    !chooseLabel ||
+    !controls
   ) {
     throw new Error('Missing expected DOM elements.');
   }
@@ -44,19 +44,19 @@ export const getDomElements = () => {
     video,
     playBtn,
     resetBtn,
+    timelineBtn,
+    timelinePanel,
+    timelineGrid,
+    randomToggle,
+    fadeToggle,
+    fadeSlider,
+    fadeValue,
     gridOverlay,
     precisionControl,
     precisionRange,
     precisionValue,
     chooseLabel,
     controls,
-    timelineBtn,
-    timelinePanel,
-    timelineGrid,
-    randomToggle,
-    fadeToggle,
-    fadeRange,
-    fadeValue,
   };
 };
 
