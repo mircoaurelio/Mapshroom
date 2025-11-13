@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Mapshroom Pocket</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <link rel="stylesheet" href="assets/css/ios.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
 </head>
@@ -31,7 +31,7 @@
       </div>
     </section>
 
-    <section id="precision-control" class="hidden">
+    <section id="precision-control" class="concealed">
       <span>Step</span>
       <input id="precisionRange" type="range" min="1" max="20" value="10" />
       <span id="precisionValue">10px</span>
@@ -40,8 +40,19 @@
 
   <footer class="app-footer">
     <div class="controls">
-      <button id="playBtn" class="icon-button" disabled aria-label="Play video">play_circle</button>
-      <button id="resetBtn" class="icon-button" disabled aria-label="Reset video">restart_alt</button>
+      <button
+        id="playBtn"
+        class="icon-button"
+        disabled
+        aria-label="Play video"
+        data-icon-play="assets/icons/play.svg"
+        data-icon-pause="assets/icons/pause.svg"
+      >
+        <img src="assets/icons/play.svg" alt="" role="presentation" data-play="assets/icons/play.svg" data-pause="assets/icons/pause.svg" />
+      </button>
+      <button id="resetBtn" class="icon-button" disabled aria-label="Reset video">
+        <img src="assets/icons/reset.svg" alt="" role="presentation" />
+      </button>
     </div>
   </footer>
 
