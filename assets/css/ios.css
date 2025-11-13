@@ -1,0 +1,168 @@
+:root {
+  --offset-x: 0px;
+  --offset-y: 0px;
+  --width-adjust: 0px;
+  --height-adjust: 0px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  background: #111;
+  color: #eee;
+  overflow: hidden;
+}
+
+#video-wrapper {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+video {
+  width: calc(100vw + var(--width-adjust));
+  height: calc(100vh + var(--height-adjust));
+  display: block;
+  object-fit: fill;
+  transform: translate(var(--offset-x), var(--offset-y));
+  transform-origin: center;
+  background: #000;
+}
+
+#grid-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.grid-zone {
+  background: transparent;
+  border: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+
+#grid-overlay.overlay-disabled .grid-zone {
+  pointer-events: none;
+}
+
+#grid-overlay.overlay-disabled .grid-zone[data-action='toggle-overlay'] {
+  pointer-events: auto;
+}
+
+label.picker {
+  position: fixed;
+  top: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+#precision-control {
+  position: fixed;
+  bottom: 6.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  z-index: 10;
+  backdrop-filter: blur(6px);
+}
+
+#precision-control span {
+  min-width: 48px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+#precision-control input[type='range'] {
+  width: 220px;
+}
+
+.controls {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.75rem;
+  z-index: 10;
+}
+
+button {
+  background: transparent;
+  color: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  font-size: 1rem;
+  min-width: 64px;
+  text-align: center;
+}
+
+.icon-button {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(128, 128, 128, 0.5);
+}
+
+.icon-button img {
+  width: 36px;
+  height: 36px;
+  display: block;
+}
+
+label.picker {
+  background: #1f88ff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  font-size: 1rem;
+  min-width: 64px;
+  text-align: center;
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+input[type='file'] {
+  display: none;
+}
+
+.hidden {
+  display: none;
+}
+
+#precision-control.hidden {
+  display: none;
+}
+
+.concealed {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
