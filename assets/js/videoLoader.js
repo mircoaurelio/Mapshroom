@@ -24,32 +24,73 @@ const setupGridOverlayListeners = (gridOverlay, handler) => {
 
 const waitForFirstFrame = (video, url, onReady) =>
   new Promise((resolve) => {
-    const cleanup = () => {
-      video.removeEventListener('loadeddata', onLoadedData);
-      video.removeEventListener('error', onError);
-    };
+    let resolved = false;
+    let timeoutId = null;
 
-    const ensureFrame = () => {
-      video.pause();
+    const finish = () => {
+      if (resolved) {
+        return;
+      }
+
+      resolved = true;
+      cleanup();
+
+      try {
+        video.pause();
+      } catch (error) {
+        console.debug('Unable to pause video before showing the first frame.', error);
+      }
+
       onReady();
       resolve();
     };
 
-    const onLoadedData = () => {
-      cleanup();
-      video.currentTime = 0;
+    const cleanup = () => {
+      video.removeEventListener('loadeddata', onLoadedData);
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('canplay', onCanPlay);
+      video.removeEventListener('error', onError);
 
-      const onSeeked = () => {
-        video.removeEventListener('seeked', onSeeked);
-        ensureFrame();
-      };
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const trySeekToStart = () => {
+      if (resolved) {
+        return;
+      }
 
       if (video.readyState >= 2) {
-        video.addEventListener('seeked', onSeeked, { once: true });
-        video.currentTime = 0.0001;
-      } else {
-        ensureFrame();
+        const onSeeked = () => {
+          video.removeEventListener('seeked', onSeeked);
+          finish();
+        };
+
+        try {
+          video.addEventListener('seeked', onSeeked, { once: true });
+          video.currentTime = 0.0001;
+          return;
+        } catch (error) {
+          console.warn('Unable to pre-seek the first frame, continuing without it.', error);
+          video.removeEventListener('seeked', onSeeked);
+        }
       }
+
+      finish();
+    };
+
+    const onLoadedData = () => {
+      trySeekToStart();
+    };
+
+    const onLoadedMetadata = () => {
+      trySeekToStart();
+    };
+
+    const onCanPlay = () => {
+      trySeekToStart();
     };
 
     const onError = (error) => {
@@ -59,11 +100,27 @@ const waitForFirstFrame = (video, url, onReady) =>
       URL.revokeObjectURL(url);
     };
 
+    timeoutId = window.setTimeout(() => {
+      console.warn('Timed out waiting for the first frame, enabling controls anyway.');
+      finish();
+    }, 5000);
+
     video.addEventListener('loadeddata', onLoadedData, { once: true });
+    video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+    video.addEventListener('canplay', onCanPlay, { once: true });
     video.addEventListener('error', onError, { once: true });
   });
 
 const attachFilePicker = (fileInput, video, controller) => {
+  let activeUrl = null;
+
+  const revokeActiveUrl = () => {
+    if (activeUrl) {
+      URL.revokeObjectURL(activeUrl);
+      activeUrl = null;
+    }
+  };
+
   fileInput.addEventListener('change', async (event) => {
     const files = event.target && event.target.files;
     const file = files && files[0];
@@ -71,8 +128,13 @@ const attachFilePicker = (fileInput, video, controller) => {
       return;
     }
 
+    revokeActiveUrl();
+
     const url = URL.createObjectURL(file);
+    activeUrl = url;
+
     video.src = url;
+    video.load();
     video.pause();
     controller.enableControls(false);
     controller.handleOverlayState(false);
@@ -81,6 +143,8 @@ const attachFilePicker = (fileInput, video, controller) => {
     await waitForFirstFrame(video, url, () => {
       controller.enableControls(true);
     });
+
+    fileInput.value = '';
   });
 };
 
