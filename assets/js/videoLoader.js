@@ -157,6 +157,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   let overlayWasActive = false;
   const thumbnailCache = new Map();
   const videoElements = new Map();
+  const videoReadyPromises = new Map();
   let activeVideoElement = null;
   let crossfadeWatcherVideo = null;
   let crossfadeMonitorId = null;
@@ -190,6 +191,42 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
   configureVideoElement(video);
   ensureVideoIsAttached(video);
+
+  const ensureVideoReady = (item, videoEl, { eager = false } = {}) => {
+    if (!videoEl || !item?.url) {
+      return Promise.resolve();
+    }
+
+    if (videoEl.readyState >= 2) {
+      return Promise.resolve();
+    }
+
+    const cacheKey = item?.id || item?.url;
+    const existing = videoReadyPromises.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
+
+    if (eager && videoEl.preload !== 'auto') {
+      videoEl.preload = 'auto';
+      try {
+        videoEl.load();
+      } catch (error) {
+        console.debug('Unable to trigger eager load for video.', error);
+      }
+    }
+
+    const promise = waitForFirstFrame(videoEl, item.url, () => {})
+      .catch((error) => {
+        console.debug('Failed to prepare first frame for video.', error);
+      })
+      .finally(() => {
+        videoReadyPromises.delete(cacheKey);
+      });
+
+    videoReadyPromises.set(cacheKey, promise);
+    return promise;
+  };
 
 
   const pauseAndResetVideo = (videoEl) => {
@@ -279,6 +316,10 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       }
     }
 
+    if (eager) {
+      ensureVideoReady(item, videoEl, { eager: true }).catch(() => {});
+    }
+
     return videoEl;
   };
 
@@ -362,7 +403,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     const upcomingItem = playlist[upcomingIndex];
     if (upcomingItem) {
-      prepareVideoElementForItem(upcomingItem, { eager: true });
+      const videoEl = prepareVideoElementForItem(upcomingItem, { eager: true });
+      ensureVideoReady(upcomingItem, videoEl, { eager: true }).catch(() => {});
     }
   };
 
@@ -640,34 +682,15 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
 
     if (waitForReady) {
-      await waitForFirstFrame(nextVideo, item.url, () => {});
-      try {
-        nextVideo.currentTime = 0;
-      } catch (error) {
-        console.debug('Unable to reset currentTime after preloading.', error);
-      }
+      await ensureVideoReady(item, nextVideo, { eager: true });
     } else {
-      if (nextVideo.readyState >= 1) {
-        try {
-          nextVideo.currentTime = 0;
-        } catch (error) {
-          console.debug('Unable to reset currentTime for prefetched video.', error);
-        }
-      } else {
-        const handleReady = () => {
-          try {
-            nextVideo.currentTime = 0;
-          } catch (error) {
-            console.debug('Unable to reset currentTime after metadata.', error);
-          }
-        };
-        nextVideo.addEventListener('loadedmetadata', handleReady, { once: true });
-        try {
-          nextVideo.load();
-        } catch (error) {
-          console.debug('Unable to trigger load for prefetched video.', error);
-        }
-      }
+      ensureVideoReady(item, nextVideo, { eager: true }).catch(() => {});
+    }
+
+    try {
+      nextVideo.currentTime = 0;
+    } catch (error) {
+      console.debug('Unable to reset currentTime after preparation.', error);
     }
     ensureThumbnail(item).catch(() => {});
 
@@ -745,6 +768,10 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         removedVideoEl.removeEventListener('ended', handleVideoEnded);
         videoElements.delete(removed.id);
       }
+      videoReadyPromises.delete(removed.id);
+    }
+    if (removed?.url) {
+      videoReadyPromises.delete(removed.url);
     }
 
     if (persistence && typeof persistence.deleteVideo === 'function' && removed?.id) {
@@ -956,6 +983,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
 
     persistPlaybackOptions({ fadeEnabled: state.fadeEnabled, fadeDuration: state.fadeDuration });
+    preloadUpcomingVideo();
     rescheduleCrossfadeWatcher();
   };
 
@@ -965,6 +993,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     setFadeDuration(nextDuration);
     updateFadeValueDisplay();
     persistPlaybackOptions({ fadeDuration: state.fadeDuration });
+    preloadUpcomingVideo();
     rescheduleCrossfadeWatcher();
   };
 
@@ -1019,12 +1048,14 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     });
     videoElements.clear();
     activeVideoElement = null;
+    upcomingIndexCache = null;
     delete video.dataset.sourceId;
     delete video.dataset.objectUrl;
     video.dataset.active = 'false';
     video.style.opacity = '0';
     video.style.pointerEvents = 'none';
     video.style.zIndex = '1';
+    videoReadyPromises.clear();
     thumbnailCache.clear();
     urlRegistry.forEach((url) => {
       URL.revokeObjectURL(url);
