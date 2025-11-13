@@ -19,6 +19,14 @@ const defaultSettings = () => ({
     currentIndex: -1,
     moveMode: false,
   },
+  ai: {
+    runwayApiKey: '',
+    preferredModel: 'gen4_aleph',
+    preferredRatio: '1280:720',
+    useEphemeralUploads: true,
+    primaryVideoId: '',
+    seed: null,
+  },
   playlist: [],
 });
 
@@ -26,6 +34,8 @@ let cachedSettings = null;
 let dbPromise = null;
 
 const normalizeNumber = (value, fallback) => (typeof value === 'number' && Number.isFinite(value) ? value : fallback);
+
+const normalizeString = (value, fallback = '') => (typeof value === 'string' ? value : fallback);
 
 const normalizeSettings = (rawSettings) => {
   if (!rawSettings || typeof rawSettings !== 'object') {
@@ -49,6 +59,20 @@ const normalizeSettings = (rawSettings) => {
     fadeDuration: normalizeNumber(normalized.options?.fadeDuration, defaults.options.fadeDuration),
     currentIndex: normalizeNumber(normalized.options?.currentIndex, defaults.options.currentIndex),
     moveMode: Boolean(normalized.options?.moveMode),
+  };
+
+  const ai = {
+    runwayApiKey: normalizeString(normalized.ai?.runwayApiKey, defaults.ai.runwayApiKey),
+    preferredModel: normalizeString(normalized.ai?.preferredModel, defaults.ai.preferredModel) || defaults.ai.preferredModel,
+    preferredRatio: normalizeString(normalized.ai?.preferredRatio, defaults.ai.preferredRatio) || defaults.ai.preferredRatio,
+    useEphemeralUploads: Boolean(
+      typeof normalized.ai?.useEphemeralUploads === 'boolean'
+        ? normalized.ai.useEphemeralUploads
+        : defaults.ai.useEphemeralUploads,
+    ),
+    primaryVideoId: normalizeString(normalized.ai?.primaryVideoId, defaults.ai.primaryVideoId),
+    seed:
+      typeof normalized.ai?.seed === 'number' && Number.isFinite(normalized.ai.seed) ? normalized.ai.seed : defaults.ai.seed,
   };
 
   const playlist = Array.isArray(normalized.playlist)
@@ -75,6 +99,7 @@ const normalizeSettings = (rawSettings) => {
     version: 1,
     transform,
     options,
+    ai,
     playlist,
   };
 };
@@ -262,6 +287,7 @@ export const loadPersistedData = async () => {
       size: item.size,
       lastModified: item.lastModified,
       url,
+      blob,
     });
   }
 
@@ -279,6 +305,9 @@ export const loadPersistedData = async () => {
       moveMode: settings.options.moveMode,
     },
     playlist,
+    ai: {
+      ...settings.ai,
+    },
   };
 };
 
@@ -333,4 +362,23 @@ export const savePlaylistMetadata = (playlist) => {
 
 export const persistVideoFile = storeVideo;
 export const deleteVideoFile = deleteVideo;
+
+export const readAiSettings = () => {
+  const settings = readSettings();
+  return { ...settings.ai };
+};
+
+export const saveAiSettings = (partialAi) => {
+  if (!partialAi || typeof partialAi !== 'object') {
+    return;
+  }
+
+  updateSettings((current) => ({
+    ...current,
+    ai: {
+      ...current.ai,
+      ...partialAi,
+    },
+  }));
+};
 

@@ -30,8 +30,15 @@ export const toggleVisibility = (element, visible) => {
   element.setAttribute('aria-hidden', visible ? 'false' : 'true');
 };
 
-export const setControlsEnabled = (playBtn, moveBtn, enabled) => {
-  playBtn.disabled = !enabled;
-  moveBtn.disabled = !enabled;
+export const setControlsEnabled = (buttons, enabled) => {
+  if (!Array.isArray(buttons)) {
+    return;
+  }
+
+  buttons.forEach((button) => {
+    if (button) {
+      button.disabled = !enabled;
+    }
+  });
 };
 

@@ -56,6 +56,102 @@
       <div id="timelineGrid" class="timeline-grid" role="list"></div>
     </aside>
 
+    <aside id="ai-panel" class="concealed" aria-hidden="true" tabindex="-1">
+      <div class="ai-header">
+        <button id="aiBackBtn" class="ai-back" type="button" aria-label="Close Runway panel">
+          <span aria-hidden="true" class="ai-back-icon"></span>
+          <span class="ai-back-label">Back</span>
+        </button>
+        <h2 class="ai-title">Runway Generator</h2>
+      </div>
+      <div class="ai-content">
+        <section class="ai-videos">
+          <header class="ai-section-header">
+            <h3>Playlist</h3>
+            <p>Select a video to use as the starting point.</p>
+          </header>
+          <p id="aiNoVideosMessage" class="ai-empty-message">Load a video to get started.</p>
+          <div id="aiGrid" class="ai-grid" role="list"></div>
+        </section>
+        <section class="ai-form-section">
+          <form id="aiGenerationForm" class="ai-form" autocomplete="off">
+            <fieldset class="ai-fieldset">
+              <legend>Runway API Key</legend>
+              <label class="ai-label">
+                <span>Key</span>
+                <input id="aiApiKeyInput" type="password" autocomplete="off" placeholder="runway_dev_..." />
+              </label>
+              <div class="ai-key-actions">
+                <button id="aiSaveKeyBtn" type="button" class="ai-secondary">Save</button>
+                <button id="aiClearKeyBtn" type="button" class="ai-secondary">Clear</button>
+              </div>
+              <p class="ai-hint">The key is stored locally in this browser.</p>
+            </fieldset>
+            <fieldset id="aiGenerationFieldset" class="ai-fieldset">
+              <legend>Generation Settings</legend>
+              <div class="ai-selected-video">
+                <span class="ai-selected-label">Selected video:</span>
+                <span id="aiSelectedVideoName" class="ai-selected-name">None</span>
+              </div>
+              <div class="ai-preview-wrapper">
+                <video
+                  id="aiPreviewVideo"
+                  class="ai-preview-video"
+                  playsinline
+                  muted
+                  controls
+                  loop
+                  preload="metadata"
+                  hidden
+                ></video>
+              </div>
+              <label class="ai-label">
+                <span>Prompt</span>
+                <textarea id="aiPromptInput" rows="3" placeholder="Describe the output video..."></textarea>
+              </label>
+              <label class="ai-label">
+                <span>Model</span>
+                <select id="aiModelSelect">
+                  <option value="gen4_aleph">Gen-4 Aleph (video-to-video)</option>
+                </select>
+              </label>
+              <label class="ai-label">
+                <span>Aspect ratio</span>
+                <select id="aiRatioSelect">
+                  <option value="1280:720">1280 × 720</option>
+                  <option value="720:1280">720 × 1280</option>
+                  <option value="1104:832">1104 × 832</option>
+                  <option value="832:1104">832 × 1104</option>
+                  <option value="960:960">960 × 960</option>
+                  <option value="1584:672">1584 × 672</option>
+                  <option value="848:480">848 × 480</option>
+                  <option value="640:480">640 × 480</option>
+                </select>
+              </label>
+              <label class="ai-label">
+                <span>Seed (optional)</span>
+                <input id="aiSeedInput" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="Random" />
+              </label>
+              <label class="ai-checkbox">
+                <input id="aiEphemeralCheckbox" type="checkbox" />
+                <span>Use Runway ephemeral upload</span>
+              </label>
+              <label class="ai-checkbox">
+                <input id="aiPrimaryCheckbox" type="checkbox" />
+                <span>Set as primary video</span>
+              </label>
+              <button id="aiGenerateBtn" class="ai-primary" type="submit">Generate with Runway</button>
+            </fieldset>
+          </form>
+          <div id="aiStatus" class="ai-status" role="status" aria-live="polite"></div>
+          <div class="ai-results">
+            <h3>Recent Generations</h3>
+            <ul id="aiOutputList" class="ai-output-list"></ul>
+          </div>
+        </section>
+      </div>
+    </aside>
+
     <section id="precision-control" class="concealed">
       <input id="precisionRange" type="range" min="1" max="20" value="10" aria-label="Move precision" />
     </section>
@@ -75,6 +171,9 @@
       </button>
       <button id="timelineBtn" class="icon-button" aria-label="Open timeline" disabled>
         <img src="assets/icons/film.svg" alt="" role="presentation" />
+      </button>
+      <button id="aiBtn" class="icon-button" aria-label="Open Runway tools" aria-expanded="false" aria-controls="ai-panel" disabled>
+        <img src="assets/icons/ai.svg" alt="" role="presentation" />
       </button>
       <button
         id="moveBtn"
