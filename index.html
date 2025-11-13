@@ -5,7 +5,6 @@
   <title>iOS Video Loader</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="assets/css/ios.css" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
 </head>
 <body>
   <header class="app-header">
@@ -36,47 +35,10 @@
       <input id="precisionRange" type="range" min="1" max="20" value="10" />
       <span id="precisionValue">10px</span>
     </section>
-
-    <aside id="timeline-panel" class="timeline-panel concealed" aria-hidden="true">
-      <header class="timeline-header">
-        <h2>Timeline</h2>
-        <button id="closeTimelineBtn" class="icon-button" aria-label="Close timeline">
-          close
-        </button>
-      </header>
-
-      <section class="timeline-controls">
-        <button id="randomToggleBtn" class="toggle-button" type="button" aria-pressed="false">
-          Random
-        </button>
-        <button id="fadeToggleBtn" class="toggle-button" type="button" aria-pressed="false">
-          Fade In
-        </button>
-        <label class="fade-slider" for="fadeSlider">
-          Fade Duration
-          <input id="fadeSlider" type="range" min="0" max="4000" step="100" value="800" />
-          <span id="fadeSliderValue">0.8s</span>
-        </label>
-      </section>
-
-      <section id="timeline-grid" class="timeline-grid" aria-live="polite">
-        <p class="timeline-empty">No videos yet. Add some to build your timeline.</p>
-      </section>
-    </aside>
   </main>
 
   <footer class="app-footer">
     <div class="controls">
-      <button
-        id="timelineBtn"
-        class="icon-button"
-        type="button"
-        aria-label="Open timeline"
-        aria-expanded="false"
-        aria-controls="timeline-panel"
-      >
-        movie
-      </button>
       <button id="playBtn" class="icon-button" disabled aria-label="Play video">
         <img src="assets/icons/play.svg" alt="" aria-hidden="true" />
       </button>

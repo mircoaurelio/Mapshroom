@@ -76,6 +76,19 @@ const attachControlButtons = (playBtn, resetBtn, controller) => {
   resetBtn.addEventListener('click', controller.handleReset);
 };
 
+const ensureIOSInlineSupport = (video) => {
+  if (!video) {
+    return;
+  }
+
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+
+  if ('playsInline' in video) {
+    video.playsInline = true;
+  }
+};
+
 const setupVisibilityPause = (video) => {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -96,6 +109,7 @@ const init = () => {
   });
 
   elements.video.loop = false;
+  ensureIOSInlineSupport(elements.video);
 
   controller.enableControls(false);
   controller.handlePrecisionChange(store.state.precision);
