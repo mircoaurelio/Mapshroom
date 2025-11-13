@@ -4,6 +4,8 @@
   --width-adjust: 0px;
   --height-adjust: 0px;
   --timeline-fade-duration: 800ms;
+  --app-width: 100vw;
+  --app-height: 100vh;
 }
 
 html,
@@ -27,8 +29,10 @@ body {
 }
 
 video {
-  width: calc(100vw + var(--width-adjust));
-  height: calc(100vh + var(--height-adjust));
+  width: calc(var(--app-width, 100vw) + var(--width-adjust));
+  height: calc(var(--app-height, 100vh) + var(--height-adjust));
+  min-width: calc(var(--app-width, 100vw) + var(--width-adjust));
+  min-height: calc(var(--app-height, 100vh) + var(--height-adjust));
   display: block;
   object-fit: fill;
   transform: translate(var(--offset-x), var(--offset-y));
