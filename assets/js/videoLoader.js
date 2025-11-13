@@ -297,7 +297,11 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       return;
     }
 
-    loadVideoAtIndex(nextIndex, { autoplay: autoplayHint, preserveTransform: true }).catch((error) => {
+    loadVideoAtIndex(nextIndex, {
+      autoplay: autoplayHint,
+      preserveTransform: true,
+      waitForReady: false,
+    }).catch((error) => {
       console.warn('Unable to cross-fade to next video.', error);
     });
   }
@@ -615,7 +619,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
   };
 
-  async function loadVideoAtIndex(index, { autoplay = false, preserveTransform = true } = {}) {
+  async function loadVideoAtIndex(index, { autoplay = false, preserveTransform = true, waitForReady = true } = {}) {
     const item = playlist[index];
     if (!item) {
       return;
@@ -635,11 +639,35 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       return;
     }
 
-    await waitForFirstFrame(nextVideo, item.url, () => {});
-    try {
-      nextVideo.currentTime = 0;
-    } catch (error) {
-      console.debug('Unable to reset currentTime after preloading.', error);
+    if (waitForReady) {
+      await waitForFirstFrame(nextVideo, item.url, () => {});
+      try {
+        nextVideo.currentTime = 0;
+      } catch (error) {
+        console.debug('Unable to reset currentTime after preloading.', error);
+      }
+    } else {
+      if (nextVideo.readyState >= 1) {
+        try {
+          nextVideo.currentTime = 0;
+        } catch (error) {
+          console.debug('Unable to reset currentTime for prefetched video.', error);
+        }
+      } else {
+        const handleReady = () => {
+          try {
+            nextVideo.currentTime = 0;
+          } catch (error) {
+            console.debug('Unable to reset currentTime after metadata.', error);
+          }
+        };
+        nextVideo.addEventListener('loadedmetadata', handleReady, { once: true });
+        try {
+          nextVideo.load();
+        } catch (error) {
+          console.debug('Unable to trigger load for prefetched video.', error);
+        }
+      }
     }
     ensureThumbnail(item).catch(() => {});
 
