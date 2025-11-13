@@ -1,7 +1,7 @@
 ﻿const corsHeaders = {
   "access-control-allow-origin": "*",
   "access-control-allow-credentials": "true",
-  "access-control-allow-headers": "content-type,x-runway-api-key",
+  "access-control-allow-headers": "content-type,x-runway-api-key,x-runway-version",
   "access-control-allow-methods": "GET,POST,OPTIONS",
 };
 
