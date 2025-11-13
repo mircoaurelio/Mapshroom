@@ -254,7 +254,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     }
   };
 
-  const loadVideoAtIndex = async (index, { autoplay = false } = {}) => {
+  const loadVideoAtIndex = async (index, { autoplay = false, preserveTransform = false } = {}) => {
     const item = playlist[index];
     if (!item) {
       return;
@@ -265,7 +265,11 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
 
     video.pause();
     controller.handleOverlayState(false, { toggleUI: false });
-    resetTransform();
+
+    if (!preserveTransform) {
+      resetTransform();
+    }
+
     controller.updateTransform();
 
     video.src = item.url;
@@ -514,7 +518,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     setPlaylist([...playlist]);
     persistPlaylist();
     const safeIndex = initialIndex >= 0 && initialIndex < playlist.length ? initialIndex : 0;
-    loadVideoAtIndex(safeIndex).catch((error) => {
+    loadVideoAtIndex(safeIndex, { preserveTransform: true }).catch((error) => {
       console.warn('Unable to restore previously selected video.', error);
     });
   }
@@ -645,7 +649,6 @@ const init = async () => {
 
   elements.video.loop = false;
 
-  controller.enableControls(false);
   controller.handlePrecisionChange(store.state.precision);
   controller.updateTransform();
   controller.showPreloadUI();
