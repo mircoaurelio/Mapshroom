@@ -418,6 +418,9 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       previousVideo.style.zIndex = '1';
       previousVideo.style.transition = state.fadeEnabled ? `opacity ${state.fadeDuration}s ease` : '';
       previousVideo.style.opacity = '0';
+      if (state.fadeEnabled && previousVideo.paused) {
+        previousVideo.play().catch(() => {});
+      }
     }
 
     if (!nextVideo) {
@@ -745,6 +748,10 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       nextVideo.play().catch((error) => {
         console.warn('Autoplay blocked:', error);
       });
+    }
+
+    if (state.fadeEnabled && previousVideo && previousVideo !== nextVideo && previousVideo.paused) {
+      previousVideo.play().catch(() => {});
     }
   }
 
