@@ -43,8 +43,8 @@ const adjustDimensions = (state, action, wrapper) => {
   }
 };
 
-export const createTransformController = ({ elements, store }) => {
-  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, persistState } = store;
+export const createTransformController = ({ elements, store, persistence }) => {
+  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo } = store;
   const {
     video,
     playBtn,
@@ -57,7 +57,22 @@ export const createTransformController = ({ elements, store }) => {
     controls,
   } = elements;
 
-  const updateTransform = () => updateTransformUI({ state, precisionValue });
+  const persistTransform = () => {
+    if (persistence && typeof persistence.saveTransform === 'function') {
+      persistence.saveTransform(state);
+    }
+  };
+
+  const persistPrecision = () => {
+    if (persistence && typeof persistence.savePrecision === 'function') {
+      persistence.savePrecision(state.precision);
+    }
+  };
+
+  const updateTransform = () => {
+    updateTransformUI({ state, precisionValue });
+    persistTransform();
+  };
   const playIconImg = playBtn.querySelector('img');
   const updatePlayButton = () => {
     const isPaused = video.paused;
@@ -126,14 +141,12 @@ export const createTransformController = ({ elements, store }) => {
     if (['move-up', 'move-down', 'move-left', 'move-right'].includes(action)) {
       adjustOffsets(state, action);
       updateTransform();
-      persistState();
       return;
     }
 
     if (['height-plus', 'height-minus', 'width-plus', 'width-minus'].includes(action)) {
       adjustDimensions(state, action, wrapper);
       updateTransform();
-      persistState();
       return;
     }
 
@@ -146,6 +159,7 @@ export const createTransformController = ({ elements, store }) => {
   const handlePrecisionChange = (nextPrecision) => {
     updatePrecision(nextPrecision);
     updatePrecisionDisplay(precisionValue, state.precision);
+    persistPrecision();
   };
 
   const handleReset = () => {
