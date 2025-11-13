@@ -174,6 +174,9 @@ export const createTransformController = ({ elements, store }) => {
   return {
     updateTransform,
     enableControls,
+    setControlsAvailability: (enabled) => {
+      setControlsEnabled(playBtn, resetBtn, enabled);
+    },
     showPreloadUI,
     handleZoneAction,
     handlePrecisionChange,
