@@ -167,6 +167,12 @@ export const createTimelineController = ({ elements, store, controller, waitForF
     controller.setControlsAvailability?.(false);
     video.pause();
     video.src = entry.url;
+    if (video.getAttribute('src') !== entry.url) {
+      video.setAttribute('src', entry.url);
+    }
+    if (typeof video.load === 'function') {
+      video.load();
+    }
     setCurrentIndex(index);
     highlightActiveItem();
 
