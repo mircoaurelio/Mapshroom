@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Mapshroom Pocket</title>
+  <title>iOS Video Loader</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="assets/css/ios.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
@@ -10,8 +10,8 @@
 <body>
   <header class="app-header">
     <div class="picker-container">
-      <label class="picker" for="fileInput">Choose Videos</label>
-      <input id="fileInput" type="file" accept="video/*" multiple />
+      <label class="picker" for="fileInput">Choose Video</label>
+      <input id="fileInput" type="file" accept="video/*" />
     </div>
   </header>
 
@@ -77,8 +77,12 @@
       >
         movie
       </button>
-      <button id="playBtn" class="icon-button" disabled aria-label="Play video">play_circle</button>
-      <button id="resetBtn" class="icon-button" disabled aria-label="Reset video">restart_alt</button>
+      <button id="playBtn" class="icon-button" disabled aria-label="Play video">
+        <img src="assets/icons/play.svg" alt="" aria-hidden="true" />
+      </button>
+      <button id="resetBtn" class="icon-button" disabled aria-label="Reset video">
+        <img src="assets/icons/reset.svg" alt="" aria-hidden="true" />
+      </button>
     </div>
   </footer>
 
