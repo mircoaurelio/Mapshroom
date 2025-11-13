@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <title>Mapshroom Pocket</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Mapshroom Pocket" />
   <link rel="stylesheet" href="assets/css/ios.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
 </head>
@@ -11,7 +14,7 @@
   <header class="app-header">
     <div class="picker-container">
       <label class="picker" for="fileInput">Choose Video</label>
-      <input id="fileInput" type="file" accept="video/*" />
+      <input id="fileInput" type="file" accept="video/*" multiple />
     </div>
   </header>
 
@@ -41,6 +44,16 @@
   <footer class="app-footer">
     <div class="controls">
       <button
+        id="timelineBtn"
+        class="icon-button"
+        disabled
+        aria-label="Open timeline panel"
+        aria-expanded="false"
+        aria-controls="timeline-panel"
+      >
+        <img src="assets/icons/film.svg" alt="" role="presentation" />
+      </button>
+      <button
         id="playBtn"
         class="icon-button"
         disabled
@@ -55,6 +68,37 @@
       </button>
     </div>
   </footer>
+
+  <section
+    id="timeline-panel"
+    class="timeline-panel concealed"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="timelineTitle"
+  >
+    <div class="timeline-content">
+      <header class="timeline-header">
+        <h2 id="timelineTitle">Timeline</h2>
+        <div class="timeline-actions">
+          <button id="randomToggle" type="button" class="chip-toggle" aria-pressed="false">Random</button>
+          <button id="fadeToggle" type="button" class="chip-toggle" aria-pressed="false">Fade In</button>
+          <div class="fade-control">
+            <label for="fadeRange">Fade Duration</label>
+            <input id="fadeRange" type="range" min="0" max="3000" step="100" value="500" disabled />
+            <span id="fadeValue" class="fade-value">0.5s</span>
+          </div>
+        </div>
+      </header>
+      <div
+        id="timelineGrid"
+        class="timeline-grid"
+        role="list"
+        aria-live="polite"
+        aria-label="Loaded videos"
+        data-empty="true"
+      ></div>
+    </div>
+  </section>
 
   <script type="module" src="assets/js/videoLoader.js"></script>
 </body>
