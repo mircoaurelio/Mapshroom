@@ -191,6 +191,20 @@ export const createTransformController = ({ elements, store, persistence }) => {
     toggleVisibility(chooseLabel, !state.moveMode);
     toggleVisibility(rotateLockBtn, state.hasVideo && state.moveMode);
 
+    if (active && state.hasVideo) {
+      // When move mode is activated, ensure overlay is active (controls visible)
+      // Center button is disabled (reserved for future feature)
+      if (!state.overlayActive) {
+        applyOverlayUI(true, { toggleUI: false });
+      }
+      // Always show controls when move mode is active
+      toggleVisibility(controls, true);
+    } else if (!active && state.hasVideo) {
+      // When move mode is deactivated, restore normal overlay behavior
+      // Controls visibility follows overlay state
+      applyOverlayUI(state.overlayActive, { toggleUI: true });
+    }
+
     // If move mode is disabled, unlock rotation
     if (!active && state.rotationLocked) {
       applyRotationLock(false, { persist });
@@ -209,10 +223,19 @@ export const createTransformController = ({ elements, store, persistence }) => {
       return;
     }
 
-    const shouldShow = active && !state.moveMode;
+    // When move mode is active, controls visibility is managed by applyMoveMode
+    // When move mode is inactive, show controls only when overlay is active
+    if (state.moveMode) {
+      // Don't change controls visibility when move mode is active
+      toggleVisibility(chooseLabel, false);
+      return;
+    }
+
+    // When move mode is inactive, normal overlay behavior
+    const shouldShow = active;
     toggleVisibility(chooseLabel, shouldShow);
     toggleVisibility(controls, shouldShow);
-    toggleVisibility(precisionControl, shouldShow && state.moveMode);
+    toggleVisibility(precisionControl, false);
   };
 
   const enableControls = (enabled) => {
@@ -279,6 +302,10 @@ export const createTransformController = ({ elements, store, persistence }) => {
     }
 
     if (action === 'toggle-overlay') {
+      // Disable toggle-overlay when move mode is active (reserved for future feature)
+      if (state.moveMode) {
+        return;
+      }
       const nextActive = !state.overlayActive;
       applyOverlayUI(nextActive);
     }

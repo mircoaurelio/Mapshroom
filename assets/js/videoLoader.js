@@ -1658,20 +1658,49 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   }
 
   const handleFileSelection = async (event) => {
-    const files = Array.from((event.target && event.target.files) || []).filter((file) => {
-      if (file.type.startsWith('video/')) {
+    // On iOS, event.target.files might be empty, so we also check the fileInput directly
+    const inputElement = event?.target || fileInput;
+    const fileList = inputElement?.files;
+    
+    if (!fileList || fileList.length === 0) {
+      if (inputElement) {
+        inputElement.value = '';
+      }
+      return;
+    }
+
+    const files = Array.from(fileList).filter((file) => {
+      if (!file || !(file instanceof File)) {
+        console.warn('Invalid file object:', file);
+        return false;
+      }
+      
+      // Check MIME type first
+      const mimeType = file.type || '';
+      if (mimeType.startsWith('video/')) {
         return true;
       }
-      if (file.type.startsWith('image/')) {
+      if (mimeType.startsWith('image/')) {
         return true;
       }
-      console.warn('Skipping unsupported file type:', file.type);
+      
+      // On iOS, file.type might be empty, so check file extension as fallback
+      const fileName = file.name || '';
+      const extension = fileName.toLowerCase().split('.').pop();
+      const videoExtensions = ['mp4', 'mov', 'm4v', 'avi', 'webm', 'mkv', '3gp'];
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'];
+      
+      if (extension && (videoExtensions.includes(extension) || imageExtensions.includes(extension))) {
+        return true;
+      }
+      
+      console.warn('Skipping unsupported file type:', mimeType || 'unknown', 'extension:', extension || 'none');
       return false;
     });
 
     if (!files.length) {
-      if (event.target) {
-        event.target.value = '';
+      if (inputElement) {
+        inputElement.value = '';
       }
       return;
     }
@@ -1683,7 +1712,15 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       const originalFile = files[fileIndex];
       let processedFile = originalFile;
 
-      if (originalFile.type.startsWith('image/')) {
+      // Check if it's an image (by MIME type or extension)
+      const isImage = originalFile.type?.startsWith('image/') || 
+        (() => {
+          const fileName = originalFile.name || '';
+          const extension = fileName.toLowerCase().split('.').pop();
+          return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(extension);
+        })();
+
+      if (isImage) {
         try {
           const conversion = await createVideoFromImage(originalFile);
           processedFile = new File([conversion.blob], conversion.name, {
@@ -1698,7 +1735,15 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         }
       }
 
-      if (!processedFile.type.startsWith('video/')) {
+      // Verify it's a video after processing (check MIME type or extension)
+      const isVideo = processedFile.type?.startsWith('video/') ||
+        (() => {
+          const fileName = processedFile.name || '';
+          const extension = fileName.toLowerCase().split('.').pop();
+          return ['mp4', 'mov', 'm4v', 'avi', 'webm', 'mkv', '3gp'].includes(extension);
+        })();
+
+      if (!isVideo) {
         console.warn('Skipping file because it is not a supported video type after processing.');
         // eslint-disable-next-line no-continue
         continue;
@@ -1715,8 +1760,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       }
     }
 
-    if (event.target) {
-      event.target.value = '';
+    if (inputElement) {
+      inputElement.value = '';
     }
   };
 
@@ -1836,7 +1881,26 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     urlRegistry.clear();
   };
 
-  fileInput.addEventListener('change', handleFileSelection);
+  // On iOS, the 'change' event may not fire reliably, so we also listen to 'input'
+  // Use a flag to prevent double-processing when both events fire
+  let isProcessingFiles = false;
+  const handleFileSelectionWithGuard = async (event) => {
+    if (isProcessingFiles) {
+      return;
+    }
+    isProcessingFiles = true;
+    try {
+      await handleFileSelection(event);
+    } finally {
+      // Reset flag after a short delay to allow for iOS event quirks
+      setTimeout(() => {
+        isProcessingFiles = false;
+      }, 100);
+    }
+  };
+  
+  fileInput.addEventListener('change', handleFileSelectionWithGuard);
+  fileInput.addEventListener('input', handleFileSelectionWithGuard);
   timelineBtn.addEventListener('click', handleTimelineToggle);
   randomToggle.addEventListener('click', handleRandomToggle);
   fadeToggle.addEventListener('click', handleFadeToggle);
