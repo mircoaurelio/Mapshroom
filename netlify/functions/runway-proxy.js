@@ -20,26 +20,52 @@ exports.handler = async (event) => {
   const queryString = rawQuery ? `?${rawQuery}` : "";
   const url = RUNWAY_BASE + targetPath + queryString;
 
-  const userKey = event.headers["x-runway-api-key"];
+  const headerLookup = (name) => event.headers[name] ?? event.headers[name.toLowerCase()];
+  const userKey = headerLookup("x-runway-api-key");
   if (!userKey) {
     return { statusCode: 400, headers: corsHeaders, body: "Missing Runway API key." };
   }
 
   try {
+    let body;
+    if (!["GET", "HEAD"].includes(event.httpMethod)) {
+      body = event.isBase64Encoded ? Buffer.from(event.body, 'base64') : event.body;
+    }
+
+    const forwardHeaders = {};
+    Object.entries(event.headers || {}).forEach(([key, value]) => {
+      if (!value) {
+        return;
+      }
+      const lowerKey = key.toLowerCase();
+      if (["host", "origin", "referer", "content-length", "x-runway-api-key"].includes(lowerKey)) {
+        return;
+      }
+      forwardHeaders[lowerKey] = value;
+    });
+
+    forwardHeaders.authorization = `Bearer ${userKey}`;
+    if (!forwardHeaders["x-runway-version"]) {
+      forwardHeaders["x-runway-version"] = "2024-11-06";
+    }
+
     const response = await fetch(url, {
       method: event.httpMethod,
-      headers: {
-        ...event.headers,
-        host: undefined,
-        origin: undefined,
-        referer: undefined,
-        authorization: `Bearer ${userKey}`,
-        "x-runway-version": "2024-11-06",
-        "x-runway-api-key": undefined,
-        "content-length": undefined,
-      },
-      body: ["GET", "HEAD"].includes(event.httpMethod) ? undefined : event.body,
+      headers: forwardHeaders,
+      body,
     });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      return {
+        statusCode: response.status,
+        headers: {
+          ...Object.fromEntries(response.headers.entries()),
+          ...corsHeaders,
+        },
+        body: errorText || `Runway response ${response.status}`,
+      };
+    }
 
     const arrayBuffer = await response.arrayBuffer();
     const headers = {
