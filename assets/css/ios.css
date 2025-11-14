@@ -787,6 +787,9 @@ input[type='file'] {
 
 .ai-results-toggle {
   align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 999px;
@@ -794,18 +797,44 @@ input[type='file'] {
   padding: 0.45rem 1.1rem;
   font-size: 0.9rem;
   transition: background 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
 }
 
 .ai-results-toggle:hover,
 .ai-results-toggle:focus-visible {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.32);
+  outline: none;
+}
+
+.ai-results-toggle:focus-visible {
+  outline: 2px solid rgba(31, 136, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.ai-results-toggle-text {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ai-results-toggle-icon {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.ai-results-toggle[aria-expanded='true'] .ai-results-toggle-icon {
+  transform: rotate(180deg);
 }
 
 .ai-results-body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.ai-results-body[hidden] {
+  display: none !important;
 }
 
 .ai-selected-preview {
@@ -953,6 +982,10 @@ input[type='file'] {
 
 .ai-api-key-fieldset {
   margin-top: 0.5rem;
+}
+
+.ai-api-key-fieldset[hidden] {
+  display: none !important;
 }
 
 .ai-hint {
