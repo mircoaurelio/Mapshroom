@@ -274,11 +274,15 @@ export const createAiController = ({
   if (!toggleEl) {
     return;
   }
+  const toggleText = toggleEl.querySelector('.ai-results-toggle-text');
+  if (!toggleText) {
+    return;
+  }
   const countLabel = count ? ` (${count})` : '';
   if (expanded) {
-    toggleEl.textContent = `Hide Recent Generations${countLabel}`;
+    toggleText.textContent = `Hide Recent Generations${countLabel}`;
   } else {
-    toggleEl.textContent = `Show Recent Generations${countLabel}`;
+    toggleText.textContent = `Show Recent Generations${countLabel}`;
   }
 };
 
@@ -772,17 +776,16 @@ export const createAiController = ({
 
   const updateApiKeyVisibility = () => {
     const hasKey = Boolean(state.apiKey && state.apiKey.trim());
+    // Always collapsed by default, but allow toggling
     if (hasKey) {
-      // Move to bottom and collapse by default
-      aiApiKeyFieldset.hidden = true;
-      aiApiKeyToggle.setAttribute('aria-expanded', 'false');
+      // Move to bottom when key is present
       aiApiKeyContainer.classList.add('ai-api-key-has-key');
     } else {
-      // Show expanded when no key
-      aiApiKeyFieldset.hidden = false;
-      aiApiKeyToggle.setAttribute('aria-expanded', 'true');
       aiApiKeyContainer.classList.remove('ai-api-key-has-key');
     }
+    // Always start collapsed
+    aiApiKeyFieldset.hidden = true;
+    aiApiKeyToggle.setAttribute('aria-expanded', 'false');
   };
 
   const handleApiKeyToggle = () => {

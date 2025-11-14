@@ -1,7 +1,7 @@
 import { updateTransformStyles, toggleOverlayDisplay, toggleVisibility, setControlsEnabled } from './ui.js';
 
-const updateTransformUI = ({ state, video }) => {
-  updateTransformStyles(state, video);
+const updateTransformUI = ({ state, video, rotationLocked = false, lockedWidth = null, lockedHeight = null }) => {
+  updateTransformStyles(state, video, rotationLocked, lockedWidth, lockedHeight);
 };
 
 const adjustOffsets = (state, direction) => {
@@ -75,7 +75,10 @@ export const createTransformController = ({ elements, store, persistence }) => {
   };
 
   const updateTransform = () => {
-    updateTransformUI({ state, video: currentVideo });
+    // Pass rotation lock state and locked dimensions to update transform
+    const lockedWidth = state.rotationLocked && state.lockedViewportWidth ? state.lockedViewportWidth : null;
+    const lockedHeight = state.rotationLocked && state.lockedViewportHeight ? state.lockedViewportHeight : null;
+    updateTransformUI({ state, video: currentVideo, rotationLocked: state.rotationLocked, lockedWidth, lockedHeight });
     persistTransform();
   };
   const playIconImg = playBtn.querySelector('img');
@@ -126,11 +129,23 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
   const applyOrientationTransform = () => {
     if (!state.rotationLocked || state.lockedOrientationAngle === null || !videoWrapper) {
-      // Remove transform if not locked
+      // Remove transform and fixed dimensions if not locked
       if (videoWrapper) {
         videoWrapper.style.transform = '';
         videoWrapper.style.transformOrigin = '';
+        videoWrapper.style.inset = '';
+        videoWrapper.style.width = '';
+        videoWrapper.style.height = '';
+        videoWrapper.style.left = '';
+        videoWrapper.style.top = '';
+        videoWrapper.style.right = '';
+        videoWrapper.style.bottom = '';
+        videoWrapper.style.marginLeft = '';
+        videoWrapper.style.marginTop = '';
       }
+      // Remove locked viewport size from CSS variables
+      document.documentElement.style.setProperty('--rotation-lock-width', '');
+      document.documentElement.style.setProperty('--rotation-lock-height', '');
       document.documentElement.style.setProperty('--rotation-lock-transform', '');
       return;
     }
@@ -139,43 +154,50 @@ export const createTransformController = ({ elements, store, persistence }) => {
     const lockedAngle = normalizeAngle(state.lockedOrientationAngle);
     const rotationDiff = lockedAngle - currentAngle;
 
-    // Only apply transform if there's a rotation difference
-    if (rotationDiff === 0) {
-      videoWrapper.style.transform = '';
-      videoWrapper.style.transformOrigin = '';
-      document.documentElement.style.setProperty('--rotation-lock-transform', '');
-      return;
-    }
-
-    // Use locked viewport dimensions if available, otherwise use current dimensions
+    // Get locked dimensions (the size when rotation was locked)
     const lockedWidth = state.lockedViewportWidth || window.innerWidth;
     const lockedHeight = state.lockedViewportHeight || window.innerHeight;
     const currentWidth = window.innerWidth;
     const currentHeight = window.innerHeight;
+
+    // Lock the video wrapper to the locked dimensions
+    // Remove inset to allow explicit positioning
+    videoWrapper.style.inset = 'auto';
+    videoWrapper.style.width = `${lockedWidth}px`;
+    videoWrapper.style.height = `${lockedHeight}px`;
+    videoWrapper.style.position = 'fixed';
+    videoWrapper.style.boxSizing = 'border-box';
     
-    // Calculate scale to maintain full coverage after rotation
-    // When rotating 90/270 degrees, we need to ensure the rotated content covers the entire viewport
-    const isRotated = Math.abs(rotationDiff) === 90 || Math.abs(rotationDiff) === 270;
-    let scale = 1;
+    // Calculate how to center and scale the locked wrapper in the current viewport
+    // When rotated, we need to account for the rotation in centering
+    let finalWidth = lockedWidth;
+    let finalHeight = lockedHeight;
+    let centerX = currentWidth / 2;
+    let centerY = currentHeight / 2;
     
-    if (isRotated) {
-      // Calculate the diagonal of the locked viewport
-      const lockedDiagonal = Math.sqrt(lockedWidth * lockedWidth + lockedHeight * lockedHeight);
-      // Calculate the minimum dimension of the current viewport (after rotation)
-      const currentMin = Math.min(currentWidth, currentHeight);
-      // Scale needed to cover the rotated viewport
-      scale = lockedDiagonal / currentMin;
-      // Ensure we have enough coverage, add a small buffer
-      scale = Math.max(scale, Math.max(currentWidth, currentHeight) / Math.min(currentWidth, currentHeight));
+    // Apply counter-rotation to maintain visual orientation
+    if (rotationDiff !== 0) {
+      videoWrapper.style.transform = `rotate(${-rotationDiff}deg)`;
+      videoWrapper.style.transformOrigin = 'center center';
+      // When rotated 90/270 degrees, swap width/height for centering calculation
+      // But we keep the wrapper at locked dimensions and just center it
+    } else {
+      videoWrapper.style.transform = '';
+      videoWrapper.style.transformOrigin = '';
     }
     
-    // Apply counter-rotation transform to video wrapper
-    // Use transform with both rotation and scale to maintain full coverage
-    videoWrapper.style.transform = `rotate(${-rotationDiff}deg) scale(${scale})`;
-    videoWrapper.style.transformOrigin = 'center center';
+    // Center the wrapper in the viewport (before rotation transform)
+    videoWrapper.style.left = `${centerX - lockedWidth / 2}px`;
+    videoWrapper.style.top = `${centerY - lockedHeight / 2}px`;
+    videoWrapper.style.right = 'auto';
+    videoWrapper.style.bottom = 'auto';
+    videoWrapper.style.marginLeft = '0';
+    videoWrapper.style.marginTop = '0';
     
-    // Store transform in CSS variable for potential use elsewhere
-    document.documentElement.style.setProperty('--rotation-lock-transform', `rotate(${-rotationDiff}deg) scale(${scale})`);
+    // Store locked dimensions and transform in CSS variables
+    document.documentElement.style.setProperty('--rotation-lock-width', `${lockedWidth}px`);
+    document.documentElement.style.setProperty('--rotation-lock-height', `${lockedHeight}px`);
+    document.documentElement.style.setProperty('--rotation-lock-transform', rotationDiff !== 0 ? `rotate(${-rotationDiff}deg)` : '');
   };
 
   const handleOrientationChange = () => {
@@ -183,15 +205,20 @@ export const createTransformController = ({ elements, store, persistence }) => {
       // Small delay to ensure orientation change is complete
       setTimeout(() => {
         applyOrientationTransform();
-      }, 50);
+        // Update video transform to maintain locked dimensions
+        updateTransform();
+      }, 100);
     }
   };
 
   const lockOrientation = async () => {
     // Store current orientation angle and viewport size
     const currentAngle = normalizeAngle(getCurrentOrientationAngle());
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+    
     setLockedOrientationAngle(currentAngle);
-    setLockedViewportSize(window.innerWidth, window.innerHeight);
+    setLockedViewportSize(currentWidth, currentHeight);
     
     // Try native orientation lock first (works on Android and some browsers)
     if (screen.orientation && typeof screen.orientation.lock === 'function') {
@@ -199,16 +226,18 @@ export const createTransformController = ({ elements, store, persistence }) => {
         const isLandscape = currentAngle === 90 || currentAngle === 270;
         const targetOrientation = isLandscape ? 'landscape' : 'portrait';
         await screen.orientation.lock(targetOrientation);
-        // If native lock succeeds, we don't need CSS transforms
-        return true;
+        // If native lock succeeds, we still use CSS for iOS compatibility
       } catch (error) {
-        // Native lock failed, fall back to CSS transform approach
+        // Native lock failed, use CSS transform approach
         console.debug('Native orientation lock not available, using CSS transform workaround');
       }
     }
     
-    // Apply CSS transform immediately
+    // Apply CSS transform immediately to lock dimensions
     applyOrientationTransform();
+    
+    // Update video transform to use locked dimensions
+    updateTransform();
     
     // Set up orientation change listener
     window.addEventListener('orientationchange', handleOrientationChange);
@@ -232,12 +261,11 @@ export const createTransformController = ({ elements, store, persistence }) => {
       }
     }
     
-    // Remove CSS transforms from video wrapper
-    if (videoWrapper) {
-      videoWrapper.style.transform = '';
-      videoWrapper.style.transformOrigin = '';
-    }
-    document.documentElement.style.setProperty('--rotation-lock-transform', '');
+    // Remove CSS transforms and fixed dimensions from video wrapper
+    applyOrientationTransform(); // This will clean up when rotationLocked is false
+    
+    // Update video transform to use viewport units again
+    updateTransform();
     
     // Remove event listeners
     window.removeEventListener('orientationchange', handleOrientationChange);
@@ -495,7 +523,10 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
   const setVideoElement = (videoEl) => {
     if (videoEl === currentVideo) {
-      updateTransformUI({ state, video: currentVideo });
+      // Update with rotation lock state
+      const lockedWidth = state.rotationLocked && state.lockedViewportWidth ? state.lockedViewportWidth : null;
+      const lockedHeight = state.rotationLocked && state.lockedViewportHeight ? state.lockedViewportHeight : null;
+      updateTransformUI({ state, video: currentVideo, rotationLocked: state.rotationLocked, lockedWidth, lockedHeight });
       updatePlayButton();
       updateMoveButton();
       return;
@@ -504,7 +535,10 @@ export const createTransformController = ({ elements, store, persistence }) => {
     detachVideoListeners(currentVideo);
     currentVideo = videoEl || null;
     attachVideoListeners(currentVideo);
-    updateTransformUI({ state, video: currentVideo });
+    // Update with rotation lock state
+    const lockedWidth = state.rotationLocked && state.lockedViewportWidth ? state.lockedViewportWidth : null;
+    const lockedHeight = state.rotationLocked && state.lockedViewportHeight ? state.lockedViewportHeight : null;
+    updateTransformUI({ state, video: currentVideo, rotationLocked: state.rotationLocked, lockedWidth, lockedHeight });
     updatePlayButton();
     updateMoveButton();
   };
