@@ -19,6 +19,9 @@ const defaultSettings = () => ({
     currentIndex: -1,
     moveMode: false,
     rotationLocked: false,
+    lockedOrientationAngle: null,
+    lockedViewportWidth: null,
+    lockedViewportHeight: null,
   },
   ai: {
     runwayApiKey: '',
@@ -61,6 +64,15 @@ const normalizeSettings = (rawSettings) => {
     currentIndex: normalizeNumber(normalized.options?.currentIndex, defaults.options.currentIndex),
     moveMode: Boolean(normalized.options?.moveMode),
     rotationLocked: Boolean(normalized.options?.rotationLocked),
+    lockedOrientationAngle: typeof normalized.options?.lockedOrientationAngle === 'number' && Number.isFinite(normalized.options.lockedOrientationAngle)
+      ? normalized.options.lockedOrientationAngle
+      : null,
+    lockedViewportWidth: typeof normalized.options?.lockedViewportWidth === 'number' && Number.isFinite(normalized.options.lockedViewportWidth)
+      ? normalized.options.lockedViewportWidth
+      : null,
+    lockedViewportHeight: typeof normalized.options?.lockedViewportHeight === 'number' && Number.isFinite(normalized.options.lockedViewportHeight)
+      ? normalized.options.lockedViewportHeight
+      : null,
   };
 
   const ai = {
@@ -306,6 +318,9 @@ export const loadPersistedData = async () => {
       currentIndex: settings.options.currentIndex,
       moveMode: settings.options.moveMode,
       rotationLocked: settings.options.rotationLocked,
+      lockedOrientationAngle: settings.options.lockedOrientationAngle,
+      lockedViewportWidth: settings.options.lockedViewportWidth,
+      lockedViewportHeight: settings.options.lockedViewportHeight,
     },
     playlist,
     ai: {

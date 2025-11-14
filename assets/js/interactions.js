@@ -43,7 +43,7 @@ const adjustDimensions = (state, action, wrapper) => {
 };
 
 export const createTransformController = ({ elements, store, persistence }) => {
-  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, setMoveMode, setRotationLocked } = store;
+  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, setMoveMode, setRotationLocked, setLockedOrientationAngle, setLockedViewportSize } = store;
   const {
     video: initialVideo,
     playBtn,
@@ -103,56 +103,152 @@ export const createTransformController = ({ elements, store, persistence }) => {
     moveBtn.setAttribute('aria-label', nextLabel);
   };
 
-  const lockOrientation = async () => {
-    if (!screen.orientation || typeof screen.orientation.lock !== 'function') {
-      console.warn('Screen Orientation API is not supported.');
-      return false;
+  const getCurrentOrientationAngle = () => {
+    // Try to get angle from Screen Orientation API
+    if (screen.orientation && typeof screen.orientation.angle === 'number') {
+      return screen.orientation.angle;
     }
-
-    try {
-      // Get current orientation
-      let currentAngle = screen.orientation.angle;
-      if (typeof currentAngle !== 'number') {
-        // Fallback: check window dimensions
-        currentAngle = window.innerWidth > window.innerHeight ? 90 : 0;
-      }
-
-      // Determine target orientation based on angle
-      // 0 or 180 = portrait, 90 or -90 = landscape
-      let targetOrientation;
-      if (currentAngle === 90 || currentAngle === -90 || currentAngle === 270) {
-        targetOrientation = 'landscape';
-      } else {
-        targetOrientation = 'portrait';
-      }
-
-      await screen.orientation.lock(targetOrientation);
-      return true;
-    } catch (error) {
-      console.warn('Unable to lock orientation:', error);
-      // On iOS, the Screen Orientation API may not be fully supported
-      // Try to use a more permissive approach
-      try {
-        // Try any orientation that works
-        await screen.orientation.lock('any');
-        return true;
-      } catch (fallbackError) {
-        console.warn('Fallback orientation lock also failed:', fallbackError);
-        return false;
-      }
-    }
+    
+    // Fallback: determine angle from window dimensions
+    const isLandscape = window.innerWidth > window.innerHeight;
+    return isLandscape ? 90 : 0;
   };
 
-  const unlockOrientation = async () => {
-    if (!screen.orientation || typeof screen.orientation.unlock !== 'function') {
+  const normalizeAngle = (angle) => {
+    // Normalize angle to 0, 90, 180, or 270
+    angle = angle % 360;
+    if (angle < 0) angle += 360;
+    
+    // Round to nearest 90 degrees
+    const rounded = Math.round(angle / 90) * 90;
+    return rounded % 360;
+  };
+
+  const applyOrientationTransform = () => {
+    if (!state.rotationLocked || state.lockedOrientationAngle === null || !videoWrapper) {
+      // Remove transform if not locked
+      if (videoWrapper) {
+        videoWrapper.style.transform = '';
+        videoWrapper.style.transformOrigin = '';
+      }
+      document.documentElement.style.setProperty('--rotation-lock-transform', '');
       return;
     }
 
-    try {
-      await screen.orientation.unlock();
-    } catch (error) {
-      console.warn('Unable to unlock orientation:', error);
+    const currentAngle = normalizeAngle(getCurrentOrientationAngle());
+    const lockedAngle = normalizeAngle(state.lockedOrientationAngle);
+    const rotationDiff = lockedAngle - currentAngle;
+
+    // Only apply transform if there's a rotation difference
+    if (rotationDiff === 0) {
+      videoWrapper.style.transform = '';
+      videoWrapper.style.transformOrigin = '';
+      document.documentElement.style.setProperty('--rotation-lock-transform', '');
+      return;
     }
+
+    // Use locked viewport dimensions if available, otherwise use current dimensions
+    const lockedWidth = state.lockedViewportWidth || window.innerWidth;
+    const lockedHeight = state.lockedViewportHeight || window.innerHeight;
+    const currentWidth = window.innerWidth;
+    const currentHeight = window.innerHeight;
+    
+    // Calculate scale to maintain full coverage after rotation
+    // When rotating 90/270 degrees, we need to ensure the rotated content covers the entire viewport
+    const isRotated = Math.abs(rotationDiff) === 90 || Math.abs(rotationDiff) === 270;
+    let scale = 1;
+    
+    if (isRotated) {
+      // Calculate the diagonal of the locked viewport
+      const lockedDiagonal = Math.sqrt(lockedWidth * lockedWidth + lockedHeight * lockedHeight);
+      // Calculate the minimum dimension of the current viewport (after rotation)
+      const currentMin = Math.min(currentWidth, currentHeight);
+      // Scale needed to cover the rotated viewport
+      scale = lockedDiagonal / currentMin;
+      // Ensure we have enough coverage, add a small buffer
+      scale = Math.max(scale, Math.max(currentWidth, currentHeight) / Math.min(currentWidth, currentHeight));
+    }
+    
+    // Apply counter-rotation transform to video wrapper
+    // Use transform with both rotation and scale to maintain full coverage
+    videoWrapper.style.transform = `rotate(${-rotationDiff}deg) scale(${scale})`;
+    videoWrapper.style.transformOrigin = 'center center';
+    
+    // Store transform in CSS variable for potential use elsewhere
+    document.documentElement.style.setProperty('--rotation-lock-transform', `rotate(${-rotationDiff}deg) scale(${scale})`);
+  };
+
+  const handleOrientationChange = () => {
+    if (state.rotationLocked && state.lockedOrientationAngle !== null) {
+      // Small delay to ensure orientation change is complete
+      setTimeout(() => {
+        applyOrientationTransform();
+      }, 50);
+    }
+  };
+
+  const lockOrientation = async () => {
+    // Store current orientation angle and viewport size
+    const currentAngle = normalizeAngle(getCurrentOrientationAngle());
+    setLockedOrientationAngle(currentAngle);
+    setLockedViewportSize(window.innerWidth, window.innerHeight);
+    
+    // Try native orientation lock first (works on Android and some browsers)
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      try {
+        const isLandscape = currentAngle === 90 || currentAngle === 270;
+        const targetOrientation = isLandscape ? 'landscape' : 'portrait';
+        await screen.orientation.lock(targetOrientation);
+        // If native lock succeeds, we don't need CSS transforms
+        return true;
+      } catch (error) {
+        // Native lock failed, fall back to CSS transform approach
+        console.debug('Native orientation lock not available, using CSS transform workaround');
+      }
+    }
+    
+    // Apply CSS transform immediately
+    applyOrientationTransform();
+    
+    // Set up orientation change listener
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange);
+    
+    // Also listen to screen orientation changes if available
+    if (screen.orientation) {
+      screen.orientation.addEventListener('change', handleOrientationChange);
+    }
+    
+    return true;
+  };
+
+  const unlockOrientation = async () => {
+    // Try native unlock first
+    if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+      try {
+        await screen.orientation.unlock();
+      } catch (error) {
+        console.debug('Native orientation unlock failed');
+      }
+    }
+    
+    // Remove CSS transforms from video wrapper
+    if (videoWrapper) {
+      videoWrapper.style.transform = '';
+      videoWrapper.style.transformOrigin = '';
+    }
+    document.documentElement.style.setProperty('--rotation-lock-transform', '');
+    
+    // Remove event listeners
+    window.removeEventListener('orientationchange', handleOrientationChange);
+    window.removeEventListener('resize', handleOrientationChange);
+    if (screen.orientation) {
+      screen.orientation.removeEventListener('change', handleOrientationChange);
+    }
+    
+    // Clear locked angle and viewport size
+    setLockedOrientationAngle(null);
+    setLockedViewportSize(null, null);
   };
 
   const updateRotationLockButton = () => {
@@ -167,19 +263,21 @@ export const createTransformController = ({ elements, store, persistence }) => {
     updateRotationLockButton();
 
     if (locked) {
-      const success = await lockOrientation();
-      if (!success) {
-        // If locking fails, revert state
-        setRotationLocked(false);
-        updateRotationLockButton();
-        return;
-      }
+      await lockOrientation();
     } else {
       await unlockOrientation();
     }
 
-    if (persist && persistence && typeof persistence.saveRotationLock === 'function') {
-      persistence.saveRotationLock(state.rotationLocked);
+    if (persist && persistence) {
+      if (typeof persistence.saveRotationLock === 'function') {
+        persistence.saveRotationLock(state.rotationLocked);
+      }
+      if (typeof persistence.saveLockedOrientationAngle === 'function' && state.lockedOrientationAngle !== null) {
+        persistence.saveLockedOrientationAngle(state.lockedOrientationAngle);
+      }
+      if (typeof persistence.saveLockedViewportSize === 'function' && state.lockedViewportWidth !== null && state.lockedViewportHeight !== null) {
+        persistence.saveLockedViewportSize(state.lockedViewportWidth, state.lockedViewportHeight);
+      }
     }
   };
 
@@ -421,18 +519,23 @@ export const createTransformController = ({ elements, store, persistence }) => {
     toggleVisibility(precisionControl, state.hasVideo && state.moveMode);
     toggleVisibility(rotateLockBtn, state.hasVideo && state.moveMode);
 
-    // If rotation was locked and move mode is active, restore the lock
-    if (state.rotationLocked && state.moveMode && state.hasVideo) {
+    // If rotation was locked, restore the lock and apply transforms
+    if (state.rotationLocked && state.hasVideo) {
       // Small delay to ensure orientation API is ready
       setTimeout(async () => {
-        const success = await lockOrientation();
-        if (!success) {
-          // If locking fails, reset state
-          setRotationLocked(false);
-          updateRotationLockButton();
-          if (persistence && typeof persistence.saveRotationLock === 'function') {
-            persistence.saveRotationLock(false);
+        // Restore locked orientation angle if it was persisted
+        if (state.lockedOrientationAngle !== null) {
+          // Apply the transform immediately to maintain visual orientation
+          applyOrientationTransform();
+          // Set up orientation change listeners
+          window.addEventListener('orientationchange', handleOrientationChange);
+          window.addEventListener('resize', handleOrientationChange);
+          if (screen.orientation) {
+            screen.orientation.addEventListener('change', handleOrientationChange);
           }
+        } else {
+          // Lock to current orientation if no angle was persisted
+          await lockOrientation();
         }
       }, 100);
     }
