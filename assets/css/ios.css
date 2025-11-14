@@ -173,6 +173,21 @@ label.picker:hover {
   width: 220px;
 }
 
+.floating-action {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 1rem);
+  right: calc(env(safe-area-inset-right, 0px) + 1rem);
+  z-index: 12;
+  box-shadow: 0 12px 24px rgba(13, 17, 23, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(6px);
+}
+
+.floating-action[aria-pressed='true'] {
+  background: rgba(31, 136, 255, 0.5);
+  border-color: rgba(31, 136, 255, 0.7);
+}
+
 .controls {
   position: fixed;
   bottom: 1.5rem;
@@ -498,14 +513,21 @@ button {
 }
 
 label.picker {
-  background: #1f88ff;
-  color: white;
-  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   padding: 0.75rem 1rem;
   border-radius: 999px;
   font-size: 1rem;
   min-width: 64px;
   text-align: center;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+label.picker:hover,
+label.picker:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.26);
 }
 
 button:disabled {
@@ -536,15 +558,24 @@ input[type='file'] {
   position: fixed;
   inset: 0;
   z-index: 13;
-  display: flex;
-  flex-direction: column;
-  background: rgba(10, 10, 10, 0.95);
+  background: rgba(10, 10, 10, 0.88);
   backdrop-filter: blur(12px);
-  padding: 1.5rem;
-  gap: 1.5rem;
   overflow-y: auto;
   overflow-x: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
+  height: 100dvh;
+  min-height: 100vh;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ai-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100%;
+  padding: 1rem;
+  padding-top: calc(1rem + env(safe-area-inset-top));
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
 }
 
 #ai-panel.concealed {
@@ -554,9 +585,15 @@ input[type='file'] {
 }
 
 .ai-header {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0) + 0.75rem);
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 1rem;
+  padding: 0.25rem 0;
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(12px);
 }
 
 .ai-title {
@@ -590,13 +627,12 @@ input[type='file'] {
 }
 
 .ai-back-icon {
-  width: 1.1rem;
-  height: 1.1rem;
-  border: solid currentColor;
-  border-width: 0 0 2px 2px;
-  transform: rotate(45deg);
+  width: 1.05rem;
+  height: 1.05rem;
   display: inline-block;
-  margin-right: 0.1rem;
+  margin-right: 0.25rem;
+  flex-shrink: 0;
+  color: inherit;
 }
 
 .ai-content {
@@ -605,34 +641,6 @@ input[type='file'] {
   flex-direction: column;
   gap: 1.5rem;
   min-height: 0;
-}
-
-@media (max-width: 899px) {
-  #ai-panel {
-    overflow-y: auto;
-    padding-bottom: calc(1.5rem + var(--safe-area-bottom, 0px));
-  }
-
-  .ai-content {
-    flex: none;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    min-height: auto;
-  }
-
-  .ai-videos,
-  .ai-form-section {
-    flex: none;
-    min-height: auto;
-  }
-
-  .ai-grid,
-  .ai-form {
-    flex: none;
-    overflow-y: visible;
-    padding-right: 0;
-  }
 }
 
 @media (min-width: 900px) {
@@ -644,15 +652,13 @@ input[type='file'] {
 
 .ai-videos,
 .ai-form-section {
-  background: rgba(18, 18, 18, 0.85);
+  background: rgba(18, 18, 18, 0.68);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 1.25rem;
-  padding: 1.25rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  flex: 1 1 0;
-  min-height: 0;
 }
 
 .ai-section-header h3 {
@@ -679,10 +685,7 @@ input[type='file'] {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 0.75rem;
-  overflow-y: auto;
   padding: 0.25rem 0.25rem 0.25rem 0;
-  flex: 1;
-  min-height: 0;
 }
 
 .ai-item {
@@ -745,10 +748,6 @@ input[type='file'] {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 0.4rem;
 }
 
 .ai-results {
@@ -864,20 +863,6 @@ input[type='file'] {
   min-height: 92px;
 }
 
-.ai-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.ai-checkbox input {
-  width: 1rem;
-  height: 1rem;
-  accent-color: #1f88ff;
-}
-
 .ai-key-actions {
   display: flex;
   gap: 0.75rem;
@@ -947,6 +932,9 @@ input[type='file'] {
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.8);
   transition: color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .ai-status[data-tone='success'] {
@@ -959,6 +947,37 @@ input[type='file'] {
 
 .ai-status[data-tone='error'] {
   color: #ff8a8a;
+}
+
+.ai-progress-label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ai-progress {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.ai-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.ai-progress-bar {
+  height: 100%;
+  width: var(--ai-progress, 0%);
+  background: linear-gradient(90deg, rgba(31, 136, 255, 0.85), rgba(125, 195, 255, 0.95));
+  transition: width 0.4s ease;
 }
 
 .ai-results h3 {

@@ -18,6 +18,7 @@ const defaultSettings = () => ({
     fadeDuration: 1.5,
     currentIndex: -1,
     moveMode: false,
+    orientationLock: '',
   },
   ai: {
     runwayApiKey: '',
@@ -59,6 +60,10 @@ const normalizeSettings = (rawSettings) => {
     fadeDuration: normalizeNumber(normalized.options?.fadeDuration, defaults.options.fadeDuration),
     currentIndex: normalizeNumber(normalized.options?.currentIndex, defaults.options.currentIndex),
     moveMode: Boolean(normalized.options?.moveMode),
+    orientationLock:
+      normalized.options?.orientationLock === 'portrait' || normalized.options?.orientationLock === 'landscape'
+        ? normalized.options.orientationLock
+        : '',
   };
 
   const ai = {
@@ -303,6 +308,7 @@ export const loadPersistedData = async () => {
       fadeDuration: settings.options.fadeDuration,
       currentIndex: settings.options.currentIndex,
       moveMode: settings.options.moveMode,
+      orientationLock: '',
     },
     playlist,
     ai: {

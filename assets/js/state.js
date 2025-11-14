@@ -21,6 +21,7 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     fadeEnabled: Boolean(initialState.fadeEnabled),
     fadeDuration: typeof initialState.fadeDuration === 'number' ? initialState.fadeDuration : 1.5,
     moveMode: Boolean(initialState.moveMode),
+    orientationLock: typeof initialState.orientationLock === 'string' ? initialState.orientationLock : '',
   };
 
   if (persistedPrecision !== null) {
@@ -74,6 +75,10 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     state.moveMode = value;
   };
 
+  const setOrientationLock = (value) => {
+    state.orientationLock = typeof value === 'string' ? value : '';
+  };
+
   return {
     state,
     resetTransform,
@@ -87,6 +92,7 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     setFadeEnabled,
     setFadeDuration,
     setMoveMode,
+    setOrientationLock,
   };
 };
 
