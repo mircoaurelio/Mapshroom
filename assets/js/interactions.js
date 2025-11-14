@@ -43,7 +43,7 @@ const adjustDimensions = (state, action, wrapper) => {
 };
 
 export const createTransformController = ({ elements, store, persistence }) => {
-  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, setMoveMode, setOrientationLock } = store;
+  const { state, resetTransform, updatePrecision, setOverlayActive, setHasVideo, setMoveMode, setRotationLocked } = store;
   const {
     video: initialVideo,
     playBtn,
@@ -55,141 +55,12 @@ export const createTransformController = ({ elements, store, persistence }) => {
     chooseLabel,
     controls,
     videoWrapper,
-    orientationLockBtn,
+    rotateLockBtn,
   } = elements;
 
   let currentVideo = initialVideo || null;
   let playButtonPrimed = false;
   const videoListeners = new WeakMap();
-  const orientationApi = typeof window !== 'undefined' ? window.screen?.orientation || null : null;
-  const orientationLockSupported = Boolean(orientationApi && typeof orientationApi.lock === 'function');
-  const orientationLockIcon = orientationLockBtn?.querySelector('img') || null;
-  let orientationWarningShown = false;
-
-  const ORIENTATION_PORTRAIT = 'portrait';
-  const ORIENTATION_LANDSCAPE = 'landscape';
-
-  const getCurrentOrientation = () => {
-    if (typeof window === 'undefined') {
-      return ORIENTATION_PORTRAIT;
-    }
-
-    const type = window.screen?.orientation?.type;
-    if (typeof type === 'string') {
-      if (type.startsWith(ORIENTATION_LANDSCAPE)) {
-        return ORIENTATION_LANDSCAPE;
-      }
-      if (type.startsWith(ORIENTATION_PORTRAIT)) {
-        return ORIENTATION_PORTRAIT;
-      }
-    }
-
-    if (typeof window.matchMedia === 'function') {
-      try {
-        if (window.matchMedia('(orientation: portrait)').matches) {
-          return ORIENTATION_PORTRAIT;
-        }
-        if (window.matchMedia('(orientation: landscape)').matches) {
-          return ORIENTATION_LANDSCAPE;
-        }
-      } catch (error) {
-        console.debug('Unable to evaluate orientation via matchMedia.', error);
-      }
-    }
-
-    if (typeof window.innerWidth === 'number' && typeof window.innerHeight === 'number') {
-      return window.innerWidth >= window.innerHeight ? ORIENTATION_LANDSCAPE : ORIENTATION_PORTRAIT;
-    }
-
-    return ORIENTATION_PORTRAIT;
-  };
-
-  let lastKnownOrientation = getCurrentOrientation();
-
-  const getOrientationLabel = (value) => (value === ORIENTATION_LANDSCAPE ? 'landscape' : 'portrait');
-
-  const updateOrientationLockButton = () => {
-    if (!orientationLockBtn) {
-      return;
-    }
-    const locked = Boolean(state.orientationLock);
-    const effectiveOrientation = locked ? state.orientationLock : lastKnownOrientation;
-    orientationLockBtn.disabled = !state.hasVideo || !orientationLockSupported;
-    orientationLockBtn.setAttribute('aria-pressed', locked ? 'true' : 'false');
-
-    const lockIcon = orientationLockBtn.dataset.iconLock || '';
-    const unlockIcon = orientationLockBtn.dataset.iconUnlock || lockIcon;
-    if (orientationLockIcon) {
-      const nextSrc = locked ? unlockIcon || lockIcon : lockIcon || orientationLockIcon.src;
-      if (nextSrc && orientationLockIcon.src !== nextSrc) {
-        orientationLockIcon.src = nextSrc;
-      }
-    }
-
-    const labelOrientation = getOrientationLabel(effectiveOrientation);
-    const label = locked ? `Unlock orientation (${labelOrientation})` : `Lock current orientation (${labelOrientation})`;
-    orientationLockBtn.setAttribute('aria-label', label);
-  };
-
-  const setOrientationLockState = (nextValue, { persist = true } = {}) => {
-    const normalized =
-      nextValue === ORIENTATION_LANDSCAPE || nextValue === ORIENTATION_PORTRAIT ? nextValue : '';
-    setOrientationLock(normalized);
-    updateOrientationLockButton();
-    if (persist && persistence && typeof persistence.saveOrientationLock === 'function') {
-      persistence.saveOrientationLock(state.orientationLock);
-    }
-  };
-
-  const releaseOrientationLock = ({ persist = true } = {}) => {
-    if (orientationLockSupported && orientationApi && typeof orientationApi.unlock === 'function') {
-      try {
-        orientationApi.unlock();
-      } catch (error) {
-        console.debug('Unable to unlock orientation.', error);
-      }
-    }
-    setOrientationLockState('', { persist });
-  };
-
-  const attemptOrientationLock = async (target) => {
-    if (!orientationLockSupported || !orientationApi || typeof orientationApi.lock !== 'function') {
-      return false;
-    }
-
-    const candidates =
-      target === ORIENTATION_LANDSCAPE
-        ? ['landscape-primary', 'landscape-secondary', 'landscape']
-        : ['portrait-primary', 'portrait-secondary', 'portrait'];
-
-    for (const candidate of candidates) {
-      try {
-        await orientationApi.lock(candidate);
-        return true;
-      } catch (error) {
-        if (candidate === candidates[candidates.length - 1]) {
-          console.debug(`Orientation lock failed for ${candidate}.`, error);
-        }
-      }
-    }
-
-    return false;
-  };
-
-  const handleOrientationChange = () => {
-    lastKnownOrientation = getCurrentOrientation();
-    if (state.orientationLock && state.orientationLock !== lastKnownOrientation) {
-      releaseOrientationLock({ persist: true });
-    } else {
-      updateOrientationLockButton();
-    }
-  };
-
-  if (orientationApi && typeof orientationApi.addEventListener === 'function') {
-    orientationApi.addEventListener('change', handleOrientationChange);
-  } else if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-    window.addEventListener('orientationchange', handleOrientationChange);
-  }
 
   const persistTransform = () => {
     if (persistence && typeof persistence.saveTransform === 'function') {
@@ -232,19 +103,98 @@ export const createTransformController = ({ elements, store, persistence }) => {
     moveBtn.setAttribute('aria-label', nextLabel);
   };
 
+  const lockOrientation = async () => {
+    if (!screen.orientation || typeof screen.orientation.lock !== 'function') {
+      console.warn('Screen Orientation API is not supported.');
+      return false;
+    }
+
+    try {
+      // Get current orientation
+      let currentAngle = screen.orientation.angle;
+      if (typeof currentAngle !== 'number') {
+        // Fallback: check window dimensions
+        currentAngle = window.innerWidth > window.innerHeight ? 90 : 0;
+      }
+
+      // Determine target orientation based on angle
+      // 0 or 180 = portrait, 90 or -90 = landscape
+      let targetOrientation;
+      if (currentAngle === 90 || currentAngle === -90 || currentAngle === 270) {
+        targetOrientation = 'landscape';
+      } else {
+        targetOrientation = 'portrait';
+      }
+
+      await screen.orientation.lock(targetOrientation);
+      return true;
+    } catch (error) {
+      console.warn('Unable to lock orientation:', error);
+      // On iOS, the Screen Orientation API may not be fully supported
+      // Try to use a more permissive approach
+      try {
+        // Try any orientation that works
+        await screen.orientation.lock('any');
+        return true;
+      } catch (fallbackError) {
+        console.warn('Fallback orientation lock also failed:', fallbackError);
+        return false;
+      }
+    }
+  };
+
+  const unlockOrientation = async () => {
+    if (!screen.orientation || typeof screen.orientation.unlock !== 'function') {
+      return;
+    }
+
+    try {
+      await screen.orientation.unlock();
+    } catch (error) {
+      console.warn('Unable to unlock orientation:', error);
+    }
+  };
+
+  const updateRotationLockButton = () => {
+    const locked = state.rotationLocked;
+    rotateLockBtn.setAttribute('aria-pressed', locked ? 'true' : 'false');
+    const nextLabel = locked ? 'Unlock screen rotation' : 'Lock screen rotation';
+    rotateLockBtn.setAttribute('aria-label', nextLabel);
+  };
+
+  const applyRotationLock = async (locked, { persist = true } = {}) => {
+    setRotationLocked(locked);
+    updateRotationLockButton();
+
+    if (locked) {
+      const success = await lockOrientation();
+      if (!success) {
+        // If locking fails, revert state
+        setRotationLocked(false);
+        updateRotationLockButton();
+        return;
+      }
+    } else {
+      await unlockOrientation();
+    }
+
+    if (persist && persistence && typeof persistence.saveRotationLock === 'function') {
+      persistence.saveRotationLock(state.rotationLocked);
+    }
+  };
+
   const applyMoveMode = (active, { persist = true } = {}) => {
     setMoveMode(active);
     gridOverlay.dataset.moveMode = active ? 'active' : 'inactive';
     updateMoveButton();
     toggleVisibility(precisionControl, state.hasVideo && state.moveMode);
     toggleVisibility(chooseLabel, !state.moveMode);
-    toggleVisibility(orientationLockBtn, state.hasVideo && state.moveMode && orientationLockSupported);
+    toggleVisibility(rotateLockBtn, state.hasVideo && state.moveMode);
 
-    if (!state.moveMode && state.orientationLock) {
-      releaseOrientationLock({ persist: true });
+    // If move mode is disabled, unlock rotation
+    if (!active && state.rotationLocked) {
+      applyRotationLock(false, { persist });
     }
-
-    updateOrientationLockButton();
 
     if (persist && persistence && typeof persistence.saveMoveMode === 'function') {
       persistence.saveMoveMode(state.moveMode);
@@ -266,7 +216,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
   };
 
   const enableControls = (enabled) => {
-    setControlsEnabled([playBtn, moveBtn, aiBtn, orientationLockBtn], enabled);
+    setControlsEnabled([playBtn, moveBtn, aiBtn], enabled);
     if (timelineBtn) {
       timelineBtn.disabled = !enabled;
     }
@@ -276,7 +226,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     toggleVisibility(controls, shouldShowControls);
     toggleVisibility(precisionControl, enabled && state.moveMode);
     toggleVisibility(chooseLabel, !state.moveMode);
-    toggleVisibility(orientationLockBtn, enabled && state.moveMode && orientationLockSupported);
+    toggleVisibility(rotateLockBtn, enabled && state.moveMode);
 
     applyOverlayUI(enabled, { toggleUI: false });
 
@@ -285,24 +235,20 @@ export const createTransformController = ({ elements, store, persistence }) => {
       updateTransform();
       gridOverlay.dataset.moveMode = 'inactive';
       playButtonPrimed = false;
-      if (state.orientationLock) {
-        releaseOrientationLock({ persist: true });
-      } else {
-        updateOrientationLockButton();
+      // Unlock rotation when video is disabled
+      if (state.rotationLocked) {
+        applyRotationLock(false, { persist: false });
       }
     }
 
     updatePlayButton();
     updateMoveButton();
-    updateOrientationLockButton();
   };
 
   const showPreloadUI = () => {
     toggleVisibility(chooseLabel, true);
     toggleVisibility(controls, false);
     toggleVisibility(precisionControl, false);
-    toggleVisibility(orientationLockBtn, false);
-    updateOrientationLockButton();
   };
 
   const handleZoneAction = (action) => {
@@ -360,36 +306,9 @@ export const createTransformController = ({ elements, store, persistence }) => {
     applyMoveMode(next);
   };
 
-  const handleOrientationLockToggle = async () => {
-    if (!state.hasVideo) {
-      return;
-    }
-
-    if (!orientationLockSupported) {
-      if (!orientationWarningShown) {
-        alert('Orientation lock is not supported on this device.');
-        orientationWarningShown = true;
-      }
-      return;
-    }
-
-    if (state.orientationLock) {
-      releaseOrientationLock({ persist: true });
-      return;
-    }
-
-    const currentOrientation = getCurrentOrientation();
-    lastKnownOrientation = currentOrientation;
-    const success = await attemptOrientationLock(currentOrientation);
-    if (success) {
-      setOrientationLockState(currentOrientation, { persist: true });
-    } else {
-      if (!orientationWarningShown) {
-        alert('Unable to lock orientation on this device.');
-        orientationWarningShown = true;
-      }
-      setOrientationLockState('', { persist: true });
-    }
+  const handleRotationLockToggle = () => {
+    const next = !state.rotationLocked;
+    applyRotationLock(next);
   };
 
   const handlePlay = async () => {
@@ -454,7 +373,6 @@ export const createTransformController = ({ elements, store, persistence }) => {
       updateTransformUI({ state, video: currentVideo });
       updatePlayButton();
       updateMoveButton();
-      updateOrientationLockButton();
       return;
     }
 
@@ -464,17 +382,33 @@ export const createTransformController = ({ elements, store, persistence }) => {
     updateTransformUI({ state, video: currentVideo });
     updatePlayButton();
     updateMoveButton();
-    updateOrientationLockButton();
   };
 
   attachVideoListeners(currentVideo);
 
-  requestAnimationFrame(() => {
+  // Restore rotation lock state if it was persisted
+  requestAnimationFrame(async () => {
     gridOverlay.dataset.moveMode = state.moveMode ? 'active' : 'inactive';
     updateMoveButton();
+    updateRotationLockButton();
     toggleVisibility(precisionControl, state.hasVideo && state.moveMode);
-    toggleVisibility(orientationLockBtn, state.hasVideo && state.moveMode && orientationLockSupported);
-    updateOrientationLockButton();
+    toggleVisibility(rotateLockBtn, state.hasVideo && state.moveMode);
+
+    // If rotation was locked and move mode is active, restore the lock
+    if (state.rotationLocked && state.moveMode && state.hasVideo) {
+      // Small delay to ensure orientation API is ready
+      setTimeout(async () => {
+        const success = await lockOrientation();
+        if (!success) {
+          // If locking fails, reset state
+          setRotationLocked(false);
+          updateRotationLockButton();
+          if (persistence && typeof persistence.saveRotationLock === 'function') {
+            persistence.saveRotationLock(false);
+          }
+        }
+      }, 100);
+    }
   });
 
   return {
@@ -488,7 +422,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     handlePlay,
     handleOverlayState,
     handleMoveToggle,
-    handleOrientationLockToggle,
+    handleRotationLockToggle,
   };
 };
 

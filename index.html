@@ -29,6 +29,15 @@
   <main class="app-main">
     <section id="video-wrapper">
       <video id="video" class="main-video" playsinline preload="metadata"></video>
+      <button
+        id="rotateLockBtn"
+        class="rotate-lock-button icon-button concealed"
+        type="button"
+        aria-label="Lock screen rotation"
+        aria-pressed="false"
+      >
+        <img src="assets/icons/rotate-lock.svg" alt="" role="presentation" />
+      </button>
       <div id="grid-overlay" class="overlay-disabled">
         <div class="grid-zone" data-action="height-minus"></div>
         <div class="grid-zone" data-action="move-up"></div>
@@ -41,18 +50,6 @@
         <div class="grid-zone" data-action="width-plus"></div>
       </div>
     </section>
-    <button
-      id="orientationLockBtn"
-      class="icon-button floating-action concealed"
-      type="button"
-      aria-hidden="true"
-      aria-label="Lock current orientation"
-      aria-pressed="false"
-      data-icon-lock="assets/icons/orientation-lock.svg"
-      data-icon-unlock="assets/icons/orientation-unlock.svg"
-    >
-      <img src="assets/icons/orientation-lock.svg" alt="" role="presentation" />
-    </button>
 
     <aside id="timeline-panel" class="concealed" aria-hidden="true" tabindex="-1">
       <div class="timeline-header">
