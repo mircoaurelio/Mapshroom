@@ -1904,12 +1904,10 @@ const attachPrecisionControl = (precisionRange, controller) => {
   });
 };
 
-const attachControlButtons = (playBtn, moveBtn, orientationLockBtn, controller) => {
+const attachControlButtons = (playBtn, moveBtn, rotateLockBtn, controller) => {
   playBtn.addEventListener('click', controller.handlePlay);
   moveBtn.addEventListener('click', controller.handleMoveToggle);
-  if (orientationLockBtn) {
-    orientationLockBtn.addEventListener('click', controller.handleOrientationLockToggle);
-  }
+  rotateLockBtn.addEventListener('click', controller.handleRotationLockToggle);
 };
 
 const setupVisibilityPause = (getActiveVideo) => {
@@ -2021,7 +2019,7 @@ const init = async () => {
     savePlaybackOptions: (options) => saveOptionsState(options),
     saveCurrentIndex: (index) => saveOptionsState({ currentIndex: index }),
     saveMoveMode: (active) => saveOptionsState({ moveMode: active }),
-    saveOrientationLock: (value) => saveOptionsState({ orientationLock: value }),
+    saveRotationLock: (locked) => saveOptionsState({ rotationLocked: locked }),
     storeVideo: (id, file) => persistVideoFile(id, file),
     deleteVideo: (id) => deleteVideoFile(id),
     getAiSettings: () => ({ ...(persisted.ai || {}) }),
@@ -2060,7 +2058,7 @@ const init = async () => {
     store,
   });
   attachPrecisionControl(elements.precisionRange, controller);
-  attachControlButtons(elements.playBtn, elements.moveBtn, elements.orientationLockBtn, controller);
+  attachControlButtons(elements.playBtn, elements.moveBtn, elements.rotateLockBtn, controller);
   setupVisibilityPause(() => playlistController.getActiveVideo());
   setupZoomPrevention();
 };
