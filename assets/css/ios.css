@@ -607,6 +607,34 @@ input[type='file'] {
   min-height: 0;
 }
 
+@media (max-width: 899px) {
+  #ai-panel {
+    overflow-y: auto;
+    padding-bottom: calc(1.5rem + var(--safe-area-bottom, 0px));
+  }
+
+  .ai-content {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    min-height: auto;
+  }
+
+  .ai-videos,
+  .ai-form-section {
+    flex: none;
+    min-height: auto;
+  }
+
+  .ai-grid,
+  .ai-form {
+    flex: none;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+}
+
 @media (min-width: 900px) {
   .ai-content {
     display: grid;
