@@ -127,6 +127,52 @@ export const createTransformController = ({ elements, store, persistence }) => {
     return rounded % 360;
   };
 
+  const isSameOrientationType = (angle1, angle2) => {
+    // Check if two angles represent the same orientation type (landscape vs portrait)
+    // Landscape: 90 or 270
+    // Portrait: 0 or 180
+    const isLandscape1 = angle1 === 90 || angle1 === 270;
+    const isLandscape2 = angle2 === 90 || angle2 === 270;
+    return isLandscape1 === isLandscape2;
+  };
+
+  const calculateRotationDiff = (lockedAngle, currentAngle) => {
+    // Calculate the rotation needed to keep content visually the same
+    // When device rotates, we need to counter-rotate the content
+    
+    // Calculate the raw angle difference
+    let rawDiff = currentAngle - lockedAngle;
+    
+    // Normalize to -180 to 180 range (shortest path)
+    let deviceRotation = rawDiff;
+    while (deviceRotation > 180) deviceRotation -= 360;
+    while (deviceRotation < -180) deviceRotation += 360;
+    
+    const absRotation = Math.abs(deviceRotation);
+    const isSameOrientation = isSameOrientationType(lockedAngle, currentAngle);
+    
+    // Special case: 180-degree flip within same orientation type
+    // When device flips 180° but stays in same orientation (e.g., locked at 90°, rotated to 270°):
+    // The device is physically upside down, so content should appear upside down.
+    // However, the user reports it appears upside down, meaning we need to fix it.
+    // 
+    // The issue: When we apply rotate(180deg), content still appears upside down.
+    // This suggests the transform might be combining incorrectly, or we need a different approach.
+    //
+    // Solution: Use scaleY(-1) to flip vertically instead of rotating.
+    // For a 180° flip, we can use rotate(180deg) OR scaleY(-1) scaleX(-1).
+    // Let's try rotating 180deg with proper transform origin.
+    if (isSameOrientation && absRotation === 180) {
+      // For 180° flip: rotate 180° to compensate for device being upside down
+      // This should make content appear right-side up
+      return 180;
+    }
+    
+    // For other rotations (90° or -90° portrait<->landscape), counter-rotate by opposite amount
+    // If device rotated +90° clockwise, we rotate -90° counter-clockwise
+    return -deviceRotation;
+  };
+
   const applyOrientationTransform = () => {
     if (!state.rotationLocked || state.lockedOrientationAngle === null || !videoWrapper) {
       // Remove transform and fixed dimensions if not locked
@@ -152,7 +198,9 @@ export const createTransformController = ({ elements, store, persistence }) => {
 
     const currentAngle = normalizeAngle(getCurrentOrientationAngle());
     const lockedAngle = normalizeAngle(state.lockedOrientationAngle);
-    const rotationDiff = lockedAngle - currentAngle;
+    
+    // Calculate rotation difference with special handling for 180-degree flips
+    const rotationDiff = calculateRotationDiff(lockedAngle, currentAngle);
 
     // Get locked dimensions (the size when rotation was locked)
     const lockedWidth = state.lockedViewportWidth || window.innerWidth;
@@ -168,19 +216,25 @@ export const createTransformController = ({ elements, store, persistence }) => {
     videoWrapper.style.position = 'fixed';
     videoWrapper.style.boxSizing = 'border-box';
     
-    // Calculate how to center and scale the locked wrapper in the current viewport
-    // When rotated, we need to account for the rotation in centering
-    let finalWidth = lockedWidth;
-    let finalHeight = lockedHeight;
-    let centerX = currentWidth / 2;
-    let centerY = currentHeight / 2;
+    // Center the wrapper in the viewport
+    const centerX = currentWidth / 2;
+    const centerY = currentHeight / 2;
     
     // Apply counter-rotation to maintain visual orientation
+    // rotationDiff is already calculated by calculateRotationDiff
+    // For 180-degree flips, calculateRotationDiff returns 180, which we'll handle specially
     if (rotationDiff !== 0) {
-      videoWrapper.style.transform = `rotate(${-rotationDiff}deg)`;
+      // Check if this is a 180-degree rotation (for 180° flips within same orientation)
+      if (Math.abs(rotationDiff) === 180) {
+        // For 180-degree flips: use scaleX(-1) scaleY(-1) instead of rotate(180deg)
+        // This is equivalent but might work better when combined with nested transforms
+        // (like the video element's translate transform)
+        videoWrapper.style.transform = `scaleX(-1) scaleY(-1)`;
+      } else {
+        // For other rotations (90° or -90°), use rotation
+        videoWrapper.style.transform = `rotate(${rotationDiff}deg)`;
+      }
       videoWrapper.style.transformOrigin = 'center center';
-      // When rotated 90/270 degrees, swap width/height for centering calculation
-      // But we keep the wrapper at locked dimensions and just center it
     } else {
       videoWrapper.style.transform = '';
       videoWrapper.style.transformOrigin = '';
@@ -197,7 +251,15 @@ export const createTransformController = ({ elements, store, persistence }) => {
     // Store locked dimensions and transform in CSS variables
     document.documentElement.style.setProperty('--rotation-lock-width', `${lockedWidth}px`);
     document.documentElement.style.setProperty('--rotation-lock-height', `${lockedHeight}px`);
-    document.documentElement.style.setProperty('--rotation-lock-transform', rotationDiff !== 0 ? `rotate(${-rotationDiff}deg)` : '');
+    
+    // Store the transform string for CSS variables
+    let transformStr = '';
+    if (rotationDiff !== 0) {
+      transformStr = Math.abs(rotationDiff) === 180 
+        ? 'scaleX(-1) scaleY(-1)' 
+        : `rotate(${rotationDiff}deg)`;
+    }
+    document.documentElement.style.setProperty('--rotation-lock-transform', transformStr);
   };
 
   const handleOrientationChange = () => {

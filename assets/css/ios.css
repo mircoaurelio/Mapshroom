@@ -450,7 +450,6 @@ button {
 .timeline-thumbnail-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
 }
