@@ -625,6 +625,21 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     videoEl.dataset.active = 'false';
   };
 
+  const captureVideoDimensions = (item, videoEl) => {
+    if (!item || !videoEl) {
+      return;
+    }
+    // Capture dimensions if not already stored and video has loaded metadata
+    if ((!item.videoWidth || !item.videoHeight) && videoEl.readyState >= 1) {
+      const width = videoEl.videoWidth;
+      const height = videoEl.videoHeight;
+      if (width > 0 && height > 0) {
+        item.videoWidth = width;
+        item.videoHeight = height;
+      }
+    }
+  };
+
   const prepareVideoElementForItem = (item, { eager = false } = {}) => {
     if (!item) {
       return null;
@@ -642,6 +657,16 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       ensureVideoIsAttached(videoEl);
       videoElements.set(item.id, videoEl);
       videoEl.addEventListener('ended', handleVideoEnded);
+      
+      // Add listener to capture dimensions when metadata loads
+      const handleLoadedMetadata = () => {
+        captureVideoDimensions(item, videoEl);
+        // Trigger re-render if timeline is open to update aspect ratios
+        if (state.timelineOpen) {
+          renderTimelineGrid();
+        }
+      };
+      videoEl.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
     }
 
     videoEl.muted = true;
@@ -672,6 +697,9 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         console.warn('Unable to prepare video element for playback.', error);
       }
     }
+
+    // Try to capture dimensions if video already has metadata
+    captureVideoDimensions(item, videoEl);
 
     if (eager) {
       ensureVideoReady(item, videoEl, { eager: true }).catch(() => {});
@@ -858,6 +886,11 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
         try {
           const width = tempVideo.videoWidth || 320;
           const height = tempVideo.videoHeight || 180;
+          // Store video dimensions in the item for aspect ratio calculation
+          if (width > 0 && height > 0) {
+            item.videoWidth = width;
+            item.videoHeight = height;
+          }
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
@@ -934,7 +967,13 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const tiles = timelineGrid.querySelectorAll('.timeline-item');
     tiles.forEach((tile) => {
       const tileIndex = Number(tile.dataset.index);
-      tile.classList.toggle('active', tileIndex === state.currentIndex);
+      const isActive = tileIndex === state.currentIndex;
+      tile.classList.toggle('active', isActive);
+      // Also update the wrapper for height fit-content
+      const wrapper = tile.closest('.timeline-item-wrapper');
+      if (wrapper) {
+        wrapper.classList.toggle('has-active', isActive);
+      }
     });
   };
 
@@ -964,6 +1003,11 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       const previewWrapper = document.createElement('div');
       previewWrapper.className = 'timeline-thumbnail-wrapper';
 
+      // Set aspect ratio based on video dimensions if available
+      if (item.videoWidth && item.videoHeight && item.videoWidth > 0 && item.videoHeight > 0) {
+        previewWrapper.style.aspectRatio = `${item.videoWidth} / ${item.videoHeight}`;
+      }
+
       const preview = document.createElement('img');
       preview.className = 'timeline-thumbnail';
       preview.alt = '';
@@ -971,24 +1015,10 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       preview.loading = 'lazy';
       preview.draggable = false;
 
-      // Set aspect ratio based on video dimensions when image loads
-      const setAspectRatio = () => {
-        if (preview.naturalWidth && preview.naturalHeight) {
-          const aspectRatio = preview.naturalWidth / preview.naturalHeight;
-          previewWrapper.style.aspectRatio = `${aspectRatio}`;
-        }
-      };
-
       if (item.thumbnailUrl) {
         preview.src = item.thumbnailUrl;
         preview.removeAttribute('data-state');
         previewWrapper.removeAttribute('data-loading');
-        // If image is already cached, set aspect ratio immediately
-        if (preview.complete && preview.naturalWidth > 0) {
-          setAspectRatio();
-        } else {
-          preview.addEventListener('load', setAspectRatio, { once: true });
-        }
       } else {
         preview.removeAttribute('src');
         preview.dataset.state = 'loading';
@@ -1000,11 +1030,9 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
             }
             if (thumbnailUrl) {
               preview.src = thumbnailUrl;
-              // Set aspect ratio when thumbnail loads
-              if (preview.complete && preview.naturalWidth > 0) {
-                setAspectRatio();
-              } else {
-                preview.addEventListener('load', setAspectRatio, { once: true });
+              // Update aspect ratio if dimensions were just loaded
+              if (item.videoWidth && item.videoHeight && item.videoWidth > 0 && item.videoHeight > 0) {
+                previewWrapper.style.aspectRatio = `${item.videoWidth} / ${item.videoHeight}`;
               }
             }
           })
@@ -1031,9 +1059,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       });
 
       previewWrapper.appendChild(preview);
-      previewWrapper.appendChild(deleteBtn);
       button.append(previewWrapper, label);
-      wrapper.append(button);
+      wrapper.append(button, deleteBtn);
       timelineGrid.appendChild(wrapper);
     });
 
