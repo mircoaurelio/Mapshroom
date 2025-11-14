@@ -1872,6 +1872,13 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     getActiveVideo: () => activeVideoElement,
     getPlaylistSnapshot: () => playlist.map((item) => ({ ...item })),
     addVideoFromBlob,
+    ensureThumbnailForItem: (itemId) => {
+      const item = playlist.find((candidate) => candidate.id === itemId);
+      if (!item) {
+        return Promise.resolve('');
+      }
+      return ensureThumbnail(item);
+    },
     subscribeToPlaylist: (callback) => {
       if (typeof callback !== 'function') {
         return () => {};
@@ -1897,9 +1904,12 @@ const attachPrecisionControl = (precisionRange, controller) => {
   });
 };
 
-const attachControlButtons = (playBtn, moveBtn, controller) => {
+const attachControlButtons = (playBtn, moveBtn, orientationLockBtn, controller) => {
   playBtn.addEventListener('click', controller.handlePlay);
   moveBtn.addEventListener('click', controller.handleMoveToggle);
+  if (orientationLockBtn) {
+    orientationLockBtn.addEventListener('click', controller.handleOrientationLockToggle);
+  }
 };
 
 const setupVisibilityPause = (getActiveVideo) => {
@@ -2011,6 +2021,7 @@ const init = async () => {
     savePlaybackOptions: (options) => saveOptionsState(options),
     saveCurrentIndex: (index) => saveOptionsState({ currentIndex: index }),
     saveMoveMode: (active) => saveOptionsState({ moveMode: active }),
+    saveOrientationLock: (value) => saveOptionsState({ orientationLock: value }),
     storeVideo: (id, file) => persistVideoFile(id, file),
     deleteVideo: (id) => deleteVideoFile(id),
     getAiSettings: () => ({ ...(persisted.ai || {}) }),
@@ -2049,7 +2060,7 @@ const init = async () => {
     store,
   });
   attachPrecisionControl(elements.precisionRange, controller);
-  attachControlButtons(elements.playBtn, elements.moveBtn, controller);
+  attachControlButtons(elements.playBtn, elements.moveBtn, elements.orientationLockBtn, controller);
   setupVisibilityPause(() => playlistController.getActiveVideo());
   setupZoomPrevention();
 };

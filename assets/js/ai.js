@@ -117,52 +117,11 @@ const convertBlobToDataUri = (blob) =>
     reader.readAsDataURL(blob);
   });
 
-const uploadEphemeralToRunway = async (blob, item, apiKey) => {
-  const headers = makeRunwayHeaders(apiKey);
-  const requestPayload = {
-    filename: item?.name || 'video.mp4',
-    type: 'ephemeral',
-  };
-
-  const uploadDetails = await fetchJson(`${RUNWAY_API_BASE}/uploads`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(requestPayload),
-  });
-
-  if (!uploadDetails?.uploadUrl || !uploadDetails?.fields || !uploadDetails?.runwayUri) {
-    throw new Error('Runway did not return upload instructions.');
-  }
-
-  const formData = new FormData();
-  Object.entries(uploadDetails.fields).forEach(([key, value]) => {
-    formData.append(key, value);
-  });
-  formData.append('file', blob, item?.name || 'video.mp4');
-
-  const uploadResponse = await fetch(uploadDetails.uploadUrl, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!uploadResponse.ok) {
-    if (uploadResponse.status === 413) {
-      throw new Error(
-        `Runway rejected the upload because the file (${formatBytes(
-          blob.size,
-        )}) exceeds their ephemeral upload limit (200MB).`,
-      );
-    }
-    throw new Error('Runway ephemeral upload failed.');
-  }
-
-  return uploadDetails.runwayUri;
-};
-
-const pollRunwayTask = async (taskId, apiKey, setStatus) => {
+const pollRunwayTask = async (taskId, apiKey, { onProgress } = {}) => {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt += 1) {
-    if (typeof setStatus === 'function') {
-      setStatus(`Generation in progress… (${attempt + 1}/${MAX_POLL_ATTEMPTS})`, { tone: 'info' });
+    if (typeof onProgress === 'function') {
+      const percent = Math.min((attempt / MAX_POLL_ATTEMPTS) * 100, 99);
+      onProgress(percent);
     }
 
     await delay(POLL_INTERVAL_MS);
@@ -175,6 +134,9 @@ const pollRunwayTask = async (taskId, apiKey, setStatus) => {
     const status = (task?.status || '').toUpperCase();
 
     if (status === 'SUCCEEDED') {
+      if (typeof onProgress === 'function') {
+        onProgress(100);
+      }
       return task;
     }
 
@@ -209,8 +171,6 @@ export const createAiController = ({
     aiModelSelect,
     aiRatioSelect,
     aiSeedInput,
-    aiEphemeralCheckbox,
-    aiPrimaryCheckbox,
     aiSelectedThumbnail,
     aiSelectedPlaceholder,
     aiGenerateBtn,
@@ -229,11 +189,8 @@ export const createAiController = ({
     apiKey: aiSettings.runwayApiKey || '',
     playlist: [],
     selectedVideoId: '',
-    primaryVideoId: aiSettings.primaryVideoId || '',
     preferredModel: aiSettings.preferredModel || 'gen4_aleph',
     preferredRatio: aiSettings.preferredRatio || '1280:720',
-    useEphemeralUploads:
-      typeof aiSettings.useEphemeralUploads === 'boolean' ? aiSettings.useEphemeralUploads : true,
     seed:
       typeof aiSettings.seed === 'number' && Number.isFinite(aiSettings.seed)
         ? aiSettings.seed
@@ -244,26 +201,29 @@ export const createAiController = ({
     resultsExpanded: false,
   };
 
+  let progressBarEl = null;
+  let progressLabelEl = null;
+
   const persistAiSettings = (partial) => {
     if (!persistence || typeof persistence.saveAiSettings !== 'function') {
       return;
     }
     const next = persistence.saveAiSettings(partial);
     Object.assign(state, {
-      primaryVideoId: next.primaryVideoId ?? state.primaryVideoId,
       preferredModel: next.preferredModel ?? state.preferredModel,
       preferredRatio: next.preferredRatio ?? state.preferredRatio,
-      useEphemeralUploads:
-        typeof next.useEphemeralUploads === 'boolean'
-          ? next.useEphemeralUploads
-          : state.useEphemeralUploads,
       seed:
         typeof next.seed === 'number' && Number.isFinite(next.seed) ? next.seed : state.seed,
       apiKey: next.runwayApiKey ?? state.apiKey,
     });
   };
 
-  const setStatus = (message, { tone = 'info' } = {}) => {
+  const resetProgressUi = () => {
+    progressBarEl = null;
+    progressLabelEl = null;
+  };
+
+  const setStatus = (message, { tone = 'info', progress } = {}) => {
     if (!aiStatus) {
       return;
     }
@@ -272,12 +232,37 @@ export const createAiController = ({
       aiStatus.textContent = '';
       aiStatus.removeAttribute('data-tone');
       aiStatus.removeAttribute('role');
+      resetProgressUi();
+      aiStatus.innerHTML = '';
+      return;
+    }
+
+    aiStatus.dataset.tone = tone;
+    aiStatus.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+
+    if (typeof progress === 'number' && Number.isFinite(progress)) {
+      const clamped = Math.max(0, Math.min(progress, 100));
+      if (!progressBarEl || !progressLabelEl) {
+        aiStatus.innerHTML = '';
+        const label = document.createElement('p');
+        label.className = 'ai-progress-label';
+        const track = document.createElement('div');
+        track.className = 'ai-progress';
+        const bar = document.createElement('div');
+        bar.className = 'ai-progress-bar';
+        track.appendChild(bar);
+        aiStatus.append(label, track);
+        progressLabelEl = label;
+        progressBarEl = bar;
+      }
+
+      progressLabelEl.textContent = message;
+      progressBarEl.style.setProperty('--ai-progress', `${clamped}%`);
       return;
     }
 
     aiStatus.textContent = message;
-    aiStatus.dataset.tone = tone;
-    aiStatus.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+    resetProgressUi();
   };
 
   const clearStatus = () => setStatus('');
@@ -390,11 +375,6 @@ export const createAiController = ({
   const applySelectionState = () => {
     const selected = state.playlist.find((item) => item.id === state.selectedVideoId) || null;
 
-    aiPrimaryCheckbox.disabled = !selected;
-    aiPrimaryCheckbox.checked = Boolean(
-      selected && state.primaryVideoId && selected.id === state.primaryVideoId,
-    );
-
     aiGenerateBtn.disabled = state.generating || !selected;
 
     if (aiNoVideosMessage) {
@@ -443,12 +423,34 @@ export const createAiController = ({
       } else {
         const placeholder = document.createElement('div');
         placeholder.className = 'ai-item-thumb placeholder';
-        placeholder.textContent = 'No thumbnail';
+        placeholder.textContent = 'Loading preview…';
         button.appendChild(placeholder);
-      }
 
-      if (state.primaryVideoId && state.primaryVideoId === item.id) {
-        button.dataset.primary = 'true';
+        if (playlistController && typeof playlistController.ensureThumbnailForItem === 'function') {
+          playlistController
+            .ensureThumbnailForItem(item.id)
+            .then((thumbnailUrl) => {
+              if (!button.isConnected || item.thumbnailUrl) {
+                return;
+              }
+              if (thumbnailUrl) {
+                const thumb = document.createElement('img');
+                thumb.src = thumbnailUrl;
+                thumb.alt = '';
+                thumb.className = 'ai-item-thumb';
+                thumb.loading = 'lazy';
+                placeholder.replaceWith(thumb);
+                item.thumbnailUrl = thumbnailUrl;
+              } else {
+                placeholder.textContent = 'Preview unavailable';
+              }
+            })
+            .catch(() => {
+              if (placeholder.isConnected) {
+                placeholder.textContent = 'Preview unavailable';
+              }
+            });
+        }
       }
 
       if (state.selectedVideoId === item.id) {
@@ -465,15 +467,6 @@ export const createAiController = ({
   const handlePlaylistUpdate = (snapshot) => {
     state.playlist = Array.isArray(snapshot) ? snapshot : [];
 
-    // Remove stale primary reference if it no longer exists.
-    if (
-      state.primaryVideoId &&
-      !state.playlist.some((item) => item.id === state.primaryVideoId)
-    ) {
-      state.primaryVideoId = '';
-      persistAiSettings({ primaryVideoId: '' });
-    }
-
     if (!state.playlist.length) {
       state.selectedVideoId = '';
       renderPlaylist();
@@ -485,16 +478,7 @@ export const createAiController = ({
     );
 
     if (!selectedStillExists) {
-      if (state.primaryVideoId) {
-        const primaryExists = state.playlist.some((item) => item.id === state.primaryVideoId);
-        if (primaryExists) {
-          state.selectedVideoId = state.primaryVideoId;
-        } else {
-          state.selectedVideoId = state.playlist[0].id;
-        }
-      } else {
-        state.selectedVideoId = state.playlist[0].id;
-      }
+      state.selectedVideoId = state.playlist[0].id;
     }
 
     renderPlaylist();
@@ -559,7 +543,6 @@ export const createAiController = ({
       return;
     }
 
-    const useEphemeral = aiEphemeralCheckbox.checked;
     const ratio = aiRatioSelect.value;
     const model = aiModelSelect.value;
     let seed = null;
@@ -582,15 +565,15 @@ export const createAiController = ({
       return;
     }
 
-    if (!useEphemeral) {
-      const estimatedSize = estimateDataUriSize(blob);
-      if (estimatedSize > DATA_URI_LIMIT_BYTES) {
-        setStatus(
-          `The selected video is ${formatBytes(blob.size)} which exceeds the data URI limit. Enable ephemeral upload instead.`,
-          { tone: 'warning' },
-        );
-        return;
-      }
+    const estimatedSize = estimateDataUriSize(blob);
+    if (estimatedSize > DATA_URI_LIMIT_BYTES) {
+      setStatus(
+        `The selected video is ${formatBytes(
+          blob.size,
+        )} which exceeds the supported upload size. Trim or compress the video before generating.`,
+        { tone: 'warning' },
+      );
+      return;
     }
 
     setGenerating(true);
@@ -598,19 +581,13 @@ export const createAiController = ({
     persistAiSettings({
       preferredModel: model,
       preferredRatio: ratio,
-      useEphemeralUploads: useEphemeral,
       seed,
     });
 
     let videoUri;
     try {
-      if (useEphemeral) {
-        setStatus('Uploading video to Runway…', { tone: 'info' });
-        videoUri = await uploadEphemeralToRunway(blob, selected, state.apiKey);
-      } else {
-        setStatus('Encoding video as data URI…', { tone: 'info' });
-        videoUri = await convertBlobToDataUri(blob);
-      }
+      setStatus('Encoding video as data URI…', { tone: 'info' });
+      videoUri = await convertBlobToDataUri(blob);
     } catch (error) {
       setGenerating(false);
       setStatus(error.message, { tone: 'error' });
@@ -641,8 +618,11 @@ export const createAiController = ({
         throw new Error('Runway did not return a task id.');
       }
 
-      const task = await pollRunwayTask(creation.id, state.apiKey, (message, options) => {
-        setStatus(message, options);
+      setStatus('Generation in progress…', { tone: 'info', progress: 0 });
+      const task = await pollRunwayTask(creation.id, state.apiKey, {
+        onProgress: (percent) => {
+          setStatus('Generation in progress…', { tone: 'info', progress: percent });
+        },
       });
 
       const urls = Array.isArray(task?.output) ? task.output.filter(Boolean) : [];
@@ -716,10 +696,10 @@ export const createAiController = ({
     } catch (error) {
       if (error?.status === 413) {
         const sizeText = blob ? formatBytes(blob.size) : 'the selected video';
-        const message = useEphemeral
-          ? `Runway rejected the request because the uploaded file (${sizeText}) exceeds their limit (200MB for ephemeral uploads). Try trimming or compressing the video.`
-          : `Runway rejected the request because the payload was too large. The selected video is ${sizeText}. Enable ephemeral upload or compress the video before sending.`;
-        setStatus(message, { tone: 'error' });
+        setStatus(
+          `Runway rejected the request because the payload was too large. The selected video is ${sizeText}. Trim or compress the video and try again.`,
+          { tone: 'error' },
+        );
       } else if (error instanceof TypeError) {
         setStatus(
           'Unable to reach the Runway API from this site. Runway blocks cross-origin requests, so run locally or use a server-side proxy.',
@@ -732,11 +712,6 @@ export const createAiController = ({
     } finally {
       setGenerating(false);
     }
-  };
-
-  const handleEphemeralChange = () => {
-    persistAiSettings({ useEphemeralUploads: aiEphemeralCheckbox.checked });
-    clearStatus();
   };
 
   const handleModelChange = () => {
@@ -757,18 +732,6 @@ export const createAiController = ({
     if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 4294967295) {
       persistAiSettings({ seed: parsed });
     }
-  };
-
-  const handlePrimaryToggle = () => {
-    if (!state.selectedVideoId) {
-      aiPrimaryCheckbox.checked = false;
-      return;
-    }
-
-    const nextValue = aiPrimaryCheckbox.checked ? state.selectedVideoId : '';
-    state.primaryVideoId = nextValue;
-    persistAiSettings({ primaryVideoId: nextValue });
-    renderPlaylist();
   };
 
   const handlePlaylistClick = (event) => {
@@ -880,20 +843,18 @@ export const createAiController = ({
   aiBackBtn.addEventListener('click', closePanel);
   aiGrid.addEventListener('click', handlePlaylistClick);
   aiGenerationForm.addEventListener('submit', handleGenerate);
-  aiEphemeralCheckbox.addEventListener('change', handleEphemeralChange);
   aiModelSelect.addEventListener('change', handleModelChange);
   aiRatioSelect.addEventListener('change', handleRatioChange);
   aiSeedInput.addEventListener('change', handleSeedChange);
-  aiPrimaryCheckbox.addEventListener('change', handlePrimaryToggle);
   aiSaveKeyBtn.addEventListener('click', handleSaveKey);
   aiClearKeyBtn.addEventListener('click', handleClearKey);
   document.addEventListener('keydown', handleGlobalKeydown);
-if (aiResultsToggle) {
-  aiResultsToggle.addEventListener('click', handleResultsToggleClick);
+
+  if (aiResultsToggle) {
+    aiResultsToggle.addEventListener('click', handleResultsToggleClick);
   }
 
   aiApiKeyInput.value = state.apiKey;
-  aiEphemeralCheckbox.checked = state.useEphemeralUploads;
   aiModelSelect.value = normalizeModel(aiModelSelect, state.preferredModel);
   aiRatioSelect.value = normalizeRatio(aiRatioSelect, state.preferredRatio);
   aiSeedInput.value = state.seed !== null ? String(state.seed) : '';
@@ -901,7 +862,7 @@ if (aiResultsToggle) {
   aiPanel.classList.add('concealed');
   aiPanel.setAttribute('aria-hidden', 'true');
   aiBtn.setAttribute('aria-expanded', 'false');
-updateResultsVisibility(false);
+  updateResultsVisibility(false);
   renderOutputs();
 
   let unsubscribe = null;
@@ -921,11 +882,9 @@ updateResultsVisibility(false);
       aiBackBtn.removeEventListener('click', closePanel);
       aiGrid.removeEventListener('click', handlePlaylistClick);
       aiGenerationForm.removeEventListener('submit', handleGenerate);
-      aiEphemeralCheckbox.removeEventListener('change', handleEphemeralChange);
       aiModelSelect.removeEventListener('change', handleModelChange);
       aiRatioSelect.removeEventListener('change', handleRatioChange);
       aiSeedInput.removeEventListener('change', handleSeedChange);
-      aiPrimaryCheckbox.removeEventListener('change', handlePrimaryToggle);
       aiSaveKeyBtn.removeEventListener('click', handleSaveKey);
       aiClearKeyBtn.removeEventListener('click', handleClearKey);
       document.removeEventListener('keydown', handleGlobalKeydown);

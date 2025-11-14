@@ -28,8 +28,6 @@ export const getDomElements = () => {
   const aiModelSelect = document.getElementById('aiModelSelect');
   const aiRatioSelect = document.getElementById('aiRatioSelect');
   const aiSeedInput = document.getElementById('aiSeedInput');
-  const aiEphemeralCheckbox = document.getElementById('aiEphemeralCheckbox');
-  const aiPrimaryCheckbox = document.getElementById('aiPrimaryCheckbox');
   const aiSelectedThumbnail = document.getElementById('aiSelectedThumbnail');
   const aiSelectedPlaceholder = document.getElementById('aiSelectedPlaceholder');
   const aiGenerateBtn = document.getElementById('aiGenerateBtn');
@@ -41,6 +39,7 @@ export const getDomElements = () => {
   const aiNoVideosMessage = document.getElementById('aiNoVideosMessage');
   const aiResultsToggle = document.getElementById('aiResultsToggle');
   const aiResultsBody = document.getElementById('aiResultsBody');
+  const orientationLockBtn = document.getElementById('orientationLockBtn');
 
   if (
     !videoWrapper ||
@@ -72,8 +71,6 @@ export const getDomElements = () => {
     !aiModelSelect ||
     !aiRatioSelect ||
     !aiSeedInput ||
-    !aiEphemeralCheckbox ||
-    !aiPrimaryCheckbox ||
     !aiSelectedThumbnail ||
     !aiSelectedPlaceholder ||
     !aiGenerateBtn ||
@@ -84,7 +81,8 @@ export const getDomElements = () => {
     !aiClearKeyBtn ||
     !aiNoVideosMessage ||
     !aiResultsToggle ||
-    !aiResultsBody
+    !aiResultsBody ||
+    !orientationLockBtn
   ) {
     throw new Error('Missing expected DOM elements.');
   }
@@ -119,8 +117,6 @@ export const getDomElements = () => {
     aiModelSelect,
     aiRatioSelect,
     aiSeedInput,
-    aiEphemeralCheckbox,
-    aiPrimaryCheckbox,
     aiSelectedThumbnail,
     aiSelectedPlaceholder,
     aiGenerateBtn,
@@ -132,6 +128,7 @@ export const getDomElements = () => {
     aiNoVideosMessage,
     aiResultsToggle,
     aiResultsBody,
+    orientationLockBtn,
   };
 };
 
