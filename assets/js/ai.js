@@ -179,6 +179,9 @@ export const createAiController = ({
     aiApiKeyInput,
     aiSaveKeyBtn,
     aiClearKeyBtn,
+    aiApiKeyContainer,
+    aiApiKeyToggle,
+    aiApiKeyFieldset,
     aiNoVideosMessage,
     aiResultsToggle,
     aiResultsBody,
@@ -502,7 +505,7 @@ export const createAiController = ({
       return true;
     }
 
-    setStatus('Enter your Runway API key to generate videos.', { tone: 'warning' });
+    setStatus('Enter your API key to generate videos.', { tone: 'warning' });
     if (aiApiKeyInput) {
       aiApiKeyInput.focus();
     }
@@ -538,7 +541,7 @@ export const createAiController = ({
 
     const promptText = aiPromptInput.value.trim();
     if (!promptText) {
-      setStatus('Add a prompt so Runway knows what to create.', { tone: 'warning' });
+      setStatus('Add a prompt to generate the video.', { tone: 'warning' });
       aiPromptInput.focus();
       return;
     }
@@ -596,7 +599,7 @@ export const createAiController = ({
     }
 
     try {
-      setStatus('Starting Runway generation…', { tone: 'info' });
+      setStatus('Starting generation…', { tone: 'info' });
       const requestBody = {
         model,
         videoUri,
@@ -627,7 +630,7 @@ export const createAiController = ({
 
       const urls = Array.isArray(task?.output) ? task.output.filter(Boolean) : [];
       if (!urls.length) {
-        setStatus('Runway finished but returned no files.', { tone: 'warning' });
+        setStatus('Generation finished but returned no files.', { tone: 'warning' });
       } else if (
         playlistController &&
         typeof playlistController.addVideoFromBlob === 'function' &&
@@ -659,8 +662,8 @@ export const createAiController = ({
               blob: result.blob,
               name:
                 downloadResults.length > 1
-                  ? `Runway Output ${timestamp} (${result.index + 1})`
-                  : `Runway Output ${timestamp}`,
+                  ? `Generated Output ${timestamp} (${result.index + 1})`
+                  : `Generated Output ${timestamp}`,
               type: result.blob.type || result.contentType || 'video/mp4',
               makeCurrent: result.index === 0,
               autoplay: false,
@@ -697,16 +700,16 @@ export const createAiController = ({
       if (error?.status === 413) {
         const sizeText = blob ? formatBytes(blob.size) : 'the selected video';
         setStatus(
-          `Runway rejected the request because the payload was too large. The selected video is ${sizeText}. Trim or compress the video and try again.`,
+          `The API rejected the request because the payload was too large. The selected video is ${sizeText}. Trim or compress the video and try again.`,
           { tone: 'error' },
         );
       } else if (error instanceof TypeError) {
         setStatus(
-          'Unable to reach the Runway API from this site. Runway blocks cross-origin requests, so run locally or use a server-side proxy.',
+          'Unable to reach the API from this site. Cross-origin requests are blocked, so run locally or use a server-side proxy.',
           { tone: 'error' },
         );
       } else {
-        setStatus(error.message || 'Runway generation failed.', { tone: 'error' });
+        setStatus(error.message || 'Generation failed.', { tone: 'error' });
       }
       console.error(error);
     } finally {
@@ -767,10 +770,32 @@ export const createAiController = ({
     updateResultsVisibility(!state.resultsExpanded);
   };
 
+  const updateApiKeyVisibility = () => {
+    const hasKey = Boolean(state.apiKey && state.apiKey.trim());
+    if (hasKey) {
+      // Move to bottom and collapse by default
+      aiApiKeyFieldset.hidden = true;
+      aiApiKeyToggle.setAttribute('aria-expanded', 'false');
+      aiApiKeyContainer.classList.add('ai-api-key-has-key');
+    } else {
+      // Show expanded when no key
+      aiApiKeyFieldset.hidden = false;
+      aiApiKeyToggle.setAttribute('aria-expanded', 'true');
+      aiApiKeyContainer.classList.remove('ai-api-key-has-key');
+    }
+  };
+
+  const handleApiKeyToggle = () => {
+    const isExpanded = aiApiKeyToggle.getAttribute('aria-expanded') === 'true';
+    const nextExpanded = !isExpanded;
+    aiApiKeyToggle.setAttribute('aria-expanded', String(nextExpanded));
+    aiApiKeyFieldset.hidden = !nextExpanded;
+  };
+
   const handleSaveKey = () => {
     const key = aiApiKeyInput.value.trim();
     if (!key) {
-      setStatus('Enter a valid Runway API key before saving.', { tone: 'warning' });
+      setStatus('Enter a valid API key before saving.', { tone: 'warning' });
       aiApiKeyInput.focus();
       return;
     }
@@ -778,6 +803,7 @@ export const createAiController = ({
     state.apiKey = key;
     persistAiSettings({ runwayApiKey: key });
     setStatus('API key saved locally.', { tone: 'success' });
+    updateApiKeyVisibility();
   };
 
   const handleClearKey = () => {
@@ -785,6 +811,7 @@ export const createAiController = ({
     state.apiKey = '';
     persistAiSettings({ runwayApiKey: '' });
     setStatus('API key cleared. Add it again before generating.', { tone: 'info' });
+    updateApiKeyVisibility();
   };
 
   const applyPanelVisibility = (open) => {
@@ -848,6 +875,7 @@ export const createAiController = ({
   aiSeedInput.addEventListener('change', handleSeedChange);
   aiSaveKeyBtn.addEventListener('click', handleSaveKey);
   aiClearKeyBtn.addEventListener('click', handleClearKey);
+  aiApiKeyToggle.addEventListener('click', handleApiKeyToggle);
   document.addEventListener('keydown', handleGlobalKeydown);
 
   if (aiResultsToggle) {
@@ -863,6 +891,7 @@ export const createAiController = ({
   aiPanel.setAttribute('aria-hidden', 'true');
   aiBtn.setAttribute('aria-expanded', 'false');
   updateResultsVisibility(false);
+  updateApiKeyVisibility();
   renderOutputs();
 
   let unsubscribe = null;
@@ -887,6 +916,7 @@ export const createAiController = ({
       aiSeedInput.removeEventListener('change', handleSeedChange);
       aiSaveKeyBtn.removeEventListener('click', handleSaveKey);
       aiClearKeyBtn.removeEventListener('click', handleClearKey);
+      aiApiKeyToggle.removeEventListener('click', handleApiKeyToggle);
       document.removeEventListener('keydown', handleGlobalKeydown);
       if (aiResultsToggle) {
         aiResultsToggle.removeEventListener('click', handleResultsToggleClick);
