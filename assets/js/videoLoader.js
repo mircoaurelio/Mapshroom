@@ -2084,6 +2084,8 @@ const init = async () => {
     saveCurrentIndex: (index) => saveOptionsState({ currentIndex: index }),
     saveMoveMode: (active) => saveOptionsState({ moveMode: active }),
     saveRotationLock: (locked) => saveOptionsState({ rotationLocked: locked }),
+    saveLockedOrientationAngle: (angle) => saveOptionsState({ lockedOrientationAngle: angle }),
+    saveLockedViewportSize: (width, height) => saveOptionsState({ lockedViewportWidth: width, lockedViewportHeight: height }),
     storeVideo: (id, file) => persistVideoFile(id, file),
     deleteVideo: (id) => deleteVideoFile(id),
     getAiSettings: () => ({ ...(persisted.ai || {}) }),

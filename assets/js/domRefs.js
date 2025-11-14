@@ -36,6 +36,9 @@ export const getDomElements = () => {
   const aiApiKeyInput = document.getElementById('aiApiKeyInput');
   const aiSaveKeyBtn = document.getElementById('aiSaveKeyBtn');
   const aiClearKeyBtn = document.getElementById('aiClearKeyBtn');
+  const aiApiKeyContainer = document.getElementById('aiApiKeyContainer');
+  const aiApiKeyToggle = document.getElementById('aiApiKeyToggle');
+  const aiApiKeyFieldset = document.getElementById('aiApiKeyFieldset');
   const aiNoVideosMessage = document.getElementById('aiNoVideosMessage');
   const aiResultsToggle = document.getElementById('aiResultsToggle');
   const aiResultsBody = document.getElementById('aiResultsBody');
@@ -79,6 +82,9 @@ export const getDomElements = () => {
     !aiApiKeyInput ||
     !aiSaveKeyBtn ||
     !aiClearKeyBtn ||
+    !aiApiKeyContainer ||
+    !aiApiKeyToggle ||
+    !aiApiKeyFieldset ||
     !aiNoVideosMessage ||
     !aiResultsToggle ||
     !aiResultsBody ||
@@ -125,6 +131,9 @@ export const getDomElements = () => {
     aiApiKeyInput,
     aiSaveKeyBtn,
     aiClearKeyBtn,
+    aiApiKeyContainer,
+    aiApiKeyToggle,
+    aiApiKeyFieldset,
     aiNoVideosMessage,
     aiResultsToggle,
     aiResultsBody,

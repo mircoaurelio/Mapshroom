@@ -289,19 +289,18 @@ button {
   align-items: center;
   gap: 0.5rem;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
   color: inherit;
   padding: 0.45rem 1rem;
   font-size: 0.95rem;
-  letter-spacing: 0.02em;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .timeline-back:hover,
 .timeline-back:focus-visible {
   background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 .timeline-back:focus-visible {
@@ -310,13 +309,11 @@ button {
 }
 
 .timeline-back-icon {
-  width: 1.1rem;
-  height: 1.1rem;
-  border: solid currentColor;
-  border-width: 0 0 2px 2px;
-  transform: rotate(45deg);
+  width: 1.05rem;
+  height: 1.05rem;
   display: inline-block;
-  margin-right: 0.1rem;
+  margin-right: 0.25rem;
+  flex-shrink: 0;
 }
 
 .timeline-controls {
@@ -897,6 +894,65 @@ input[type='file'] {
 .ai-key-actions {
   display: flex;
   gap: 0.75rem;
+}
+
+.ai-api-key-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ai-api-key-container.ai-api-key-has-key {
+  order: 999;
+  margin-top: auto;
+}
+
+.ai-api-key-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.ai-api-key-toggle:hover,
+.ai-api-key-toggle:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  outline: none;
+}
+
+.ai-api-key-toggle:focus-visible {
+  outline: 2px solid rgba(31, 136, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.ai-api-key-toggle span {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.ai-api-key-toggle-icon {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.ai-api-key-toggle[aria-expanded='true'] .ai-api-key-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.ai-api-key-fieldset {
+  margin-top: 0.5rem;
 }
 
 .ai-hint {

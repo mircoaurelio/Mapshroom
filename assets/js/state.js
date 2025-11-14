@@ -22,6 +22,9 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     fadeDuration: typeof initialState.fadeDuration === 'number' ? initialState.fadeDuration : 1.5,
     moveMode: Boolean(initialState.moveMode),
     rotationLocked: Boolean(initialState.rotationLocked),
+    lockedOrientationAngle: typeof initialState.lockedOrientationAngle === 'number' ? initialState.lockedOrientationAngle : null,
+    lockedViewportWidth: typeof initialState.lockedViewportWidth === 'number' ? initialState.lockedViewportWidth : null,
+    lockedViewportHeight: typeof initialState.lockedViewportHeight === 'number' ? initialState.lockedViewportHeight : null,
   };
 
   if (persistedPrecision !== null) {
@@ -79,6 +82,15 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     state.rotationLocked = value;
   };
 
+  const setLockedOrientationAngle = (angle) => {
+    state.lockedOrientationAngle = angle;
+  };
+
+  const setLockedViewportSize = (width, height) => {
+    state.lockedViewportWidth = width;
+    state.lockedViewportHeight = height;
+  };
+
   return {
     state,
     resetTransform,
@@ -93,6 +105,8 @@ export const createState = (precisionRangeEl, initialState = {}) => {
     setFadeDuration,
     setMoveMode,
     setRotationLocked,
+    setLockedOrientationAngle,
+    setLockedViewportSize,
   };
 };
 
