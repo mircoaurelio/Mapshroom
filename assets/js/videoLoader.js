@@ -971,10 +971,24 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       preview.loading = 'lazy';
       preview.draggable = false;
 
+      // Set aspect ratio based on video dimensions when image loads
+      const setAspectRatio = () => {
+        if (preview.naturalWidth && preview.naturalHeight) {
+          const aspectRatio = preview.naturalWidth / preview.naturalHeight;
+          previewWrapper.style.aspectRatio = `${aspectRatio}`;
+        }
+      };
+
       if (item.thumbnailUrl) {
         preview.src = item.thumbnailUrl;
         preview.removeAttribute('data-state');
         previewWrapper.removeAttribute('data-loading');
+        // If image is already cached, set aspect ratio immediately
+        if (preview.complete && preview.naturalWidth > 0) {
+          setAspectRatio();
+        } else {
+          preview.addEventListener('load', setAspectRatio, { once: true });
+        }
       } else {
         preview.removeAttribute('src');
         preview.dataset.state = 'loading';
@@ -986,6 +1000,12 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
             }
             if (thumbnailUrl) {
               preview.src = thumbnailUrl;
+              // Set aspect ratio when thumbnail loads
+              if (preview.complete && preview.naturalWidth > 0) {
+                setAspectRatio();
+              } else {
+                preview.addEventListener('load', setAspectRatio, { once: true });
+              }
             }
           })
           .finally(() => {
@@ -1011,8 +1031,9 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       });
 
       previewWrapper.appendChild(preview);
+      previewWrapper.appendChild(deleteBtn);
       button.append(previewWrapper, label);
-      wrapper.append(button, deleteBtn);
+      wrapper.append(button);
       timelineGrid.appendChild(wrapper);
     });
 
