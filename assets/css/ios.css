@@ -167,6 +167,12 @@ body {
   pointer-events: auto;
 }
 
+/* Disable center button when move mode is active (reserved for future feature) */
+#grid-overlay[data-move-mode='active'] .grid-zone[data-action='toggle-overlay'] {
+  pointer-events: none;
+  cursor: default;
+}
+
 label.picker {
   position: fixed;
   top: 2rem;
