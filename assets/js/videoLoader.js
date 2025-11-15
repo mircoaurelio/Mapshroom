@@ -467,7 +467,7 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       try {
         await loadVideoAtIndex(playlist.length - 1, {
           autoplay,
-          preserveTransform: false,
+          preserveTransform: true,
           waitForReady: true,
         });
       } catch (error) {
@@ -1433,75 +1433,35 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       throw new Error('No media available to export.');
     }
 
-    const rect =
-      typeof videoWrapper?.getBoundingClientRect === 'function' ? videoWrapper.getBoundingClientRect() : null;
-    const visualViewport = typeof window !== 'undefined' ? window.visualViewport : null;
-    const fallbackViewportWidth =
-      rect && Number.isFinite(rect.width) && rect.width > 0 ? rect.width : window.innerWidth || 1;
-    const fallbackViewportHeight =
-      rect && Number.isFinite(rect.height) && rect.height > 0 ? rect.height : window.innerHeight || 1;
-    const viewportWidth = Math.max(
-      1,
-      Number.isFinite(visualViewport?.width) && visualViewport.width > 0 ? visualViewport.width : fallbackViewportWidth,
-    );
-    const viewportHeight = Math.max(
-      1,
-      Number.isFinite(visualViewport?.height) && visualViewport.height > 0
-        ? visualViewport.height
-        : fallbackViewportHeight,
-    );
+    // Capture the actual rendered dimensions of the video-wrapper as it appears on screen
+    // This matches exactly what's being streamed to the projector
+    const wrapperRect = videoWrapper?.getBoundingClientRect();
+    if (!wrapperRect) {
+      throw new Error('Unable to determine video wrapper dimensions.');
+    }
 
-    const safeAreaInsets = readSafeAreaInsets();
-    const safeLeft = Math.max(0, safeAreaInsets.left);
-    const safeRight = Math.max(0, safeAreaInsets.right);
-    const safeTop = Math.max(0, safeAreaInsets.top);
-    const safeBottom = Math.max(0, safeAreaInsets.bottom);
+    // Use the actual rendered dimensions (what's visible on screen/streamed)
+    const renderedWidth = Math.max(1, Math.round(wrapperRect.width));
+    const renderedHeight = Math.max(1, Math.round(wrapperRect.height));
+    
+    // Use device pixel ratio for high-DPI displays
+    const devicePixelRatio = window.devicePixelRatio && Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
+    const exportScale = Math.max(1, devicePixelRatio);
 
-    const viewportOffsetLeft = Number.isFinite(visualViewport?.offsetLeft) ? visualViewport.offsetLeft : 0;
-    const viewportOffsetTop = Number.isFinite(visualViewport?.offsetTop) ? visualViewport.offsetTop : 0;
-
-    const inferredSafeLeft = safeLeft || viewportOffsetLeft;
-    const inferredSafeTop = safeTop || viewportOffsetTop;
-    const inferredSafeRight =
-      safeRight || Math.max(0, (visualViewport?.offsetLeft ?? 0) - inferredSafeLeft + (window.innerWidth - viewportWidth));
-    const inferredSafeBottom =
-      safeBottom || Math.max(0, (visualViewport?.offsetTop ?? 0) - inferredSafeTop + (window.innerHeight - viewportHeight));
-
-    const totalWidth = Math.max(1, viewportWidth + inferredSafeLeft + inferredSafeRight);
-    const totalHeight = Math.max(1, viewportHeight + inferredSafeTop + inferredSafeBottom);
-
-    const videoWidth = Math.max(1, viewportWidth + state.widthAdjust);
-    const videoHeight = Math.max(1, viewportHeight + state.heightAdjust);
-
-
-    const desiredScale =
-      window.devicePixelRatio && Number.isFinite(window.devicePixelRatio) ? window.devicePixelRatio : 1;
-    const exportScale = Math.max(1, desiredScale);
-
-    const canvasWidth = Math.max(1, Math.round(totalWidth * exportScale));
-    const canvasHeight = Math.max(1, Math.round(totalHeight * exportScale));
+    // Canvas dimensions match the rendered wrapper exactly
+    const canvasWidth = Math.max(1, Math.round(renderedWidth * exportScale));
+    const canvasHeight = Math.max(1, Math.round(renderedHeight * exportScale));
 
     showExportDiagnostics({
-      viewportWidth,
-      viewportHeight,
+      renderedWidth,
+      renderedHeight,
+      wrapperRectWidth: wrapperRect.width,
+      wrapperRectHeight: wrapperRect.height,
+      wrapperRectLeft: wrapperRect.left,
+      wrapperRectTop: wrapperRect.top,
       innerWidth: window.innerWidth,
       innerHeight: window.innerHeight,
-      visualViewportWidth: visualViewport?.width ?? null,
-      visualViewportHeight: visualViewport?.height ?? null,
-      visualViewportOffsetLeft: visualViewport?.offsetLeft ?? null,
-      visualViewportOffsetTop: visualViewport?.offsetTop ?? null,
-      safeLeft,
-      safeTop,
-      safeRight,
-      safeBottom,
-      inferredSafeLeft,
-      inferredSafeTop,
-      inferredSafeRight,
-      inferredSafeBottom,
-      totalWidth,
-      totalHeight,
-      videoWidth,
-      videoHeight,
+      devicePixelRatio,
       exportScale,
       canvasWidth,
       canvasHeight,
@@ -1525,12 +1485,8 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       throw new Error('Canvas capture stream is not supported in this browser.');
     }
 
-    const exportFrame = {
-      offsetX: Math.round((inferredSafeLeft + state.offsetX) * exportScale),
-      offsetY: Math.round((inferredSafeTop + state.offsetY) * exportScale),
-      width: Math.max(1, Math.round(videoWidth * exportScale)),
-      height: Math.max(1, Math.round(videoHeight * exportScale)),
-    };
+    // We'll calculate the export frame dynamically for each video during export
+    // This ensures we capture each video at its actual rendered position and size
 
     return new Promise((resolve, reject) => {
       let activeVideo = null;
@@ -1565,19 +1521,33 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       };
 
       const drawFrame = () => {
+        // Fill canvas with black background (matching video-wrapper background)
         context.fillStyle = '#000';
         context.fillRect(0, 0, canvasWidth, canvasHeight);
-        if (activeVideo) {
+        
+        if (activeVideo && activeVideo.readyState >= 2) {
           try {
+            // Get the actual rendered position and size of the video element
+            const videoRect = activeVideo.getBoundingClientRect();
+            
+            // Calculate position relative to the wrapper (what we're capturing)
+            const relativeX = (videoRect.left - wrapperRect.left) * exportScale;
+            const relativeY = (videoRect.top - wrapperRect.top) * exportScale;
+            const videoWidth = videoRect.width * exportScale;
+            const videoHeight = videoRect.height * exportScale;
+            
+            // Draw the video element exactly as it appears on screen
+            // This captures the video with all CSS transforms and positioning applied
             context.drawImage(
               activeVideo,
-              exportFrame.offsetX,
-              exportFrame.offsetY,
-              exportFrame.width,
-              exportFrame.height,
+              Math.round(relativeX),
+              Math.round(relativeY),
+              Math.max(1, Math.round(videoWidth)),
+              Math.max(1, Math.round(videoHeight)),
             );
           } catch (error) {
             // Frame not ready yet; ignore and continue drawing.
+            console.debug('Frame not ready for export:', error);
           }
         }
 
@@ -2170,6 +2140,8 @@ const init = async () => {
     persistence,
     aiSettings: persisted.ai || {},
     store,
+  }).catch((error) => {
+    console.warn('Unable to initialize AI controller.', error);
   });
   attachPrecisionControl(elements.precisionRange, controller);
   attachControlButtons(elements.playBtn, elements.moveBtn, elements.rotateLockBtn, controller);
