@@ -1,7 +1,8 @@
 const STORAGE_KEY = 'mapshroom-pocket:v1';
 const DB_NAME = 'mapshroom-pocket';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const VIDEO_STORE = 'videos';
+const GENERATED_VIDEOS_STORE = 'generated-videos';
 
 const defaultSettings = () => ({
   version: 1,
@@ -30,6 +31,7 @@ const defaultSettings = () => ({
     useEphemeralUploads: true,
     primaryVideoId: '',
     seed: null,
+    outputs: [],
   },
   playlist: [],
 });
@@ -87,6 +89,7 @@ const normalizeSettings = (rawSettings) => {
     primaryVideoId: normalizeString(normalized.ai?.primaryVideoId, defaults.ai.primaryVideoId),
     seed:
       typeof normalized.ai?.seed === 'number' && Number.isFinite(normalized.ai.seed) ? normalized.ai.seed : defaults.ai.seed,
+    outputs: Array.isArray(normalized.ai?.outputs) ? normalized.ai.outputs : defaults.ai.outputs,
   };
 
   const playlist = Array.isArray(normalized.playlist)
@@ -174,6 +177,9 @@ const openDatabase = () => {
       if (!database.objectStoreNames.contains(VIDEO_STORE)) {
         database.createObjectStore(VIDEO_STORE, { keyPath: 'id' });
       }
+      if (!database.objectStoreNames.contains(GENERATED_VIDEOS_STORE)) {
+        database.createObjectStore(GENERATED_VIDEOS_STORE, { keyPath: 'id' });
+      }
     };
 
     request.onsuccess = () => {
@@ -193,15 +199,15 @@ const openDatabase = () => {
   return dbPromise;
 };
 
-const withStore = async (mode, callback) => {
+const withStore = async (mode, callback, storeName = VIDEO_STORE) => {
   const database = await openDatabase();
   if (!database) {
     return null;
   }
 
   return new Promise((resolve, reject) => {
-    const transaction = database.transaction(VIDEO_STORE, mode);
-    const store = transaction.objectStore(VIDEO_STORE);
+    const transaction = database.transaction(storeName, mode);
+    const store = transaction.objectStore(storeName);
 
     transaction.oncomplete = () => resolve(true);
     transaction.onerror = () => {
@@ -399,4 +405,57 @@ export const saveAiSettings = (partialAi) => {
     },
   }));
 };
+
+const storeGeneratedVideo = async (id, blob) => {
+  if (!(blob instanceof Blob) || !id) {
+    return false;
+  }
+
+  try {
+    const buffer = await blob.arrayBuffer();
+    const storedBlob = new Blob([buffer], { type: blob.type });
+
+    const success = await withStore('readwrite', (store) => {
+      store.put({ id, blob: storedBlob });
+    }, GENERATED_VIDEOS_STORE);
+    return Boolean(success);
+  } catch (error) {
+    console.warn('Unable to store generated video in IndexedDB.', error);
+    return false;
+  }
+};
+
+const readGeneratedVideoBlob = async (id) => {
+  if (!id) {
+    return null;
+  }
+
+  const database = await openDatabase();
+  if (!database) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const transaction = database.transaction(GENERATED_VIDEOS_STORE, 'readonly');
+    const store = transaction.objectStore(GENERATED_VIDEOS_STORE);
+    const request = store.get(id);
+
+    request.onsuccess = () => {
+      const record = request.result;
+      if (record && record.blob instanceof Blob) {
+        resolve(record.blob);
+      } else {
+        resolve(null);
+      }
+    };
+
+    request.onerror = () => {
+      console.warn('Unable to read generated video from IndexedDB.', request.error);
+      resolve(null);
+    };
+  });
+};
+
+export const persistGeneratedVideo = storeGeneratedVideo;
+export const readGeneratedVideo = readGeneratedVideoBlob;
 

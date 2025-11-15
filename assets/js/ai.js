@@ -1,3 +1,5 @@
+import { persistGeneratedVideo, readGeneratedVideo } from './storage.js';
+
 const RUNWAY_API_VERSION = '2024-11-06';
 
 const resolveProxyBase = () => {
@@ -14,7 +16,7 @@ const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_ATTEMPTS = 60;
 const DATA_URI_LIMIT_BYTES = 16 * 1024 * 1024;
 const BASE64_OVERHEAD_FACTOR = 4 / 3;
-const MAX_OUTPUT_HISTORY = 5;
+const MAX_OUTPUT_HISTORY = 100;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -152,7 +154,7 @@ const pollRunwayTask = async (taskId, apiKey, { onProgress } = {}) => {
   throw new Error('Timed out while waiting for the Runway task to finish.');
 };
 
-export const createAiController = ({
+export const createAiController = async ({
   elements,
   controller,
   playlistController,
@@ -187,6 +189,34 @@ export const createAiController = ({
     aiResultsBody,
   } = elements;
 
+  // Load persisted outputs
+  const persistedOutputs = Array.isArray(aiSettings.outputs) ? aiSettings.outputs : [];
+  
+  // Load stored video blobs for each output
+  const loadStoredOutputs = async () => {
+    const loadedOutputs = [];
+    for (const output of persistedOutputs) {
+      const outputWithBlobs = { ...output, storedBlobIds: [] };
+      // Try to load stored blobs for each URL
+      if (Array.isArray(output.urls)) {
+        for (let i = 0; i < output.urls.length; i++) {
+          const blobId = `${output.id}-${i}`;
+          const storedBlob = await readGeneratedVideo(blobId);
+          if (storedBlob) {
+            outputWithBlobs.storedBlobIds[i] = blobId;
+            // Create object URL for the stored blob
+            if (!outputWithBlobs.storedUrls) {
+              outputWithBlobs.storedUrls = [];
+            }
+            outputWithBlobs.storedUrls[i] = URL.createObjectURL(storedBlob);
+          }
+        }
+      }
+      loadedOutputs.push(outputWithBlobs);
+    }
+    return loadedOutputs;
+  };
+
   const state = {
     open: false,
     apiKey: aiSettings.runwayApiKey || '',
@@ -199,7 +229,7 @@ export const createAiController = ({
         ? aiSettings.seed
         : null,
     generating: false,
-    outputs: [],
+    outputs: await loadStoredOutputs(),
     overlayWasActive: false,
     resultsExpanded: false,
   };
@@ -320,7 +350,9 @@ export const createAiController = ({
       const preview = document.createElement('div');
       preview.className = 'ai-output-preview';
 
-      entry.urls.forEach((url) => {
+      // Use stored URLs for preview if available, otherwise use original URLs
+      const previewUrls = entry.storedUrls && entry.storedUrls.length > 0 ? entry.storedUrls : entry.urls;
+      previewUrls.forEach((url) => {
         const videoEl = document.createElement('video');
         videoEl.src = url;
         videoEl.controls = true;
@@ -332,11 +364,12 @@ export const createAiController = ({
 
       const links = document.createElement('div');
       links.className = 'ai-output-links';
-      entry.urls.forEach((url, index) => {
+      // Use stored URLs if available, otherwise fall back to original URLs
+      const downloadUrls = entry.storedUrls && entry.storedUrls.length > 0 ? entry.storedUrls : entry.urls;
+      downloadUrls.forEach((url, index) => {
         const link = document.createElement('a');
         link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
+        link.download = `${entry.videoName || 'generated-video'}-${index + 1}.mp4`;
         link.textContent = entry.urls.length > 1 ? `Download ${index + 1}` : 'Download';
         links.appendChild(link);
       });
@@ -633,6 +666,8 @@ export const createAiController = ({
       });
 
       const urls = Array.isArray(task?.output) ? task.output.filter(Boolean) : [];
+      let downloadResults = null;
+      
       if (!urls.length) {
         setStatus('Generation finished but returned no files.', { tone: 'warning' });
       } else if (
@@ -642,7 +677,7 @@ export const createAiController = ({
       ) {
         setStatus('Downloading generated video…', { tone: 'info' });
         try {
-          const downloadResults = await Promise.all(
+          downloadResults = await Promise.all(
             urls.map(async (url, index) => {
               const response = await fetch(url, { mode: 'cors' });
               if (!response.ok) {
@@ -689,16 +724,86 @@ export const createAiController = ({
         setStatus('Generation complete! Remember: links expire in 24 hours.', { tone: 'success' });
       }
 
-      state.outputs.unshift({
+      // Store video blobs in IndexedDB for permanent access
+      const storedBlobIds = [];
+      const storedUrls = [];
+      
+      // If we have downloadResults, store them
+      if (downloadResults && downloadResults.length > 0) {
+        for (let i = 0; i < downloadResults.length; i++) {
+          const result = downloadResults[i];
+          const blobId = `${task.id}-${i}`;
+          try {
+            await persistGeneratedVideo(blobId, result.blob);
+            storedBlobIds[i] = blobId;
+            // Create object URL for stored blob
+            storedUrls[i] = URL.createObjectURL(result.blob);
+          } catch (error) {
+            console.warn('Unable to store generated video blob:', error);
+            // Fallback to original URL if storage fails
+            storedUrls[i] = urls[i] || '';
+          }
+        }
+      } else {
+        // If download failed, try to download and store from URLs
+        try {
+          setStatus('Downloading and saving generated videos…', { tone: 'info' });
+          for (let i = 0; i < urls.length; i++) {
+            const url = urls[i];
+            try {
+              const response = await fetch(url, { mode: 'cors' });
+              if (response.ok) {
+                const blob = await response.blob();
+                const blobId = `${task.id}-${i}`;
+                await persistGeneratedVideo(blobId, blob);
+                storedBlobIds[i] = blobId;
+                storedUrls[i] = URL.createObjectURL(blob);
+              } else {
+                storedUrls[i] = url; // Fallback to original URL
+              }
+            } catch (error) {
+              console.warn(`Unable to download and store video ${i + 1}:`, error);
+              storedUrls[i] = url; // Fallback to original URL
+            }
+          }
+        } catch (error) {
+          console.warn('Unable to download generated videos for storage:', error);
+          // Use original URLs as fallback
+          urls.forEach((url, i) => {
+            storedUrls[i] = url;
+          });
+        }
+      }
+
+      const newOutput = {
         id: task.id,
-        urls,
+        urls, // Keep original URLs as fallback
+        storedUrls, // Use stored blob URLs for downloads
+        storedBlobIds, // Track which blobs are stored
         createdAt: task?.createdAt || new Date().toISOString(),
         promptText,
         videoName: selected.name,
-      });
+      };
+
+      state.outputs.unshift(newOutput);
+      // Optional trimming to avoid unbounded growth; increase limit generously
       if (state.outputs.length > MAX_OUTPUT_HISTORY) {
-        state.outputs.length = MAX_OUTPUT_HISTORY;
+        // Remove oldest beyond the cap
+        const excess = state.outputs.splice(MAX_OUTPUT_HISTORY);
+        excess.forEach((removed) => {
+          if (removed?.storedUrls) {
+            removed.storedUrls.forEach((url) => {
+              if (url && url.startsWith('blob:')) {
+                URL.revokeObjectURL(url);
+              }
+            });
+          }
+        });
       }
+      
+      // Persist outputs list
+      persistAiSettings({ outputs: state.outputs.map(({ storedUrls, storedBlobIds, ...rest }) => rest) });
+      
       renderOutputs();
     } catch (error) {
       if (error?.status === 413) {
