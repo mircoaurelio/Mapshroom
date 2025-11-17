@@ -236,6 +236,8 @@ export const createAiController = async ({
     outputs: await loadStoredOutputs(),
     overlayWasActive: false,
     resultsExpanded: false,
+    allKeywords: [],
+    visibleKeywordsCount: 5,
   };
 
   let progressBarEl = null;
@@ -323,19 +325,39 @@ export const createAiController = async ({
     }
   };
 
-  const renderKeywords = async () => {
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  const getRandomKeywords = (keywords, count) => {
+    if (keywords.length <= count) {
+      return shuffleArray(keywords);
+    }
+    const shuffled = shuffleArray(keywords);
+    return shuffled.slice(0, count);
+  };
+
+  const renderKeywords = () => {
     if (!aiKeywordsList) {
       return;
     }
 
-    const keywords = await loadKeywords();
-    aiKeywordsList.innerHTML = '';
-
-    if (keywords.length === 0) {
+    if (state.allKeywords.length === 0) {
+      aiKeywordsList.innerHTML = '';
       return;
     }
 
-    keywords.forEach((keyword) => {
+    // Get random keywords to display
+    const visibleKeywords = getRandomKeywords(state.allKeywords, state.visibleKeywordsCount);
+    
+    aiKeywordsList.innerHTML = '';
+
+    visibleKeywords.forEach((keyword) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'ai-keyword-button';
@@ -343,14 +365,53 @@ export const createAiController = async ({
       button.setAttribute('role', 'listitem');
       button.setAttribute('aria-label', `Add "${keyword}" to prompt`);
       
-      button.addEventListener('click', () => {
+      // Prevent keyboard from showing on mobile
+      const handleKeywordClick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Blur any focused input to prevent keyboard from showing
+        if (document.activeElement) {
+          document.activeElement.blur();
+        }
+        
+        // Add keyword to prompt
         const currentValue = aiPromptInput.value.trim();
         const separator = currentValue ? ', ' : '';
         aiPromptInput.value = currentValue + separator + keyword;
-        aiPromptInput.focus();
+        
         // Trigger input event to ensure any listeners are notified
         aiPromptInput.dispatchEvent(new Event('input', { bubbles: true }));
-      });
+        
+        // Reshuffle and show new keywords
+        setTimeout(() => {
+          renderKeywords();
+        }, 100);
+      };
+
+      // Handle click events
+      button.addEventListener('click', handleKeywordClick);
+      
+      // Handle touch events for mobile - prevent default behavior
+      // Use a closure to store touchStartTime per button
+      (() => {
+        let touchStartTime = 0;
+        button.addEventListener('touchstart', (e) => {
+          touchStartTime = Date.now();
+          // Prevent default to avoid triggering focus on textarea
+          e.preventDefault();
+        }, { passive: false });
+        
+        button.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // Only trigger if it was a quick tap (not a long press)
+          const touchDuration = Date.now() - touchStartTime;
+          if (touchDuration < 300) {
+            handleKeywordClick(e);
+          }
+        }, { passive: false });
+      })();
 
       aiKeywordsList.appendChild(button);
     });
@@ -1071,7 +1132,12 @@ export const createAiController = async ({
   updateResultsVisibility(false);
   updateApiKeyVisibility();
   renderOutputs();
-  renderKeywords();
+  
+  // Load keywords and render them
+  loadKeywords().then((keywords) => {
+    state.allKeywords = keywords;
+    renderKeywords();
+  });
 
   let unsubscribe = null;
   if (playlistController && typeof playlistController.subscribeToPlaylist === 'function') {
