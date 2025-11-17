@@ -13,6 +13,7 @@ import {
 import { createAiController } from './ai.js';
 import { toggleVisibility } from './ui.js';
 import { createTutorialController } from './tutorial.js';
+import { initAddToHomeBanner } from './addToHome.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMoveModeState) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -2568,6 +2569,9 @@ const init = async () => {
   
   // Enable settings button (it's always available for tutorial)
   elements.settingsBtn.disabled = false;
+  
+  // Initialize "Add to Home Screen" banner
+  initAddToHomeBanner();
 };
 
 document.addEventListener('DOMContentLoaded', () => {
