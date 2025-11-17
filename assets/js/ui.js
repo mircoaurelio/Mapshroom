@@ -36,15 +36,16 @@ const applyInlineTransform = (video, { offsetX, offsetY, widthAdjust, heightAdju
     // Normal mode: use viewport units that change with device rotation
     video.style.width = `calc(100vw + ${widthAdjust}px)`;
     video.style.height = `calc(100vh + ${heightAdjust}px)`;
-    // Reset to use CSS inset behavior (inset: 0 fills parent)
+    // Center the video when width/height adjustments are made
+    // Use negative margins to center the video (half of the adjustment on each side)
     video.style.position = 'absolute';
-    video.style.inset = '';
+    video.style.inset = '0';
     video.style.left = '';
     video.style.top = '';
     video.style.right = '';
     video.style.bottom = '';
-    video.style.marginLeft = '';
-    video.style.marginTop = '';
+    video.style.marginLeft = `${-widthAdjust / 2}px`;
+    video.style.marginTop = `${-heightAdjust / 2}px`;
   }
 };
 
