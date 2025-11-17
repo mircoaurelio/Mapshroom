@@ -28,8 +28,21 @@
 
   <main class="app-main">
     <div id="loading-indicator" class="loading-indicator concealed" aria-hidden="true" role="status" aria-live="polite">
-      <div class="loading-spinner"></div>
-      <span class="loading-text">Loading saved assets...</span>
+      <div class="mushroom-loader">
+        <div class="mushroom-cap">
+          <div class="mushroom-gills"></div>
+        </div>
+        <div class="mushroom-stem">
+          <div class="mushroom-ring"></div>
+        </div>
+        <div class="mushroom-volva"></div>
+        <div class="mushroom-spots">
+          <div class="spot spot-1"></div>
+          <div class="spot spot-2"></div>
+          <div class="spot spot-3"></div>
+          <div class="spot spot-4"></div>
+        </div>
+      </div>
     </div>
     <section id="video-wrapper">
       <video id="video" class="main-video" playsinline preload="metadata"></video>
@@ -179,6 +192,36 @@
       <div class="precision-dots" id="precisionDots"></div>
       <input id="precisionRange" type="range" min="1" max="20" value="10" aria-label="Move precision" />
     </section>
+
+    <aside id="tutorial-overlay" class="tutorial-overlay concealed" aria-hidden="true" role="dialog" aria-labelledby="tutorial-title" aria-modal="true">
+      <div class="tutorial-backdrop"></div>
+      <div class="tutorial-content">
+        <div class="tutorial-header">
+          <h2 id="tutorial-title" class="tutorial-title">How to Use Mapshroom Pocket</h2>
+          <button id="tutorial-close" class="tutorial-close" type="button" aria-label="Close tutorial">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="tutorial-body">
+          <div id="tutorial-step-content" class="tutorial-step-content"></div>
+          <div class="tutorial-progress">
+            <div class="tutorial-progress-bar">
+              <div id="tutorial-progress-fill" class="tutorial-progress-fill"></div>
+            </div>
+            <span id="tutorial-step-indicator" class="tutorial-step-indicator">1 / 5</span>
+          </div>
+          <div class="tutorial-actions">
+            <button id="tutorial-prev" class="tutorial-button tutorial-button-secondary" type="button" disabled>Previous</button>
+            <button id="tutorial-next" class="tutorial-button tutorial-button-primary" type="button">Next</button>
+            <button id="tutorial-skip" class="tutorial-button tutorial-button-secondary" type="button">Skip Tutorial</button>
+          </div>
+        </div>
+      </div>
+      <div id="tutorial-highlight" class="tutorial-highlight"></div>
+    </aside>
   </main>
 
   <footer class="app-footer">
@@ -209,7 +252,7 @@
       >
         <img src="assets/icons/move.svg" alt="" role="presentation" />
       </button>
-      <button id="settingsBtn" class="icon-button" aria-label="Settings" disabled>
+      <button id="settingsBtn" class="icon-button" aria-label="Open tutorial" disabled>
         <img src="assets/icons/settings.svg" alt="" role="presentation" />
       </button>
     </div>

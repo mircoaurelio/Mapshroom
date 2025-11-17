@@ -12,6 +12,7 @@ import {
 } from './storage.js';
 import { createAiController } from './ai.js';
 import { toggleVisibility } from './ui.js';
+import { createTutorialController } from './tutorial.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMoveModeState) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -2476,6 +2477,17 @@ const init = async () => {
   attachControlButtons(elements.playBtn, elements.moveBtn, elements.rotateLockBtn, controller);
   setupVisibilityPause(() => playlistController.getActiveVideo());
   setupZoomPrevention();
+
+  // Initialize tutorial controller
+  const tutorialController = createTutorialController({ elements });
+  
+  // Connect settings button to tutorial
+  elements.settingsBtn.addEventListener('click', () => {
+    tutorialController.open();
+  });
+  
+  // Enable settings button (it's always available for tutorial)
+  elements.settingsBtn.disabled = false;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
