@@ -29,8 +29,11 @@ export const getDomElements = () => {
   const aiModelSelect = document.getElementById('aiModelSelect');
   const aiRatioSelect = document.getElementById('aiRatioSelect');
   const aiSeedInput = document.getElementById('aiSeedInput');
+  const aiSelectedPreview = document.getElementById('aiSelectedPreview');
   const aiSelectedThumbnail = document.getElementById('aiSelectedThumbnail');
   const aiSelectedPlaceholder = document.getElementById('aiSelectedPlaceholder');
+  const aiModelLabel = document.getElementById('aiModelLabel');
+  const aiRatioLabel = document.getElementById('aiRatioLabel');
   const aiGenerateBtn = document.getElementById('aiGenerateBtn');
   const aiStatus = document.getElementById('aiStatus');
   const aiOutputList = document.getElementById('aiOutputList');
@@ -77,8 +80,11 @@ export const getDomElements = () => {
     !aiModelSelect ||
     !aiRatioSelect ||
     !aiSeedInput ||
+    !aiSelectedPreview ||
     !aiSelectedThumbnail ||
     !aiSelectedPlaceholder ||
+    !aiModelLabel ||
+    !aiRatioLabel ||
     !aiGenerateBtn ||
     !aiStatus ||
     !aiOutputList ||
@@ -128,8 +134,11 @@ export const getDomElements = () => {
     aiModelSelect,
     aiRatioSelect,
     aiSeedInput,
+    aiSelectedPreview,
     aiSelectedThumbnail,
     aiSelectedPlaceholder,
+    aiModelLabel,
+    aiRatioLabel,
     aiGenerateBtn,
     aiStatus,
     aiOutputList,
