@@ -10,11 +10,37 @@
   <meta name="runway-proxy-base" content="https://mapshroom.netlify.app/proxy">
    
   <meta name="apple-mobile-web-app-title" content="Mapshroom Pocket" />
-  <link
-    rel="icon"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%230d1117'/%3E%3Cpath d='M15 35L23 13h2l8 22h-3.2l-1.6-4.6h-8.4L18.2 35H15Zm6.8-7.6h6.4L24.98 17.7h-.12l-3.06 9.7Z' fill='%23f5f9ff'/%3E%3C/svg%3E"
-    type="image/svg+xml"
-  />
+  
+  <!-- Favicons -->
+  <link rel="icon" href="assets/icons/mushroom-favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/icons/mushroom-favicon.svg" type="image/svg+xml" sizes="any" />
+  <link rel="alternate icon" href="assets/icons/mushroom-favicon.svg" type="image/svg+xml" />
+  
+  <!-- Apple Touch Icons -->
+  <link rel="apple-touch-icon" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="152x152" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="144x144" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="120x120" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="114x114" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="76x76" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="72x72" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="60x60" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="apple-touch-icon" sizes="57x57" href="assets/icons/mushroom-favicon.svg" />
+  
+  <!-- Android/Chrome -->
+  <link rel="icon" type="image/svg+xml" sizes="192x192" href="assets/icons/mushroom-favicon.svg" />
+  <link rel="icon" type="image/svg+xml" sizes="512x512" href="assets/icons/mushroom-favicon.svg" />
+  <meta name="theme-color" content="#ef4444" />
+  
+  <!-- Windows Tiles -->
+  <meta name="msapplication-TileColor" content="#ef4444" />
+  <meta name="msapplication-TileImage" content="assets/icons/mushroom-favicon.svg" />
+  <meta name="msapplication-config" content="browserconfig.xml" />
+  
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="manifest.json" />
+  
   <link rel="stylesheet" href="assets/css/ios.css" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" />
 </head>
@@ -28,20 +54,23 @@
 
   <main class="app-main">
     <div id="loading-indicator" class="loading-indicator concealed" aria-hidden="true" role="status" aria-live="polite">
-      <div class="mushroom-loader">
-        <div class="mushroom-cap">
-          <div class="mushroom-gills"></div>
+      <div class="loading-content">
+        <div class="mushroom-loader">
+          <div class="mushroom-cap">
+            <div class="mushroom-gills"></div>
+          </div>
+          <div class="mushroom-stem">
+            <div class="mushroom-ring"></div>
+          </div>
+          <div class="mushroom-volva"></div>
+          <div class="mushroom-spots">
+            <div class="spot spot-1"></div>
+            <div class="spot spot-2"></div>
+            <div class="spot spot-3"></div>
+            <div class="spot spot-4"></div>
+          </div>
         </div>
-        <div class="mushroom-stem">
-          <div class="mushroom-ring"></div>
-        </div>
-        <div class="mushroom-volva"></div>
-        <div class="mushroom-spots">
-          <div class="spot spot-1"></div>
-          <div class="spot spot-2"></div>
-          <div class="spot spot-3"></div>
-          <div class="spot spot-4"></div>
-        </div>
+        <div class="loading-text">Mapshroom Pocket</div>
       </div>
     </div>
     <section id="video-wrapper">
