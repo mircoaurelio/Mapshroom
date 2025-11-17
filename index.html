@@ -97,7 +97,7 @@
             <form id="aiGenerationForm" class="ai-form" autocomplete="off">
               <fieldset id="aiGenerationFieldset" class="ai-fieldset">
                 <legend>Generation Settings</legend>
-                <div class="ai-selected-preview">
+                <div id="aiSelectedPreview" class="ai-selected-preview">
                   <img id="aiSelectedThumbnail" class="ai-selected-thumbnail" alt="Selected video thumbnail" hidden />
                   <div id="aiSelectedPlaceholder" class="ai-selected-placeholder">Choose a video from your playlist.</div>
                 </div>
@@ -108,13 +108,13 @@
                 <div class="ai-keywords-container">
                   <div id="aiKeywordsList" class="ai-keywords-list" role="list"></div>
                 </div>
-                <label class="ai-label">
+                <label id="aiModelLabel" class="ai-label" hidden>
                   <span>Model</span>
                   <select id="aiModelSelect">
                     <option value="gen4_aleph">Gen-4 Aleph (video-to-video)</option>
                   </select>
                 </label>
-                <label class="ai-label">
+                <label id="aiRatioLabel" class="ai-label" hidden>
                   <span>Aspect ratio</span>
                   <select id="aiRatioSelect">
                     <option value="1280:720">1280 × 720</option>

@@ -173,8 +173,11 @@ export const createAiController = async ({
     aiModelSelect,
     aiRatioSelect,
     aiSeedInput,
+    aiSelectedPreview,
     aiSelectedThumbnail,
     aiSelectedPlaceholder,
+    aiModelLabel,
+    aiRatioLabel,
     aiGenerateBtn,
     aiStatus,
     aiOutputList,
@@ -467,11 +470,25 @@ export const createAiController = async ({
 
   const applySelectionState = () => {
     const selected = state.playlist.find((item) => item.id === state.selectedVideoId) || null;
+    const hasVideo = selected !== null;
 
     aiGenerateBtn.disabled = state.generating || !selected;
 
     if (aiNoVideosMessage) {
       aiNoVideosMessage.hidden = state.playlist.length > 0;
+    }
+
+    // Hide/show preview container based on whether there's a video
+    if (aiSelectedPreview) {
+      aiSelectedPreview.hidden = !hasVideo;
+    }
+
+    // Hide/show model and aspect ratio labels when there's no video
+    if (aiModelLabel) {
+      aiModelLabel.hidden = !hasVideo;
+    }
+    if (aiRatioLabel) {
+      aiRatioLabel.hidden = !hasVideo;
     }
 
     aiGrid
