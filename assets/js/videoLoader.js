@@ -1164,6 +1164,15 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
      if (open) {
       overlayWasActive = state.overlayActive;
       controller.handleOverlayState(false, { toggleUI: false });
+      // Recalculate grid columns after timeline becomes visible
+      requestAnimationFrame(() => {
+        if (playlist.length > 0) {
+          const optimalColumns = calculateOptimalColumns();
+          if (optimalColumns !== null && timelineGrid) {
+            timelineGrid.style.gridTemplateColumns = `repeat(${optimalColumns}, minmax(0, 1fr))`;
+          }
+        }
+      });
     } else if (overlayWasActive) {
       controller.handleOverlayState(true, { toggleUI: false });
     }
@@ -1187,6 +1196,48 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     });
   };
 
+  const calculateOptimalColumns = () => {
+    if (!playlist.length || !timelineGrid) {
+      return null;
+    }
+
+    // Get available width (accounting for padding and gap)
+    const gridRect = timelineGrid.getBoundingClientRect();
+    // If grid is not visible yet, use window width as fallback
+    const availableWidth = gridRect.width > 0 ? gridRect.width - 16 : window.innerWidth - 32;
+    const gap = 16; // 1rem gap
+    const minColumnWidth = 200; // Minimum column width in pixels
+
+    // Count landscape videos (width > height)
+    const landscapeCount = playlist.filter(
+      (item) => item.videoWidth && item.videoHeight && item.videoWidth > item.videoHeight
+    ).length;
+    const totalVideos = playlist.length;
+    const landscapeRatio = totalVideos > 0 ? landscapeCount / totalVideos : 0;
+
+    // If most videos are landscape, allow more columns
+    // Adjust minimum column width based on landscape ratio
+    const adjustedMinWidth = landscapeRatio > 0.5 
+      ? Math.max(150, minColumnWidth * 0.75) // Smaller min width for more columns when landscape
+      : minColumnWidth;
+
+    // Calculate how many columns can fit
+    let columns = Math.floor((availableWidth + gap) / (adjustedMinWidth + gap));
+    columns = Math.max(1, Math.min(columns, totalVideos)); // At least 1, at most total videos
+
+    // In portrait mode, ensure we don't have too many columns for portrait videos
+    const isPortrait = window.innerHeight > window.innerWidth;
+    if (isPortrait && landscapeRatio < 0.5) {
+      // For portrait videos in portrait mode, limit to 2-3 columns
+      columns = Math.min(columns, 3);
+    } else if (!isPortrait && landscapeRatio > 0.5) {
+      // For landscape videos in landscape mode, allow more columns (at least 4-5)
+      columns = Math.max(columns, 4);
+    }
+
+    return columns;
+  };
+
   const renderTimelineGrid = () => {
     refreshExportButtonState();
     timelineGrid.innerHTML = '';
@@ -1197,6 +1248,15 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       emptyMessage.textContent = 'No videos loaded yet.';
       timelineGrid.appendChild(emptyMessage);
       return;
+    }
+
+    // Calculate and apply optimal column count based on video content
+    const optimalColumns = calculateOptimalColumns();
+    if (optimalColumns !== null) {
+      timelineGrid.style.gridTemplateColumns = `repeat(${optimalColumns}, minmax(0, 1fr))`;
+    } else {
+      // Fallback to CSS auto-fill
+      timelineGrid.style.gridTemplateColumns = '';
     }
 
     playlist.forEach((item, index) => {
@@ -2130,6 +2190,26 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   fileInput.addEventListener('change', handleFileSelectionWithGuard);
   fileInput.addEventListener('input', handleFileSelectionWithGuard);
   timelineBtn.addEventListener('click', handleTimelineToggle);
+
+  // Handle window resize to recalculate grid columns
+  let resizeTimeout = null;
+  const handleResize = () => {
+    // Debounce resize events
+    if (resizeTimeout) {
+      clearTimeout(resizeTimeout);
+    }
+    resizeTimeout = setTimeout(() => {
+      if (state.timelineOpen && playlist.length > 0) {
+        // Recalculate and update grid columns
+        const optimalColumns = calculateOptimalColumns();
+        if (optimalColumns !== null && timelineGrid) {
+          timelineGrid.style.gridTemplateColumns = `repeat(${optimalColumns}, minmax(0, 1fr))`;
+        }
+      }
+    }, 150);
+  };
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', handleResize);
   randomToggle.addEventListener('click', handleRandomToggle);
   fadeToggle.addEventListener('click', handleFadeToggle);
   fadeSlider.addEventListener('input', handleFadeSliderInput);
