@@ -16,6 +16,9 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
   const pointerSupported = 'PointerEvent' in window;
   let centerZonePressTimer = null;
   let centerZoneActive = false;
+  let initialY = null;
+  let initialPrecisionValue = null;
+  let precisionChangeHandler = null;
 
   const showPrecisionSlider = () => {
     // Only show if move mode is active
@@ -35,6 +38,22 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     }
   };
 
+  // Get the precision change handler from the controller
+  const getPrecisionChangeHandler = () => {
+    // We'll need to pass this from the controller, but for now we'll find it
+    const sliderInput = precisionControl?.querySelector('input[type="range"]');
+    if (sliderInput) {
+      // Trigger input event which should be handled by the controller
+      return (newValue) => {
+        sliderInput.value = String(newValue);
+        // Trigger both input and change events to ensure handlers are called
+        sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
+        sliderInput.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+    }
+    return null;
+  };
+
   // Track if user is interacting with the slider
   let sliderInteractionActive = false;
   
@@ -42,6 +61,8 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
   if (precisionControl) {
     const sliderInput = precisionControl.querySelector('input[type="range"]');
     if (sliderInput) {
+      precisionChangeHandler = getPrecisionChangeHandler();
+      
       const handleSliderPress = () => {
         sliderInteractionActive = true;
       };
@@ -68,6 +89,34 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     }
   }
 
+  // Handle vertical drag to change precision value
+  const handleMove = (event) => {
+    if (!centerZoneActive || !precisionControl) return;
+    
+    // Don't interfere if user is directly interacting with the slider input
+    if (sliderInteractionActive) return;
+    
+    event.preventDefault();
+    
+    const sliderInput = precisionControl.querySelector('input[type="range"]');
+    if (!sliderInput || !precisionChangeHandler) return;
+    
+    const currentY = pointerSupported ? event.clientY : (event.touches?.[0]?.clientY ?? event.changedTouches?.[0]?.clientY);
+    if (currentY === undefined || initialY === null) return;
+    
+    const deltaY = initialY - currentY; // Positive deltaY = moved up = increase precision
+    const sensitivity = 2; // Pixels per precision step
+    const precisionChange = Math.round(deltaY / sensitivity);
+    
+    const min = Number(sliderInput.min) || 1;
+    const max = Number(sliderInput.max) || 20;
+    const newValue = Math.max(min, Math.min(max, initialPrecisionValue + precisionChange));
+    
+    if (newValue !== Number(sliderInput.value)) {
+      precisionChangeHandler(newValue);
+    }
+  };
+
   // Global release handler to catch releases even if they happen over the slider
   const handleGlobalRelease = (event) => {
     // Don't hide if user is actively interacting with the slider
@@ -77,6 +126,8 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     
     if (centerZoneActive) {
       centerZoneActive = false;
+      initialY = null;
+      initialPrecisionValue = null;
       hidePrecisionSlider();
       // Only toggle overlay if move mode is not active (original behavior)
       const isMoveModeActive = typeof getMoveModeState === 'function' ? getMoveModeState() : false;
@@ -98,6 +149,14 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
       if (isCenterZone) {
         event.preventDefault();
         centerZoneActive = true;
+        
+        // Store initial Y position and precision value for drag calculation
+        const sliderInput = precisionControl?.querySelector('input[type="range"]');
+        if (sliderInput) {
+          initialY = pointerSupported ? event.clientY : (event.touches?.[0]?.clientY ?? event.changedTouches?.[0]?.clientY);
+          initialPrecisionValue = Number(sliderInput.value);
+        }
+        
         // Show precision slider immediately when center zone is pressed (if move mode is active)
         showPrecisionSlider();
       } else {
@@ -118,6 +177,10 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
       zone.addEventListener('pointerup', handleRelease);
       zone.addEventListener('pointercancel', handleRelease);
       zone.addEventListener('pointerleave', handleRelease);
+      // Track pointer movement for center zone
+      if (isCenterZone) {
+        zone.addEventListener('pointermove', handleMove);
+      }
       // For desktop: also handle click events for center zone
       if (isCenterZone) {
         zone.addEventListener('click', (event) => {
@@ -135,6 +198,10 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
       zone.addEventListener('touchstart', handlePress, { passive: false });
       zone.addEventListener('touchend', handleRelease, { passive: false });
       zone.addEventListener('touchcancel', handleRelease, { passive: false });
+      // Track touch movement for center zone
+      if (isCenterZone) {
+        zone.addEventListener('touchmove', handleMove, { passive: false });
+      }
       zone.addEventListener('click', (event) => {
         if (!isCenterZone) {
           event.preventDefault();
@@ -144,13 +211,23 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     }
   });
 
-  // Add global listeners to catch releases even when over the slider
+  // Add global listeners to catch releases and movements even when over the slider or outside the zone
   if (pointerSupported) {
     document.addEventListener('pointerup', handleGlobalRelease);
     document.addEventListener('pointercancel', handleGlobalRelease);
+    document.addEventListener('pointermove', (event) => {
+      if (centerZoneActive) {
+        handleMove(event);
+      }
+    });
   } else {
     document.addEventListener('touchend', handleGlobalRelease, { passive: false });
     document.addEventListener('touchcancel', handleGlobalRelease, { passive: false });
+    document.addEventListener('touchmove', (event) => {
+      if (centerZoneActive) {
+        handleMove(event);
+      }
+    }, { passive: false });
   }
 };
 
