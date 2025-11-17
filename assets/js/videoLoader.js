@@ -12,24 +12,146 @@ import {
 } from './storage.js';
 import { createAiController } from './ai.js';
 
-const setupGridOverlayListeners = (gridOverlay, handler) => {
+const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMoveModeState) => {
   const pointerSupported = 'PointerEvent' in window;
+  let centerZonePressTimer = null;
+  let centerZoneActive = false;
+
+  const showPrecisionSlider = () => {
+    // Only show if move mode is active
+    const isMoveModeActive = typeof getMoveModeState === 'function' ? getMoveModeState() : false;
+    if (precisionControl && isMoveModeActive) {
+      precisionControl.classList.add('visible');
+      precisionControl.classList.remove('concealed');
+    }
+  };
+
+  const hidePrecisionSlider = () => {
+    if (precisionControl) {
+      precisionControl.classList.remove('visible');
+      if (!precisionControl.classList.contains('always-visible')) {
+        precisionControl.classList.add('concealed');
+      }
+    }
+  };
+
+  // Track if user is interacting with the slider
+  let sliderInteractionActive = false;
+  
+  // Allow slider to prevent hiding when being interacted with
+  if (precisionControl) {
+    const sliderInput = precisionControl.querySelector('input[type="range"]');
+    if (sliderInput) {
+      const handleSliderPress = () => {
+        sliderInteractionActive = true;
+      };
+      const handleSliderRelease = () => {
+        sliderInteractionActive = false;
+        // Hide slider after a short delay to allow for smooth interaction
+        setTimeout(() => {
+          if (!sliderInteractionActive && centerZoneActive) {
+            centerZoneActive = false;
+            hidePrecisionSlider();
+          }
+        }, 100);
+      };
+      
+      if (pointerSupported) {
+        sliderInput.addEventListener('pointerdown', handleSliderPress);
+        sliderInput.addEventListener('pointerup', handleSliderRelease);
+        sliderInput.addEventListener('pointercancel', handleSliderRelease);
+      } else {
+        sliderInput.addEventListener('touchstart', handleSliderPress, { passive: false });
+        sliderInput.addEventListener('touchend', handleSliderRelease, { passive: false });
+        sliderInput.addEventListener('touchcancel', handleSliderRelease, { passive: false });
+      }
+    }
+  }
+
+  // Global release handler to catch releases even if they happen over the slider
+  const handleGlobalRelease = (event) => {
+    // Don't hide if user is actively interacting with the slider
+    if (sliderInteractionActive) {
+      return;
+    }
+    
+    if (centerZoneActive) {
+      centerZoneActive = false;
+      hidePrecisionSlider();
+      // Only toggle overlay if move mode is not active (original behavior)
+      const isMoveModeActive = typeof getMoveModeState === 'function' ? getMoveModeState() : false;
+      if (!isMoveModeActive && centerZonePressTimer === null) {
+        handler('toggle-overlay');
+      }
+      if (centerZonePressTimer) {
+        clearTimeout(centerZonePressTimer);
+        centerZonePressTimer = null;
+      }
+    }
+  };
 
   gridOverlay.querySelectorAll('.grid-zone').forEach((zone) => {
     const action = zone.dataset.action;
+    const isCenterZone = action === 'toggle-overlay';
 
-    const listener = (event) => {
-      event.preventDefault();
-      handler(action);
+    const handlePress = (event) => {
+      if (isCenterZone) {
+        event.preventDefault();
+        centerZoneActive = true;
+        // Show precision slider immediately when center zone is pressed (if move mode is active)
+        showPrecisionSlider();
+      } else {
+        event.preventDefault();
+        handler(action);
+      }
+    };
+
+    const handleRelease = (event) => {
+      if (isCenterZone && centerZoneActive) {
+        event.preventDefault();
+        handleGlobalRelease(event);
+      }
     };
 
     if (pointerSupported) {
-      zone.addEventListener('pointerdown', listener);
+      zone.addEventListener('pointerdown', handlePress);
+      zone.addEventListener('pointerup', handleRelease);
+      zone.addEventListener('pointercancel', handleRelease);
+      zone.addEventListener('pointerleave', handleRelease);
+      // For desktop: also handle click events for center zone
+      if (isCenterZone) {
+        zone.addEventListener('click', (event) => {
+          event.preventDefault();
+          // On desktop, clicking should show the slider briefly
+          showPrecisionSlider();
+          setTimeout(() => {
+            if (!sliderInteractionActive) {
+              hidePrecisionSlider();
+            }
+          }, 2000); // Show for 2 seconds on click
+        });
+      }
     } else {
-      zone.addEventListener('touchstart', listener, { passive: false });
-      zone.addEventListener('click', listener);
+      zone.addEventListener('touchstart', handlePress, { passive: false });
+      zone.addEventListener('touchend', handleRelease, { passive: false });
+      zone.addEventListener('touchcancel', handleRelease, { passive: false });
+      zone.addEventListener('click', (event) => {
+        if (!isCenterZone) {
+          event.preventDefault();
+          handler(action);
+        }
+      });
     }
   });
+
+  // Add global listeners to catch releases even when over the slider
+  if (pointerSupported) {
+    document.addEventListener('pointerup', handleGlobalRelease);
+    document.addEventListener('pointercancel', handleGlobalRelease);
+  } else {
+    document.addEventListener('touchend', handleGlobalRelease, { passive: false });
+    document.addEventListener('touchcancel', handleGlobalRelease, { passive: false });
+  }
 };
 
 const waitForFirstFrame = (video, url, onReady) =>
@@ -1979,6 +2101,44 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
   };
 };
 
+const createPrecisionDots = (precisionRange, dotsContainer) => {
+  if (!dotsContainer) return;
+  
+  const min = Number(precisionRange.min) || 1;
+  const max = Number(precisionRange.max) || 20;
+  const totalDots = Math.min(max - min + 1, 20); // Limit to 20 dots for visual clarity
+  
+  dotsContainer.innerHTML = '';
+  
+  for (let i = 0; i < totalDots; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'precision-dot';
+    dotsContainer.appendChild(dot);
+  }
+  
+  const updateDots = () => {
+    const currentValue = Number(precisionRange.value);
+    const dots = dotsContainer.querySelectorAll('.precision-dot');
+    
+    dots.forEach((dot, index) => {
+      const dotValue = min + Math.round((index / (dots.length - 1)) * (max - min));
+      const distance = Math.abs(currentValue - dotValue);
+      
+      dot.classList.remove('active', 'near');
+      
+      if (distance === 0) {
+        dot.classList.add('active');
+      } else if (distance <= 2) {
+        dot.classList.add('near');
+      }
+    });
+  };
+  
+  updateDots();
+  precisionRange.addEventListener('input', updateDots);
+  precisionRange.addEventListener('change', updateDots);
+};
+
 const attachPrecisionControl = (precisionRange, controller) => {
   precisionRange.addEventListener('input', () => {
     const nextPrecision = Number(precisionRange.value);
@@ -2124,7 +2284,7 @@ const init = async () => {
   controller.updateTransform();
   controller.showPreloadUI();
 
-  setupGridOverlayListeners(elements.gridOverlay, controller.handleZoneAction);
+  setupGridOverlayListeners(elements.gridOverlay, controller.handleZoneAction, elements.precisionControl, () => store.state.moveMode);
   const playlistController = createPlaylistController({
     elements,
     controller,
@@ -2144,6 +2304,7 @@ const init = async () => {
     console.warn('Unable to initialize AI controller.', error);
   });
   attachPrecisionControl(elements.precisionRange, controller);
+  createPrecisionDots(elements.precisionRange, elements.precisionDots);
   attachControlButtons(elements.playBtn, elements.moveBtn, elements.rotateLockBtn, controller);
   setupVisibilityPause(() => playlistController.getActiveVideo());
   setupZoomPrevention();

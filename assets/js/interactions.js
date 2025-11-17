@@ -462,6 +462,7 @@ export const createTransformController = ({ elements, store, persistence }) => {
     toggleVisibility(precisionControl, false);
   };
 
+
   const handleZoneAction = (action) => {
     if (action !== 'toggle-overlay' && !state.overlayActive) {
       return;
