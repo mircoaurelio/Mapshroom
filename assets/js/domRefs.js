@@ -43,6 +43,7 @@ export const getDomElements = () => {
   const aiNoVideosMessage = document.getElementById('aiNoVideosMessage');
   const aiResultsToggle = document.getElementById('aiResultsToggle');
   const aiResultsBody = document.getElementById('aiResultsBody');
+  const aiKeywordsList = document.getElementById('aiKeywordsList');
   const rotateLockBtn = document.getElementById('rotateLockBtn');
 
   if (
@@ -90,6 +91,7 @@ export const getDomElements = () => {
     !aiNoVideosMessage ||
     !aiResultsToggle ||
     !aiResultsBody ||
+    !aiKeywordsList ||
     !rotateLockBtn
   ) {
     throw new Error('Missing expected DOM elements.');
@@ -140,6 +142,7 @@ export const getDomElements = () => {
     aiNoVideosMessage,
     aiResultsToggle,
     aiResultsBody,
+    aiKeywordsList,
     rotateLockBtn,
   };
 };
