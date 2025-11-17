@@ -49,6 +49,16 @@ export const getDomElements = () => {
   const aiKeywordsList = document.getElementById('aiKeywordsList');
   const rotateLockBtn = document.getElementById('rotateLockBtn');
   const loadingIndicator = document.getElementById('loading-indicator');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const tutorialOverlay = document.getElementById('tutorial-overlay');
+  const tutorialClose = document.getElementById('tutorial-close');
+  const tutorialNext = document.getElementById('tutorial-next');
+  const tutorialPrev = document.getElementById('tutorial-prev');
+  const tutorialSkip = document.getElementById('tutorial-skip');
+  const tutorialStepContent = document.getElementById('tutorial-step-content');
+  const tutorialProgressFill = document.getElementById('tutorial-progress-fill');
+  const tutorialStepIndicator = document.getElementById('tutorial-step-indicator');
+  const tutorialHighlight = document.getElementById('tutorial-highlight');
 
   if (
     !videoWrapper ||
@@ -100,7 +110,17 @@ export const getDomElements = () => {
     !aiResultsBody ||
     !aiKeywordsList ||
     !rotateLockBtn ||
-    !loadingIndicator
+    !loadingIndicator ||
+    !settingsBtn ||
+    !tutorialOverlay ||
+    !tutorialClose ||
+    !tutorialNext ||
+    !tutorialPrev ||
+    !tutorialSkip ||
+    !tutorialStepContent ||
+    !tutorialProgressFill ||
+    !tutorialStepIndicator ||
+    !tutorialHighlight
   ) {
     throw new Error('Missing expected DOM elements.');
   }
@@ -156,6 +176,16 @@ export const getDomElements = () => {
     aiKeywordsList,
     rotateLockBtn,
     loadingIndicator,
+    settingsBtn,
+    tutorialOverlay,
+    tutorialClose,
+    tutorialNext,
+    tutorialPrev,
+    tutorialSkip,
+    tutorialStepContent,
+    tutorialProgressFill,
+    tutorialStepIndicator,
+    tutorialHighlight,
   };
 };
 
