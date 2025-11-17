@@ -18,7 +18,6 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
   let centerZoneActive = false;
   let initialY = null;
   let initialPrecisionValue = null;
-  let precisionChangeHandler = null;
 
   const showPrecisionSlider = () => {
     // Only show if move mode is active
@@ -38,22 +37,6 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     }
   };
 
-  // Get the precision change handler from the controller
-  const getPrecisionChangeHandler = () => {
-    // We'll need to pass this from the controller, but for now we'll find it
-    const sliderInput = precisionControl?.querySelector('input[type="range"]');
-    if (sliderInput) {
-      // Trigger input event which should be handled by the controller
-      return (newValue) => {
-        sliderInput.value = String(newValue);
-        // Trigger both input and change events to ensure handlers are called
-        sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
-        sliderInput.dispatchEvent(new Event('change', { bubbles: true }));
-      };
-    }
-    return null;
-  };
-
   // Track if user is interacting with the slider
   let sliderInteractionActive = false;
   
@@ -61,8 +44,6 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
   if (precisionControl) {
     const sliderInput = precisionControl.querySelector('input[type="range"]');
     if (sliderInput) {
-      precisionChangeHandler = getPrecisionChangeHandler();
-      
       const handleSliderPress = () => {
         sliderInteractionActive = true;
       };
@@ -91,29 +72,58 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
 
   // Handle vertical drag to change precision value
   const handleMove = (event) => {
-    if (!centerZoneActive || !precisionControl) return;
-    
-    // Don't interfere if user is directly interacting with the slider input
-    if (sliderInteractionActive) return;
+    if (!centerZoneActive || !precisionControl || sliderInteractionActive) return;
     
     event.preventDefault();
+    event.stopPropagation();
     
     const sliderInput = precisionControl.querySelector('input[type="range"]');
-    if (!sliderInput || !precisionChangeHandler) return;
+    if (!sliderInput || initialY === null || initialPrecisionValue === null) return;
     
-    const currentY = pointerSupported ? event.clientY : (event.touches?.[0]?.clientY ?? event.changedTouches?.[0]?.clientY);
-    if (currentY === undefined || initialY === null) return;
+    // Get current Y position
+    let currentY;
+    if (pointerSupported) {
+      currentY = event.clientY;
+    } else {
+      // For touch events: use touches[0] for touchmove, changedTouches[0] for touchend
+      if (event.touches && event.touches.length > 0) {
+        currentY = event.touches[0].clientY;
+      } else if (event.changedTouches && event.changedTouches.length > 0) {
+        currentY = event.changedTouches[0].clientY;
+      }
+    }
     
-    const deltaY = initialY - currentY; // Positive deltaY = moved up = increase precision
-    const sensitivity = 2; // Pixels per precision step
-    const precisionChange = Math.round(deltaY / sensitivity);
+    if (currentY === undefined || currentY === null) return;
     
+    // Calculate proportional movement like a normal slider
+    // Get the slider container dimensions for proportional calculation
+    const sliderRect = precisionControl.getBoundingClientRect();
+    const sliderHeight = sliderRect.height;
+    
+    // Calculate delta Y (positive deltaY = moved up = increase precision)
+    const deltaY = initialY - currentY;
+    
+    // Use proportional calculation: full drag height = full range
     const min = Number(sliderInput.min) || 1;
     const max = Number(sliderInput.max) || 20;
-    const newValue = Math.max(min, Math.min(max, initialPrecisionValue + precisionChange));
+    const range = max - min;
     
-    if (newValue !== Number(sliderInput.value)) {
-      precisionChangeHandler(newValue);
+    // Map the drag distance to the value range proportionally
+    // Use a reasonable drag area (e.g., 80% of slider height for full range)
+    const effectiveDragHeight = sliderHeight * 0.8;
+    const normalizedDelta = deltaY / effectiveDragHeight;
+    const valueChange = normalizedDelta * range;
+    const newValue = Math.max(min, Math.min(max, initialPrecisionValue + valueChange));
+    
+    // Round to nearest integer for precision values
+    const roundedValue = Math.round(newValue);
+    const currentValue = Number(sliderInput.value);
+    
+    // Only update if value changed
+    if (roundedValue !== currentValue) {
+      sliderInput.value = String(roundedValue);
+      // Trigger input event to update precision
+      sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
   };
 
@@ -153,7 +163,16 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
         // Store initial Y position and precision value for drag calculation
         const sliderInput = precisionControl?.querySelector('input[type="range"]');
         if (sliderInput) {
-          initialY = pointerSupported ? event.clientY : (event.touches?.[0]?.clientY ?? event.changedTouches?.[0]?.clientY);
+          if (pointerSupported) {
+            initialY = event.clientY;
+          } else {
+            // For touch events: use touches[0] for touchstart
+            if (event.touches && event.touches.length > 0) {
+              initialY = event.touches[0].clientY;
+            } else if (event.changedTouches && event.changedTouches.length > 0) {
+              initialY = event.changedTouches[0].clientY;
+            }
+          }
           initialPrecisionValue = Number(sliderInput.value);
         }
         
@@ -177,10 +196,12 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
       zone.addEventListener('pointerup', handleRelease);
       zone.addEventListener('pointercancel', handleRelease);
       zone.addEventListener('pointerleave', handleRelease);
-      // Track pointer movement for center zone
+      
+      // Track pointer movement for center zone drag
       if (isCenterZone) {
         zone.addEventListener('pointermove', handleMove);
       }
+      
       // For desktop: also handle click events for center zone
       if (isCenterZone) {
         zone.addEventListener('click', (event) => {
@@ -198,10 +219,12 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
       zone.addEventListener('touchstart', handlePress, { passive: false });
       zone.addEventListener('touchend', handleRelease, { passive: false });
       zone.addEventListener('touchcancel', handleRelease, { passive: false });
-      // Track touch movement for center zone
+      
+      // Track touch movement for center zone drag
       if (isCenterZone) {
         zone.addEventListener('touchmove', handleMove, { passive: false });
       }
+      
       zone.addEventListener('click', (event) => {
         if (!isCenterZone) {
           event.preventDefault();
@@ -216,7 +239,7 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     document.addEventListener('pointerup', handleGlobalRelease);
     document.addEventListener('pointercancel', handleGlobalRelease);
     document.addEventListener('pointermove', (event) => {
-      if (centerZoneActive) {
+      if (centerZoneActive && !sliderInteractionActive) {
         handleMove(event);
       }
     });
@@ -224,7 +247,7 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     document.addEventListener('touchend', handleGlobalRelease, { passive: false });
     document.addEventListener('touchcancel', handleGlobalRelease, { passive: false });
     document.addEventListener('touchmove', (event) => {
-      if (centerZoneActive) {
+      if (centerZoneActive && !sliderInteractionActive) {
         handleMove(event);
       }
     }, { passive: false });
