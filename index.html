@@ -27,6 +27,10 @@
   </header>
 
   <main class="app-main">
+    <div id="loading-indicator" class="loading-indicator concealed" aria-hidden="true" role="status" aria-live="polite">
+      <div class="loading-spinner"></div>
+      <span class="loading-text">Loading saved assets...</span>
+    </div>
     <section id="video-wrapper">
       <video id="video" class="main-video" playsinline preload="metadata"></video>
       <button
@@ -127,7 +131,7 @@
                     <option value="640:480">640 × 480</option>
                   </select>
                 </label>
-                <label class="ai-label">
+                <label id="aiSeedLabel" class="ai-label" hidden>
                   <span>Seed (optional)</span>
                   <input id="aiSeedInput" type="number" min="0" max="4294967295" inputmode="numeric" placeholder="Random" />
                 </label>

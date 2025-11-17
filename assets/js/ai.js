@@ -544,14 +544,6 @@ export const createAiController = async ({
       aiSelectedPreview.hidden = !hasVideo;
     }
 
-    // Hide/show model and aspect ratio labels when there's no video
-    if (aiModelLabel) {
-      aiModelLabel.hidden = !hasVideo;
-    }
-    if (aiRatioLabel) {
-      aiRatioLabel.hidden = !hasVideo;
-    }
-
     aiGrid
       .querySelectorAll('.ai-item')
       .forEach((tile) => {
