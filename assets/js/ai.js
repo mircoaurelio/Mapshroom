@@ -187,6 +187,7 @@ export const createAiController = async ({
     aiNoVideosMessage,
     aiResultsToggle,
     aiResultsBody,
+    aiKeywordsList,
   } = elements;
 
   // Load persisted outputs
@@ -299,6 +300,58 @@ export const createAiController = async ({
   };
 
   const clearStatus = () => setStatus('');
+
+  const loadKeywords = async () => {
+    try {
+      const response = await fetch('assets/data/keywords.txt');
+      if (!response.ok) {
+        console.warn('Unable to load keywords file.');
+        return [];
+      }
+      const text = await response.text();
+      const keywords = text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      return keywords;
+    } catch (error) {
+      console.warn('Error loading keywords:', error);
+      return [];
+    }
+  };
+
+  const renderKeywords = async () => {
+    if (!aiKeywordsList) {
+      return;
+    }
+
+    const keywords = await loadKeywords();
+    aiKeywordsList.innerHTML = '';
+
+    if (keywords.length === 0) {
+      return;
+    }
+
+    keywords.forEach((keyword) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ai-keyword-button';
+      button.textContent = keyword;
+      button.setAttribute('role', 'listitem');
+      button.setAttribute('aria-label', `Add "${keyword}" to prompt`);
+      
+      button.addEventListener('click', () => {
+        const currentValue = aiPromptInput.value.trim();
+        const separator = currentValue ? ', ' : '';
+        aiPromptInput.value = currentValue + separator + keyword;
+        aiPromptInput.focus();
+        // Trigger input event to ensure any listeners are notified
+        aiPromptInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      aiKeywordsList.appendChild(button);
+    });
+  };
 
   const updateResultsToggleLabel = ({ toggleEl, expanded, count }) => {
   if (!toggleEl) {
@@ -1001,6 +1054,7 @@ export const createAiController = async ({
   updateResultsVisibility(false);
   updateApiKeyVisibility();
   renderOutputs();
+  renderKeywords();
 
   let unsubscribe = null;
   if (playlistController && typeof playlistController.subscribeToPlaylist === 'function') {

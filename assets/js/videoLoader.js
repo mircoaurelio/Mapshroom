@@ -95,33 +95,19 @@ const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMo
     
     if (currentY === undefined || currentY === null) return;
     
-    // Calculate proportional movement like a normal slider
-    // Get the slider container dimensions for proportional calculation
-    const sliderRect = precisionControl.getBoundingClientRect();
-    const sliderHeight = sliderRect.height;
-    
     // Calculate delta Y (positive deltaY = moved up = increase precision)
     const deltaY = initialY - currentY;
+    const sensitivity = 9; // Pixels per precision step (lower = more sensitive)
+    const precisionChange = Math.round(deltaY / sensitivity);
     
-    // Use proportional calculation: full drag height = full range
     const min = Number(sliderInput.min) || 1;
     const max = Number(sliderInput.max) || 20;
-    const range = max - min;
-    
-    // Map the drag distance to the value range proportionally
-    // Use a reasonable drag area (e.g., 80% of slider height for full range)
-    const effectiveDragHeight = sliderHeight * 0.8;
-    const normalizedDelta = deltaY / effectiveDragHeight;
-    const valueChange = normalizedDelta * range;
-    const newValue = Math.max(min, Math.min(max, initialPrecisionValue + valueChange));
-    
-    // Round to nearest integer for precision values
-    const roundedValue = Math.round(newValue);
+    const newValue = Math.max(min, Math.min(max, initialPrecisionValue + precisionChange));
     const currentValue = Number(sliderInput.value);
     
     // Only update if value changed
-    if (roundedValue !== currentValue) {
-      sliderInput.value = String(roundedValue);
+    if (newValue !== currentValue) {
+      sliderInput.value = String(newValue);
       // Trigger input event to update precision
       sliderInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
