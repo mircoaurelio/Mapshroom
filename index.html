@@ -169,12 +169,19 @@
     </aside>
 
     <section id="precision-control" class="concealed">
+      <div class="precision-dots" id="precisionDots"></div>
       <input id="precisionRange" type="range" min="1" max="20" value="10" aria-label="Move precision" />
     </section>
   </main>
 
   <footer class="app-footer">
     <div class="controls">
+      <button id="timelineBtn" class="icon-button" aria-label="Open timeline" disabled>
+        <img src="assets/icons/film.svg" alt="" role="presentation" />
+      </button>
+      <button id="aiBtn" class="icon-button" aria-label="Open Runway tools" aria-expanded="false" aria-controls="ai-panel" disabled>
+        <img src="assets/icons/ai.svg" alt="" role="presentation" />
+      </button>
       <button
         id="playBtn"
         class="icon-button"
@@ -185,12 +192,6 @@
       >
         <img src="assets/icons/play.svg" alt="" role="presentation" data-play="assets/icons/play.svg" data-pause="assets/icons/pause.svg" />
       </button>
-      <button id="timelineBtn" class="icon-button" aria-label="Open timeline" disabled>
-        <img src="assets/icons/film.svg" alt="" role="presentation" />
-      </button>
-      <button id="aiBtn" class="icon-button" aria-label="Open Runway tools" aria-expanded="false" aria-controls="ai-panel" disabled>
-        <img src="assets/icons/ai.svg" alt="" role="presentation" />
-      </button>
       <button
         id="moveBtn"
         class="icon-button"
@@ -200,6 +201,9 @@
         data-icon-move="assets/icons/move.svg"
       >
         <img src="assets/icons/move.svg" alt="" role="presentation" />
+      </button>
+      <button id="settingsBtn" class="icon-button" aria-label="Settings" disabled>
+        <img src="assets/icons/settings.svg" alt="" role="presentation" />
       </button>
     </div>
   </footer>

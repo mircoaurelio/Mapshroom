@@ -16,6 +16,7 @@ export const getDomElements = () => {
   const gridOverlay = document.getElementById('grid-overlay');
   const precisionControl = document.getElementById('precision-control');
   const precisionRange = document.getElementById('precisionRange');
+  const precisionDots = document.getElementById('precisionDots');
   const chooseLabel = document.querySelector('label.picker');
   const controls = document.querySelector('.controls');
   const timelineExportBtn = document.getElementById('timelineExportBtn');
@@ -62,6 +63,7 @@ export const getDomElements = () => {
     !gridOverlay ||
     !precisionControl ||
     !precisionRange ||
+    !precisionDots ||
     !chooseLabel ||
     !controls ||
     !timelineExportBtn ||
@@ -111,6 +113,7 @@ export const getDomElements = () => {
     gridOverlay,
     precisionControl,
     precisionRange,
+    precisionDots,
     chooseLabel,
     controls,
     timelineExportBtn,

@@ -123,7 +123,7 @@ body {
   align-items: center;
   justify-content: center;
   background: rgba(128, 128, 128, 0.5);
-  border: 2px solid rgba(0, 0, 0, 0.5);
+  border: none;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease, visibility 0.2s ease;
   backdrop-filter: blur(6px);
 }
@@ -136,7 +136,7 @@ body {
 
 .rotate-lock-button[aria-pressed='true'] {
   background: rgba(31, 136, 255, 0.6);
-  border-color: rgba(31, 136, 255, 0.8);
+  border: none;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(31, 136, 255, 0.4);
 }
@@ -167,10 +167,10 @@ body {
   pointer-events: auto;
 }
 
-/* Disable center button when move mode is active (reserved for future feature) */
+/* Enable center button when move mode is active to show precision slider */
 #grid-overlay[data-move-mode='active'] .grid-zone[data-action='toggle-overlay'] {
-  pointer-events: none;
-  cursor: default;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 label.picker {
@@ -202,21 +202,155 @@ label.picker:hover {
 
 #precision-control {
   position: fixed;
-  top: calc(2rem + 64px + 1rem);
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 0.75rem 1rem;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 1rem 0.75rem;
   border-radius: 999px;
-  z-index: 10;
-  backdrop-filter: blur(6px);
+  z-index: 15;
+  backdrop-filter: blur(10px);
+  height: 220px;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+#precision-control.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+#precision-control.visible input[type='range'] {
+  pointer-events: auto;
 }
 
 #precision-control input[type='range'] {
   width: 220px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  transform: rotate(-90deg);
+  position: relative;
+  margin: 0;
+}
+
+#precision-control input[type='range']::-webkit-slider-track {
+  width: 220px;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  border-radius: 999px;
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+#precision-control input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, width 0.2s ease, height 0.2s ease;
+  position: relative;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+#precision-control input[type='range']::-webkit-slider-thumb:hover,
+#precision-control input[type='range']::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.5), 0 0 0 3px rgba(255, 255, 255, 0.15);
+  width: 20px;
+  height: 20px;
+}
+
+#precision-control input[type='range']::-moz-range-track {
+  width: 220px;
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.25) 50%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  border-radius: 999px;
+  border: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+#precision-control input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+#precision-control input[type='range']::-moz-range-thumb:hover,
+#precision-control input[type='range']::-moz-range-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.5), 0 0 0 3px rgba(255, 255, 255, 0.15);
+  width: 20px;
+  height: 20px;
+}
+
+/* Custom dots indicator */
+.precision-dots {
+  position: absolute;
+  left: 50%;
+  top: 1rem;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  width: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 1;
+  padding: 0.5rem 0;
+}
+
+.precision-dot {
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.precision-dot.active {
+  width: 8px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.precision-dot.near {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .controls {
@@ -232,7 +366,7 @@ label.picker:hover {
 button {
   background: transparent;
   color: #fff;
-  border: 2px solid rgba(0, 0, 0, 0.5);
+  border: none;
   padding: 0.75rem 1rem;
   border-radius: 999px;
   font-size: 1rem;
@@ -249,6 +383,7 @@ button {
   align-items: center;
   justify-content: center;
   background: rgba(128, 128, 128, 0.5);
+  border: none;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
@@ -260,7 +395,7 @@ button {
 
 .icon-button[aria-pressed='true'] {
   background: rgba(31, 136, 255, 0.4);
-  border-color: rgba(31, 136, 255, 0.6);
+  border: none;
   transform: translateY(-2px);
 }
 
