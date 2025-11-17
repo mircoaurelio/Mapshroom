@@ -1076,6 +1076,49 @@ input[type='file'] {
   min-height: 92px;
 }
 
+.ai-keywords-container {
+  margin-top: -0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.ai-keywords-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.ai-keyword-button {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+
+.ai-keyword-button:hover,
+.ai-keyword-button:focus-visible {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.ai-keyword-button:focus-visible {
+  outline: 2px solid rgba(31, 136, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.ai-keyword-button:active {
+  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .ai-key-actions {
   display: flex;
   gap: 0.75rem;
