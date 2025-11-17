@@ -1166,6 +1166,13 @@ input[type='file'] {
   background: rgba(255, 255, 255, 0.12);
 }
 
+/* Hide model, aspect ratio, and seed inputs */
+#aiModelLabel,
+#aiRatioLabel,
+#aiSeedLabel {
+  display: none !important;
+}
+
 .ai-key-actions {
   display: flex;
   gap: 0.75rem;
