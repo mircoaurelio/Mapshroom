@@ -11,6 +11,7 @@ import {
   saveAiSettings as persistAiSettings,
 } from './storage.js';
 import { createAiController } from './ai.js';
+import { toggleVisibility } from './ui.js';
 
 const setupGridOverlayListeners = (gridOverlay, handler, precisionControl, getMoveModeState) => {
   const pointerSupported = 'PointerEvent' in window;
@@ -2333,6 +2334,27 @@ const setupZoomPrevention = (() => {
 const init = async () => {
   const elements = getDomElements();
 
+  // Check if there are saved assets before loading
+  const hasSavedAssets = (() => {
+    try {
+      const STORAGE_KEY = 'mapshroom-pocket:v1';
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return false;
+      }
+      const parsed = JSON.parse(raw);
+      const playlist = parsed?.playlist;
+      return Array.isArray(playlist) && playlist.length > 0;
+    } catch (error) {
+      return false;
+    }
+  })();
+
+  // Show loading indicator if there are saved assets
+  if (hasSavedAssets) {
+    toggleVisibility(elements.loadingIndicator, true);
+  }
+
   let persisted = { state: {}, playlist: [], ai: {} };
   try {
     persisted = await loadPersistedData();
@@ -2379,6 +2401,49 @@ const init = async () => {
     initialItems: persisted.playlist ?? [],
     initialIndex: persisted.state?.currentIndex ?? -1,
   });
+  
+  // Wait for video to load if there are saved assets, then hide loading indicator
+  if (hasSavedAssets && persisted.playlist && persisted.playlist.length > 0) {
+    const activeVideo = playlistController.getActiveVideo();
+    if (activeVideo) {
+      // Wait for video to be ready
+      const waitForVideoReady = () => {
+        return new Promise((resolve) => {
+          if (activeVideo.readyState >= 2) {
+            resolve();
+            return;
+          }
+          const onLoadedData = () => {
+            activeVideo.removeEventListener('loadeddata', onLoadedData);
+            activeVideo.removeEventListener('error', onError);
+            resolve();
+          };
+          const onError = () => {
+            activeVideo.removeEventListener('loadeddata', onLoadedData);
+            activeVideo.removeEventListener('error', onError);
+            resolve();
+          };
+          activeVideo.addEventListener('loadeddata', onLoadedData, { once: true });
+          activeVideo.addEventListener('error', onError, { once: true });
+          // Timeout after 3 seconds to avoid hanging
+          setTimeout(() => {
+            activeVideo.removeEventListener('loadeddata', onLoadedData);
+            activeVideo.removeEventListener('error', onError);
+            resolve();
+          }, 3000);
+        });
+      };
+      await waitForVideoReady();
+    }
+    // Small delay to ensure UI is ready
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  
+  // Hide loading indicator
+  if (hasSavedAssets) {
+    toggleVisibility(elements.loadingIndicator, false);
+  }
+  
   createAiController({
     elements,
     controller,
