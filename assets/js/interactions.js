@@ -517,9 +517,53 @@ export const createTransformController = ({ elements, store, persistence }) => {
     updatePlayButton();
   };
 
+  const showGridLabelsAnimation = () => {
+    if (!gridOverlay || !state.hasVideo) {
+      return;
+    }
+
+    // Ensure overlay is visible (remove overlay-disabled class temporarily if needed)
+    const wasDisabled = gridOverlay.classList.contains('overlay-disabled');
+    if (wasDisabled) {
+      gridOverlay.classList.remove('overlay-disabled');
+    }
+
+    // Add show-labels class to trigger animation
+    gridOverlay.classList.add('show-labels');
+    
+    // Show all labels
+    const labels = gridOverlay.querySelectorAll('.grid-zone-label');
+    labels.forEach(label => {
+      label.classList.add('show');
+      label.classList.remove('hide');
+    });
+
+    // Remove show-labels class and hide labels after 2 seconds
+    setTimeout(() => {
+      labels.forEach(label => {
+        label.classList.remove('show');
+        label.classList.add('hide');
+      });
+      
+      // Remove the class after transition completes
+      setTimeout(() => {
+        gridOverlay.classList.remove('show-labels');
+        // Restore overlay-disabled state if it was disabled before
+        if (wasDisabled && !state.overlayActive) {
+          gridOverlay.classList.add('overlay-disabled');
+        }
+      }, 300); // Match CSS transition duration
+    }, 2000);
+  };
+
   const handleMoveToggle = () => {
     const next = !state.moveMode;
     applyMoveMode(next);
+    
+    // Show grid labels animation when move mode is activated
+    if (next && state.hasVideo) {
+      showGridLabelsAnimation();
+    }
   };
 
   const handleRotationLockToggle = () => {

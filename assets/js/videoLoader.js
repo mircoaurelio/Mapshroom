@@ -2569,14 +2569,18 @@ const init = async () => {
   
   // Enable settings button (it's always available for tutorial)
   elements.settingsBtn.disabled = false;
-  
-  // Initialize "Add to Home Screen" banner
-  initAddToHomeBanner();
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  init().catch((error) => {
-    console.error('Unable to initialize application.', error);
-  });
+document.addEventListener('DOMContentLoaded', async () => {
+  // Always initialize the landing page/app content visibility check first
+  initAddToHomeBanner();
+  
+  // Only initialize the app if running in standalone mode
+  const { isStandalone } = await import('./addToHome.js');
+  if (isStandalone()) {
+    init().catch((error) => {
+      console.error('Unable to initialize application.', error);
+    });
+  }
 });
 
