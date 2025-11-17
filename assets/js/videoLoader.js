@@ -2404,39 +2404,56 @@ const init = async () => {
   
   // Wait for video to load if there are saved assets, then hide loading indicator
   if (hasSavedAssets && persisted.playlist && persisted.playlist.length > 0) {
-    const activeVideo = playlistController.getActiveVideo();
-    if (activeVideo) {
-      // Wait for video to be ready
-      const waitForVideoReady = () => {
-        return new Promise((resolve) => {
-          if (activeVideo.readyState >= 2) {
-            resolve();
-            return;
+    // Wait a bit for the playlist controller to start loading the video
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    
+    // Wait for video to be ready
+    const waitForVideoReady = () => {
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 50; // Check for up to 5 seconds (50 * 100ms)
+        
+        const checkVideo = () => {
+          const activeVideo = playlistController.getActiveVideo();
+          if (activeVideo) {
+            if (activeVideo.readyState >= 2) {
+              resolve();
+              return;
+            }
+            const onLoadedData = () => {
+              activeVideo.removeEventListener('loadeddata', onLoadedData);
+              activeVideo.removeEventListener('error', onError);
+              resolve();
+            };
+            const onError = () => {
+              activeVideo.removeEventListener('loadeddata', onLoadedData);
+              activeVideo.removeEventListener('error', onError);
+              resolve();
+            };
+            activeVideo.addEventListener('loadeddata', onLoadedData, { once: true });
+            activeVideo.addEventListener('error', onError, { once: true });
+            // Timeout after 3 seconds to avoid hanging
+            setTimeout(() => {
+              activeVideo.removeEventListener('loadeddata', onLoadedData);
+              activeVideo.removeEventListener('error', onError);
+              resolve();
+            }, 3000);
+          } else {
+            attempts++;
+            if (attempts < maxAttempts) {
+              setTimeout(checkVideo, 100);
+            } else {
+              resolve();
+            }
           }
-          const onLoadedData = () => {
-            activeVideo.removeEventListener('loadeddata', onLoadedData);
-            activeVideo.removeEventListener('error', onError);
-            resolve();
-          };
-          const onError = () => {
-            activeVideo.removeEventListener('loadeddata', onLoadedData);
-            activeVideo.removeEventListener('error', onError);
-            resolve();
-          };
-          activeVideo.addEventListener('loadeddata', onLoadedData, { once: true });
-          activeVideo.addEventListener('error', onError, { once: true });
-          // Timeout after 3 seconds to avoid hanging
-          setTimeout(() => {
-            activeVideo.removeEventListener('loadeddata', onLoadedData);
-            activeVideo.removeEventListener('error', onError);
-            resolve();
-          }, 3000);
-        });
-      };
-      await waitForVideoReady();
-    }
+        };
+        checkVideo();
+      });
+    };
+    
+    await waitForVideoReady();
     // Small delay to ensure UI is ready
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
   
   // Hide loading indicator

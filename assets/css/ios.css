@@ -567,6 +567,8 @@ button {
   position: relative;
   display: flex;
   width: 100%;
+  height: fit-content;
+  align-self: start;
 }
 
 .timeline-item-wrapper.has-active,
