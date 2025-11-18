@@ -1,4 +1,5 @@
 import { persistGeneratedVideo, readGeneratedVideo } from './storage.js';
+import { toggleVisibility } from './ui.js';
 
 const RUNWAY_API_VERSION = '2024-11-06';
 
@@ -741,6 +742,11 @@ export const createAiController = async ({
 
     setGenerating(true);
 
+    // Show loading indicator
+    if (elements.loadingIndicator) {
+      toggleVisibility(elements.loadingIndicator, true);
+    }
+
     persistAiSettings({
       preferredModel: model,
       preferredRatio: ratio,
@@ -753,6 +759,10 @@ export const createAiController = async ({
       videoUri = await convertBlobToDataUri(blob);
     } catch (error) {
       setGenerating(false);
+      // Hide loading indicator on error
+      if (elements.loadingIndicator) {
+        toggleVisibility(elements.loadingIndicator, false);
+      }
       setStatus(error.message, { tone: 'error' });
       console.error(error);
       return;
@@ -946,6 +956,10 @@ export const createAiController = async ({
       console.error(error);
     } finally {
       setGenerating(false);
+      // Hide loading indicator when generation is complete
+      if (elements.loadingIndicator) {
+        toggleVisibility(elements.loadingIndicator, false);
+      }
     }
   };
 
