@@ -2002,58 +2002,81 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
       return;
     }
 
-    const wasEmpty = playlist.length === 0;
-    let addedAny = false;
-
-    for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
-      const originalFile = files[fileIndex];
-      let processedFile = originalFile;
-
-      // Check if it's an image (by MIME type or extension)
-      const isImage = originalFile.type?.startsWith('image/') || 
+    // Check if any files are images that need conversion
+    const hasImages = files.some((file) => {
+      const isImage = file.type?.startsWith('image/') || 
         (() => {
-          const fileName = originalFile.name || '';
+          const fileName = file.name || '';
           const extension = fileName.toLowerCase().split('.').pop();
           return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(extension);
         })();
+      return isImage;
+    });
 
-      if (isImage) {
-        try {
-          const conversion = await createVideoFromImage(originalFile);
-          processedFile = new File([conversion.blob], conversion.name, {
-            type: conversion.mimeType,
-            lastModified: Date.now(),
-          });
-        } catch (error) {
-          console.warn('Unable to convert image to video.', error);
-          alert('One of the selected images could not be converted into a video.');
+    // Show loading indicator if images need to be converted
+    if (hasImages && elements.loadingIndicator) {
+      toggleVisibility(elements.loadingIndicator, true);
+    }
+
+    const wasEmpty = playlist.length === 0;
+    let addedAny = false;
+
+    try {
+      for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+        const originalFile = files[fileIndex];
+        let processedFile = originalFile;
+
+        // Check if it's an image (by MIME type or extension)
+        const isImage = originalFile.type?.startsWith('image/') || 
+          (() => {
+            const fileName = originalFile.name || '';
+            const extension = fileName.toLowerCase().split('.').pop();
+            return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(extension);
+          })();
+
+        if (isImage) {
+          try {
+            const conversion = await createVideoFromImage(originalFile);
+            processedFile = new File([conversion.blob], conversion.name, {
+              type: conversion.mimeType,
+              lastModified: Date.now(),
+            });
+          } catch (error) {
+            console.warn('Unable to convert image to video.', error);
+            alert('One of the selected images could not be converted into a video.');
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+        }
+
+        // Verify it's a video after processing (check MIME type or extension)
+        const isVideo = processedFile.type?.startsWith('video/') ||
+          (() => {
+            const fileName = processedFile.name || '';
+            const extension = fileName.toLowerCase().split('.').pop();
+            return ['mp4', 'mov', 'm4v', 'avi', 'webm', 'mkv', '3gp'].includes(extension);
+          })();
+
+        if (!isVideo) {
+          console.warn('Skipping file because it is not a supported video type after processing.');
           // eslint-disable-next-line no-continue
           continue;
         }
+
+        // eslint-disable-next-line no-await-in-loop
+        const item = await addFileToPlaylist(processedFile, {
+          makeCurrent: wasEmpty && !addedAny,
+          autoplay: wasEmpty && !addedAny,
+        });
+
+        if (item) {
+          addedAny = true;
+        }
       }
-
-      // Verify it's a video after processing (check MIME type or extension)
-      const isVideo = processedFile.type?.startsWith('video/') ||
-        (() => {
-          const fileName = processedFile.name || '';
-          const extension = fileName.toLowerCase().split('.').pop();
-          return ['mp4', 'mov', 'm4v', 'avi', 'webm', 'mkv', '3gp'].includes(extension);
-        })();
-
-      if (!isVideo) {
-        console.warn('Skipping file because it is not a supported video type after processing.');
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-
-      // eslint-disable-next-line no-await-in-loop
-      const item = await addFileToPlaylist(processedFile, {
-        makeCurrent: wasEmpty && !addedAny,
-        autoplay: wasEmpty && !addedAny,
-      });
-
-      if (item) {
-        addedAny = true;
+    } finally {
+      // Hide loading indicator after processing is complete
+      if (hasImages && elements.loadingIndicator) {
+        toggleVisibility(elements.loadingIndicator, false);
       }
     }
 

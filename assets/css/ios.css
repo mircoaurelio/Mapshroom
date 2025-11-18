@@ -840,7 +840,10 @@ input[type='file'] {
 }
 
 .landing-loader-container {
+  position: relative;
   display: flex;
+  align-items: flex-end;
+  gap: 0;
   justify-content: center;
   margin-bottom: 2rem;
 }
@@ -849,6 +852,7 @@ input[type='file'] {
   width: 120px;
   height: 140px;
   filter: drop-shadow(0 4px 12px rgba(220, 38, 38, 0.3));
+  flex-shrink: 0;
 }
 
 .landing-title {
@@ -898,9 +902,13 @@ input[type='file'] {
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
   background: rgba(239, 68, 68, 0.15);
   border-radius: 12px;
   border: 1px solid rgba(239, 68, 68, 0.3);
+  font-family: 'Material Symbols Rounded', sans-serif;
+  font-style: normal;
+  font-weight: 400;
 }
 
 .step-content {
@@ -933,7 +941,9 @@ input[type='file'] {
   font-size: 1.125em;
   vertical-align: middle;
   margin: 0 0.25rem;
-  font-weight: 600;
+  font-weight: 400;
+  font-family: 'Material Symbols Rounded', sans-serif;
+  font-style: normal;
 }
 
 .landing-note {
