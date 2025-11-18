@@ -792,26 +792,30 @@ input[type='file'] {
 
 .loading-text .letter {
   display: inline-block;
-  transform-origin: center bottom;
+  animation: letterWave 2.5s ease-in-out infinite;
+  color: rgba(255, 255, 255, 0.7);
+  filter: brightness(1);
+  transform: scale(1);
 }
 
-/* Different animations for different letters to create a fun, wave-like effect */
-.loading-text .letter:nth-child(1) { animation: letterBounce 2.5s ease-in-out infinite; animation-delay: 0s; }
-.loading-text .letter:nth-child(2) { animation: letterWiggle 2.5s ease-in-out infinite; animation-delay: 0.1s; }
-.loading-text .letter:nth-child(3) { animation: letterFloat 2.5s ease-in-out infinite; animation-delay: 0.2s; }
-.loading-text .letter:nth-child(4) { animation: letterPulse 2.5s ease-in-out infinite; animation-delay: 0.15s; }
-.loading-text .letter:nth-child(5) { animation: letterRotate 2.5s ease-in-out infinite; animation-delay: 0.25s; }
-.loading-text .letter:nth-child(6) { animation: letterSwing 2.5s ease-in-out infinite; animation-delay: 0.3s; }
-.loading-text .letter:nth-child(7) { animation: letterBounce 2.5s ease-in-out infinite; animation-delay: 0.35s; }
-.loading-text .letter:nth-child(8) { animation: letterWiggle 2.5s ease-in-out infinite; animation-delay: 0.4s; }
-.loading-text .letter:nth-child(9) { animation: letterFloat 2.5s ease-in-out infinite; animation-delay: 0.45s; }
-.loading-text .letter:nth-child(10) { animation: none; } /* Space - no animation */
-.loading-text .letter:nth-child(11) { animation: letterPulse 2.5s ease-in-out infinite; animation-delay: 0.5s; }
-.loading-text .letter:nth-child(12) { animation: letterRotate 2.5s ease-in-out infinite; animation-delay: 0.55s; }
-.loading-text .letter:nth-child(13) { animation: letterSwing 2.5s ease-in-out infinite; animation-delay: 0.6s; }
-.loading-text .letter:nth-child(14) { animation: letterBounce 2.5s ease-in-out infinite; animation-delay: 0.65s; }
-.loading-text .letter:nth-child(15) { animation: letterWiggle 2.5s ease-in-out infinite; animation-delay: 0.7s; }
-.loading-text .letter:nth-child(16) { animation: letterFloat 2.5s ease-in-out infinite; animation-delay: 0.75s; }
+/* Stagger the animation delay for each letter to create wave effect */
+.loading-text .letter:nth-child(1) { animation-delay: 0s; }
+.loading-text .letter:nth-child(2) { animation-delay: 0.05s; }
+.loading-text .letter:nth-child(3) { animation-delay: 0.1s; }
+.loading-text .letter:nth-child(4) { animation-delay: 0.15s; }
+.loading-text .letter:nth-child(5) { animation-delay: 0.2s; }
+.loading-text .letter:nth-child(6) { animation-delay: 0.25s; }
+.loading-text .letter:nth-child(7) { animation-delay: 0.3s; }
+.loading-text .letter:nth-child(8) { animation-delay: 0.35s; }
+.loading-text .letter:nth-child(9) { animation-delay: 0.4s; }
+.loading-text .letter:nth-child(10) { animation-delay: 0.45s; } /* space */
+.loading-text .letter:nth-child(11) { animation-delay: 0.5s; }
+.loading-text .letter:nth-child(12) { animation-delay: 0.55s; }
+.loading-text .letter:nth-child(13) { animation-delay: 0.6s; }
+.loading-text .letter:nth-child(14) { animation-delay: 0.65s; }
+.loading-text .letter:nth-child(15) { animation-delay: 0.7s; }
+.loading-text .letter:nth-child(16) { animation-delay: 0.75s; }
+.loading-text .letter:nth-child(17) { animation-delay: 0.8s; }
 
 .add-to-home-landing {
   position: fixed;
@@ -1553,90 +1557,37 @@ input[type='file'] {
   }
 }
 
-@keyframes letterBounce {
+@keyframes letterWave {
   0%, 100% {
-    transform: translateY(0) scale(1);
+    color: rgba(255, 255, 255, 0.7);
+    filter: brightness(1);
+    transform: scale(1) translateY(0);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   }
   25% {
-    transform: translateY(-8px) scale(1.05);
+    color: rgba(239, 68, 68, 0.95);
+    filter: brightness(1.4);
+    transform: scale(1.08) translateY(-2px);
+    text-shadow: 
+      0 2px 8px rgba(0, 0, 0, 0.4),
+      0 0 12px rgba(239, 68, 68, 0.6);
   }
   50% {
-    transform: translateY(-4px) scale(1);
+    color: rgba(255, 255, 255, 1);
+    filter: brightness(1.6);
+    transform: scale(1.12) translateY(-3px);
+    text-shadow: 
+      0 2px 8px rgba(0, 0, 0, 0.4),
+      0 0 16px rgba(239, 68, 68, 0.8),
+      0 0 24px rgba(239, 68, 68, 0.4);
   }
   75% {
-    transform: translateY(-8px) scale(1.05);
-  }
-}
-
-@keyframes letterWiggle {
-  0%, 100% {
-    transform: translateX(0) rotate(0deg);
-  }
-  25% {
-    transform: translateX(-3px) rotate(-2deg);
-  }
-  50% {
-    transform: translateX(0) rotate(0deg);
-  }
-  75% {
-    transform: translateX(3px) rotate(2deg);
-  }
-}
-
-@keyframes letterFloat {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  25% {
-    transform: translateY(-6px) rotate(1.5deg);
-  }
-  50% {
-    transform: translateY(-3px) rotate(0deg);
-  }
-  75% {
-    transform: translateY(-6px) rotate(-1.5deg);
-  }
-}
-
-@keyframes letterPulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 1;
-    text-shadow: 0 2px 12px rgba(239, 68, 68, 0.5);
-  }
-}
-
-@keyframes letterRotate {
-  0%, 100% {
-    transform: rotate(0deg) translateY(0);
-  }
-  25% {
-    transform: rotate(3deg) translateY(-2px);
-  }
-  50% {
-    transform: rotate(0deg) translateY(0);
-  }
-  75% {
-    transform: rotate(-3deg) translateY(-2px);
-  }
-}
-
-@keyframes letterSwing {
-  0%, 100% {
-    transform: rotate(-2deg) translateY(0);
-  }
-  25% {
-    transform: rotate(0deg) translateY(-4px);
-  }
-  50% {
-    transform: rotate(2deg) translateY(-2px);
-  }
-  75% {
-    transform: rotate(0deg) translateY(-4px);
+    color: rgba(239, 68, 68, 0.95);
+    filter: brightness(1.4);
+    transform: scale(1.08) translateY(-2px);
+    text-shadow: 
+      0 2px 8px rgba(0, 0, 0, 0.4),
+      0 0 12px rgba(239, 68, 68, 0.6);
   }
 }
 
