@@ -1,8 +1,16 @@
 [functions]
   directory = "netlify/functions"
 
+# Proxy function for Runway API
 [[redirects]]
   from = "/proxy/*"
   to = "/.netlify/functions/runway-proxy"
   status = 200
   force = true
+
+# SPA fallback - serve index.html for all routes (except files and proxy)
+# Netlify will serve actual files first, then apply this redirect for routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
