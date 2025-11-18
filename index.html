@@ -73,9 +73,106 @@
                 <div class="spot spot-4"></div>
               </div>
             </div>
-            <div id="landing-title" class="loading-text">Mapshroom Pocket</div>
+            <div class="landing-title-container">
+              <p class="landing-tagline">Projection mapping made simple</p>
+              <div id="landing-title" class="loading-text">Mapshroom Pocket</div>
+            </div>
           </div>
-          <p class="landing-subtitle">Add this app to your Home Screen for the best experience</p>
+          <p class="landing-subtitle">To download the app follow this steps</p>
+          <button class="landing-learn-more" onclick="document.getElementById('about-modal').classList.remove('concealed');" aria-label="What is this app for?">
+            <span class="material-symbols-rounded">info</span>
+            <span>What is this app for?</span>
+          </button>
+        </div>
+        
+        <div id="about-modal" class="about-modal concealed" aria-hidden="true" role="dialog" aria-labelledby="about-modal-title" aria-modal="true">
+          <div class="about-backdrop" onclick="document.getElementById('about-modal').classList.add('concealed');"></div>
+          <div class="about-content">
+            <div class="about-header">
+              <h2 id="about-modal-title" class="landing-about-title">What is Mapshroom Pocket?</h2>
+              <button class="about-close" type="button" aria-label="Close about modal" onclick="document.getElementById('about-modal').classList.add('concealed');">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div class="about-body">
+              <section class="landing-about">
+                <p class="landing-about-intro">The simplest app for projection mapping—like paint for making your 2D or 3D artworks pop at night.</p>
+          
+          <div class="landing-about-features">
+            <div class="about-feature">
+              <div class="about-feature-icon material-symbols-rounded">speed</div>
+              <div class="about-feature-content">
+                <h3 class="about-feature-title">Super Fast Setup</h3>
+                <p class="about-feature-description">Quick setup in just a few minutes. Map a logo for a club entrance, theme a night, or map 100 artworks where traditional methods would be too expensive.</p>
+              </div>
+            </div>
+            
+            <div class="about-feature">
+              <div class="about-feature-icon material-symbols-rounded">touch_app</div>
+              <div class="about-feature-content">
+                <h3 class="about-feature-title">No Barrier of Entry</h3>
+                <p class="about-feature-description">Simple and intuitive—no need to learn complex software like Resolume Arena, MadMapper, Blender, or 3D modeling tools.</p>
+              </div>
+            </div>
+            
+            <div class="about-feature">
+              <div class="about-feature-icon material-symbols-rounded">payments</div>
+              <div class="about-feature-content">
+                <h3 class="about-feature-title">Affordable Solution</h3>
+                <p class="about-feature-description">No expensive software required. Perfect for venues where traditional mapping would be cost-prohibitive.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="landing-about-target">
+            <h3 class="about-target-title">Perfect For</h3>
+            <div class="about-target-list">
+              <div class="target-item">
+                <span class="target-icon material-symbols-rounded">nightlife</span>
+                <span class="target-text">Night Clubs & Bars</span>
+              </div>
+              <div class="target-item">
+                <span class="target-icon material-symbols-rounded">restaurant</span>
+                <span class="target-text">Night Restaurants & Pubs</span>
+              </div>
+              <div class="target-item">
+                <span class="target-icon material-symbols-rounded">music_note</span>
+                <span class="target-text">DJ Venues</span>
+              </div>
+              <div class="target-item">
+                <span class="target-icon material-symbols-rounded">event</span>
+                <span class="target-text">Single Event Organizations</span>
+              </div>
+              <div class="target-item">
+                <span class="target-icon material-symbols-rounded">palette</span>
+                <span class="target-text">Artists & Sculptors</span>
+              </div>
+              <div class="target-item">
+                <span class="target-icon material-symbols-rounded">edit</span>
+                <span class="target-text">Writers & Creators</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="landing-about-platforms">
+            <h3 class="about-platforms-title">Available On</h3>
+            <div class="platforms-list">
+              <div class="platform-item">
+                <span class="platform-icon material-symbols-rounded">phone_iphone</span>
+                <span class="platform-text">Mobile - Mapshroom Pocket Edition</span>
+              </div>
+              <div class="platform-item">
+                <span class="platform-icon material-symbols-rounded">computer</span>
+                <span class="platform-text">PC - .exe Version</span>
+              </div>
+            </div>
+          </div>
+              </section>
+            </div>
+          </div>
         </div>
         
         <div class="landing-steps">
@@ -96,7 +193,7 @@
           </div>
           
           <div class="step">
-            <div class="step-icon">✓</div>
+            <div class="step-icon material-symbols-rounded">check</div>
             <div class="step-content">
               <h2 class="step-title">Step 3: Confirm</h2>
               <p class="step-description">Tap <strong>"Add"</strong> in the top right corner to confirm</p>
@@ -104,7 +201,7 @@
           </div>
           
           <div class="step">
-            <div class="step-icon">🎬</div>
+            <div class="step-icon material-symbols-rounded">cast</div>
             <div class="step-content">
               <h2 class="step-title">Step 4: Connect to Projector</h2>
               <p class="step-description">Connect your iPhone to a projector or external display using a compatible adapter or AirPlay</p>
@@ -119,6 +216,11 @@
             </div>
           </div>
         </div>
+        
+        <footer class="landing-footer">
+          <p class="landing-footer-text">© 2025 Mapshroom Pocket</p>
+          <p style="margin-bottom: 20px;" class="landing-footer-tagline">Projection mapping made simple</p>
+        </footer>
       </div>
     </div>
     <div id="loading-indicator" class="loading-indicator concealed" aria-hidden="true" role="status" aria-live="polite">
