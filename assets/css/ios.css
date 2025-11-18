@@ -551,45 +551,36 @@ button {
 
 .timeline-grid {
   flex: 1;
-  display: grid;
-  /* Auto-fit columns with minimum width - allows natural flow based on available space */
-  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
-  grid-auto-rows: auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   width: 100%;
   height: 100%;
   overflow-y: auto;
   padding-right: 0.5rem;
-}
-
-/* For very small screens, ensure at least 1 column */
-@media (max-width: 320px) {
-  .timeline-grid {
-    grid-template-columns: 1fr;
-  }
+  align-content: flex-start;
 }
 
 .timeline-empty {
-  grid-column: 1 / -1;
-  align-self: center;
-  justify-self: center;
+  width: 100%;
+  text-align: center;
   color: rgba(255, 255, 255, 0.65);
   font-size: 1rem;
   letter-spacing: 0.02em;
+  padding: 2rem 0;
 }
 
 .timeline-item-wrapper {
   position: relative;
   display: flex;
-  width: 100%;
+  flex: 0 0 calc(50% - 0.5rem);
+  max-width: calc(50% - 0.5rem);
   height: fit-content;
-  align-self: start;
 }
 
 .timeline-item-wrapper.has-active,
 .timeline-item-wrapper:has(.timeline-item.active) {
   height: fit-content;
-  align-self: start;
 }
 
 .timeline-item {
@@ -601,6 +592,7 @@ button {
   background: rgba(0, 0, 0, 0.45);
   display: block;
   width: 100%;
+  max-width: 100%;
   cursor: pointer;
   transition: transform 0.2s ease, border-color 0.2s ease;
   outline: none;
@@ -793,10 +785,33 @@ input[type='file'] {
   margin: 0;
   margin-bottom: 27px;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  animation: textFade 2.5s ease-in-out infinite;
   line-height: 1;
   text-align: left;
+  display: inline-block;
 }
+
+.loading-text .letter {
+  display: inline-block;
+  transform-origin: center bottom;
+}
+
+/* Different animations for different letters to create a fun, wave-like effect */
+.loading-text .letter:nth-child(1) { animation: letterBounce 2.5s ease-in-out infinite; animation-delay: 0s; }
+.loading-text .letter:nth-child(2) { animation: letterWiggle 2.5s ease-in-out infinite; animation-delay: 0.1s; }
+.loading-text .letter:nth-child(3) { animation: letterFloat 2.5s ease-in-out infinite; animation-delay: 0.2s; }
+.loading-text .letter:nth-child(4) { animation: letterPulse 2.5s ease-in-out infinite; animation-delay: 0.15s; }
+.loading-text .letter:nth-child(5) { animation: letterRotate 2.5s ease-in-out infinite; animation-delay: 0.25s; }
+.loading-text .letter:nth-child(6) { animation: letterSwing 2.5s ease-in-out infinite; animation-delay: 0.3s; }
+.loading-text .letter:nth-child(7) { animation: letterBounce 2.5s ease-in-out infinite; animation-delay: 0.35s; }
+.loading-text .letter:nth-child(8) { animation: letterWiggle 2.5s ease-in-out infinite; animation-delay: 0.4s; }
+.loading-text .letter:nth-child(9) { animation: letterFloat 2.5s ease-in-out infinite; animation-delay: 0.45s; }
+.loading-text .letter:nth-child(10) { animation: none; } /* Space - no animation */
+.loading-text .letter:nth-child(11) { animation: letterPulse 2.5s ease-in-out infinite; animation-delay: 0.5s; }
+.loading-text .letter:nth-child(12) { animation: letterRotate 2.5s ease-in-out infinite; animation-delay: 0.55s; }
+.loading-text .letter:nth-child(13) { animation: letterSwing 2.5s ease-in-out infinite; animation-delay: 0.6s; }
+.loading-text .letter:nth-child(14) { animation: letterBounce 2.5s ease-in-out infinite; animation-delay: 0.65s; }
+.loading-text .letter:nth-child(15) { animation: letterWiggle 2.5s ease-in-out infinite; animation-delay: 0.7s; }
+.loading-text .letter:nth-child(16) { animation: letterFloat 2.5s ease-in-out infinite; animation-delay: 0.75s; }
 
 .add-to-home-landing {
   position: fixed;
@@ -1538,6 +1553,93 @@ input[type='file'] {
   }
 }
 
+@keyframes letterBounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-8px) scale(1.05);
+  }
+  50% {
+    transform: translateY(-4px) scale(1);
+  }
+  75% {
+    transform: translateY(-8px) scale(1.05);
+  }
+}
+
+@keyframes letterWiggle {
+  0%, 100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(-3px) rotate(-2deg);
+  }
+  50% {
+    transform: translateX(0) rotate(0deg);
+  }
+  75% {
+    transform: translateX(3px) rotate(2deg);
+  }
+}
+
+@keyframes letterFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-6px) rotate(1.5deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-6px) rotate(-1.5deg);
+  }
+}
+
+@keyframes letterPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+    text-shadow: 0 2px 12px rgba(239, 68, 68, 0.5);
+  }
+}
+
+@keyframes letterRotate {
+  0%, 100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(3deg) translateY(-2px);
+  }
+  50% {
+    transform: rotate(0deg) translateY(0);
+  }
+  75% {
+    transform: rotate(-3deg) translateY(-2px);
+  }
+}
+
+@keyframes letterSwing {
+  0%, 100% {
+    transform: rotate(-2deg) translateY(0);
+  }
+  25% {
+    transform: rotate(0deg) translateY(-4px);
+  }
+  50% {
+    transform: rotate(2deg) translateY(-2px);
+  }
+  75% {
+    transform: rotate(0deg) translateY(-4px);
+  }
+}
+
 #timeline-panel.concealed {
   opacity: 0;
   visibility: hidden;
@@ -2227,9 +2329,10 @@ input[type='file'] {
   position: relative;
   z-index: 2;
   max-width: min(85vw, 420px);
-  max-height: 60vh;
+  max-height: 85vh;
   margin: auto;
   margin-top: calc(env(safe-area-inset-top, 0) + 1rem);
+  margin-bottom: calc(env(safe-area-inset-bottom, 0) + 1rem);
   background: rgba(18, 18, 18, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 1.25rem;
@@ -2239,6 +2342,15 @@ input[type='file'] {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(16px);
   overflow: hidden;
+}
+
+@media (orientation: landscape) {
+  .tutorial-content {
+    max-width: min(90vw, 600px);
+    max-height: 90vh;
+    margin-top: calc(env(safe-area-inset-top, 0) + 0.5rem);
+    margin-bottom: calc(env(safe-area-inset-bottom, 0) + 0.5rem);
+  }
 }
 
 .tutorial-header {
@@ -2298,6 +2410,15 @@ input[type='file'] {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  padding-bottom: 1rem;
+}
+
+@media (orientation: landscape) {
+  .tutorial-body {
+    padding: 1rem 1.25rem;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+  }
 }
 
 .tutorial-step-content {
@@ -2305,6 +2426,15 @@ input[type='file'] {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+@media (orientation: landscape) {
+  .tutorial-step-content {
+    min-height: 120px;
+    max-height: calc(85vh - 200px);
+  }
 }
 
 .tutorial-step-visual {
@@ -2432,6 +2562,13 @@ input[type='file'] {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex-shrink: 0;
+}
+
+@media (orientation: landscape) {
+  .tutorial-progress {
+    gap: 1.25rem;
+  }
 }
 
 .tutorial-progress-bar {
@@ -2460,20 +2597,47 @@ input[type='file'] {
 .tutorial-actions {
   display: flex;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+@media (orientation: landscape) {
+  .tutorial-actions {
+    gap: 1rem;
+    padding-top: 0.75rem;
+  }
 }
 
 .tutorial-button {
-  flex: 1;
-  min-width: 100px;
-  padding: 0.75rem 1.5rem;
-  border-radius: 999px;
-  font-size: 0.95rem;
+  flex: 0 0 auto;
+  min-width: 48px;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0;
   font-weight: 500;
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+@media (orientation: landscape) {
+  .tutorial-button {
+    min-width: 52px;
+    width: 52px;
+    height: 52px;
+  }
 }
 
 .tutorial-button-primary {
@@ -2501,6 +2665,54 @@ input[type='file'] {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.3);
   outline: none;
+}
+
+/* Icon-only buttons for all viewports */
+.tutorial-button#tutorial-prev::before {
+  content: '←';
+  font-size: 1.5rem;
+  line-height: 1;
+  display: block;
+  font-weight: normal;
+}
+
+.tutorial-button#tutorial-next::before {
+  content: '→';
+  font-size: 1.5rem;
+  line-height: 1;
+  display: block;
+  font-weight: normal;
+}
+
+.tutorial-button#tutorial-next[data-is-last="true"]::before {
+  content: '✓';
+  font-size: 1.5rem;
+}
+
+.tutorial-button#tutorial-skip::before {
+  content: '×';
+  font-size: 1.75rem;
+  line-height: 1;
+  display: block;
+  font-weight: normal;
+}
+
+@media (orientation: landscape) {
+  .tutorial-button#tutorial-prev::before {
+    font-size: 1.6rem;
+  }
+
+  .tutorial-button#tutorial-next::before {
+    font-size: 1.6rem;
+  }
+
+  .tutorial-button#tutorial-next[data-is-last="true"]::before {
+    font-size: 1.6rem;
+  }
+
+  .tutorial-button#tutorial-skip::before {
+    font-size: 1.85rem;
+  }
 }
 
 .tutorial-button:disabled {
@@ -2577,48 +2789,29 @@ input[type='file'] {
   }
 
   .tutorial-actions {
-    flex-direction: row;
-    justify-content: space-between;
     gap: 0.5rem;
   }
 
   .tutorial-button {
-    width: auto;
-    min-width: 48px;
-    padding: 0.75rem;
-    font-size: 0;
-    position: relative;
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
   }
 
-  /* Show icons only for Next/Previous buttons on mobile */
   .tutorial-button#tutorial-prev::before {
-    content: '←';
     font-size: 1.25rem;
-    line-height: 1;
-    display: block;
   }
 
   .tutorial-button#tutorial-next::before {
-    content: '→';
     font-size: 1.25rem;
-    line-height: 1;
-    display: block;
   }
 
   .tutorial-button#tutorial-next[data-is-last="true"]::before {
-    content: '✓';
-  }
-
-  /* Hide Skip button text on mobile, show icon */
-  .tutorial-button#tutorial-skip {
-    font-size: 0;
+    font-size: 1.25rem;
   }
 
   .tutorial-button#tutorial-skip::before {
-    content: '×';
     font-size: 1.5rem;
-    line-height: 1;
-    display: block;
   }
 
   /* Hide highlight when targeting Choose Media button on mobile */
