@@ -399,6 +399,22 @@ button {
   transform: translateY(-2px);
 }
 
+@media (min-width: 768px) {
+  .controls {
+    gap: 0.5rem;
+  }
+
+  .icon-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .icon-button img {
+    width: 28px;
+    height: 28px;
+  }
+}
+
 #timeline-panel {
   position: fixed;
   inset: 0;
@@ -1213,7 +1229,6 @@ input[type='file'] {
   inset: 0;
   z-index: 13;
   background: rgba(10, 10, 10, 0.88);
-  backdrop-filter: blur(12px);
   overflow-y: auto;
   overflow-x: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -1240,14 +1255,14 @@ input[type='file'] {
 
 .ai-header {
   position: sticky;
-  top: calc(env(safe-area-inset-top, 0) + 0.75rem);
+  top: 0 !important;
   z-index: 2;
   display: flex;
   align-items: center;
   gap: 1rem;
   padding: 0.25rem 0;
-  background: rgba(10, 10, 10, 0.72);
-  backdrop-filter: blur(12px);
+  padding-top: calc(env(safe-area-inset-top, 0) + 0.75rem);
+  background: rgba(10, 10, 10, 0.88);
 }
 
 .ai-title {
@@ -1866,7 +1881,7 @@ input[type='file'] {
 .tutorial-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 20000;
   pointer-events: none;
   transition: opacity 0.3s ease, visibility 0.3s ease;
 }
