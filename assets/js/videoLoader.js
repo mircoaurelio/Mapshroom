@@ -1365,7 +1365,11 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     const token = ++loadToken;
     detachCrossfadeWatcher();
     const previousVideo = activeVideoElement;
-    controller.handleOverlayState(false, { toggleUI: false });
+    // Only disable overlay if move mode is not active
+    // When move mode is active, overlay must remain enabled for move functionality
+    if (!state.moveMode) {
+      controller.handleOverlayState(false, { toggleUI: false });
+    }
 
     if (!preserveTransform) {
       resetTransform();
@@ -1401,6 +1405,10 @@ const createPlaylistController = ({ elements, controller, store, persistence, in
     controller.updateTransform();
     if (!state.hasVideo) {
       controller.enableControls(true);
+    }
+    // If move mode is active, ensure overlay remains enabled after video restart
+    if (state.moveMode) {
+      controller.handleOverlayState(true, { toggleUI: false });
     }
     clearUpcomingIndexCache();
 
