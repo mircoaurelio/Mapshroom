@@ -879,7 +879,7 @@ input[type='file'] {
 
 .landing-steps .step {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
   padding: 1.25rem;
   background: rgba(255, 255, 255, 0.03);
@@ -896,9 +896,9 @@ input[type='file'] {
 
 .step-icon {
   flex-shrink: 0;
-  font-size: 2rem;
-  width: 3rem;
-  height: 3rem;
+  font-size: 2.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -909,6 +909,14 @@ input[type='file'] {
   font-family: 'Material Symbols Rounded', sans-serif;
   font-style: normal;
   font-weight: 400;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.step-icon.material-symbols-rounded {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  line-height: 1;
+  font-size: 2.5rem;
 }
 
 .step-content {
