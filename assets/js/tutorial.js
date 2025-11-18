@@ -264,6 +264,13 @@ export const createTutorialController = ({ elements }) => {
     tutorialOverlay.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
 
+    // Save to localStorage that tutorial has been seen
+    try {
+      localStorage.setItem('mapshroom:tutorial-seen', 'true');
+    } catch (error) {
+      console.debug('Unable to save tutorial seen status to localStorage.', error);
+    }
+
     // Reset z-index and position of all potentially highlighted elements
     const allSelectors = TUTORIAL_STEPS.map(step => step.highlightSelector).filter(Boolean);
     allSelectors.forEach(selector => {
