@@ -10,6 +10,7 @@ import { StudioPanel } from '../components/StudioPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_GOOGLE_SHADER_MODEL,
+  DEFAULT_SHADERS,
   DEFAULT_UI_PREFERENCES,
   createDefaultProject,
 } from '../config';
@@ -136,6 +137,11 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     videoGenProvider: 'runway',
   };
 
+  const existingIds = new Set(project.studio.savedShaders.map((s) => s.id));
+  const missingPresets = Object.values(DEFAULT_SHADERS)
+    .filter((shader) => !existingIds.has(shader.id))
+    .map((shader) => ({ id: shader.id, name: shader.name, code: shader.code }));
+
   return {
     ...project,
     ai: {
@@ -143,6 +149,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     },
     studio: {
       ...project.studio,
+      savedShaders: [...project.studio.savedShaders, ...missingPresets],
       activeShaderName: parseShaderName(project.studio.activeShaderCode),
       uniformValues: syncUniformValues(project.studio.uniformValues, uniformDefinitions),
     },
