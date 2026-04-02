@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80">
+  <defs>
+    <linearGradient id="capGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
+      <stop offset="30%" style="stop-color:#dc2626;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#b91c1c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#991b1b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="stemGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#f9f9f9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Volva (base) -->
+  <ellipse cx="32" cy="76" rx="12" ry="5" fill="rgba(255,255,255,0.6)"/>
+  
+  <!-- Stem (pear-shaped) -->
+  <path d="M 20 20 Q 22 18, 24 16 Q 26 14, 26 12 Q 26 10, 27 8 Q 28 6, 29 5 Q 30 4, 31 4 Q 32 4, 33 4 Q 34 4, 35 5 Q 36 6, 37 8 Q 38 10, 38 12 Q 38 14, 40 16 Q 42 18, 44 20 L 44 60 Q 42 62, 40 63 Q 38 64, 36 64 Q 34 64, 32 64 Q 30 64, 28 64 Q 26 63, 24 62 Q 22 61, 20 60 Z" 
+        fill="url(#stemGrad)" 
+        filter="url(#shadow)"/>
+  
+  <!-- Ring -->
+  <ellipse cx="32" cy="28" rx="10" ry="2.5" fill="rgba(255,255,255,0.9)"/>
+  
+  <!-- Cap (hat-like) -->
+  <path d="M 8 20 Q 12 6, 20 4 Q 28 2, 32 1.5 Q 36 2, 44 4 Q 52 6, 56 20 Q 58 28, 58 36 Q 59 42, 57 46 Q 54 50, 50 52 Q 44 54, 36 55 Q 32 55.5, 28 55 Q 20 54, 14 52 Q 10 50, 7 46 Q 5 42, 6 36 Q 6 28, 8 20 Z" 
+        fill="url(#capGrad)" 
+        filter="url(#shadow)"/>
+  
+  <!-- Gills (under cap) -->
+  <ellipse cx="32" cy="46" rx="20" ry="8" fill="rgba(254,242,242,0.8)"/>
+  
+  <!-- White spots -->
+  <circle cx="18" cy="24" r="5" fill="#ffffff"/>
+  <circle cx="46" cy="28" r="4.5" fill="#ffffff"/>
+  <circle cx="32" cy="30" r="4" fill="#ffffff"/>
+  <circle cx="24" cy="34" r="3.5" fill="#ffffff"/>
+</svg>
+
