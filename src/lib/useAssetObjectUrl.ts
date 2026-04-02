@@ -4,6 +4,7 @@ import { getAssetBlob } from './storage';
 
 export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const assetId = asset?.id ?? null;
 
   useEffect(() => {
     let disposed = false;
@@ -15,11 +16,11 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
       }
     });
 
-    if (!asset) {
+    if (!assetId) {
       return;
     }
 
-    getAssetBlob(asset.id).then((blob) => {
+    getAssetBlob(assetId).then((blob) => {
       if (disposed || !blob) {
         setObjectUrl(null);
         return;
@@ -35,7 +36,7 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
         URL.revokeObjectURL(localObjectUrl);
       }
     };
-  }, [asset]);
+  }, [assetId]);
 
-  return asset ? objectUrl : null;
+  return assetId ? objectUrl : null;
 }
