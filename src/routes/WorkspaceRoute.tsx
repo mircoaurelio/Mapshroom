@@ -821,7 +821,7 @@ ${compilerError}`;
   const handleFixError = () => {
     if (!project || !compilerError.trim()) return;
     void handleShaderMutation(
-      `Fix the following GLSL compilation error in this shader. Return the corrected full shader.\n\nCompiler error:\n${compilerError}`,
+      `Fix the following error in this shader. Keep the exact same processColor signature and shader structure. Return the corrected full shader.\n\nError:\n${compilerError}`,
     );
   };
 
