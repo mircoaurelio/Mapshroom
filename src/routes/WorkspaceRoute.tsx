@@ -178,6 +178,11 @@ export function WorkspaceRoute() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
+  const generatedShaderRetryRef = useRef<{
+    sourcePrompt: string;
+    code: string;
+    autoRepairUsed: boolean;
+  } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
 
   useEffect(() => {
@@ -276,6 +281,10 @@ export function WorkspaceRoute() {
   const activeAssetResolution = useAssetObjectUrl(activeAsset);
   const activeAssetUrl = activeAssetResolution.url;
   const lastMissingAssetIdRef = useRef<string | null>(null);
+
+  const clearGeneratedShaderRetry = () => {
+    generatedShaderRetryRef.current = null;
+  };
 
   useEffect(() => {
     if (!activeAsset || activeAssetResolution.status !== 'missing') {
@@ -533,6 +542,7 @@ export function WorkspaceRoute() {
         ],
       },
     }));
+    clearGeneratedShaderRetry();
     setStatusMessage(`Shader preset "${shader.name}" loaded.`);
   };
 
@@ -573,6 +583,7 @@ export function WorkspaceRoute() {
 
     setCompilerError('');
     setAiPrompt('');
+    clearGeneratedShaderRetry();
     updateProject((currentProject) => ({
       ...currentProject,
       studio: {
@@ -604,6 +615,7 @@ export function WorkspaceRoute() {
       return;
     }
 
+    clearGeneratedShaderRetry();
     updateProject((currentProject) => ({
       ...currentProject,
       studio: {
@@ -629,6 +641,7 @@ export function WorkspaceRoute() {
 
     setAiLoading(true);
     setCompilerError('');
+    clearGeneratedShaderRetry();
     setAiFeedbackTone('loading');
     setAiFeedbackMessage(
       'Sending your prompt to AI. The stage preview will update automatically when the new shader is ready.',
@@ -642,6 +655,11 @@ export function WorkspaceRoute() {
         currentCode: project.studio.activeShaderCode,
       });
       const nextName = parseShaderName(nextCode);
+      generatedShaderRetryRef.current = {
+        sourcePrompt: prompt,
+        code: nextCode,
+        autoRepairUsed: false,
+      };
 
       updateProject((currentProject) => ({
         ...currentProject,
@@ -676,6 +694,91 @@ export function WorkspaceRoute() {
       setAiLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!project || !compilerError.trim()) {
+      return;
+    }
+
+    const generatedShaderState = generatedShaderRetryRef.current;
+    if (!generatedShaderState || generatedShaderState.autoRepairUsed) {
+      return;
+    }
+
+    if (generatedShaderState.code !== project.studio.activeShaderCode) {
+      return;
+    }
+
+    if (!compilerError.startsWith('GLSL Error:')) {
+      return;
+    }
+
+    generatedShaderState.autoRepairUsed = true;
+
+    const originalPrompt = generatedShaderState.sourcePrompt;
+    const brokenCode = project.studio.activeShaderCode;
+    const repairPrompt = `${originalPrompt}
+
+The previous shader failed to compile in WebGL GLSL. Fix the shader and return a corrected full shader.
+
+Compiler error:
+${compilerError}`;
+
+    setAiLoading(true);
+    setAiFeedbackTone('loading');
+    setAiFeedbackMessage(
+      'Generated shader hit a GLSL error. Retrying once with the compiler error.',
+    );
+    setStatusMessage('Retrying shader after GLSL error...');
+
+    void requestShaderMutation({
+      settings: project.ai.settings,
+      prompt: repairPrompt,
+      currentCode: brokenCode,
+    })
+      .then((nextCode) => {
+        const nextName = parseShaderName(nextCode);
+        generatedShaderRetryRef.current = {
+          sourcePrompt: originalPrompt,
+          code: nextCode,
+          autoRepairUsed: true,
+        };
+
+        updateProject((currentProject) => ({
+          ...currentProject,
+          studio: {
+            ...currentProject.studio,
+            activeShaderId: `custom-${currentProject.ai.settings.shaderProvider}`,
+            activeShaderName: nextName,
+            activeShaderCode: nextCode,
+            shaderVersions: [
+              ...currentProject.studio.shaderVersions,
+              {
+                id: crypto.randomUUID(),
+                prompt: 'Auto-fix after GLSL error',
+                name: nextName,
+                code: nextCode,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          },
+        }));
+        setAiFeedbackTone('success');
+        setAiFeedbackMessage(`Shader auto-fixed and applied: ${nextName}.`);
+        setStatusMessage(`Shader auto-fixed: ${nextName}`);
+      })
+      .catch((error) => {
+        const message =
+          error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader auto-fix failed.';
+        setCompilerError(message);
+        setAiFeedbackTone('error');
+        setAiFeedbackMessage(message);
+        setStatusMessage('Shader auto-fix failed.');
+      })
+      .finally(() => {
+        setAiLoading(false);
+      });
+  }, [compilerError, project]);
 
   const handleUniformQuickAdd = async () => {
     const sanitized = newUniformName.trim().replace(/[^a-zA-Z0-9_]/g, '');
@@ -811,15 +914,16 @@ export function WorkspaceRoute() {
         void handleUniformQuickAdd();
       }}
       shaderCode={project.studio.activeShaderCode}
-      onShaderCodeChange={(value) =>
+      onShaderCodeChange={(value) => {
+        clearGeneratedShaderRetry();
         updateProject((currentProject) => ({
           ...currentProject,
           studio: {
             ...currentProject.studio,
             activeShaderCode: value,
           },
-        }))
-      }
+        }));
+      }}
       compilerError={compilerError}
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
