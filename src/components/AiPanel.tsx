@@ -8,6 +8,7 @@ interface AiPanelProps {
   shaderError: string;
   onPromptChange: (value: string) => void;
   onSubmit: () => void;
+  onFixError: () => void;
 }
 
 export function AiPanel({
@@ -18,6 +19,7 @@ export function AiPanel({
   shaderError,
   onPromptChange,
   onSubmit,
+  onFixError,
 }: AiPanelProps) {
   const showFeedback =
     Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
@@ -33,7 +35,19 @@ export function AiPanel({
           onChange={(event) => onPromptChange(event.target.value)}
         />
 
-        {shaderError ? <div className="error-panel shader-chat-error">{shaderError}</div> : null}
+        {shaderError ? (
+          <div className="error-panel shader-chat-error">
+            {shaderError}
+            <button
+              type="button"
+              className="fix-error-button"
+              disabled={aiLoading}
+              onClick={onFixError}
+            >
+              {aiLoading ? 'Fixing...' : 'Fix Error'}
+            </button>
+          </div>
+        ) : null}
 
         <button
           type="button"

@@ -994,6 +994,7 @@ ${errorSnapshot}`,
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
       }}
+      onFixError={handleFixError}
     />
   );
 
