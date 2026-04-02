@@ -1,3 +1,4 @@
+import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
 import { extractGlslCode } from './shader';
 
@@ -57,7 +58,7 @@ export async function requestOpenAiShaderMutation({
       store: false,
       max_output_tokens: 1800,
       instructions: SHADER_SYSTEM_PROMPT,
-      input: `Request: ${prompt}\n\nCurrent GLSL:\n\`\`\`glsl\n${currentCode}\n\`\`\``,
+      input: buildShaderMutationPrompt(prompt, currentCode),
     }),
   }).catch((error: unknown) => {
     if (error instanceof TypeError) {
