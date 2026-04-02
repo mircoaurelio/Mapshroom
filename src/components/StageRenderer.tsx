@@ -63,6 +63,31 @@ function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: strin
   return shader;
 }
 
+function syncVideoToTransport(
+  video: HTMLVideoElement,
+  transport: PlaybackTransport,
+  nowMs = performance.now(),
+  forceSeek = false,
+) {
+  video.loop = transport.loop;
+
+  if (video.duration > 0) {
+    const absoluteTime = getTransportTimeSeconds(transport, nowMs);
+    const targetTime = transport.loop ? absoluteTime % video.duration : absoluteTime;
+
+    if (forceSeek || Math.abs(video.currentTime - targetTime) > 0.08) {
+      video.currentTime = targetTime;
+    }
+  }
+
+  if (transport.isPlaying) {
+    void video.play().catch(() => {});
+    return;
+  }
+
+  video.pause();
+}
+
 export function StageRenderer({
   asset,
   assetUrl,
@@ -90,6 +115,14 @@ export function StageRenderer({
   const assetId = asset?.id ?? null;
   const assetKind = asset?.kind ?? null;
   const assetName = asset?.name ?? null;
+  const {
+    isPlaying,
+    currentTimeSeconds,
+    anchorTimestampMs,
+    playbackRate,
+    loop,
+    externalClockEnabled,
+  } = transport;
 
   useEffect(() => {
     transportRef.current = transport;
@@ -348,25 +381,32 @@ export function StageRenderer({
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || asset?.kind !== 'video') {
+    if (!video || assetKind !== 'video') {
       return;
     }
 
-    video.loop = transport.loop;
-
-    if (!transport.isPlaying) {
-      video.pause();
-      if (video.duration > 0) {
-        const targetTime = getTransportTimeSeconds(transport) % video.duration;
-        if (Math.abs(video.currentTime - targetTime) > 0.1) {
-          video.currentTime = targetTime;
-        }
-      }
-      return;
-    }
-
-    void video.play().catch(() => {});
-  }, [asset, transport]);
+    syncVideoToTransport(
+      video,
+      {
+        isPlaying,
+        currentTimeSeconds,
+        anchorTimestampMs,
+        playbackRate,
+        loop,
+        externalClockEnabled,
+      },
+      performance.now(),
+      true,
+    );
+  }, [
+    assetKind,
+    isPlaying,
+    currentTimeSeconds,
+    anchorTimestampMs,
+    playbackRate,
+    loop,
+    externalClockEnabled,
+  ]);
 
   useEffect(() => {
     const render = (timestamp: number) => {
@@ -383,20 +423,21 @@ export function StageRenderer({
         return;
       }
 
-      const shaderTime = getTransportTimeSeconds(transport, timestamp);
+      const currentTransport = transportRef.current;
+      const shaderTime = getTransportTimeSeconds(currentTransport, timestamp);
       gl.useProgram(program);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
 
-      if (asset?.kind === 'video' && video && video.readyState >= 2) {
-        if (video.duration > 0) {
-          const targetTime = transport.loop ? shaderTime % video.duration : shaderTime;
+      if (assetKind === 'video' && video && video.readyState >= 2) {
+        if (currentTransport.isPlaying && video.duration > 0) {
+          const targetTime = currentTransport.loop ? shaderTime % video.duration : shaderTime;
           if (Math.abs(video.currentTime - targetTime) > 0.25) {
             video.currentTime = targetTime;
           }
         }
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-      } else if (asset?.kind === 'image' && image) {
+      } else if (assetKind === 'image' && image) {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
       }
 
@@ -442,7 +483,7 @@ export function StageRenderer({
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [asset, shaderCode, transport, uniformDefinitions, uniformValues]);
+  }, [assetKind, shaderCode, uniformDefinitions, uniformValues]);
 
   const mediaSurfaceStyle = useMemo<CSSProperties>(
     () => ({
