@@ -391,8 +391,9 @@ a {
   border-radius: var(--radius-md);
   background: rgba(9, 9, 11, 0.22);
   backdrop-filter: blur(6px);
-  max-height: min(55vh, 400px);
+  max-height: calc(100vh - 10rem - var(--safe-top) - var(--safe-bottom));
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobile-uniform-overlay-header {
