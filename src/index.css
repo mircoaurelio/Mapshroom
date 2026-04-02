@@ -382,18 +382,18 @@ a {
 
 .mobile-uniform-overlay {
   position: absolute;
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: calc(5.95rem + var(--safe-bottom));
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: calc(4.5rem + var(--safe-bottom));
   z-index: 8;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(63, 63, 70, 0.4);
-  border-radius: var(--radius-md);
-  background: rgba(9, 9, 11, 0.22);
-  backdrop-filter: blur(6px);
-  max-height: calc(100vh - 10rem - var(--safe-top) - var(--safe-bottom));
+  padding: 0.75rem;
+  background: transparent;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .mobile-uniform-overlay-header {
