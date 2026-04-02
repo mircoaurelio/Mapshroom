@@ -890,6 +890,7 @@ ${compilerError}`;
       aiLoading={aiLoading}
       feedbackMessage={aiFeedbackMessage}
       feedbackTone={aiFeedbackTone}
+      shaderError={compilerError}
       onPromptChange={setAiPrompt}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);

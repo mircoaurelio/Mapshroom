@@ -5,6 +5,7 @@ interface AiPanelProps {
   aiLoading: boolean;
   feedbackMessage: string;
   feedbackTone: 'idle' | 'loading' | 'success' | 'error';
+  shaderError: string;
   onPromptChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -14,9 +15,13 @@ export function AiPanel({
   aiLoading,
   feedbackMessage,
   feedbackTone,
+  shaderError,
   onPromptChange,
   onSubmit,
 }: AiPanelProps) {
+  const showFeedback =
+    Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
+
   return (
     <PanelSection>
       <div className="stack gap-md ai-panel-stack">
@@ -28,6 +33,8 @@ export function AiPanel({
           onChange={(event) => onPromptChange(event.target.value)}
         />
 
+        {shaderError ? <div className="error-panel shader-chat-error">{shaderError}</div> : null}
+
         <button
           type="button"
           className="primary-button primary-button-hero"
@@ -37,7 +44,7 @@ export function AiPanel({
           {aiLoading ? 'Generating And Applying...' : 'Generate Shader'}
         </button>
 
-        {feedbackMessage ? (
+        {showFeedback ? (
           <div className={`ai-feedback ai-feedback-${feedbackTone}`}>{feedbackMessage}</div>
         ) : null}
       </div>
