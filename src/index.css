@@ -996,6 +996,65 @@ a {
   border: 0;
 }
 
+.workspace-shell-mobile .mobile-header {
+  background: rgba(9, 9, 11, 0.24);
+  border-bottom-color: rgba(63, 63, 70, 0.4);
+  backdrop-filter: blur(12px);
+}
+
+.workspace-shell-mobile .mobile-dock {
+  background: rgba(9, 9, 11, 0.24);
+  border-color: rgba(63, 63, 70, 0.45);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+}
+
+.workspace-shell-mobile .mobile-dock button,
+.workspace-shell-mobile .secondary-button,
+.workspace-shell-mobile .ghost-button,
+.workspace-shell-mobile .toggle-chip,
+.workspace-shell-mobile .primary-button {
+  background: rgba(17, 17, 20, 0.24);
+  border-color: rgba(63, 63, 70, 0.45);
+}
+
+.workspace-shell-mobile .mobile-sheet {
+  background: rgba(9, 9, 11, 0.24);
+  border-color: rgba(63, 63, 70, 0.5);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.26);
+}
+
+.workspace-shell-mobile .mobile-sheet-header {
+  background: rgba(9, 9, 11, 0.08);
+  border-bottom-color: rgba(63, 63, 70, 0.36);
+}
+
+.workspace-shell-mobile .mobile-sheet-body,
+.workspace-shell-mobile .panel-section,
+.workspace-shell-mobile .status-card,
+.workspace-shell-mobile .dialog-note {
+  background: transparent;
+}
+
+.workspace-shell-mobile .panel-section {
+  border-bottom-color: rgba(63, 63, 70, 0.3);
+}
+
+.workspace-shell-mobile .text-field,
+.workspace-shell-mobile .select-field,
+.workspace-shell-mobile .prompt-field,
+.workspace-shell-mobile .code-editor {
+  background: rgba(13, 13, 16, 0.28);
+  border-color: rgba(63, 63, 70, 0.45);
+}
+
+.workspace-shell-mobile .dialog-panel {
+  background: rgba(9, 9, 11, 0.3);
+  border-color: rgba(63, 63, 70, 0.5);
+  backdrop-filter: blur(18px);
+}
+
 .workspace-shell-clean .workspace-toolbar,
 .workspace-shell-clean .workspace-sidebar,
 .workspace-shell-clean .mobile-header,
