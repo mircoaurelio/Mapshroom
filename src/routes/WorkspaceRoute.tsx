@@ -466,7 +466,7 @@ export function WorkspaceRoute() {
   };
 
   const toggleMoveMode = () => {
-    setMoveMode(!project.mapping.stageTransform.moveMode);
+    setMoveMode(!project?.mapping.stageTransform.moveMode);
   };
 
   const toggleRotationLock = async () => {
