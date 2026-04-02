@@ -380,6 +380,89 @@ a {
   text-transform: uppercase;
 }
 
+.mobile-uniform-overlay {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(5.95rem + var(--safe-bottom));
+  z-index: 8;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+  border-radius: var(--radius-md);
+  background: rgba(9, 9, 11, 0.22);
+  backdrop-filter: blur(6px);
+  max-height: min(55vh, 400px);
+  overflow-y: auto;
+}
+
+.mobile-uniform-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-uniform-overlay-header > span {
+  color: rgba(244, 244, 245, 0.92);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mobile-uniform-overlay-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.mobile-uniform-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mobile-uniform-field-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: rgba(244, 244, 245, 0.92);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mobile-uniform-field-label small {
+  color: rgba(244, 244, 245, 0.55);
+}
+
+.mobile-uniform-overlay input[type='range'] {
+  height: 36px;
+  touch-action: none;
+}
+
+.mobile-uniform-overlay input[type='range']::-webkit-slider-thumb {
+  width: 18px;
+  height: 28px;
+  margin-top: -13px;
+  border-radius: 3px;
+}
+
+.mobile-uniform-overlay input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 28px;
+  border-radius: 3px;
+}
+
+.mobile-uniform-overlay input[type='color'] {
+  width: 100%;
+  height: 32px;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
 .sidebar-rail-button {
   position: absolute;
   top: 50%;
@@ -1009,7 +1092,7 @@ a {
   bottom: calc(0.8rem + var(--safe-bottom));
   z-index: 15;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.45rem;
   padding: 0.45rem;
   border: 1px solid var(--line);

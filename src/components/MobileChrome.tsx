@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { MobileUiMode } from '../types';
 
-export type MobilePanelKey = 'studio' | 'mapping' | null;
+export type MobilePanelKey = 'studio' | 'mapping' | 'sliders' | null;
 
 interface MobileChromeProps {
   activeAssetName: string;
@@ -22,6 +22,7 @@ interface MobileChromeProps {
 const MOBILE_PANEL_TITLES: Record<Exclude<MobilePanelKey, null>, string> = {
   studio: 'Shader',
   mapping: 'Mapping',
+  sliders: 'Sliders',
 };
 
 export function MobileChrome({
@@ -63,6 +64,13 @@ export function MobileChrome({
         </button>
         <button
           type="button"
+          className={activePanel === 'sliders' ? 'mobile-dock-button-active' : ''}
+          onClick={() => onPanelChange('sliders')}
+        >
+          Sliders
+        </button>
+        <button
+          type="button"
           className={activePanel === 'mapping' ? 'mobile-dock-button-active' : ''}
           onClick={() => onPanelChange('mapping')}
         >
@@ -84,7 +92,7 @@ export function MobileChrome({
         </button>
       </nav>
 
-      {activePanel && uiMode === 'full' ? (
+      {activePanel && activePanel !== 'sliders' && uiMode === 'full' ? (
         <aside className="mobile-sheet">
           <div className="mobile-sheet-header">
             <strong>{MOBILE_PANEL_TITLES[activePanel]}</strong>
