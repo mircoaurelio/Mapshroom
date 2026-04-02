@@ -747,6 +747,19 @@ export function WorkspaceRoute() {
     ? mobileUiMode === 'full' && stageTransform.moveMode
     : uiPreferences.chromeVisible && stageTransform.moveMode;
 
+  const aiPanel = (
+    <AiPanel
+      prompt={aiPrompt}
+      aiLoading={aiLoading}
+      feedbackMessage={aiFeedbackMessage}
+      feedbackTone={aiFeedbackTone}
+      onPromptChange={setAiPrompt}
+      onSubmit={() => {
+        void handleShaderMutation(aiPrompt);
+      }}
+    />
+  );
+
   const studioPanel = (
     <StudioPanel
       savedShaders={project.studio.savedShaders}
@@ -779,17 +792,11 @@ export function WorkspaceRoute() {
     />
   );
 
-  const aiPanel = (
-    <AiPanel
-      prompt={aiPrompt}
-      aiLoading={aiLoading}
-      feedbackMessage={aiFeedbackMessage}
-      feedbackTone={aiFeedbackTone}
-      onPromptChange={setAiPrompt}
-      onSubmit={() => {
-        void handleShaderMutation(aiPrompt);
-      }}
-    />
+  const mobileShaderPanel = (
+    <>
+      {aiPanel}
+      {studioPanel}
+    </>
   );
 
   const mappingPanel = (
@@ -924,8 +931,7 @@ export function WorkspaceRoute() {
           onPlayToggle={handlePlayToggle}
           onPanelChange={handleMobilePanelChange}
           panels={{
-            ai: aiPanel,
-            studio: studioPanel,
+            studio: mobileShaderPanel,
             mapping: mappingPanel,
           }}
         />
