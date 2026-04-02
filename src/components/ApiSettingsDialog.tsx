@@ -1,7 +1,4 @@
-import {
-  DEFAULT_GOOGLE_MODEL_OPTIONS,
-  DEFAULT_OPENAI_RESPONSE_MODEL_OPTIONS,
-} from '../config';
+import { DEFAULT_GOOGLE_MODEL_OPTIONS } from '../config';
 import type { AiSettings } from '../types';
 
 interface ApiSettingsDialogProps {
@@ -36,7 +33,7 @@ export function ApiSettingsDialog({
           <div>
             <span className="panel-eyebrow">AI Settings</span>
             <h2 id="api-settings-title" className="dialog-title">
-              Provider Keys and Models
+              Gemini and Media Keys
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -46,55 +43,11 @@ export function ApiSettingsDialog({
 
         <div className="dialog-body">
           <p className="dialog-note">
-            These keys stay in local browser storage for this device. They are not embedded in the bundle.
+            Gemini is the only shader AI exposed in the app right now. These keys stay in local
+            browser storage for this device and are not embedded in the bundle.
           </p>
 
           <div className="dialog-grid">
-            <section className="dialog-section">
-              <span className="panel-eyebrow">Shader Engine</span>
-              <label className="field">
-                <span>Active Provider</span>
-                <select
-                  className="select-field"
-                  value={settings.shaderProvider}
-                  onChange={(event) => onChange('shaderProvider', event.target.value)}
-                >
-                  <option value="openai">OpenAI</option>
-                  <option value="google">Google Gemini</option>
-                </select>
-              </label>
-            </section>
-
-            <section className="dialog-section">
-              <span className="panel-eyebrow">OpenAI</span>
-              <div className="stack gap-md">
-                <label className="field">
-                  <span>API Key</span>
-                  <input
-                    className="text-field"
-                    type="password"
-                    value={settings.openaiApiKey}
-                    onChange={(event) => onChange('openaiApiKey', event.target.value)}
-                    placeholder="sk-..."
-                  />
-                </label>
-                <label className="field">
-                  <span>Shader Model</span>
-                  <select
-                    className="select-field"
-                    value={settings.openaiShaderModel}
-                    onChange={(event) => onChange('openaiShaderModel', event.target.value)}
-                  >
-                    {DEFAULT_OPENAI_RESPONSE_MODEL_OPTIONS.map((model) => (
-                      <option key={model} value={model}>
-                        {model}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </section>
-
             <section className="dialog-section">
               <span className="panel-eyebrow">Google Gemini</span>
               <div className="stack gap-md">

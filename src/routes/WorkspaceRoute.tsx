@@ -10,7 +10,6 @@ import { StudioPanel } from '../components/StudioPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_GOOGLE_SHADER_MODEL,
-  DEFAULT_OPENAI_SHADER_MODEL,
   DEFAULT_UI_PREFERENCES,
   createDefaultProject,
 } from '../config';
@@ -130,11 +129,8 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     openaiApiKey: legacySettings.openaiApiKey ?? '',
     googleApiKey: legacySettings.googleApiKey ?? '',
     runwayApiKey: legacySettings.runwayApiKey ?? '',
-    shaderProvider: legacySettings.shaderProvider === 'google' ? 'google' : 'openai',
-    openaiShaderModel:
-      legacySettings.openaiShaderModel ??
-      legacySettings.shaderModel ??
-      DEFAULT_OPENAI_SHADER_MODEL,
+    shaderProvider: 'google',
+    openaiShaderModel: legacySettings.openaiShaderModel ?? legacySettings.shaderModel ?? '',
     googleShaderModel:
       legacySettings.googleShaderModel ?? DEFAULT_GOOGLE_SHADER_MODEL,
     videoGenProvider: 'runway',
