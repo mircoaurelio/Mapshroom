@@ -353,6 +353,33 @@ a {
   background: rgba(9, 9, 11, 0.92);
 }
 
+.mobile-precision-overlay {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: calc(5.95rem + var(--safe-bottom));
+  z-index: 7;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(63, 63, 70, 0.7);
+  border-radius: var(--radius-md);
+  background: rgba(9, 9, 11, 0.52);
+  backdrop-filter: blur(8px);
+}
+
+.mobile-precision-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.mobile-precision-field span {
+  color: rgba(244, 244, 245, 0.92);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .sidebar-rail-button {
   position: absolute;
   top: 50%;
@@ -998,7 +1025,7 @@ a {
   .stage-mapping-overlay-mobile {
     inset: 0;
     width: auto;
-    padding: calc(3rem + var(--safe-top)) 0.4rem calc(4.7rem + var(--safe-bottom)) 0.4rem;
+    padding: calc(3rem + var(--safe-top)) 0.4rem calc(7rem + var(--safe-bottom)) 0.4rem;
     border: 0;
     background: transparent;
     pointer-events: none;
@@ -1006,6 +1033,10 @@ a {
 
   .stage-mapping-overlay-mobile .mapping-pad-button {
     pointer-events: auto;
+  }
+
+  .mobile-precision-overlay {
+    bottom: calc(5.4rem + var(--safe-bottom));
   }
 
   .dialog-grid {

@@ -8,7 +8,7 @@ interface MobileChromeProps {
   activePanel: MobilePanelKey;
   onLoadAsset: () => void;
   onOpenSettings: () => void;
-  onHideUi: () => void;
+  onToggleControls: () => void;
   onPlayToggle: () => void;
   onPanelChange: (panel: MobilePanelKey) => void;
   panels: {
@@ -30,7 +30,7 @@ export function MobileChrome({
   activePanel,
   onLoadAsset,
   onOpenSettings,
-  onHideUi,
+  onToggleControls,
   onPlayToggle,
   onPanelChange,
   panels,
@@ -49,9 +49,6 @@ export function MobileChrome({
           <button type="button" className="secondary-button" onClick={onOpenSettings}>
             APIs
           </button>
-          <button type="button" className="secondary-button" onClick={onHideUi}>
-            Hide UI
-          </button>
         </div>
       </header>
 
@@ -65,8 +62,8 @@ export function MobileChrome({
         <button type="button" onClick={() => onPanelChange('mapping')}>
           Map
         </button>
-        <button type="button" onClick={onLoadAsset}>
-          Load
+        <button type="button" onClick={onToggleControls}>
+          UI
         </button>
         <button type="button" onClick={onPlayToggle}>
           {isPlaying ? 'Pause' : 'Play'}
