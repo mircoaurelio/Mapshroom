@@ -53,19 +53,35 @@ export function MobileChrome({
       </header>
 
       <nav className="mobile-dock">
-        <button type="button" onClick={() => onPanelChange('ai')}>
+        <button
+          type="button"
+          className={activePanel === 'ai' ? 'mobile-dock-button-active' : ''}
+          onClick={() => onPanelChange('ai')}
+        >
           AI
         </button>
-        <button type="button" onClick={() => onPanelChange('studio')}>
+        <button
+          type="button"
+          className={activePanel === 'studio' ? 'mobile-dock-button-active' : ''}
+          onClick={() => onPanelChange('studio')}
+        >
           Shader
         </button>
-        <button type="button" onClick={() => onPanelChange('mapping')}>
+        <button
+          type="button"
+          className={activePanel === 'mapping' ? 'mobile-dock-button-active' : ''}
+          onClick={() => onPanelChange('mapping')}
+        >
           Map
         </button>
         <button type="button" onClick={onToggleControls}>
           UI
         </button>
-        <button type="button" onClick={onPlayToggle}>
+        <button
+          type="button"
+          className={isPlaying ? 'mobile-dock-button-active' : ''}
+          onClick={onPlayToggle}
+        >
           {isPlaying ? 'Pause' : 'Play'}
         </button>
       </nav>

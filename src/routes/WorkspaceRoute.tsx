@@ -162,6 +162,10 @@ export function WorkspaceRoute() {
   const [aiLoading, setAiLoading] = useState(false);
   const [compilerError, setCompilerError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [aiFeedbackMessage, setAiFeedbackMessage] = useState('');
+  const [aiFeedbackTone, setAiFeedbackTone] = useState<'idle' | 'loading' | 'success' | 'error'>(
+    'idle',
+  );
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
@@ -559,12 +563,23 @@ export function WorkspaceRoute() {
   };
 
   const handleShaderMutation = async (prompt: string) => {
-    if (!project || !prompt.trim()) {
+    if (!project) {
+      return;
+    }
+
+    if (!prompt.trim()) {
+      setAiFeedbackTone('error');
+      setAiFeedbackMessage('Write a shader prompt first, then generate.');
+      setStatusMessage('Add a prompt before generating.');
       return;
     }
 
     setAiLoading(true);
     setCompilerError('');
+    setAiFeedbackTone('loading');
+    setAiFeedbackMessage(
+      'Sending your prompt to AI. The stage preview will update automatically when the new shader is ready.',
+    );
     setStatusMessage('Generating shader...');
 
     try {
@@ -595,10 +610,14 @@ export function WorkspaceRoute() {
         },
       }));
       setAiPrompt('');
+      setAiFeedbackTone('success');
+      setAiFeedbackMessage(`Shader applied to the stage: ${nextName}.`);
       setStatusMessage(`Shader updated: ${nextName}`);
     } catch (error) {
       const message = error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader generation failed.';
       setCompilerError(message);
+      setAiFeedbackTone('error');
+      setAiFeedbackMessage(message);
       setStatusMessage('Shader generation failed.');
     } finally {
       setAiLoading(false);
@@ -727,6 +746,8 @@ export function WorkspaceRoute() {
     <AiPanel
       prompt={aiPrompt}
       aiLoading={aiLoading}
+      feedbackMessage={aiFeedbackMessage}
+      feedbackTone={aiFeedbackTone}
       onPromptChange={setAiPrompt}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
@@ -795,6 +816,12 @@ export function WorkspaceRoute() {
             transport={project.playback.transport}
             onCompilerError={setCompilerError}
           />
+
+          {isMobile && uiPreferences.chromeVisible && aiFeedbackMessage ? (
+            <div className={`mobile-feedback-banner mobile-feedback-banner-${aiFeedbackTone}`}>
+              {aiFeedbackMessage}
+            </div>
+          ) : null}
 
           {stageControlsVisible ? (
             <div

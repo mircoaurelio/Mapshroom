@@ -3,6 +3,8 @@ import { PanelSection } from './PanelSection';
 interface AiPanelProps {
   prompt: string;
   aiLoading: boolean;
+  feedbackMessage: string;
+  feedbackTone: 'idle' | 'loading' | 'success' | 'error';
   onPromptChange: (value: string) => void;
   onSubmit: () => void;
 }
@@ -10,12 +12,19 @@ interface AiPanelProps {
 export function AiPanel({
   prompt,
   aiLoading,
+  feedbackMessage,
+  feedbackTone,
   onPromptChange,
   onSubmit,
 }: AiPanelProps) {
   return (
     <PanelSection>
       <div className="stack gap-md ai-panel-stack">
+        <p className="helper-copy">
+          Write what you want to see on the image or video, then generate. The stage updates
+          automatically when the new shader is ready.
+        </p>
+
         <textarea
           className="prompt-field prompt-field-hero"
           aria-label="Shader prompt"
@@ -30,8 +39,12 @@ export function AiPanel({
           disabled={aiLoading}
           onClick={onSubmit}
         >
-          {aiLoading ? 'Generating...' : 'Generate Shader'}
+          {aiLoading ? 'Generating And Applying...' : 'Generate Shader'}
         </button>
+
+        {feedbackMessage ? (
+          <div className={`ai-feedback ai-feedback-${feedbackTone}`}>{feedbackMessage}</div>
+        ) : null}
       </div>
     </PanelSection>
   );
