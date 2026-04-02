@@ -24,6 +24,7 @@ export async function requestGoogleShaderMutation({
   model,
   prompt,
   currentCode,
+  chatHistory,
 }: ShaderRequestOptions): Promise<string> {
   const trimmedKey = apiKey.trim();
   if (!trimmedKey) {
@@ -32,9 +33,21 @@ export async function requestGoogleShaderMutation({
 
   const client = createGoogleClient(trimmedKey);
 
+  const history = chatHistory ?? [];
+  const historyContents = history.map((turn) => ({
+    role: turn.role,
+    parts: [{ text: turn.text }],
+  }));
+
+  const userMessage = buildShaderMutationPrompt(prompt, currentCode);
+  const contents = [
+    ...historyContents,
+    { role: 'user' as const, parts: [{ text: userMessage }] },
+  ];
+
   const response = await client.models.generateContent({
     model,
-    contents: buildShaderMutationPrompt(prompt, currentCode),
+    contents,
     config: {
       systemInstruction: SHADER_SYSTEM_PROMPT,
       responseMimeType: 'text/plain',

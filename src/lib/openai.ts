@@ -2,11 +2,14 @@ import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
 import { extractGlslCode, validateGeneratedShader } from './shader';
 
+import type { ShaderChatTurn } from '../types';
+
 export interface ShaderRequestOptions {
   apiKey: string;
   model: string;
   prompt: string;
   currentCode: string;
+  chatHistory?: ShaderChatTurn[];
 }
 
 interface ResponsesApiPayload {

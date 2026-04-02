@@ -18,6 +18,7 @@ import {
 import { pauseTransport, playTransport, resetTransport } from '../lib/clock';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
+import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import {
   getOrCreateSessionId,
@@ -139,6 +140,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     studio: {
       ...project.studio,
       savedShaders: [...project.studio.savedShaders, ...missingPresets],
+      shaderChatHistory: project.studio.shaderChatHistory ?? [],
       activeShaderName: parseShaderName(project.studio.activeShaderCode),
       uniformValues: syncUniformValues(project.studio.uniformValues, uniformDefinitions),
     },
@@ -545,6 +547,7 @@ export function WorkspaceRoute() {
         activeShaderId: shader.id,
         activeShaderName: shader.name,
         activeShaderCode: shader.code,
+        shaderChatHistory: [],
         shaderVersions: [
           {
             id: crypto.randomUUID(),
@@ -605,6 +608,7 @@ export function WorkspaceRoute() {
         activeShaderId: `new-${Date.now()}`,
         activeShaderName: nextName,
         activeShaderCode: nextCode,
+        shaderChatHistory: [],
         shaderVersions: [
           {
             id: crypto.randomUUID(),
@@ -660,11 +664,14 @@ export function WorkspaceRoute() {
     setAiFeedbackMessage('');
     setStatusMessage('Generating shader...');
 
+    const userMessage = buildShaderMutationPrompt(prompt, project.studio.activeShaderCode);
+
     try {
       const nextCode = await requestShaderMutation({
         settings: project.ai.settings,
         prompt,
         currentCode: project.studio.activeShaderCode,
+        chatHistory: project.studio.shaderChatHistory,
       });
       const nextName = parseShaderName(nextCode);
       const versionId = crypto.randomUUID();
@@ -683,6 +690,11 @@ export function WorkspaceRoute() {
           activeShaderId: `custom-${currentProject.ai.settings.shaderProvider}`,
           activeShaderName: nextName,
           activeShaderCode: nextCode,
+          shaderChatHistory: [
+            ...currentProject.studio.shaderChatHistory,
+            { role: 'user' as const, text: userMessage },
+            { role: 'model' as const, text: `\`\`\`glsl\n${nextCode}\n\`\`\`` },
+          ],
           shaderVersions: [
             ...currentProject.studio.shaderVersions,
             {
