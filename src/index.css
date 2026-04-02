@@ -417,11 +417,29 @@ a {
   text-transform: uppercase;
 }
 
+.mobile-uniform-overlay-inner {
+  pointer-events: auto;
+}
+
 .mobile-uniform-overlay-controls {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  padding-bottom: 2.5rem;
+  padding-bottom: 1rem;
+}
+
+.mobile-uniform-close-button {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 9, 11, 0.5);
+  backdrop-filter: blur(6px);
+  color: rgba(244, 244, 245, 0.9);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .mobile-uniform-field {
