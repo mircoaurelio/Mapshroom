@@ -91,18 +91,25 @@ export function MobileChrome({
       </nav>
 
       {activePanel && activePanel !== 'sliders' && uiMode === 'full' ? (
-        <aside className="mobile-sheet">
-          <div className="mobile-sheet-header">
-            <strong>{MOBILE_PANEL_TITLES[activePanel]}</strong>
-            <button type="button" className="ghost-button" onClick={() => onPanelChange(null)}>
-              Close
-            </button>
-          </div>
-          <div className="mobile-sheet-body">
-            {activePanel === 'studio' ? panels.studio : null}
-            {activePanel === 'mapping' ? panels.mapping : null}
-          </div>
-        </aside>
+        <>
+          <div
+            className="mobile-sheet-backdrop"
+            role="presentation"
+            onClick={() => onPanelChange(null)}
+          />
+          <aside className="mobile-sheet">
+            <div className="mobile-sheet-header">
+              <strong>{MOBILE_PANEL_TITLES[activePanel]}</strong>
+              <button type="button" className="ghost-button" onClick={() => onPanelChange(null)}>
+                Close
+              </button>
+            </div>
+            <div className="mobile-sheet-body">
+              {activePanel === 'studio' ? panels.studio : null}
+              {activePanel === 'mapping' ? panels.mapping : null}
+            </div>
+          </aside>
+        </>
       ) : null}
     </>
   );
