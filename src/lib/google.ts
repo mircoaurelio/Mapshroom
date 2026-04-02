@@ -1,5 +1,6 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { DEFAULT_GOOGLE_API_VERSION } from '../config';
+import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
 import type { ShaderRequestOptions } from './openai';
 import { extractGlslCode } from './shader';
@@ -30,7 +31,7 @@ export async function requestGoogleShaderMutation({
 
   const response = await client.models.generateContent({
     model,
-    contents: `Request: ${prompt}\n\nCurrent GLSL:\n\`\`\`glsl\n${currentCode}\n\`\`\``,
+    contents: buildShaderMutationPrompt(prompt, currentCode),
     config: {
       systemInstruction: SHADER_SYSTEM_PROMPT,
       responseMimeType: 'text/plain',
