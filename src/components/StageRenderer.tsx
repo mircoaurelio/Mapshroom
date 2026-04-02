@@ -298,7 +298,6 @@ export function StageRenderer({
         disposed = true;
         image.onload = null;
         image.onerror = null;
-        image.src = '';
         if (imageRef.current === image) {
           imageRef.current = null;
         }

@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react';
+import type { MobileUiMode } from '../types';
 
 export type MobilePanelKey = 'studio' | 'ai' | 'mapping' | null;
 
 interface MobileChromeProps {
   activeAssetName: string;
   isPlaying: boolean;
+  uiMode: Exclude<MobileUiMode, 'hidden'>;
   activePanel: MobilePanelKey;
   onLoadAsset: () => void;
   onOpenSettings: () => void;
-  onToggleControls: () => void;
+  onCycleUiMode: () => void;
   onPlayToggle: () => void;
   onPanelChange: (panel: MobilePanelKey) => void;
   panels: {
@@ -27,10 +29,11 @@ const MOBILE_PANEL_TITLES: Record<Exclude<MobilePanelKey, null>, string> = {
 export function MobileChrome({
   activeAssetName,
   isPlaying,
+  uiMode,
   activePanel,
   onLoadAsset,
   onOpenSettings,
-  onToggleControls,
+  onCycleUiMode,
   onPlayToggle,
   onPanelChange,
   panels,
@@ -74,8 +77,12 @@ export function MobileChrome({
         >
           Map
         </button>
-        <button type="button" onClick={onToggleControls}>
-          UI
+        <button
+          type="button"
+          className={uiMode === 'full' ? 'mobile-dock-button-active' : ''}
+          onClick={onCycleUiMode}
+        >
+          {uiMode === 'full' ? 'Full' : 'Bar'}
         </button>
         <button
           type="button"
@@ -86,7 +93,7 @@ export function MobileChrome({
         </button>
       </nav>
 
-      {activePanel ? (
+      {activePanel && uiMode === 'full' ? (
         <aside className="mobile-sheet">
           <div className="mobile-sheet-header">
             <strong>{MOBILE_PANEL_TITLES[activePanel]}</strong>

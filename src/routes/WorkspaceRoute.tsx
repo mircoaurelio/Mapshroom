@@ -33,6 +33,7 @@ import type {
   AiSettings,
   AssetKind,
   AssetRecord,
+  MobileUiMode,
   ProjectDocument,
   ShaderUniformValue,
   StageTransform,
@@ -66,6 +67,18 @@ function detectAssetKind(file: File): AssetKind | null {
 
 function clampDimension(value: number): number {
   return Math.max(-900, Math.min(1600, value));
+}
+
+function getNextMobileUiMode(mode: MobileUiMode): MobileUiMode {
+  switch (mode) {
+    case 'full':
+      return 'bar';
+    case 'bar':
+      return 'hidden';
+    case 'hidden':
+    default:
+      return 'full';
+  }
 }
 
 function applyMappingTransform(transform: StageTransform, action: MappingAction): StageTransform {
@@ -217,6 +230,12 @@ export function WorkspaceRoute() {
       setMobilePanel(null);
     }
   }, [isMobile, mobilePanel]);
+
+  useEffect(() => {
+    if (isMobile && uiPreferences.mobileUiMode !== 'full' && mobilePanel !== null) {
+      setMobilePanel(null);
+    }
+  }, [isMobile, mobilePanel, uiPreferences.mobileUiMode]);
 
   const uniformDefinitions = useMemo(
     () => (project ? parseUniforms(project.studio.activeShaderCode) : {}),
@@ -681,6 +700,13 @@ export function WorkspaceRoute() {
     }));
   };
 
+  const updateMobileUiMode = (mode: MobileUiMode) => {
+    setUiPreferences((currentValue) => ({
+      ...currentValue,
+      mobileUiMode: mode,
+    }));
+  };
+
   const toggleSidebarVisibility = () => {
     setUiPreferences((currentValue) => ({
       ...currentValue,
@@ -688,11 +714,18 @@ export function WorkspaceRoute() {
     }));
   };
 
-  const toggleChromeVisibility = () => {
+  const cycleMobileUiMode = () => {
     setUiPreferences((currentValue) => ({
       ...currentValue,
-      chromeVisible: !currentValue.chromeVisible,
+      mobileUiMode: getNextMobileUiMode(currentValue.mobileUiMode),
     }));
+  };
+
+  const handleMobilePanelChange = (panel: MobilePanelKey) => {
+    if (panel && uiPreferences.mobileUiMode !== 'full') {
+      updateMobileUiMode('full');
+    }
+    setMobilePanel(panel);
   };
 
   if (!project) {
@@ -708,7 +741,11 @@ export function WorkspaceRoute() {
   }
 
   const stageTransform = project.mapping.stageTransform;
-  const stageControlsVisible = uiPreferences.chromeVisible && stageTransform.moveMode;
+  const mobileUiMode = uiPreferences.mobileUiMode;
+  const mobileChromeVisible = mobileUiMode !== 'hidden';
+  const stageControlsVisible = isMobile
+    ? mobileUiMode === 'full' && stageTransform.moveMode
+    : uiPreferences.chromeVisible && stageTransform.moveMode;
 
   const studioPanel = (
     <StudioPanel
@@ -775,7 +812,7 @@ export function WorkspaceRoute() {
         uiPreferences.workspaceMode === 'immersive' ? 'workspace-shell-immersive' : ''
       } ${uiPreferences.chromeVisible ? 'workspace-shell-chrome' : 'workspace-shell-clean'} ${
         uiPreferences.sidebarVisible ? 'workspace-shell-sidebar-open' : 'workspace-shell-sidebar-closed'
-      }`}
+      } ${isMobile ? `workspace-shell-mobile-ui-${mobileUiMode}` : ''}`}
     >
       <div className="sr-only" aria-live="polite">
         {statusMessage}
@@ -827,7 +864,12 @@ export function WorkspaceRoute() {
             <div
               className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}
             >
-              <MappingPad onAction={handleMappingAction} variant={isMobile ? 'overlay' : 'default'} />
+              <MappingPad
+                onAction={handleMappingAction}
+                onPrecisionChange={updateStagePrecision}
+                precision={stageTransform.precision}
+                variant={isMobile ? 'overlay' : 'default'}
+              />
             </div>
           ) : null}
 
@@ -850,9 +892,13 @@ export function WorkspaceRoute() {
             </button>
           ) : null}
 
-          {isMobile && !uiPreferences.chromeVisible ? (
-            <button type="button" className="reveal-ui-button" onClick={toggleChromeVisibility}>
-              Show Controls
+          {isMobile && !mobileChromeVisible ? (
+            <button
+              type="button"
+              className="reveal-ui-button"
+              onClick={() => updateMobileUiMode('bar')}
+            >
+              Show Bar
             </button>
           ) : null}
         </section>
@@ -866,16 +912,17 @@ export function WorkspaceRoute() {
         ) : null}
       </div>
 
-      {isMobile && uiPreferences.chromeVisible ? (
+      {isMobile && mobileChromeVisible ? (
         <MobileChrome
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
           isPlaying={project.playback.transport.isPlaying}
+          uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
           onLoadAsset={openFilePicker}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
-          onToggleControls={toggleChromeVisibility}
+          onCycleUiMode={cycleMobileUiMode}
           onPlayToggle={handlePlayToggle}
-          onPanelChange={setMobilePanel}
+          onPanelChange={handleMobilePanelChange}
           panels={{
             ai: aiPanel,
             studio: studioPanel,

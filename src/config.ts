@@ -41,6 +41,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   workspaceMode: 'split',
   chromeVisible: true,
   sidebarVisible: true,
+  mobileUiMode: 'full',
 };
 
 export function createDefaultProject(sessionId: string): ProjectDocument {

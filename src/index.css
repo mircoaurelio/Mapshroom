@@ -360,10 +360,10 @@ a {
   bottom: calc(5.95rem + var(--safe-bottom));
   z-index: 7;
   padding: 0.55rem 0.75rem;
-  border: 1px solid rgba(63, 63, 70, 0.7);
+  border: 1px solid rgba(63, 63, 70, 0.4);
   border-radius: var(--radius-md);
-  background: rgba(9, 9, 11, 0.52);
-  backdrop-filter: blur(8px);
+  background: rgba(9, 9, 11, 0.22);
+  backdrop-filter: blur(6px);
 }
 
 .mobile-precision-field {
@@ -850,6 +850,78 @@ a {
   color: rgba(167, 243, 208, 0.88);
 }
 
+.mapping-precision-pad {
+  padding: 0.4rem 0.3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  user-select: none;
+  touch-action: none;
+}
+
+.mapping-precision-pad-dragging {
+  border-color: rgba(52, 211, 153, 0.24);
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.mapping-precision-hint-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mapping-precision-title,
+.mapping-precision-hint,
+.mapping-precision-value {
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+}
+
+.mapping-precision-title {
+  color: rgba(244, 244, 245, 0.72);
+  font-size: 0.47rem;
+  letter-spacing: 0.12em;
+}
+
+.mapping-precision-hint {
+  color: rgba(244, 244, 245, 0.42);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
+
+.mapping-precision-hint-active {
+  color: #a7f3d0;
+}
+
+.mapping-precision-value {
+  color: var(--text-bright);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.mapping-precision-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.16rem;
+}
+
+.mapping-precision-dot {
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 999px;
+  background: rgba(244, 244, 245, 0.18);
+}
+
+.mapping-precision-dot-active {
+  background: rgba(167, 243, 208, 0.9);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.22);
+}
+
 .workspace-shell-immersive .workspace-body {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -1056,16 +1128,16 @@ a {
 }
 
 .workspace-shell-mobile .mobile-header {
-  background: rgba(9, 9, 11, 0.24);
-  border-bottom-color: rgba(63, 63, 70, 0.4);
-  backdrop-filter: blur(12px);
+  background: rgba(9, 9, 11, 0.1);
+  border-bottom-color: rgba(63, 63, 70, 0.18);
+  backdrop-filter: blur(6px);
 }
 
 .workspace-shell-mobile .mobile-dock {
-  background: rgba(9, 9, 11, 0.24);
-  border-color: rgba(63, 63, 70, 0.45);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+  background: rgba(9, 9, 11, 0.12);
+  border-color: rgba(63, 63, 70, 0.24);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
 }
 
 .workspace-shell-mobile .mobile-dock button,
@@ -1073,20 +1145,20 @@ a {
 .workspace-shell-mobile .ghost-button,
 .workspace-shell-mobile .toggle-chip,
 .workspace-shell-mobile .primary-button {
-  background: rgba(17, 17, 20, 0.24);
-  border-color: rgba(63, 63, 70, 0.45);
+  background: rgba(17, 17, 20, 0.12);
+  border-color: rgba(63, 63, 70, 0.24);
 }
 
 .workspace-shell-mobile .mobile-sheet {
-  background: rgba(9, 9, 11, 0.24);
-  border-color: rgba(63, 63, 70, 0.5);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.26);
+  background: rgba(9, 9, 11, 0.14);
+  border-color: rgba(63, 63, 70, 0.22);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
 }
 
 .workspace-shell-mobile .mobile-sheet-header {
-  background: rgba(9, 9, 11, 0.08);
-  border-bottom-color: rgba(63, 63, 70, 0.36);
+  background: rgba(9, 9, 11, 0.04);
+  border-bottom-color: rgba(63, 63, 70, 0.18);
 }
 
 .workspace-shell-mobile .mobile-sheet-body,
@@ -1104,19 +1176,28 @@ a {
 .workspace-shell-mobile .select-field,
 .workspace-shell-mobile .prompt-field,
 .workspace-shell-mobile .code-editor {
-  background: rgba(13, 13, 16, 0.28);
-  border-color: rgba(63, 63, 70, 0.45);
+  background: rgba(13, 13, 16, 0.14);
+  border-color: rgba(63, 63, 70, 0.22);
 }
 
 .workspace-shell-mobile .dialog-panel {
-  background: rgba(9, 9, 11, 0.3);
-  border-color: rgba(63, 63, 70, 0.5);
-  backdrop-filter: blur(18px);
+  background: rgba(9, 9, 11, 0.18);
+  border-color: rgba(63, 63, 70, 0.24);
+  backdrop-filter: blur(12px);
 }
 
 .workspace-shell-mobile .ai-feedback {
-  background: rgba(13, 13, 16, 0.2);
-  border-color: rgba(63, 63, 70, 0.42);
+  background: rgba(13, 13, 16, 0.12);
+  border-color: rgba(63, 63, 70, 0.22);
+}
+
+.workspace-shell-mobile-ui-bar .mobile-feedback-banner,
+.workspace-shell-mobile-ui-bar .mobile-precision-overlay,
+.workspace-shell-mobile-ui-bar .stage-mapping-overlay-mobile,
+.workspace-shell-mobile-ui-hidden .mobile-feedback-banner,
+.workspace-shell-mobile-ui-hidden .mobile-precision-overlay,
+.workspace-shell-mobile-ui-hidden .stage-mapping-overlay-mobile {
+  display: none;
 }
 
 .workspace-shell-clean .workspace-toolbar,
