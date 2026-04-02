@@ -82,7 +82,15 @@ export function StageRenderer({
   const rafRef = useRef<number | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const transportRef = useRef(transport);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
+  const assetId = asset?.id ?? null;
+  const assetKind = asset?.kind ?? null;
+  const assetName = asset?.name ?? null;
+
+  useEffect(() => {
+    transportRef.current = transport;
+  }, [transport]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -242,16 +250,16 @@ export function StageRenderer({
       videoRef.current = null;
     }
 
-    if (!asset || !assetUrl) {
+    if (!assetId || !assetKind || !assetUrl) {
       setRenderStatus('No asset loaded');
       return;
     }
 
-    if (asset.kind === 'image') {
+    if (assetKind === 'image') {
       const image = new Image();
       image.onload = () => {
         imageRef.current = image;
-        setRenderStatus(asset.name);
+        setRenderStatus(assetName ?? 'Image asset');
       };
       image.onerror = () => {
         imageRef.current = null;
@@ -263,17 +271,17 @@ export function StageRenderer({
 
     const video = document.createElement('video');
     video.muted = true;
-    video.loop = transport.loop;
     video.playsInline = true;
     video.preload = 'auto';
     video.src = assetUrl;
     video.onloadeddata = () => {
-      setRenderStatus(asset.name);
-      const targetTime = getTransportTimeSeconds(transport);
+      setRenderStatus(assetName ?? 'Video asset');
+      const currentTransport = transportRef.current;
+      const targetTime = getTransportTimeSeconds(currentTransport);
       if (Number.isFinite(targetTime) && video.duration > 0) {
         video.currentTime = targetTime % video.duration;
       }
-      if (transport.isPlaying) {
+      if (currentTransport.isPlaying) {
         void video.play().catch(() => {});
       }
     };
@@ -281,7 +289,7 @@ export function StageRenderer({
       setRenderStatus('Unable to load video asset');
     };
     videoRef.current = video;
-  }, [asset, assetUrl, transport]);
+  }, [assetId, assetKind, assetName, assetUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
