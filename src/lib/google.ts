@@ -1,9 +1,12 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
-import { DEFAULT_GOOGLE_API_VERSION } from '../config';
+import {
+  DEFAULT_GOOGLE_API_VERSION,
+  SHADER_GENERATION_TEMPERATURE,
+} from '../config';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
 import type { ShaderRequestOptions } from './openai';
-import { extractGlslCode } from './shader';
+import { extractGlslCode, validateGeneratedShader } from './shader';
 
 function createGoogleClient(apiKey: string): GoogleGenAI {
   return new GoogleGenAI({
@@ -35,7 +38,7 @@ export async function requestGoogleShaderMutation({
     config: {
       systemInstruction: SHADER_SYSTEM_PROMPT,
       responseMimeType: 'text/plain',
-      temperature: 1.0,
+      temperature: SHADER_GENERATION_TEMPERATURE,
       maxOutputTokens: 1800,
       thinkingConfig: {
         thinkingLevel: resolveThinkingLevel(model),
@@ -58,5 +61,5 @@ export async function requestGoogleShaderMutation({
     throw new Error('Google AI returned no shader content.');
   }
 
-  return extractGlslCode(text);
+  return validateGeneratedShader(extractGlslCode(text));
 }

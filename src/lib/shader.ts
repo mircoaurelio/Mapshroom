@@ -220,6 +220,45 @@ export function extractGlslCode(text: string): string {
   return sanitizeExtractedShader(normalized);
 }
 
+export function validateGeneratedShader(code: string): string {
+  const trimmed = code.trim();
+  const firstNonEmptyLine = trimmed
+    .split('\n')
+    .map((line) => line.trim())
+    .find(Boolean);
+  const problems: string[] = [];
+
+  if (!firstNonEmptyLine || !/^\/\/\s*NAME:\s*\S+/i.test(firstNonEmptyLine)) {
+    problems.push('missing a valid // NAME header');
+  }
+
+  if (
+    !/vec4\s+processColor\s*\(\s*sampler2D\s+tex\s*,\s*vec2\s+uv\s*,\s*float\s+time\s*,\s*vec2\s+resolution\s*\)/.test(
+      trimmed,
+    )
+  ) {
+    problems.push('missing the required processColor(tex, uv, time, resolution) function');
+  }
+
+  if (/void\s+main\s*\(/.test(trimmed)) {
+    problems.push('must not declare void main() because the app injects it');
+  }
+
+  if (/gl_FragColor\s*=/.test(trimmed)) {
+    problems.push('must not write directly to gl_FragColor inside the generated shader body');
+  }
+
+  if (/```|`/.test(trimmed)) {
+    problems.push('contains markdown fence characters instead of pure GLSL');
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`AI shader does not match the required structure: ${problems.join('; ')}.`);
+  }
+
+  return trimmed;
+}
+
 export function buildFragmentShaderSource(code: string): string {
   return `${FRAGMENT_SHADER_HEADER}\n${code}\n${FRAGMENT_SHADER_FOOTER}`;
 }
