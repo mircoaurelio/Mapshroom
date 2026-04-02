@@ -233,7 +233,7 @@ export function validateGeneratedShader(code: string): string {
   }
 
   if (
-    !/vec4\s+processColor\s*\(\s*sampler2D\s+tex\s*,\s*vec2\s+uv\s*,\s*float\s+time\s*,\s*vec2\s+resolution\s*\)/.test(
+    !/vec4\s+processColor\s*\(\s*sampler2D\s+\w+\s*,\s*vec2\s+\w+\s*,\s*float\s+\w+\s*,\s*vec2\s+\w+\s*\)/.test(
       trimmed,
     )
   ) {
