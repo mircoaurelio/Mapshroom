@@ -1,6 +1,6 @@
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
-import { extractGlslCode } from './shader';
+import { extractGlslCode, validateGeneratedShader } from './shader';
 
 export interface ShaderRequestOptions {
   apiKey: string;
@@ -87,5 +87,5 @@ export async function requestOpenAiShaderMutation({
     throw new Error('OpenAI returned no shader content.');
   }
 
-  return extractGlslCode(text);
+  return validateGeneratedShader(extractGlslCode(text));
 }

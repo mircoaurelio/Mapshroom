@@ -5,6 +5,8 @@ The first non-empty line must be: // NAME: <Short Name>
 All visual logic must live inside: vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution)
 Use only supported custom uniforms: float, int, vec3, bool
 Use WebGL 1.0 GLSL syntax and texture2D()
+Do not declare void main()
+Do not write to gl_FragColor in the generated body
 Do not include explanations outside the GLSL response`;
 
 export function buildShaderMutationPrompt(prompt: string, currentCode: string): string {
