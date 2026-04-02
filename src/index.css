@@ -391,9 +391,6 @@ a {
   background: transparent;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
 }
 
 .mobile-uniform-overlay-header {
@@ -401,6 +398,9 @@ a {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .mobile-uniform-overlay-header > span {
