@@ -10,7 +10,8 @@ interface MobileChromeProps {
   activePanel: MobilePanelKey;
   onLoadAsset: () => void;
   onOpenSettings: () => void;
-  onCycleUiMode: () => void;
+  onToggleMapping: () => void;
+  onHide: () => void;
   onPlayToggle: () => void;
   onPanelChange: (panel: MobilePanelKey) => void;
   panels: {
@@ -32,11 +33,15 @@ export function MobileChrome({
   activePanel,
   onLoadAsset,
   onOpenSettings,
-  onCycleUiMode,
+  onToggleMapping,
+  onHide,
   onPlayToggle,
   onPanelChange,
   panels,
 }: MobileChromeProps) {
+  const hasVisibleControls =
+    (activePanel !== null && uiMode === 'full') || activePanel === 'sliders';
+
   return (
     <>
       <header className="mobile-header">
@@ -71,17 +76,10 @@ export function MobileChrome({
         </button>
         <button
           type="button"
-          className={activePanel === 'mapping' ? 'mobile-dock-button-active' : ''}
-          onClick={() => onPanelChange('mapping')}
+          className={hasVisibleControls ? 'mobile-dock-button-active' : ''}
+          onClick={hasVisibleControls ? onHide : onToggleMapping}
         >
-          Map
-        </button>
-        <button
-          type="button"
-          className={uiMode === 'full' ? 'mobile-dock-button-active' : ''}
-          onClick={onCycleUiMode}
-        >
-          {uiMode === 'full' ? 'Full' : 'Bar'}
+          {hasVisibleControls ? 'Hide' : 'Map'}
         </button>
         <button
           type="button"

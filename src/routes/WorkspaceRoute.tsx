@@ -70,18 +70,6 @@ function clampDimension(value: number): number {
   return Math.max(-900, Math.min(1600, value));
 }
 
-function getNextMobileUiMode(mode: MobileUiMode): MobileUiMode {
-  switch (mode) {
-    case 'full':
-      return 'bar';
-    case 'bar':
-      return 'hidden';
-    case 'hidden':
-    default:
-      return 'full';
-  }
-}
-
 function applyMappingTransform(transform: StageTransform, action: MappingAction): StageTransform {
   const next = { ...transform };
 
@@ -897,11 +885,14 @@ ${compilerError}`;
     }));
   };
 
-  const cycleMobileUiMode = () => {
-    setUiPreferences((currentValue) => ({
-      ...currentValue,
-      mobileUiMode: getNextMobileUiMode(currentValue.mobileUiMode),
-    }));
+  const handleMobileToggleMapping = () => {
+    updateMobileUiMode('full');
+    setMobilePanel('mapping');
+  };
+
+  const handleMobileHide = () => {
+    setMobilePanel(null);
+    updateMobileUiMode('hidden');
   };
 
   const handleMobilePanelChange = (panel: MobilePanelKey) => {
@@ -1097,11 +1088,10 @@ ${compilerError}`;
           {isMobile && !mobileChromeVisible ? (
             <button
               type="button"
-              className="reveal-ui-button"
+              className="stage-tap-reveal"
               onClick={() => updateMobileUiMode('bar')}
-            >
-              Show Bar
-            </button>
+              aria-label="Show controls"
+            />
           ) : null}
         </section>
 
@@ -1124,7 +1114,8 @@ ${compilerError}`;
           activePanel={mobilePanel}
           onLoadAsset={openFilePicker}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
-          onCycleUiMode={cycleMobileUiMode}
+          onToggleMapping={handleMobileToggleMapping}
+          onHide={handleMobileHide}
           onPlayToggle={handlePlayToggle}
           onPanelChange={handleMobilePanelChange}
           panels={{

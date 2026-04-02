@@ -487,16 +487,13 @@ a {
   color: var(--text-bright);
 }
 
-.reveal-ui-button {
+.stage-tap-reveal {
   position: absolute;
-  right: calc(1rem + var(--safe-right));
-  bottom: calc(1rem + var(--safe-bottom));
+  inset: 0;
   z-index: 8;
-  padding: 0.6rem 0.85rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--line);
-  background: rgba(9, 9, 11, 0.92);
-  color: var(--text);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .workspace-sidebar {
@@ -647,8 +644,7 @@ a {
 .ghost-button,
 .toggle-chip,
 .mobile-dock button,
-.mapping-pad-button,
-.reveal-ui-button {
+.mapping-pad-button {
   transition:
     border-color 140ms ease,
     background 140ms ease,
@@ -703,8 +699,7 @@ a {
 .ghost-button:hover,
 .toggle-chip:hover,
 .mobile-dock button:hover,
-.mapping-pad-button:hover,
-.reveal-ui-button:hover {
+.mapping-pad-button:hover {
   background: #18181b;
   border-color: var(--line-strong);
   color: var(--text-bright);
@@ -1092,7 +1087,7 @@ a {
   bottom: calc(0.8rem + var(--safe-bottom));
   z-index: 15;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.45rem;
   padding: 0.45rem;
   border: 1px solid var(--line);
