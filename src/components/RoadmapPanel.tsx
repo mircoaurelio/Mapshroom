@@ -3,7 +3,7 @@ import { PanelSection } from './PanelSection';
 
 export function RoadmapPanel() {
   return (
-    <PanelSection title="Release Track" eyebrow="Roadmap">
+    <PanelSection title="Release Track">
       <div className="future-grid">
         <FutureCard
           version="V3.1"

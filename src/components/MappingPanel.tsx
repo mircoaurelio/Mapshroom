@@ -21,7 +21,7 @@ export function MappingPanel({
 }: MappingPanelProps) {
   return (
     <>
-      <PanelSection title="Stage Mapping" eyebrow="Mapping">
+      <PanelSection title="Stage Mapping">
         <div className="stack gap-md">
           <div className="button-row">
             <button
@@ -58,7 +58,7 @@ export function MappingPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="Tap Grid" eyebrow="Adjust">
+      <PanelSection title="Tap Grid">
         <MappingPad onAction={onAction} disabled={!stageTransform.moveMode} />
       </PanelSection>
     </>
