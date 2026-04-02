@@ -7,16 +7,8 @@ import type {
 import { hexToRgb, rgbToHex } from '../lib/shader';
 import { PanelSection } from './PanelSection';
 
-interface SavedShaderOption {
-  id: string;
-  name: string;
-}
-
 interface StudioPanelProps {
-  savedShaders: SavedShaderOption[];
-  activeShaderId: string;
   onNewShader: () => void;
-  onSelectShader: (shaderId: string) => void;
   onSaveShader: () => void;
   onResetClock: () => void;
   uniformDefinitions: ShaderUniformMap;
@@ -30,15 +22,13 @@ interface StudioPanelProps {
   compilerError: string;
   aiLoading: boolean;
   onFixError: () => void;
+  onBrowsePresets: () => void;
   versions: ShaderVersion[];
   onRestoreVersion: (versionId: string) => void;
 }
 
 export function StudioPanel({
-  savedShaders,
-  activeShaderId,
   onNewShader,
-  onSelectShader,
   onSaveShader,
   onResetClock,
   uniformDefinitions,
@@ -52,6 +42,7 @@ export function StudioPanel({
   compilerError,
   aiLoading,
   onFixError,
+  onBrowsePresets,
   versions,
   onRestoreVersion,
 }: StudioPanelProps) {
@@ -60,22 +51,9 @@ export function StudioPanel({
       <PanelSection title="Shader Studio">
         <div className="stack gap-md">
           <div className="stack gap-sm">
-            <label className="field">
-              <span className="field-inline-label">
-                <span>Preset Library</span>
-              </span>
-              <select
-                className="preset-select"
-                value={activeShaderId}
-                onChange={(event) => onSelectShader(event.target.value)}
-              >
-                {savedShaders.map((shader) => (
-                  <option key={shader.id} value={shader.id}>
-                    {shader.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <button type="button" className="secondary-button" onClick={onBrowsePresets}>
+              See Presets
+            </button>
           </div>
           <div className="button-row">
             <button type="button" className="primary-button" onClick={onNewShader}>

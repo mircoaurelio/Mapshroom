@@ -1,5 +1,6 @@
 import type { ShaderDefinition } from '../../types';
 import { neonGlowShader } from './neonGlow';
+import { pulsingSoftHaloShader } from './pulsingSoftHalo';
 import { pixelSortShader } from './pixelSort';
 import { psychedelicBlobShader } from './psychedelicBlob';
 import { psychedelicHaloShader } from './psychedelicHalo';
@@ -13,6 +14,7 @@ export const shaderPresets: Record<string, ShaderDefinition> = {
   [psychedelicHaloShader.id]: psychedelicHaloShader,
   [psychedelicHaloOnlyShader.id]: psychedelicHaloOnlyShader,
   [softPsychedelicHaloShader.id]: softPsychedelicHaloShader,
+  [pulsingSoftHaloShader.id]: pulsingSoftHaloShader,
   [neonGlowShader.id]: neonGlowShader,
   [pixelSortShader.id]: pixelSortShader,
   [thermalVisionShader.id]: thermalVisionShader,

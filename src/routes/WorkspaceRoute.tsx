@@ -6,6 +6,7 @@ import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
+import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
 import { StageRenderer } from '../components/StageRenderer';
 import { StudioPanel } from '../components/StudioPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
@@ -177,6 +178,7 @@ export function WorkspaceRoute() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
+  const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const generatedShaderRetryRef = useRef<{
     sourcePrompt: string;
     code: string;
@@ -1000,10 +1002,7 @@ ${errorSnapshot}`,
 
   const studioPanel = (
     <StudioPanel
-      savedShaders={project.studio.savedShaders}
-      activeShaderId={project.studio.activeShaderId}
       onNewShader={createNewShader}
-      onSelectShader={selectShader}
       onSaveShader={saveCurrentShader}
       onResetClock={handlePlaybackReset}
       uniformDefinitions={uniformDefinitions}
@@ -1028,6 +1027,7 @@ ${errorSnapshot}`,
       compilerError={compilerError}
       aiLoading={aiLoading}
       onFixError={handleFixError}
+      onBrowsePresets={() => setIsPresetBrowserOpen(true)}
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
     />
@@ -1208,6 +1208,15 @@ ${errorSnapshot}`,
         settings={project.ai.settings}
         onClose={() => setIsApiSettingsOpen(false)}
         onChange={updateAiSetting}
+      />
+
+      <PresetBrowserDialog
+        open={isPresetBrowserOpen}
+        presets={project.studio.savedShaders}
+        activeShaderId={project.studio.activeShaderId}
+        assetUrl={activeAssetUrl}
+        onSelect={selectShader}
+        onClose={() => setIsPresetBrowserOpen(false)}
       />
     </div>
   );
