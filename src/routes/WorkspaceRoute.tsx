@@ -259,6 +259,15 @@ export function WorkspaceRoute() {
     }
   }, [isMobile, mobilePanel, uiPreferences.mobileUiMode]);
 
+  useEffect(() => {
+    if (aiFeedbackTone !== 'success' && aiFeedbackTone !== 'error') return;
+    const timer = setTimeout(() => {
+      setAiFeedbackMessage('');
+      setAiFeedbackTone('idle');
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [aiFeedbackMessage, aiFeedbackTone]);
+
   const uniformDefinitions = useMemo(
     () => (project ? parseUniforms(project.studio.activeShaderCode) : {}),
     [project],
@@ -1074,6 +1083,13 @@ ${errorSnapshot}`,
             transport={project.playback.transport}
             onCompilerError={setCompilerError}
           />
+
+          {aiLoading ? (
+            <div className="ai-loading-overlay">
+              <div className="ai-loading-spinner" />
+              <span>Generating shader...</span>
+            </div>
+          ) : null}
 
           {isMobile && uiPreferences.chromeVisible && aiFeedbackMessage ? (
             <div className={`mobile-feedback-banner mobile-feedback-banner-${aiFeedbackTone}`}>
