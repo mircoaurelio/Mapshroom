@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check for committed secrets
+        run: npm run check:secrets
+
       - name: Build app
         run: npm run build
 

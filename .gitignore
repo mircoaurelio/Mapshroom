@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 _scaffold
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+*.key
+secrets/
 
 # Editor directories and files
 .vscode/*

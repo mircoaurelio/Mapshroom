@@ -4,6 +4,7 @@
   "version": "3.0.0",
   "type": "module",
   "scripts": {
+    "check:secrets": "node ./scripts/check-no-secrets.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
