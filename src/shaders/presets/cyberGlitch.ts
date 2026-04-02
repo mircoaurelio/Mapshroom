@@ -1,23 +1,31 @@
 export const cyberGlitchShader = {
   id: 'default_cyber',
-  name: 'Cyber Glitch Aberration',
-  code: `// NAME: Cyber Glitch Aberration
-uniform float glitchAmount; // @min 0.0 @max 0.2 @default 0.04
-uniform float speed; // @min 0.1 @max 5.0 @default 1.0
-uniform bool scanlines; // @default true
+  name: 'Spectral Contour Split',
+  description: 'Pushes RGB channels away from the dark line work for a clean chromatic contour effect.',
+  group: 'Color',
+  code: `// NAME: Spectral Contour Split
+uniform float split; // @min 0.0 @max 0.08 @default 0.02
+uniform float pulse; // @min 0.0 @max 4.0 @default 0.9
+uniform bool invert; // @default false
 
 vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    float t = time * speed;
-    float glitch = step(0.95, sin(t * 8.0)) * glitchAmount * node_rand(vec2(t, uv.y));
+    vec2 center = uv - 0.5;
+    vec2 dir = normalize(center + vec2(0.0001));
+    float shift = split * (0.7 + 0.3 * sin(time * pulse));
 
-    vec4 r = texture2D(tex, uv + vec2(glitch, 0.0));
-    vec4 g = texture2D(tex, uv);
-    vec4 b = texture2D(tex, uv - vec2(glitch, 0.0));
+    vec4 base = texture2D(tex, uv);
+    vec4 red = texture2D(tex, uv + dir * shift);
+    vec4 blue = texture2D(tex, uv - dir * shift);
 
-    float scan = 0.0;
-    if (scanlines) {
-        scan = sin(uv.y * 300.0 - t * 20.0) * 0.08;
+    float lum = dot(base.rgb, vec3(0.299, 0.587, 0.114));
+    float ink = 1.0 - smoothstep(0.72, 0.95, lum);
+    vec3 aberration = vec3(red.r, base.g, blue.b);
+    vec3 result = mix(base.rgb, aberration, ink);
+
+    if (invert) {
+        result = 1.0 - result;
     }
-    return vec4(r.r - scan, g.g - scan, b.b - scan, 1.0);
+
+    return vec4(result, base.a);
 }`,
 };

@@ -61,9 +61,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
         },
       ],
       savedShaders: Object.values(DEFAULT_SHADERS).map((shader) => ({
-        id: shader.id,
-        name: shader.name,
-        code: shader.code,
+        ...shader,
       })),
       shaderChatHistory: [],
       uniformValues: {},

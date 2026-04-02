@@ -29,6 +29,8 @@ export interface SavedShader {
   id: string;
   name: string;
   code: string;
+  description?: string;
+  group?: string;
 }
 
 export interface StageTransform {
@@ -81,6 +83,8 @@ export interface ShaderDefinition {
   id: string;
   name: string;
   code: string;
+  description: string;
+  group: string;
 }
 
 export interface ShaderUniformDefinition {
