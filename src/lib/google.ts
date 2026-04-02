@@ -1,28 +1,18 @@
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { DEFAULT_GOOGLE_API_VERSION } from '../config';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
-import { extractGlslCode } from './shader';
 import type { ShaderRequestOptions } from './openai';
+import { extractGlslCode } from './shader';
 
-interface GeminiPayload {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-  error?: {
-    message?: string;
-  };
+function createGoogleClient(apiKey: string): GoogleGenAI {
+  return new GoogleGenAI({
+    apiKey,
+    apiVersion: DEFAULT_GOOGLE_API_VERSION,
+  });
 }
 
-function extractTextFromGeminiPayload(payload: GeminiPayload): string {
-  const textChunks =
-    payload.candidates
-      ?.flatMap((candidate) => candidate.content?.parts ?? [])
-      .map((part) => part.text?.trim())
-      .filter(Boolean) ?? [];
-
-  return textChunks.join('\n').trim();
+function resolveThinkingLevel(model: string): ThinkingLevel {
+  return model.includes('flash-lite') ? ThinkingLevel.LOW : ThinkingLevel.MEDIUM;
 }
 
 export async function requestGoogleShaderMutation({
@@ -36,56 +26,32 @@ export async function requestGoogleShaderMutation({
     throw new Error('Add a Google AI API key before using Gemini shader generation.');
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': trimmedKey,
+  const client = createGoogleClient(trimmedKey);
+
+  const response = await client.models.generateContent({
+    model,
+    contents: `Request: ${prompt}\n\nCurrent GLSL:\n\`\`\`glsl\n${currentCode}\n\`\`\``,
+    config: {
+      systemInstruction: SHADER_SYSTEM_PROMPT,
+      temperature: 0.1,
+      maxOutputTokens: 1800,
+      thinkingConfig: {
+        thinkingLevel: resolveThinkingLevel(model),
       },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: SHADER_SYSTEM_PROMPT }],
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `Request: ${prompt}\n\nCurrent GLSL:\n\`\`\`glsl\n${currentCode}\n\`\`\``,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-        },
-      }),
     },
-  ).catch((error: unknown) => {
+  }).catch((error: unknown) => {
     if (error instanceof TypeError) {
       throw new Error(
         'Google AI could not be reached from this browser. Check the network connection or move the call behind a backend proxy.',
       );
     }
-    throw error;
+    if (error instanceof Error && error.message.trim()) {
+      throw new Error(error.message);
+    }
+    throw new Error('Google AI request failed.');
   });
 
-  const payload = (await response.json().catch(() => null)) as GeminiPayload | null;
-
-  if (!response.ok) {
-    const message =
-      payload?.error?.message ||
-      `Google AI request failed with status ${response.status}.`;
-    throw new Error(message);
-  }
-
-  if (!payload) {
-    throw new Error('Google AI returned an empty response.');
-  }
-
-  const text = extractTextFromGeminiPayload(payload);
+  const text = response.text?.trim() ?? '';
   if (!text) {
     throw new Error('Google AI returned no shader content.');
   }

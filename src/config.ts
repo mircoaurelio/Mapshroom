@@ -17,11 +17,12 @@ export const DEFAULT_OPENAI_RESPONSE_MODEL_OPTIONS = [
   'gpt-4.1-mini',
   'gpt-4.1',
 ];
-export const DEFAULT_GOOGLE_SHADER_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GOOGLE_API_VERSION = 'v1beta';
+export const DEFAULT_GOOGLE_SHADER_MODEL = 'gemini-3.1-pro-preview';
 export const DEFAULT_GOOGLE_MODEL_OPTIONS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
-  'gemini-2.5-flash-lite',
+  'gemini-3.1-pro-preview',
+  'gemini-3-flash-preview',
+  'gemini-3.1-flash-lite-preview',
 ];
 
 export const DEFAULT_SHADERS = shaderPresets;
