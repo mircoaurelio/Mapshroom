@@ -385,7 +385,7 @@ a {
   left: 0;
   right: 0;
   top: 0;
-  bottom: calc(4.5rem + var(--safe-bottom));
+  bottom: calc(5.5rem + var(--safe-bottom));
   z-index: 8;
   padding: 0.75rem;
   background: transparent;
@@ -415,7 +415,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  padding-bottom: 1.5rem;
+  padding-bottom: 2.5rem;
 }
 
 .mobile-uniform-field {
