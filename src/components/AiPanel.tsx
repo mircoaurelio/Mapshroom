@@ -1,68 +1,68 @@
-import { DEFAULT_OPENAI_RESPONSE_MODEL_OPTIONS } from '../config';
+import type { ShaderProvider } from '../types';
 import { PanelSection } from './PanelSection';
 
 interface AiPanelProps {
-  openaiApiKey: string;
-  runwayApiKey: string;
-  shaderModel: string;
+  shaderProvider: ShaderProvider;
+  activeModel: string;
   prompt: string;
   aiLoading: boolean;
-  onOpenAiKeyChange: (value: string) => void;
-  onRunwayKeyChange: (value: string) => void;
-  onShaderModelChange: (value: string) => void;
+  onShaderProviderChange: (value: ShaderProvider) => void;
   onPromptChange: (value: string) => void;
+  onOpenSettings: () => void;
   onSubmit: () => void;
 }
 
+function getProviderLabel(shaderProvider: ShaderProvider): string {
+  return shaderProvider === 'google' ? 'Google Gemini' : 'OpenAI';
+}
+
 export function AiPanel({
-  openaiApiKey,
-  runwayApiKey,
-  shaderModel,
+  shaderProvider,
+  activeModel,
   prompt,
   aiLoading,
-  onOpenAiKeyChange,
-  onRunwayKeyChange,
-  onShaderModelChange,
+  onShaderProviderChange,
   onPromptChange,
+  onOpenSettings,
   onSubmit,
 }: AiPanelProps) {
+  const providerLabel = getProviderLabel(shaderProvider);
+
   return (
-    <PanelSection title="Shader AI" eyebrow="OpenAI">
+    <PanelSection title="Shader AI" eyebrow="Inference">
       <div className="stack gap-md">
         <label className="field">
-          <span>OpenAI API Key</span>
-          <input
-            className="text-field"
-            type="password"
-            value={openaiApiKey}
-            onChange={(event) => onOpenAiKeyChange(event.target.value)}
-            placeholder="sk-..."
-          />
-        </label>
-        <label className="field">
-          <span>OpenAI Shader Model</span>
+          <span>Shader Provider</span>
           <select
             className="select-field"
-            value={shaderModel}
-            onChange={(event) => onShaderModelChange(event.target.value)}
+            value={shaderProvider}
+            onChange={(event) => onShaderProviderChange(event.target.value as ShaderProvider)}
           >
-            {DEFAULT_OPENAI_RESPONSE_MODEL_OPTIONS.map((model) => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))}
+            <option value="openai">OpenAI</option>
+            <option value="google">Google Gemini</option>
           </select>
         </label>
-        <label className="field">
-          <span>Runway Key Placeholder</span>
-          <input
-            className="text-field"
-            type="password"
-            value={runwayApiKey}
-            onChange={(event) => onRunwayKeyChange(event.target.value)}
-            placeholder="Stored now, activated in V3.1"
-          />
-        </label>
+
+        <div className="status-card">
+          <div className="status-card-row">
+            <span className="status-card-label">Active Engine</span>
+            <span className="status-pill">{providerLabel}</span>
+          </div>
+          <div className="status-card-row">
+            <span className="status-card-label">Model</span>
+            <strong className="status-card-value">{activeModel}</strong>
+          </div>
+          <p className="helper-copy">
+            Manage OpenAI, Google, and Runway keys in the dedicated AI settings dialog.
+          </p>
+        </div>
+
+        <div className="button-row">
+          <button type="button" className="secondary-button" onClick={onOpenSettings}>
+            Manage APIs
+          </button>
+        </div>
+
         <label className="field">
           <span>Shader Command</span>
           <textarea
@@ -72,12 +72,10 @@ export function AiPanel({
             onChange={(event) => onPromptChange(event.target.value)}
           />
         </label>
+
         <button type="button" className="primary-button" disabled={aiLoading} onClick={onSubmit}>
-          {aiLoading ? 'Mutating Shader...' : 'Run OpenAI Shader Edit'}
+          {aiLoading ? `Running ${providerLabel}...` : `Run ${providerLabel} Shader Edit`}
         </button>
-        <p className="helper-copy">
-          OpenAI drives shader mutation in V3. The Runway key is already stored for the V3.1 media release.
-        </p>
       </div>
     </PanelSection>
   );
