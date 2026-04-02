@@ -424,14 +424,15 @@ export function StageRenderer({
       }
 
       const currentTransport = transportRef.current;
-      const shaderTime = getTransportTimeSeconds(currentTransport, timestamp);
+      const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
+      const shaderTime = currentTransport.isPlaying ? transportTime : timestamp / 1000;
       gl.useProgram(program);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
 
       if (assetKind === 'video' && video && video.readyState >= 2) {
         if (currentTransport.isPlaying && video.duration > 0) {
-          const targetTime = currentTransport.loop ? shaderTime % video.duration : shaderTime;
+          const targetTime = currentTransport.loop ? transportTime % video.duration : transportTime;
           if (Math.abs(video.currentTime - targetTime) > 0.25) {
             video.currentTime = targetTime;
           }
