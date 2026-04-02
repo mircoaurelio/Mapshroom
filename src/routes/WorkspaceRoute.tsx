@@ -818,6 +818,13 @@ ${compilerError}`;
       });
   }, [compilerError, project, removeShaderVersion, updateProject]);
 
+  const handleFixError = () => {
+    if (!project || !compilerError.trim()) return;
+    void handleShaderMutation(
+      `Fix the following GLSL compilation error in this shader. Return the corrected full shader.\n\nCompiler error:\n${compilerError}`,
+    );
+  };
+
   const handleUniformQuickAdd = async () => {
     const sanitized = newUniformName.trim().replace(/[^a-zA-Z0-9_]/g, '');
     if (!sanitized) {
@@ -971,6 +978,8 @@ ${compilerError}`;
         }));
       }}
       compilerError={compilerError}
+      aiLoading={aiLoading}
+      onFixError={handleFixError}
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
     />
@@ -1049,6 +1058,20 @@ ${compilerError}`;
           {isMobile && uiPreferences.chromeVisible && aiFeedbackMessage ? (
             <div className={`mobile-feedback-banner mobile-feedback-banner-${aiFeedbackTone}`}>
               {aiFeedbackMessage}
+            </div>
+          ) : null}
+
+          {isMobile && compilerError ? (
+            <div className="mobile-feedback-banner mobile-feedback-banner-error">
+              <span>{compilerError}</span>
+              <button
+                type="button"
+                className="fix-error-button"
+                disabled={aiLoading}
+                onClick={handleFixError}
+              >
+                {aiLoading ? 'Fixing...' : 'Fix Error'}
+              </button>
             </div>
           ) : null}
 

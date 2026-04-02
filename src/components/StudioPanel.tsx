@@ -28,6 +28,8 @@ interface StudioPanelProps {
   shaderCode: string;
   onShaderCodeChange: (value: string) => void;
   compilerError: string;
+  aiLoading: boolean;
+  onFixError: () => void;
   versions: ShaderVersion[];
   onRestoreVersion: (versionId: string) => void;
 }
@@ -48,6 +50,8 @@ export function StudioPanel({
   shaderCode,
   onShaderCodeChange,
   compilerError,
+  aiLoading,
+  onFixError,
   versions,
   onRestoreVersion,
 }: StudioPanelProps) {
@@ -191,7 +195,19 @@ export function StudioPanel({
             spellCheck={false}
             onChange={(event) => onShaderCodeChange(event.target.value)}
           />
-          {compilerError ? <div className="error-panel">{compilerError}</div> : null}
+          {compilerError ? (
+            <div className="error-panel">
+              {compilerError}
+              <button
+                type="button"
+                className="fix-error-button"
+                disabled={aiLoading}
+                onClick={onFixError}
+              >
+                {aiLoading ? 'Fixing...' : 'Fix Error'}
+              </button>
+            </div>
+          ) : null}
         </div>
       </PanelSection>
     </>
