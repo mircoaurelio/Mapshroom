@@ -643,9 +643,7 @@ export function WorkspaceRoute() {
     setCompilerError('');
     clearGeneratedShaderRetry();
     setAiFeedbackTone('loading');
-    setAiFeedbackMessage(
-      'Sending your prompt to AI. The stage preview will update automatically when the new shader is ready.',
-    );
+    setAiFeedbackMessage('');
     setStatusMessage('Generating shader...');
 
     try {

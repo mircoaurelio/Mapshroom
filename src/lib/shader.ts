@@ -137,12 +137,87 @@ export function syncUniformValues(
   return changed ? nextValues : currentValues;
 }
 
-export function extractGlslCode(text: string): string {
-  const fencedMatch = text.match(/```glsl([\s\S]*?)```/i);
-  if (fencedMatch?.[1]) {
-    return fencedMatch[1].trim();
+function scoreShaderCandidate(candidate: string): number {
+  let score = candidate.length;
+
+  if (/\/\/\s*NAME:/i.test(candidate)) {
+    score += 500;
   }
-  return text.trim();
+  if (/vec4\s+processColor\s*\(/.test(candidate)) {
+    score += 500;
+  }
+  if (/uniform\s+(float|int|vec3|bool)\s+/.test(candidate)) {
+    score += 250;
+  }
+
+  return score;
+}
+
+function trimToShaderStart(text: string): string {
+  const patterns = [
+    /\/\/\s*NAME:/i,
+    /uniform\s+(float|int|vec3|bool)\s+/,
+    /vec4\s+processColor\s*\(/,
+  ];
+
+  const startIndexes = patterns
+    .map((pattern) => text.search(pattern))
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right);
+
+  if (!startIndexes.length) {
+    return text;
+  }
+
+  return text.slice(startIndexes[0]).trim();
+}
+
+function sanitizeExtractedShader(text: string): string {
+  let normalized = text.replace(/\r\n/g, '\n').trim();
+
+  normalized = normalized
+    .replace(/^\s*```[^\n]*$/gm, '')
+    .replace(/^\s*glsl\s*$/gim, '')
+    .replace(/```/g, '')
+    .trim();
+
+  normalized = trimToShaderStart(normalized);
+
+  const trailingFenceIndex = normalized.indexOf('```');
+  if (trailingFenceIndex >= 0) {
+    normalized = normalized.slice(0, trailingFenceIndex).trim();
+  }
+
+  return normalized.trim();
+}
+
+export function extractGlslCode(text: string): string {
+  const normalized = text.replace(/\r\n/g, '\n').trim();
+  const fencedMatches = Array.from(
+    normalized.matchAll(/```(?:\s*([A-Za-z0-9_+-]+))?\s*\n?([\s\S]*?)```/g),
+  );
+
+  if (fencedMatches.length) {
+    const bestMatch = fencedMatches
+      .map((match) => {
+        const language = match[1]?.trim().toLowerCase() ?? '';
+        const candidate = sanitizeExtractedShader(match[2] ?? '');
+        const languageBoost = language === 'glsl' ? 1000 : 0;
+
+        return {
+          candidate,
+          score: scoreShaderCandidate(candidate) + languageBoost,
+        };
+      })
+      .filter((item) => Boolean(item.candidate))
+      .sort((left, right) => right.score - left.score)[0];
+
+    if (bestMatch?.candidate) {
+      return bestMatch.candidate;
+    }
+  }
+
+  return sanitizeExtractedShader(normalized);
 }
 
 export function buildFragmentShaderSource(code: string): string {
