@@ -11,6 +11,7 @@ export type MappingAction =
 interface MappingPadProps {
   onAction: (action: MappingAction) => void;
   disabled?: boolean;
+  variant?: 'default' | 'overlay';
 }
 
 const MAPPING_PAD_ACTIONS: Array<{
@@ -29,14 +30,18 @@ const MAPPING_PAD_ACTIONS: Array<{
   { label: 'W+', action: 'width-plus' },
 ];
 
-export function MappingPad({ onAction, disabled = false }: MappingPadProps) {
+export function MappingPad({
+  onAction,
+  disabled = false,
+  variant = 'default',
+}: MappingPadProps) {
   return (
-    <div className="mapping-pad">
+    <div className={`mapping-pad mapping-pad-${variant}`}>
       {MAPPING_PAD_ACTIONS.map((item) => (
         <button
           key={`${item.label}-${item.action ?? 'noop'}`}
           type="button"
-          className={`mapping-pad-button ${item.accent ? 'mapping-pad-button-accent' : ''}`}
+          className={`mapping-pad-button mapping-pad-button-${variant} ${item.accent ? 'mapping-pad-button-accent' : ''}`}
           onClick={() => {
             if (!item.action) {
               return;

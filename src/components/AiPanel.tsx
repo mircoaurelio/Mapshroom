@@ -29,7 +29,7 @@ export function AiPanel({
   const providerLabel = getProviderLabel(shaderProvider);
 
   return (
-    <PanelSection title="Shader AI" eyebrow="Inference">
+    <PanelSection title="Shader Chat" eyebrow="Inference">
       <div className="stack gap-md">
         <label className="field">
           <span>Shader Provider</span>

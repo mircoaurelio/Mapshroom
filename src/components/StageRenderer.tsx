@@ -26,7 +26,6 @@ interface StageRendererProps {
   uniformValues: ShaderUniformValueMap;
   stageTransform: StageTransform;
   transport: PlaybackTransport;
-  stageLabel?: string;
   isOutputOnly?: boolean;
   onCompilerError?: (message: string) => void;
 }
@@ -70,7 +69,6 @@ export function StageRenderer({
   uniformValues,
   stageTransform,
   transport,
-  stageLabel,
   isOutputOnly = false,
   onCompilerError,
 }: StageRendererProps) {
@@ -395,16 +393,13 @@ export function StageRenderer({
   );
 
   return (
-    <div className={`stage-shell ${isOutputOnly ? 'stage-shell-output' : ''}`}>
+    <div
+      className={`stage-shell ${isOutputOnly ? 'stage-shell-output' : ''}`}
+      title={isOutputOnly ? undefined : renderStatus}
+    >
       <div ref={mediaSurfaceRef} className="stage-media-surface" style={mediaSurfaceStyle}>
         <canvas ref={canvasRef} className="stage-canvas" />
       </div>
-      {!isOutputOnly ? (
-        <div className="stage-meta">
-          <span className="stage-meta-label">{stageLabel || 'Projection Stage'}</span>
-          <span className="stage-meta-value">{renderStatus}</span>
-        </div>
-      ) : null}
       {!asset ? (
         <div className="stage-empty">
           <p className="stage-empty-eyebrow">NO SIGNAL</p>

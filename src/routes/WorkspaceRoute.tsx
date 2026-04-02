@@ -1,11 +1,9 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
-import { AssetLibraryPanel } from '../components/AssetLibraryPanel';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
-import { RoadmapPanel } from '../components/RoadmapPanel';
 import { StageRenderer } from '../components/StageRenderer';
 import { StudioPanel } from '../components/StudioPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
@@ -24,7 +22,6 @@ import {
 } from '../lib/shaderGeneration';
 import { createSessionSync } from '../lib/sessionSync';
 import {
-  deleteAssetBlob,
   getOrCreateSessionId,
   loadProjectDocument,
   loadUiPreferences,
@@ -324,49 +321,6 @@ export function WorkspaceRoute() {
 
     setStatusMessage(`${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`);
     event.target.value = '';
-  };
-
-  const handleAssetSelect = (assetId: string) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      library: {
-        ...currentProject.library,
-        activeAssetId: assetId,
-      },
-      playback: {
-        ...currentProject.playback,
-        activeAssetId: assetId,
-      },
-    }));
-    setStatusMessage('Active asset updated.');
-  };
-
-  const handleAssetDelete = async (assetId: string) => {
-    await deleteAssetBlob(assetId);
-    updateProject((currentProject) => {
-      const nextAssets = currentProject.library.assets.filter((asset) => asset.id !== assetId);
-      const nextActiveId =
-        currentProject.library.activeAssetId === assetId
-          ? nextAssets[0]?.id ?? null
-          : currentProject.library.activeAssetId;
-
-      return {
-        ...currentProject,
-        library: {
-          ...currentProject.library,
-          assets: nextAssets,
-          activeAssetId: nextActiveId,
-        },
-        playback: {
-          ...currentProject.playback,
-          activeAssetId:
-            currentProject.playback.activeAssetId === assetId
-              ? nextActiveId
-              : currentProject.playback.activeAssetId,
-        },
-      };
-    });
-    setStatusMessage('Asset removed from the library.');
   };
 
   const handlePlayToggle = () => {
@@ -696,18 +650,6 @@ export function WorkspaceRoute() {
   const stageTransform = project.mapping.stageTransform;
   const stageControlsVisible = uiPreferences.chromeVisible && stageTransform.moveMode;
 
-  const libraryPanel = (
-    <AssetLibraryPanel
-      assets={project.library.assets}
-      activeAssetId={activeAsset?.id ?? null}
-      onLoadAsset={openFilePicker}
-      onSelectAsset={handleAssetSelect}
-      onRemoveAsset={(assetId) => {
-        void handleAssetDelete(assetId);
-      }}
-    />
-  );
-
   const studioPanel = (
     <StudioPanel
       savedShaders={project.studio.savedShaders}
@@ -767,8 +709,6 @@ export function WorkspaceRoute() {
     />
   );
 
-  const roadmapPanel = <RoadmapPanel />;
-
   return (
     <div
       className={`workspace-shell ${isMobile ? 'workspace-shell-mobile' : ''} ${
@@ -808,14 +748,15 @@ export function WorkspaceRoute() {
             stageTransform={project.mapping.stageTransform}
             transport={project.playback.transport}
             onCompilerError={setCompilerError}
-            stageLabel={isMobile ? 'Projection View' : 'Stage'}
           />
 
           {statusMessage ? <div className="status-banner">{statusMessage}</div> : null}
 
           {stageControlsVisible ? (
-            <div className="stage-mapping-overlay">
-              <MappingPad onAction={handleMappingAction} />
+            <div
+              className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}
+            >
+              <MappingPad onAction={handleMappingAction} variant={isMobile ? 'overlay' : 'default'} />
             </div>
           ) : null}
 
@@ -828,11 +769,9 @@ export function WorkspaceRoute() {
 
         {!isMobile && uiPreferences.chromeVisible ? (
           <aside className="workspace-sidebar">
-            {libraryPanel}
-            {studioPanel}
             {aiPanel}
+            {studioPanel}
             {mappingPanel}
-            {roadmapPanel}
           </aside>
         ) : null}
       </div>
@@ -842,20 +781,14 @@ export function WorkspaceRoute() {
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
           isPlaying={project.playback.transport.isPlaying}
           activePanel={mobilePanel}
-          onOpenOutput={handleOutputWindowOpen}
+          onLoadAsset={openFilePicker}
           onHideUi={toggleChromeVisibility}
           onPlayToggle={handlePlayToggle}
           onPanelChange={setMobilePanel}
           panels={{
-            library: libraryPanel,
-            studio: studioPanel,
             ai: aiPanel,
-            mapping: (
-              <>
-                {mappingPanel}
-                {roadmapPanel}
-              </>
-            ),
+            studio: studioPanel,
+            mapping: mappingPanel,
           }}
         />
       ) : null}
