@@ -40,6 +40,7 @@ export const DEFAULT_STAGE_TRANSFORM: StageTransform = {
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   workspaceMode: 'split',
   chromeVisible: true,
+  sidebarVisible: true,
 };
 
 export function createDefaultProject(sessionId: string): ProjectDocument {

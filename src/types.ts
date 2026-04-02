@@ -128,4 +128,5 @@ export interface ProjectDocument {
 export interface UiPreferences {
   workspaceMode: WorkspaceMode;
   chromeVisible: boolean;
+  sidebarVisible: boolean;
 }

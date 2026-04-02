@@ -7,6 +7,7 @@ interface MobileChromeProps {
   isPlaying: boolean;
   activePanel: MobilePanelKey;
   onLoadAsset: () => void;
+  onOpenSettings: () => void;
   onHideUi: () => void;
   onPlayToggle: () => void;
   onPanelChange: (panel: MobilePanelKey) => void;
@@ -28,6 +29,7 @@ export function MobileChrome({
   isPlaying,
   activePanel,
   onLoadAsset,
+  onOpenSettings,
   onHideUi,
   onPlayToggle,
   onPanelChange,
@@ -37,12 +39,15 @@ export function MobileChrome({
     <>
       <header className="mobile-header">
         <div>
-          <span className="panel-eyebrow">Mapshroom V3</span>
-          <strong>{activeAssetName}</strong>
+          <strong>Mapshroom</strong>
+          <span className="mobile-header-meta">{activeAssetName}</span>
         </div>
         <div className="button-row">
           <button type="button" className="secondary-button" onClick={onLoadAsset}>
             Load
+          </button>
+          <button type="button" className="secondary-button" onClick={onOpenSettings}>
+            APIs
           </button>
           <button type="button" className="secondary-button" onClick={onHideUi}>
             Hide UI

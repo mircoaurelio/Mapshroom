@@ -31,6 +31,7 @@ import {
   saveUiPreferences,
 } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
+import { blankShaderTemplate } from '../shaders/templates/blankShader';
 import type {
   AiSettings,
   AssetKind,
@@ -154,7 +155,7 @@ export function WorkspaceRoute() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [compilerError, setCompilerError] = useState('');
-  const [statusMessage, setStatusMessage] = useState('V3 foundation active');
+  const [statusMessage, setStatusMessage] = useState('');
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
@@ -503,6 +504,33 @@ export function WorkspaceRoute() {
     setStatusMessage(`Saved shader "${label}" to the library.`);
   };
 
+  const createNewShader = () => {
+    const nextCode = blankShaderTemplate;
+    const nextName = parseShaderName(nextCode);
+
+    setCompilerError('');
+    setAiPrompt('');
+    updateProject((currentProject) => ({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        activeShaderId: `new-${Date.now()}`,
+        activeShaderName: nextName,
+        activeShaderCode: nextCode,
+        shaderVersions: [
+          {
+            id: crypto.randomUUID(),
+            prompt: 'New Shader',
+            name: nextName,
+            code: nextCode,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+    }));
+    setStatusMessage(`Started ${nextName}.`);
+  };
+
   const restoreShaderVersion = (versionId: string) => {
     if (!project) {
       return;
@@ -628,6 +656,13 @@ export function WorkspaceRoute() {
     }));
   };
 
+  const toggleSidebarVisibility = () => {
+    setUiPreferences((currentValue) => ({
+      ...currentValue,
+      sidebarVisible: !currentValue.sidebarVisible,
+    }));
+  };
+
   const toggleChromeVisibility = () => {
     setUiPreferences((currentValue) => ({
       ...currentValue,
@@ -654,6 +689,7 @@ export function WorkspaceRoute() {
     <StudioPanel
       savedShaders={project.studio.savedShaders}
       activeShaderId={project.studio.activeShaderId}
+      onNewShader={createNewShader}
       onSelectShader={selectShader}
       onSaveShader={saveCurrentShader}
       onResetClock={handlePlaybackReset}
@@ -687,9 +723,7 @@ export function WorkspaceRoute() {
       activeModel={getActiveShaderModel(project.ai.settings)}
       prompt={aiPrompt}
       aiLoading={aiLoading}
-      onShaderProviderChange={(value) => updateAiSetting('shaderProvider', value)}
       onPromptChange={setAiPrompt}
-      onOpenSettings={() => setIsApiSettingsOpen(true)}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
       }}
@@ -713,8 +747,14 @@ export function WorkspaceRoute() {
     <div
       className={`workspace-shell ${isMobile ? 'workspace-shell-mobile' : ''} ${
         uiPreferences.workspaceMode === 'immersive' ? 'workspace-shell-immersive' : ''
-      } ${uiPreferences.chromeVisible ? 'workspace-shell-chrome' : 'workspace-shell-clean'}`}
+      } ${uiPreferences.chromeVisible ? 'workspace-shell-chrome' : 'workspace-shell-clean'} ${
+        uiPreferences.sidebarVisible ? 'workspace-shell-sidebar-open' : 'workspace-shell-sidebar-closed'
+      }`}
     >
+      <div className="sr-only" aria-live="polite">
+        {statusMessage}
+      </div>
+
       <input
         ref={fileInputRef}
         className="hidden-input"
@@ -729,6 +769,7 @@ export function WorkspaceRoute() {
           isPlaying={project.playback.transport.isPlaying}
           workspaceMode={uiPreferences.workspaceMode}
           onLoadAsset={openFilePicker}
+          onOpenSettings={() => setIsApiSettingsOpen(true)}
           onPlayToggle={handlePlayToggle}
           onOpenOutput={handleOutputWindowOpen}
           onToggleWorkspaceMode={() =>
@@ -750,14 +791,24 @@ export function WorkspaceRoute() {
             onCompilerError={setCompilerError}
           />
 
-          {statusMessage ? <div className="status-banner">{statusMessage}</div> : null}
-
           {stageControlsVisible ? (
             <div
               className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}
             >
               <MappingPad onAction={handleMappingAction} variant={isMobile ? 'overlay' : 'default'} />
             </div>
+          ) : null}
+
+          {!isMobile && uiPreferences.chromeVisible ? (
+            <button
+              type="button"
+              className={`sidebar-rail-button ${
+                uiPreferences.sidebarVisible ? 'sidebar-rail-button-active' : ''
+              }`}
+              onClick={toggleSidebarVisibility}
+            >
+              {uiPreferences.sidebarVisible ? 'Hide Panels' : 'Show Panels'}
+            </button>
           ) : null}
 
           {isMobile && !uiPreferences.chromeVisible ? (
@@ -767,7 +818,7 @@ export function WorkspaceRoute() {
           ) : null}
         </section>
 
-        {!isMobile && uiPreferences.chromeVisible ? (
+        {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
           <aside className="workspace-sidebar">
             {aiPanel}
             {studioPanel}
@@ -782,6 +833,7 @@ export function WorkspaceRoute() {
           isPlaying={project.playback.transport.isPlaying}
           activePanel={mobilePanel}
           onLoadAsset={openFilePicker}
+          onOpenSettings={() => setIsApiSettingsOpen(true)}
           onHideUi={toggleChromeVisibility}
           onPlayToggle={handlePlayToggle}
           onPanelChange={setMobilePanel}

@@ -6,9 +6,7 @@ interface AiPanelProps {
   activeModel: string;
   prompt: string;
   aiLoading: boolean;
-  onShaderProviderChange: (value: ShaderProvider) => void;
   onPromptChange: (value: string) => void;
-  onOpenSettings: () => void;
   onSubmit: () => void;
 }
 
@@ -21,9 +19,7 @@ export function AiPanel({
   activeModel,
   prompt,
   aiLoading,
-  onShaderProviderChange,
   onPromptChange,
-  onOpenSettings,
   onSubmit,
 }: AiPanelProps) {
   const providerLabel = getProviderLabel(shaderProvider);
@@ -31,18 +27,6 @@ export function AiPanel({
   return (
     <PanelSection title="Shader Chat" eyebrow="Inference">
       <div className="stack gap-md">
-        <label className="field">
-          <span>Shader Provider</span>
-          <select
-            className="select-field"
-            value={shaderProvider}
-            onChange={(event) => onShaderProviderChange(event.target.value as ShaderProvider)}
-          >
-            <option value="openai">OpenAI</option>
-            <option value="google">Google Gemini</option>
-          </select>
-        </label>
-
         <div className="status-card">
           <div className="status-card-row">
             <span className="status-card-label">Active Engine</span>
@@ -53,14 +37,8 @@ export function AiPanel({
             <strong className="status-card-value">{activeModel}</strong>
           </div>
           <p className="helper-copy">
-            Manage OpenAI, Google, and Runway keys in the dedicated AI settings dialog.
+            Provider, models, and keys now live only in the API dialog.
           </p>
-        </div>
-
-        <div className="button-row">
-          <button type="button" className="secondary-button" onClick={onOpenSettings}>
-            Manage APIs
-          </button>
         </div>
 
         <label className="field">

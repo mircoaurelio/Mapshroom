@@ -15,6 +15,7 @@ interface SavedShaderOption {
 interface StudioPanelProps {
   savedShaders: SavedShaderOption[];
   activeShaderId: string;
+  onNewShader: () => void;
   onSelectShader: (shaderId: string) => void;
   onSaveShader: () => void;
   onResetClock: () => void;
@@ -34,6 +35,7 @@ interface StudioPanelProps {
 export function StudioPanel({
   savedShaders,
   activeShaderId,
+  onNewShader,
   onSelectShader,
   onSaveShader,
   onResetClock,
@@ -68,8 +70,11 @@ export function StudioPanel({
             </select>
           </label>
           <div className="button-row">
+            <button type="button" className="primary-button" onClick={onNewShader}>
+              New Shader
+            </button>
             <button type="button" className="secondary-button" onClick={onSaveShader}>
-              Save Shader
+              Save
             </button>
             <button type="button" className="secondary-button" onClick={onResetClock}>
               Reset Clock
@@ -147,18 +152,6 @@ export function StudioPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="GLSL Core" eyebrow="Editor">
-        <div className="stack gap-md">
-          <textarea
-            className="code-editor"
-            value={shaderCode}
-            spellCheck={false}
-            onChange={(event) => onShaderCodeChange(event.target.value)}
-          />
-          {compilerError ? <div className="error-panel">{compilerError}</div> : null}
-        </div>
-      </PanelSection>
-
       <PanelSection title="Version Trail" eyebrow="History">
         <div className="version-list">
           {[...versions].reverse().map((version) => (
@@ -176,6 +169,18 @@ export function StudioPanel({
               </button>
             </article>
           ))}
+        </div>
+      </PanelSection>
+
+      <PanelSection title="GLSL Core" eyebrow="Editor">
+        <div className="stack gap-md">
+          <textarea
+            className="code-editor"
+            value={shaderCode}
+            spellCheck={false}
+            onChange={(event) => onShaderCodeChange(event.target.value)}
+          />
+          {compilerError ? <div className="error-panel">{compilerError}</div> : null}
         </div>
       </PanelSection>
     </>
