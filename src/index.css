@@ -408,23 +408,15 @@ a {
 .panel-section-header {
   display: flex;
   flex-direction: column;
-  gap: 0.18rem;
-  margin-bottom: 0.55rem;
-}
-
-.panel-eyebrow {
-  color: var(--accent);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.64rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  gap: 0;
+  margin-bottom: 0.45rem;
 }
 
 .panel-title {
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-bright);
 }
@@ -492,6 +484,12 @@ a {
   resize: vertical;
 }
 
+.prompt-field-hero {
+  min-height: 210px;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+
 .code-editor {
   min-height: 300px;
   padding: 0.75rem;
@@ -552,6 +550,13 @@ a {
 .primary-button {
   background: var(--bg-panel-raised);
   color: var(--text-bright);
+}
+
+.primary-button-hero {
+  width: 100%;
+  min-height: 34px;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
 }
 
 .secondary-button,
@@ -712,6 +717,10 @@ a {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
+}
+
+.ai-panel-stack {
+  gap: 0.6rem;
 }
 
 .status-card-row {

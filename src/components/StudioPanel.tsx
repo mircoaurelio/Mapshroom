@@ -53,7 +53,7 @@ export function StudioPanel({
 }: StudioPanelProps) {
   return (
     <>
-      <PanelSection title="Shader Studio" eyebrow="Studio">
+      <PanelSection title="Shader Studio">
         <div className="stack gap-md">
           <label className="field">
             <span>Preset Library</span>
@@ -83,7 +83,7 @@ export function StudioPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="Uniform Map" eyebrow="Controls">
+      <PanelSection title="Uniform Map">
         <div className="stack gap-md">
           {Object.keys(uniformDefinitions).length === 0 ? (
             <p className="empty-copy">No live uniforms are declared in this shader.</p>
@@ -152,7 +152,7 @@ export function StudioPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="Version Trail" eyebrow="History">
+      <PanelSection title="Version Trail">
         <div className="version-list">
           {[...versions].reverse().map((version) => (
             <article className="version-card" key={version.id}>
@@ -172,7 +172,7 @@ export function StudioPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="GLSL Core" eyebrow="Editor">
+      <PanelSection title="GLSL Core">
         <div className="stack gap-md">
           <textarea
             className="code-editor"

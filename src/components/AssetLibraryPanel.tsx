@@ -17,7 +17,7 @@ export function AssetLibraryPanel({
   onRemoveAsset,
 }: AssetLibraryPanelProps) {
   return (
-    <PanelSection title="Media Library" eyebrow="Library">
+    <PanelSection title="Media Library">
       <div className="stack gap-sm">
         <button type="button" className="primary-button" onClick={onLoadAsset}>
           Load Image / Video

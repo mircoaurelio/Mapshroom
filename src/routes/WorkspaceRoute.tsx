@@ -16,7 +16,6 @@ import {
 import { pauseTransport, playTransport, resetTransport } from '../lib/clock';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
 import {
-  getActiveShaderModel,
   getShaderProviderLabel,
   requestShaderMutation,
 } from '../lib/shaderGeneration';
@@ -719,8 +718,6 @@ export function WorkspaceRoute() {
 
   const aiPanel = (
     <AiPanel
-      shaderProvider={project.ai.settings.shaderProvider}
-      activeModel={getActiveShaderModel(project.ai.settings)}
       prompt={aiPrompt}
       aiLoading={aiLoading}
       onPromptChange={setAiPrompt}
