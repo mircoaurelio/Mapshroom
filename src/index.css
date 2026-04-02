@@ -147,6 +147,18 @@ a {
   display: none;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .loading-screen,
 .output-waiting-screen {
   min-height: 100vh;
@@ -191,31 +203,42 @@ a {
 .mobile-header {
   position: relative;
   z-index: 10;
-  min-height: 42px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: calc(0.5rem + var(--safe-top)) calc(0.75rem + var(--safe-right)) 0.5rem
-    calc(0.75rem + var(--safe-left));
+  gap: 0.55rem;
+  padding: calc(0.32rem + var(--safe-top)) calc(0.6rem + var(--safe-right)) 0.32rem
+    calc(0.6rem + var(--safe-left));
   border-bottom: 1px solid var(--line);
   background: var(--bg-panel);
 }
 
 .toolbar-brand,
 .mobile-header > div:first-child {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  min-width: 0;
 }
 
-.toolbar-brand strong,
+.toolbar-brand,
 .mobile-header strong {
-  font-size: 0.82rem;
+  display: block;
+  font-size: 0.74rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-bright);
+}
+
+.mobile-header-meta {
+  display: block;
+  max-width: min(34vw, 180px);
+  overflow: hidden;
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .toolbar-actions,
@@ -330,6 +353,30 @@ a {
   background: rgba(9, 9, 11, 0.92);
 }
 
+.sidebar-rail-button {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  z-index: 6;
+  min-height: 140px;
+  padding: 0.7rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 9, 11, 0.9);
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.sidebar-rail-button-active {
+  color: var(--text-bright);
+}
+
 .reveal-ui-button {
   position: absolute;
   right: calc(1rem + var(--safe-right));
@@ -353,7 +400,7 @@ a {
 }
 
 .panel-section {
-  padding: 0.75rem;
+  padding: 0.65rem;
   border-bottom: 1px solid var(--line);
   background: var(--bg-panel);
 }
@@ -362,7 +409,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.18rem;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.55rem;
 }
 
 .panel-eyebrow {
@@ -375,7 +422,7 @@ a {
 
 .panel-title {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -435,18 +482,18 @@ a {
 
 .text-field,
 .select-field {
-  min-height: 32px;
-  padding: 0.6rem 0.7rem;
+  min-height: 30px;
+  padding: 0.5rem 0.65rem;
 }
 
 .prompt-field {
-  min-height: 88px;
-  padding: 0.7rem 0.8rem;
+  min-height: 96px;
+  padding: 0.7rem 0.75rem;
   resize: vertical;
 }
 
 .code-editor {
-  min-height: 240px;
+  min-height: 300px;
   padding: 0.75rem;
   resize: vertical;
   font-family: 'IBM Plex Mono', monospace;
@@ -492,13 +539,13 @@ a {
 .secondary-button,
 .ghost-button,
 .toggle-chip {
-  min-height: 30px;
-  padding: 0.45rem 0.65rem;
+  min-height: 28px;
+  padding: 0.35rem 0.55rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
+  font-size: 0.63rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -661,7 +708,7 @@ a {
 }
 
 .status-card {
-  padding: 0.8rem 0.9rem;
+  padding: 0.7rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
@@ -748,7 +795,7 @@ a {
 
 .workspace-shell-immersive .workspace-sidebar {
   position: fixed;
-  top: 49px;
+  top: 35px;
   right: 0;
   bottom: 0;
   width: min(340px, calc(100vw - 1rem));
@@ -780,15 +827,15 @@ a {
 }
 
 .mobile-dock button {
-  min-height: 40px;
-  padding: 0.5rem;
+  min-height: 38px;
+  padding: 0.45rem 0.2rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
   color: var(--text);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -933,12 +980,6 @@ a {
 }
 
 @media (max-width: 960px) {
-  .status-banner {
-    left: 0.75rem;
-    top: calc(0.75rem + var(--safe-top));
-    max-width: calc(100% - 1.5rem);
-  }
-
   .stage-mapping-overlay {
     right: 0.75rem;
     bottom: calc(4.7rem + var(--safe-bottom));
