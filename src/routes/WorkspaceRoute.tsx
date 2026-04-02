@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AiPanel } from '../components/AiPanel';
+import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryPanel } from '../components/AssetLibraryPanel';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
@@ -8,10 +9,19 @@ import { RoadmapPanel } from '../components/RoadmapPanel';
 import { StageRenderer } from '../components/StageRenderer';
 import { StudioPanel } from '../components/StudioPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
-import { DEFAULT_UI_PREFERENCES, createDefaultProject } from '../config';
+import {
+  DEFAULT_GOOGLE_SHADER_MODEL,
+  DEFAULT_OPENAI_SHADER_MODEL,
+  DEFAULT_UI_PREFERENCES,
+  createDefaultProject,
+} from '../config';
 import { pauseTransport, playTransport, resetTransport } from '../lib/clock';
-import { requestShaderMutation } from '../lib/openai';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
+import {
+  getActiveShaderModel,
+  getShaderProviderLabel,
+  requestShaderMutation,
+} from '../lib/shaderGeneration';
 import { createSessionSync } from '../lib/sessionSync';
 import {
   deleteAssetBlob,
@@ -25,6 +35,7 @@ import {
 } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
 import type {
+  AiSettings,
   AssetKind,
   AssetRecord,
   ProjectDocument,
@@ -99,9 +110,33 @@ function applyMappingTransform(transform: StageTransform, action: MappingAction)
 
 function normalizeProject(project: ProjectDocument): ProjectDocument {
   const uniformDefinitions = parseUniforms(project.studio.activeShaderCode);
+  const defaultProject = createDefaultProject(project.sessionId);
+  const legacySettings = project.ai?.settings as Partial<
+    AiSettings & {
+      shaderModel?: string;
+    }
+  >;
+  const normalizedAiSettings: AiSettings = {
+    ...defaultProject.ai.settings,
+    ...legacySettings,
+    openaiApiKey: legacySettings.openaiApiKey ?? '',
+    googleApiKey: legacySettings.googleApiKey ?? '',
+    runwayApiKey: legacySettings.runwayApiKey ?? '',
+    shaderProvider: legacySettings.shaderProvider === 'google' ? 'google' : 'openai',
+    openaiShaderModel:
+      legacySettings.openaiShaderModel ??
+      legacySettings.shaderModel ??
+      DEFAULT_OPENAI_SHADER_MODEL,
+    googleShaderModel:
+      legacySettings.googleShaderModel ?? DEFAULT_GOOGLE_SHADER_MODEL,
+    videoGenProvider: 'runway',
+  };
 
   return {
     ...project,
+    ai: {
+      settings: normalizedAiSettings,
+    },
     studio: {
       ...project.studio,
       activeShaderName: parseShaderName(project.studio.activeShaderCode),
@@ -125,6 +160,7 @@ export function WorkspaceRoute() {
   const [statusMessage, setStatusMessage] = useState('V3 foundation active');
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
+  const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const activeSessionId = project?.sessionId ?? null;
 
   useEffect(() => {
@@ -541,12 +577,12 @@ export function WorkspaceRoute() {
 
     setAiLoading(true);
     setCompilerError('');
-    setStatusMessage('Requesting shader mutation from OpenAI...');
+    const providerLabel = getShaderProviderLabel(project.ai.settings.shaderProvider);
+    setStatusMessage(`Requesting shader mutation from ${providerLabel}...`);
 
     try {
       const nextCode = await requestShaderMutation({
-        apiKey: project.ai.settings.openaiApiKey,
-        model: project.ai.settings.shaderModel,
+        settings: project.ai.settings,
         prompt,
         currentCode: project.studio.activeShaderCode,
       });
@@ -556,7 +592,7 @@ export function WorkspaceRoute() {
         ...currentProject,
         studio: {
           ...currentProject.studio,
-          activeShaderId: 'custom-openai',
+          activeShaderId: `custom-${currentProject.ai.settings.shaderProvider}`,
           activeShaderName: nextName,
           activeShaderCode: nextCode,
           shaderVersions: [
@@ -572,10 +608,10 @@ export function WorkspaceRoute() {
         },
       }));
       setAiPrompt('');
-      setStatusMessage(`Shader updated: ${nextName}`);
+      setStatusMessage(`${providerLabel} updated shader: ${nextName}`);
     } catch (error) {
       setCompilerError(error instanceof Error ? error.message : 'Shader mutation failed.');
-      setStatusMessage('OpenAI mutation failed.');
+      setStatusMessage(`${providerLabel} mutation failed.`);
     } finally {
       setAiLoading(false);
     }
@@ -619,10 +655,7 @@ export function WorkspaceRoute() {
     setStatusMessage('Projection window opened.');
   };
 
-  const updateAiSetting = (
-    field: 'openaiApiKey' | 'runwayApiKey' | 'shaderModel',
-    value: string,
-  ) => {
+  const updateAiSetting = (field: keyof AiSettings, value: string) => {
     updateProject((currentProject) => ({
       ...currentProject,
       ai: {
@@ -708,15 +741,13 @@ export function WorkspaceRoute() {
 
   const aiPanel = (
     <AiPanel
-      openaiApiKey={project.ai.settings.openaiApiKey}
-      runwayApiKey={project.ai.settings.runwayApiKey}
-      shaderModel={project.ai.settings.shaderModel}
+      shaderProvider={project.ai.settings.shaderProvider}
+      activeModel={getActiveShaderModel(project.ai.settings)}
       prompt={aiPrompt}
       aiLoading={aiLoading}
-      onOpenAiKeyChange={(value) => updateAiSetting('openaiApiKey', value)}
-      onRunwayKeyChange={(value) => updateAiSetting('runwayApiKey', value)}
-      onShaderModelChange={(value) => updateAiSetting('shaderModel', value)}
+      onShaderProviderChange={(value) => updateAiSetting('shaderProvider', value)}
       onPromptChange={setAiPrompt}
+      onOpenSettings={() => setIsApiSettingsOpen(true)}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
       }}
@@ -828,6 +859,13 @@ export function WorkspaceRoute() {
           }}
         />
       ) : null}
+
+      <ApiSettingsDialog
+        open={isApiSettingsOpen}
+        settings={project.ai.settings}
+        onClose={() => setIsApiSettingsOpen(false)}
+        onChange={updateAiSetting}
+      />
     </div>
   );
 }

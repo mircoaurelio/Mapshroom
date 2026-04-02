@@ -3,6 +3,7 @@ export type AssetSourceType = 'uploaded' | 'generated';
 export type ShaderUniformType = 'float' | 'int' | 'vec3' | 'bool';
 export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
+export type ShaderProvider = 'openai' | 'google';
 
 export interface AssetRecord {
   id: string;
@@ -50,9 +51,11 @@ export interface PlaybackTransport {
 
 export interface AiSettings {
   openaiApiKey: string;
+  googleApiKey: string;
   runwayApiKey: string;
-  shaderProvider: 'openai';
-  shaderModel: string;
+  shaderProvider: ShaderProvider;
+  openaiShaderModel: string;
+  googleShaderModel: string;
   videoGenProvider: 'runway';
 }
 

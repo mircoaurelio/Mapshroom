@@ -17,6 +17,12 @@ export const DEFAULT_OPENAI_RESPONSE_MODEL_OPTIONS = [
   'gpt-4.1-mini',
   'gpt-4.1',
 ];
+export const DEFAULT_GOOGLE_SHADER_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GOOGLE_MODEL_OPTIONS = [
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-2.5-flash-lite',
+];
 
 export const DEFAULT_SHADERS = shaderPresets;
 
@@ -82,9 +88,11 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
     ai: {
       settings: {
         openaiApiKey: '',
+        googleApiKey: '',
         runwayApiKey: '',
         shaderProvider: 'openai',
-        shaderModel: DEFAULT_OPENAI_SHADER_MODEL,
+        openaiShaderModel: DEFAULT_OPENAI_SHADER_MODEL,
+        googleShaderModel: DEFAULT_GOOGLE_SHADER_MODEL,
         videoGenProvider: 'runway',
       },
     },

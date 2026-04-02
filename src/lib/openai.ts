@@ -1,7 +1,7 @@
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
 import { extractGlslCode } from './shader';
 
-interface ShaderRequestOptions {
+export interface ShaderRequestOptions {
   apiKey: string;
   model: string;
   prompt: string;
@@ -35,7 +35,7 @@ function extractTextFromResponsesPayload(payload: ResponsesApiPayload): string {
   return textChunks.join('\n').trim();
 }
 
-export async function requestShaderMutation({
+export async function requestOpenAiShaderMutation({
   apiKey,
   model,
   prompt,
