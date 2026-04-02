@@ -554,6 +554,11 @@ a {
   font-size: 0.76rem;
 }
 
+.shader-chat-error {
+  max-height: 180px;
+  overflow: auto;
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button,
