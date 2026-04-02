@@ -63,7 +63,12 @@ export function MappingPanel({
       </PanelSection>
 
       <PanelSection title="Tap Grid">
-        <MappingPad onAction={onAction} disabled={!stageTransform.moveMode} />
+        <MappingPad
+          onAction={onAction}
+          onPrecisionChange={onPrecisionChange}
+          precision={stageTransform.precision}
+          disabled={!stageTransform.moveMode}
+        />
       </PanelSection>
     </>
   );

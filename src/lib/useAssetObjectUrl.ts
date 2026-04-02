@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { AssetRecord } from '../types';
 import { getAssetBlob } from './storage';
 
+const assetObjectUrlCache = new Map<string, string>();
+
 export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
   const [resolvedAsset, setResolvedAsset] = useState<{
     assetId: string | null;
@@ -12,12 +14,12 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
   });
   const assetId = asset?.id ?? null;
   const assetKind = asset?.kind ?? null;
+  const cachedUrl = assetId ? assetObjectUrlCache.get(assetId) ?? null : null;
 
   useEffect(() => {
     let disposed = false;
-    let localObjectUrl: string | null = null;
 
-    if (!assetId || !assetKind) {
+    if (!assetId || !assetKind || cachedUrl) {
       return;
     }
 
@@ -30,7 +32,8 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
         return;
       }
 
-      localObjectUrl = URL.createObjectURL(blob);
+      const localObjectUrl = URL.createObjectURL(blob);
+      assetObjectUrlCache.set(assetId, localObjectUrl);
       setResolvedAsset({
         assetId,
         url: localObjectUrl,
@@ -39,11 +42,8 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
 
     return () => {
       disposed = true;
-      if (localObjectUrl) {
-        URL.revokeObjectURL(localObjectUrl);
-      }
     };
-  }, [assetId, assetKind]);
+  }, [assetId, assetKind, cachedUrl]);
 
-  return resolvedAsset.assetId === assetId ? resolvedAsset.url : null;
+  return cachedUrl ?? (resolvedAsset.assetId === assetId ? resolvedAsset.url : null);
 }

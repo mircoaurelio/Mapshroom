@@ -4,6 +4,7 @@ export type ShaderUniformType = 'float' | 'int' | 'vec3' | 'bool';
 export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
 export type ShaderProvider = 'openai' | 'google';
+export type MobileUiMode = 'full' | 'bar' | 'hidden';
 
 export interface AssetRecord {
   id: string;
@@ -129,4 +130,5 @@ export interface UiPreferences {
   workspaceMode: WorkspaceMode;
   chromeVisible: boolean;
   sidebarVisible: boolean;
+  mobileUiMode: MobileUiMode;
 }
