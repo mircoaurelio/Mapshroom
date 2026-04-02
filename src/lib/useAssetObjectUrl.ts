@@ -30,31 +30,6 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
         return;
       }
 
-      if (assetKind === 'image') {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (disposed) {
-            return;
-          }
-
-          const result = typeof reader.result === 'string' ? reader.result : null;
-          setResolvedAsset({
-            assetId,
-            url: result,
-          });
-        };
-        reader.onerror = () => {
-          if (!disposed) {
-            setResolvedAsset({
-              assetId,
-              url: null,
-            });
-          }
-        };
-        reader.readAsDataURL(blob);
-        return;
-      }
-
       localObjectUrl = URL.createObjectURL(blob);
       setResolvedAsset({
         assetId,

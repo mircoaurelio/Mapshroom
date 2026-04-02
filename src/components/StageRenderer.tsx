@@ -259,13 +259,18 @@ export function StageRenderer({
 
     if (assetKind === 'image') {
       const image = new Image();
-      image.onload = () => {
+      image.decoding = 'async';
+      image.crossOrigin = 'anonymous';
+
+      const handleImageReady = () => {
         if (disposed) {
           return;
         }
         imageRef.current = image;
         setRenderStatus(assetName ?? 'Image asset');
       };
+
+      image.onload = handleImageReady;
       image.onerror = () => {
         if (disposed) {
           return;
@@ -273,7 +278,22 @@ export function StageRenderer({
         imageRef.current = null;
         setRenderStatus('Unable to load image asset');
       };
+
       image.src = assetUrl;
+
+      if (image.complete && image.naturalWidth > 0) {
+        handleImageReady();
+      } else if (typeof image.decode === 'function') {
+        image
+          .decode()
+          .then(() => {
+            handleImageReady();
+          })
+          .catch(() => {
+            // Some browsers reject decode() for blob sources even though onload still fires.
+          });
+      }
+
       return () => {
         disposed = true;
         image.onload = null;
