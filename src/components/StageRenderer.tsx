@@ -241,32 +241,48 @@ export function StageRenderer({
   }, [shaderCode, uniformDefinitions, onCompilerError]);
 
   useEffect(() => {
+    let disposed = false;
     imageRef.current = null;
 
     const existingVideo = videoRef.current;
     if (existingVideo) {
       existingVideo.pause();
       existingVideo.src = '';
+      existingVideo.load();
       videoRef.current = null;
     }
 
     if (!assetId || !assetKind || !assetUrl) {
       setRenderStatus('No asset loaded');
-      return;
+      return undefined;
     }
 
     if (assetKind === 'image') {
       const image = new Image();
       image.onload = () => {
+        if (disposed) {
+          return;
+        }
         imageRef.current = image;
         setRenderStatus(assetName ?? 'Image asset');
       };
       image.onerror = () => {
+        if (disposed) {
+          return;
+        }
         imageRef.current = null;
         setRenderStatus('Unable to load image asset');
       };
       image.src = assetUrl;
-      return;
+      return () => {
+        disposed = true;
+        image.onload = null;
+        image.onerror = null;
+        image.src = '';
+        if (imageRef.current === image) {
+          imageRef.current = null;
+        }
+      };
     }
 
     const video = document.createElement('video');
@@ -275,6 +291,9 @@ export function StageRenderer({
     video.preload = 'auto';
     video.src = assetUrl;
     video.onloadeddata = () => {
+      if (disposed) {
+        return;
+      }
       setRenderStatus(assetName ?? 'Video asset');
       const currentTransport = transportRef.current;
       const targetTime = getTransportTimeSeconds(currentTransport);
@@ -286,9 +305,23 @@ export function StageRenderer({
       }
     };
     video.onerror = () => {
+      if (disposed) {
+        return;
+      }
       setRenderStatus('Unable to load video asset');
     };
     videoRef.current = video;
+    return () => {
+      disposed = true;
+      video.onloadeddata = null;
+      video.onerror = null;
+      video.pause();
+      video.src = '';
+      video.load();
+      if (videoRef.current === video) {
+        videoRef.current = null;
+      }
+    };
   }, [assetId, assetKind, assetName, assetUrl]);
 
   useEffect(() => {
