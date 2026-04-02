@@ -33,7 +33,7 @@ jobs:
         uses: actions/configure-pages@v6
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Check for committed secrets
         run: npm run check:secrets
