@@ -820,8 +820,16 @@ ${compilerError}`;
 
   const handleFixError = () => {
     if (!project || !compilerError.trim()) return;
+    const errorSnapshot = compilerError;
     void handleShaderMutation(
-      `Fix the following error in this shader. Keep the exact same processColor signature and shader structure. Return the corrected full shader.\n\nError:\n${compilerError}`,
+      `Fix the following error in this shader and return a corrected version.
+The shader MUST start with // NAME: <name> on the first line.
+The shader MUST define: vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution)
+Do NOT declare void main() or write to gl_FragColor.
+Use WebGL 1.0 GLSL syntax with texture2D().
+
+Error:
+${errorSnapshot}`,
     );
   };
 
