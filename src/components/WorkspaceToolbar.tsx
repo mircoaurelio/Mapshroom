@@ -21,7 +21,7 @@ export function WorkspaceToolbar({
     <header className="workspace-toolbar">
       <div className="toolbar-brand">
         <span className="panel-eyebrow">Mapshroom V3</span>
-        <strong>React platform rewrite</strong>
+        <strong>Projection Shader Studio</strong>
       </div>
       <div className="toolbar-actions">
         <button type="button" className="secondary-button" onClick={onLoadAsset}>
