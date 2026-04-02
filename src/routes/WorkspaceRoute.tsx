@@ -5,6 +5,7 @@ import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
+import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { StageRenderer } from '../components/StageRenderer';
 import { StudioPanel } from '../components/StudioPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
@@ -1069,6 +1070,15 @@ ${compilerError}`;
             <MobilePrecisionOverlay
               precision={stageTransform.precision}
               onPrecisionChange={updateStagePrecision}
+            />
+          ) : null}
+
+          {isMobile && mobilePanel === 'sliders' && mobileUiMode === 'full' ? (
+            <MobileUniformOverlay
+              uniformDefinitions={uniformDefinitions}
+              uniformValues={project.studio.uniformValues}
+              onUniformChange={handleUniformChange}
+              onClose={() => handleMobilePanelChange(null)}
             />
           ) : null}
 
