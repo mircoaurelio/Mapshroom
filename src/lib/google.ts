@@ -34,7 +34,8 @@ export async function requestGoogleShaderMutation({
   const client = createGoogleClient(trimmedKey);
 
   const history = chatHistory ?? [];
-  const historyContents = history.map((turn) => ({
+  const recentHistory = history.slice(-10);
+  const historyContents = recentHistory.map((turn) => ({
     role: turn.role,
     parts: [{ text: turn.text }],
   }));
@@ -52,7 +53,7 @@ export async function requestGoogleShaderMutation({
       systemInstruction: SHADER_SYSTEM_PROMPT,
       responseMimeType: 'text/plain',
       temperature: SHADER_GENERATION_TEMPERATURE,
-      maxOutputTokens: 1800,
+      maxOutputTokens: 4096,
       thinkingConfig: {
         thinkingLevel: resolveThinkingLevel(model),
       },
