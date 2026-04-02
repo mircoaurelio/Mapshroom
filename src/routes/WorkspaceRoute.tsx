@@ -887,7 +887,7 @@ ${compilerError}`;
 
   const handleMobileToggleMapping = () => {
     updateMobileUiMode('full');
-    setMobilePanel('mapping');
+    toggleMoveMode();
   };
 
   const handleMobileHide = () => {
