@@ -2,15 +2,17 @@ import type { ReactNode } from 'react';
 
 interface PanelSectionProps {
   title?: string;
+  actions?: ReactNode;
   children: ReactNode;
 }
 
-export function PanelSection({ title, children }: PanelSectionProps) {
+export function PanelSection({ title, actions, children }: PanelSectionProps) {
   return (
     <section className="panel-section">
-      {title ? (
+      {title || actions ? (
         <div className="panel-section-header">
-          <h2 className="panel-title">{title}</h2>
+          {title ? <h2 className="panel-title">{title}</h2> : null}
+          {actions ? <div className="panel-section-actions">{actions}</div> : null}
         </div>
       ) : null}
       {children}

@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import type {
+  SavedShader,
   ShaderUniformMap,
   ShaderUniformValue,
   ShaderUniformValueMap,
@@ -6,9 +8,13 @@ import type {
 } from '../types';
 import { hexToRgb, rgbToHex } from '../lib/shader';
 import { PanelSection } from './PanelSection';
+import { ShaderPresetLibrary } from './ShaderPresetLibrary';
 
 interface StudioPanelProps {
+  savedShaders: SavedShader[];
+  activeShaderId: string;
   onNewShader: () => void;
+  onSelectShader: (shaderId: string) => void;
   onSaveShader: () => void;
   onResetClock: () => void;
   uniformDefinitions: ShaderUniformMap;
@@ -23,12 +29,43 @@ interface StudioPanelProps {
   aiLoading: boolean;
   onFixError: () => void;
   onBrowsePresets: () => void;
+  onReloadShaderCode: () => void;
+  canReloadShaderCode: boolean;
   versions: ShaderVersion[];
   onRestoreVersion: (versionId: string) => void;
 }
 
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="7" y="5" width="9" height="11" rx="1.5" />
+      <path d="M5.5 12.5H4.75A1.75 1.75 0 0 1 3 10.75v-7A1.75 1.75 0 0 1 4.75 2h7A1.75 1.75 0 0 1 13.5 3.75v.75" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M4 10.5 7.25 13.75 16 5" />
+    </svg>
+  );
+}
+
+function ReloadIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M16 10A6 6 0 1 1 14.24 5.76" />
+      <path d="M12.5 2.5H16V6" />
+    </svg>
+  );
+}
+
 export function StudioPanel({
+  savedShaders,
+  activeShaderId,
   onNewShader,
+  onSelectShader,
   onSaveShader,
   onResetClock,
   uniformDefinitions,
@@ -43,17 +80,63 @@ export function StudioPanel({
   aiLoading,
   onFixError,
   onBrowsePresets,
+  onReloadShaderCode,
+  canReloadShaderCode,
   versions,
   onRestoreVersion,
 }: StudioPanelProps) {
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const activeShaderName =
+    savedShaders.find((shader) => shader.id === activeShaderId)?.name ?? 'Custom Shader';
+  const copyLabel =
+    copyState === 'copied' ? 'Code copied' : copyState === 'error' ? 'Copy failed' : 'Copy code';
+
+  useEffect(() => {
+    if (copyState === 'idle') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopyState('idle');
+    }, 1800);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [copyState]);
+
+  const handleCopyCode = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard unavailable.');
+      }
+
+      await navigator.clipboard.writeText(shaderCode);
+      setCopyState('copied');
+    } catch {
+      setCopyState('error');
+    }
+  };
+
   return (
     <>
       <PanelSection title="Shader Studio">
         <div className="stack gap-md">
           <div className="stack gap-sm">
-            <button type="button" className="secondary-button" onClick={onBrowsePresets}>
-              See Presets
-            </button>
+            <div className="field-inline-label">
+              <span>Current Shader</span>
+              <small>{activeShaderName}</small>
+            </div>
+            <div className="button-row">
+              <button type="button" className="secondary-button" onClick={onBrowsePresets}>
+                See Presets
+              </button>
+            </div>
+            <ShaderPresetLibrary
+              presets={savedShaders}
+              activeShaderId={activeShaderId}
+              onSelectShader={onSelectShader}
+            />
           </div>
           <div className="button-row">
             <button type="button" className="primary-button" onClick={onNewShader}>
@@ -158,7 +241,40 @@ export function StudioPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="GLSL Core">
+      <PanelSection
+        title="Code"
+        actions={
+          <>
+            <button
+              type="button"
+              className={`icon-button ${
+                copyState === 'copied'
+                  ? 'icon-button-success'
+                  : copyState === 'error'
+                    ? 'icon-button-error'
+                    : ''
+              }`}
+              aria-label={copyLabel}
+              title={copyLabel}
+              onClick={() => {
+                void handleCopyCode();
+              }}
+            >
+              {copyState === 'copied' ? <CheckIcon /> : <CopyIcon />}
+            </button>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Reload code from the latest version"
+              title="Reload code from the latest version"
+              disabled={!canReloadShaderCode}
+              onClick={onReloadShaderCode}
+            >
+              <ReloadIcon />
+            </button>
+          </>
+        }
+      >
         <div className="stack gap-md">
           <textarea
             className="code-editor"

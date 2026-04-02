@@ -6,6 +6,7 @@
   "packageManager": "npm@11.6.2",
   "scripts": {
     "check:secrets": "node ./scripts/check-no-secrets.mjs",
+    "check:shaders": "node ./scripts/check-shader-presets.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

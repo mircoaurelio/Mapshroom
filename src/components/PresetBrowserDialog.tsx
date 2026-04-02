@@ -110,11 +110,9 @@ function PreviewCard({
   onSelect: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const renderedRef = useRef(false);
 
   useEffect(() => {
-    if (!canvasRef.current || !image || renderedRef.current) return;
-    renderedRef.current = true;
+    if (!canvasRef.current || !image) return;
     renderPreviewToCanvas(canvasRef.current, preset.code, image);
   }, [image, preset.code]);
 
@@ -145,24 +143,39 @@ export function PresetBrowserDialog({
   onClose,
 }: PresetBrowserDialogProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [loadedPreview, setLoadedPreview] = useState<{
+    assetUrl: string;
+    image: HTMLImageElement;
+  } | null>(null);
 
   useEffect(() => {
     if (!open || !assetUrl) {
-      setImage(null);
       return;
     }
+
+    let disposed = false;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => setImage(img);
+    img.onload = () => {
+      if (!disposed) {
+        setLoadedPreview({ assetUrl, image: img });
+      }
+    };
     img.src = assetUrl;
+
+    return () => {
+      disposed = true;
+      img.onload = null;
+    };
   }, [open, assetUrl]);
 
-  useEffect(() => {
-    if (!open) setPendingId(null);
-  }, [open]);
-
   if (!open) return null;
+
+  const image = assetUrl && loadedPreview?.assetUrl === assetUrl ? loadedPreview.image : null;
+  const handleClose = () => {
+    setPendingId(null);
+    onClose();
+  };
 
   const pendingPreset = pendingId
     ? presets.find((p) => p.id === pendingId)
@@ -174,7 +187,7 @@ export function PresetBrowserDialog({
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
-          onClose();
+          handleClose();
         }
       }}
     >
@@ -184,7 +197,7 @@ export function PresetBrowserDialog({
             <span className="panel-eyebrow">Presets</span>
             <h2 className="dialog-title">Shader Library</h2>
           </div>
-          <button type="button" className="ghost-button" onClick={onClose}>
+          <button type="button" className="ghost-button" onClick={handleClose}>
             Close
           </button>
         </header>
@@ -204,7 +217,7 @@ export function PresetBrowserDialog({
                   className="primary-button"
                   onClick={() => {
                     onSelect(pendingPreset.id);
-                    onClose();
+                    handleClose();
                   }}
                 >
                   Load Preset

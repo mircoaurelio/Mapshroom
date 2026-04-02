@@ -110,6 +110,14 @@ function applyMappingTransform(transform: StageTransform, action: MappingAction)
 function normalizeProject(project: ProjectDocument): ProjectDocument {
   const uniformDefinitions = parseUniforms(project.studio.activeShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
+  const shippedPresets = Object.values(DEFAULT_SHADERS).map((shader) => ({
+    ...shader,
+  }));
+  const presetIds = new Set(shippedPresets.map((shader) => shader.id));
+  const mergedSavedShaders = [
+    ...shippedPresets,
+    ...project.studio.savedShaders.filter((shader) => !presetIds.has(shader.id)),
+  ];
   const legacySettings = project.ai?.settings as Partial<
     AiSettings & {
       shaderModel?: string;
@@ -128,11 +136,6 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     videoGenProvider: 'runway',
   };
 
-  const existingIds = new Set(project.studio.savedShaders.map((s) => s.id));
-  const missingPresets = Object.values(DEFAULT_SHADERS)
-    .filter((shader) => !existingIds.has(shader.id))
-    .map((shader) => ({ id: shader.id, name: shader.name, code: shader.code }));
-
   return {
     ...project,
     ai: {
@@ -140,9 +143,9 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     },
     studio: {
       ...project.studio,
-      savedShaders: [...project.studio.savedShaders, ...missingPresets],
       shaderChatHistory: project.studio.shaderChatHistory ?? [],
       activeShaderName: parseShaderName(project.studio.activeShaderCode),
+      savedShaders: mergedSavedShaders,
       uniformValues: syncUniformValues(project.studio.uniformValues, uniformDefinitions),
     },
   };
@@ -597,6 +600,8 @@ export function WorkspaceRoute() {
             id: `saved-${Date.now()}`,
             name: label,
             code: currentProject.studio.activeShaderCode,
+            description: 'Saved from the current workspace state.',
+            group: 'Saved',
           },
         ],
         activeShaderName: label,
@@ -654,6 +659,44 @@ export function WorkspaceRoute() {
       },
     }));
     setStatusMessage(`Restored "${version.name}".`);
+  };
+
+  const reloadShaderCode = () => {
+    if (!project) {
+      return;
+    }
+
+    const latestVersion =
+      project.studio.shaderVersions[project.studio.shaderVersions.length - 1] ?? null;
+    const activePreset =
+      project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId) ??
+      null;
+    const nextCode = latestVersion?.code ?? activePreset?.code;
+
+    if (!nextCode) {
+      return;
+    }
+
+    if (nextCode === project.studio.activeShaderCode) {
+      setStatusMessage('Code already matches the latest shader version.');
+      return;
+    }
+
+    clearGeneratedShaderRetry();
+    setCompilerError('');
+    updateProject((currentProject) => ({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        activeShaderCode: nextCode,
+        activeShaderName: latestVersion?.name ?? activePreset?.name ?? parseShaderName(nextCode),
+      },
+    }));
+    setStatusMessage(
+      latestVersion
+        ? `Code reloaded from "${latestVersion.name}".`
+        : `Code reloaded from "${activePreset?.name ?? 'current shader'}".`,
+    );
   };
 
   const handleShaderMutation = async (prompt: string) => {
@@ -987,12 +1030,23 @@ ${errorSnapshot}`,
     />
   );
 
+  const latestShaderVersion =
+    project.studio.shaderVersions[project.studio.shaderVersions.length - 1] ?? null;
+  const latestShaderSource =
+    latestShaderVersion?.code ??
+    project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId)
+      ?.code ??
+    '';
+
   const studioPanel = (
     <StudioPanel
+      savedShaders={project.studio.savedShaders}
+      activeShaderId={project.studio.activeShaderId}
       onNewShader={() => {
         createNewShader();
         setMobilePanel(null);
       }}
+      onSelectShader={selectShader}
       onSaveShader={saveCurrentShader}
       onResetClock={handlePlaybackReset}
       uniformDefinitions={uniformDefinitions}
@@ -1018,6 +1072,10 @@ ${errorSnapshot}`,
       aiLoading={aiLoading}
       onFixError={handleFixError}
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
+      onReloadShaderCode={reloadShaderCode}
+      canReloadShaderCode={
+        Boolean(latestShaderSource) && latestShaderSource !== project.studio.activeShaderCode
+      }
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
     />
