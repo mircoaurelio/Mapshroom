@@ -3,6 +3,7 @@
   "private": true,
   "version": "3.0.0",
   "type": "module",
+  "packageManager": "npm@11.6.2",
   "scripts": {
     "check:secrets": "node ./scripts/check-no-secrets.mjs",
     "dev": "vite",
