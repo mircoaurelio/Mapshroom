@@ -33,7 +33,8 @@ export async function requestGoogleShaderMutation({
     contents: `Request: ${prompt}\n\nCurrent GLSL:\n\`\`\`glsl\n${currentCode}\n\`\`\``,
     config: {
       systemInstruction: SHADER_SYSTEM_PROMPT,
-      temperature: 0.1,
+      responseMimeType: 'text/plain',
+      temperature: 1.0,
       maxOutputTokens: 1800,
       thinkingConfig: {
         thinkingLevel: resolveThinkingLevel(model),
