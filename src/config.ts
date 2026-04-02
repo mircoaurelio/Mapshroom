@@ -9,14 +9,6 @@ export const ASSET_DB_NAME = 'mapshroom-v3';
 export const ASSET_DB_VERSION = 1;
 export const ASSET_STORE_NAME = 'asset-blobs';
 export const BROADCAST_PREFIX = 'mapshroom-v3:channel:';
-export const DEFAULT_OPENAI_SHADER_MODEL = 'gpt-5.4-mini';
-export const DEFAULT_OPENAI_RESPONSE_MODEL_OPTIONS = [
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.4-nano',
-  'gpt-4.1-mini',
-  'gpt-4.1',
-];
 export const DEFAULT_GOOGLE_API_VERSION = 'v1beta';
 export const DEFAULT_GOOGLE_SHADER_MODEL = 'gemini-3.1-pro-preview';
 export const DEFAULT_GOOGLE_MODEL_OPTIONS = [
@@ -93,8 +85,8 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
         openaiApiKey: '',
         googleApiKey: '',
         runwayApiKey: '',
-        shaderProvider: 'openai',
-        openaiShaderModel: DEFAULT_OPENAI_SHADER_MODEL,
+        shaderProvider: 'google',
+        openaiShaderModel: '',
         googleShaderModel: DEFAULT_GOOGLE_SHADER_MODEL,
         videoGenProvider: 'runway',
       },
