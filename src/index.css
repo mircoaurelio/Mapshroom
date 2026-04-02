@@ -418,12 +418,19 @@ a {
 
 .workspace-sidebar {
   min-height: 0;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow: hidden;
   background: var(--bg-panel);
   border-left: 1px solid var(--line);
+}
+
+.workspace-sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .panel-section {

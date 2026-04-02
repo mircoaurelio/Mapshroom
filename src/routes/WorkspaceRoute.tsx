@@ -947,9 +947,11 @@ export function WorkspaceRoute() {
 
         {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
           <aside className="workspace-sidebar">
-            {aiPanel}
-            {studioPanel}
-            {mappingPanel}
+            <div className="workspace-sidebar-scroll">
+              {aiPanel}
+              {studioPanel}
+              {mappingPanel}
+            </div>
           </aside>
         ) : null}
       </div>

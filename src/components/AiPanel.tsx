@@ -20,11 +20,6 @@ export function AiPanel({
   return (
     <PanelSection>
       <div className="stack gap-md ai-panel-stack">
-        <p className="helper-copy">
-          Write what you want to see on the image or video, then generate. The stage updates
-          automatically when the new shader is ready.
-        </p>
-
         <textarea
           className="prompt-field prompt-field-hero"
           aria-label="Shader prompt"
