@@ -65,6 +65,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
         name: shader.name,
         code: shader.code,
       })),
+      shaderChatHistory: [],
       uniformValues: {},
     },
     mapping: {

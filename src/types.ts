@@ -93,6 +93,11 @@ export interface ShaderUniformDefinition {
 export type ShaderUniformMap = Record<string, ShaderUniformDefinition>;
 export type ShaderUniformValueMap = Record<string, ShaderUniformValue>;
 
+export interface ShaderChatTurn {
+  role: 'user' | 'model';
+  text: string;
+}
+
 export interface ProjectDocument {
   version: number;
   sessionId: string;
@@ -106,6 +111,7 @@ export interface ProjectDocument {
     activeShaderCode: string;
     shaderVersions: ShaderVersion[];
     savedShaders: SavedShader[];
+    shaderChatHistory: ShaderChatTurn[];
     uniformValues: ShaderUniformValueMap;
   };
   mapping: {
