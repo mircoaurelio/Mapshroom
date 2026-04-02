@@ -3,31 +3,63 @@ import type { AssetRecord } from '../types';
 import { getAssetBlob } from './storage';
 
 export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [resolvedAsset, setResolvedAsset] = useState<{
+    assetId: string | null;
+    url: string | null;
+  }>({
+    assetId: null,
+    url: null,
+  });
   const assetId = asset?.id ?? null;
+  const assetKind = asset?.kind ?? null;
 
   useEffect(() => {
     let disposed = false;
     let localObjectUrl: string | null = null;
 
-    queueMicrotask(() => {
-      if (!disposed) {
-        setObjectUrl(null);
-      }
-    });
-
-    if (!assetId) {
+    if (!assetId || !assetKind) {
       return;
     }
 
     getAssetBlob(assetId).then((blob) => {
       if (disposed || !blob) {
-        setObjectUrl(null);
+        setResolvedAsset({
+          assetId,
+          url: null,
+        });
+        return;
+      }
+
+      if (assetKind === 'image') {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (disposed) {
+            return;
+          }
+
+          const result = typeof reader.result === 'string' ? reader.result : null;
+          setResolvedAsset({
+            assetId,
+            url: result,
+          });
+        };
+        reader.onerror = () => {
+          if (!disposed) {
+            setResolvedAsset({
+              assetId,
+              url: null,
+            });
+          }
+        };
+        reader.readAsDataURL(blob);
         return;
       }
 
       localObjectUrl = URL.createObjectURL(blob);
-      setObjectUrl(localObjectUrl);
+      setResolvedAsset({
+        assetId,
+        url: localObjectUrl,
+      });
     });
 
     return () => {
@@ -36,7 +68,7 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
         URL.revokeObjectURL(localObjectUrl);
       }
     };
-  }, [assetId]);
+  }, [assetId, assetKind]);
 
-  return assetId ? objectUrl : null;
+  return resolvedAsset.assetId === assetId ? resolvedAsset.url : null;
 }
