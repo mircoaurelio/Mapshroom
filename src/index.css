@@ -797,51 +797,21 @@ a {
   gap: 0.65rem;
 }
 
-.preset-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.preset-card {
-  min-height: 64px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 0.35rem;
-  padding: 0.7rem 0.75rem;
+.preset-select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
-  text-align: left;
-}
-
-.preset-card strong {
   color: var(--text-bright);
-  font-size: 0.76rem;
-  line-height: 1.35;
-}
-
-.preset-card span {
-  color: var(--text-dim);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  appearance: auto;
 }
 
-.preset-card:hover {
-  border-color: var(--line-strong);
-  background: #17171a;
-}
-
-.preset-card-active {
-  border-color: rgba(52, 211, 153, 0.28);
-  background: rgba(52, 211, 153, 0.08);
-}
-
-.preset-card-active span {
-  color: #a7f3d0;
+.preset-select:focus {
+  border-color: rgba(52, 211, 153, 0.4);
+  outline: none;
 }
 
 .asset-row,
@@ -1435,10 +1405,6 @@ a {
 }
 
 @media (max-width: 960px) {
-  .preset-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .stage-mapping-overlay {
     right: 0.75rem;
     bottom: calc(4.7rem + var(--safe-bottom));
