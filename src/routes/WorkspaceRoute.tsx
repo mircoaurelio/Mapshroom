@@ -162,7 +162,6 @@ export function WorkspaceRoute() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
-  const lastTapRef = useRef<number>(0);
   const [project, setProject] = useState<ProjectDocument | null>(null);
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() =>
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
@@ -933,21 +932,9 @@ ${errorSnapshot}`,
     toggleMoveMode();
   };
 
-  const handleStageDoubleTap = useCallback(() => {
-    if (!isMobile) return;
-    const now = Date.now();
-    if (now - lastTapRef.current < 350) {
-      lastTapRef.current = 0;
-      if (uiPreferences.mobileUiMode !== 'hidden') {
-        setMobilePanel(null);
-        setMoveMode(false);
-        updateMobileUiMode('hidden');
-      } else {
-        updateMobileUiMode('bar');
-      }
-    } else {
-      lastTapRef.current = now;
-    }
+  const handleStageReveal = useCallback(() => {
+    if (!isMobile || uiPreferences.mobileUiMode !== 'hidden') return;
+    updateMobileUiMode('bar');
   }, [isMobile, uiPreferences.mobileUiMode]);
 
   const handleMobileHide = () => {
@@ -1090,7 +1077,7 @@ ${errorSnapshot}`,
       ) : null}
 
       <div className="workspace-body">
-        <section className="workspace-stage-column" onClick={handleStageDoubleTap}>
+        <section className="workspace-stage-column" onClick={handleStageReveal}>
           <StageRenderer
             asset={activeAsset}
             assetUrl={activeAssetUrl}
