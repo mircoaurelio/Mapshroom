@@ -453,16 +453,20 @@ export function WorkspaceRoute() {
     }));
   };
 
-  const toggleMoveMode = () => {
+  const setMoveMode = (enabled: boolean) => {
     updateProject((currentProject) => ({
       ...currentProject,
       mapping: {
         stageTransform: {
           ...currentProject.mapping.stageTransform,
-          moveMode: !currentProject.mapping.stageTransform.moveMode,
+          moveMode: enabled,
         },
       },
     }));
+  };
+
+  const toggleMoveMode = () => {
+    setMoveMode(!project.mapping.stageTransform.moveMode);
   };
 
   const toggleRotationLock = async () => {
@@ -892,12 +896,16 @@ ${compilerError}`;
 
   const handleMobileHide = () => {
     setMobilePanel(null);
+    setMoveMode(false);
     updateMobileUiMode('hidden');
   };
 
   const handleMobilePanelChange = (panel: MobilePanelKey) => {
     if (panel && uiPreferences.mobileUiMode !== 'full') {
       updateMobileUiMode('full');
+    }
+    if (panel !== null) {
+      setMoveMode(false);
     }
     setMobilePanel(panel);
   };
