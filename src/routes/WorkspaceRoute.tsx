@@ -273,7 +273,45 @@ export function WorkspaceRoute() {
     return project.library.assets.find((asset) => asset.id === activeId) ?? null;
   }, [project]);
 
-  const activeAssetUrl = useAssetObjectUrl(activeAsset);
+  const activeAssetResolution = useAssetObjectUrl(activeAsset);
+  const activeAssetUrl = activeAssetResolution.url;
+  const lastMissingAssetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!activeAsset || activeAssetResolution.status !== 'missing') {
+      lastMissingAssetIdRef.current = null;
+      return;
+    }
+
+    if (lastMissingAssetIdRef.current === activeAsset.id) {
+      return;
+    }
+
+    lastMissingAssetIdRef.current = activeAsset.id;
+
+    updateProject((currentProject) => ({
+      ...currentProject,
+      library: {
+        ...currentProject.library,
+        activeAssetId:
+          currentProject.library.activeAssetId === activeAsset.id
+            ? null
+            : currentProject.library.activeAssetId,
+      },
+      playback: {
+        ...currentProject.playback,
+        activeAssetId:
+          currentProject.playback.activeAssetId === activeAsset.id
+            ? null
+            : currentProject.playback.activeAssetId,
+        transport:
+          currentProject.playback.activeAssetId === activeAsset.id
+            ? pauseTransport(currentProject.playback.transport)
+            : currentProject.playback.transport,
+      },
+    }));
+    setStatusMessage(`Stored asset "${activeAsset.name}" could not be restored. Load it again.`);
+  }, [activeAsset, activeAssetResolution.status]);
 
   const updateProject = (updater: (currentProject: ProjectDocument) => ProjectDocument) => {
     setProject((currentProject) => {
@@ -849,6 +887,7 @@ export function WorkspaceRoute() {
           <StageRenderer
             asset={activeAsset}
             assetUrl={activeAssetUrl}
+            assetUrlStatus={activeAssetResolution.status}
             shaderCode={project.studio.activeShaderCode}
             uniformDefinitions={uniformDefinitions}
             uniformValues={project.studio.uniformValues}

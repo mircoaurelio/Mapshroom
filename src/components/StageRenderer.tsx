@@ -17,10 +17,12 @@ import {
   VERTEX_SHADER_SOURCE,
 } from '../lib/shader';
 import { getTransportTimeSeconds } from '../lib/clock';
+import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 
 interface StageRendererProps {
   asset: AssetRecord | null;
   assetUrl: string | null;
+  assetUrlStatus?: AssetObjectUrlStatus;
   shaderCode: string;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
@@ -64,6 +66,7 @@ function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: strin
 export function StageRenderer({
   asset,
   assetUrl,
+  assetUrlStatus = 'idle',
   shaderCode,
   uniformDefinitions,
   uniformValues,
@@ -452,6 +455,13 @@ export function StageRenderer({
     [stageTransform],
   );
 
+  const showEmptyState = !asset || assetUrlStatus === 'loading' || assetUrlStatus === 'missing';
+  const emptyStateCopy = !asset
+    ? 'Load an image or video to drive the stage.'
+    : assetUrlStatus === 'loading'
+      ? 'Restoring the stored asset from this device...'
+      : 'The stored asset is no longer available on this device. Load it again.';
+
   return (
     <div
       className={`stage-shell ${isOutputOnly ? 'stage-shell-output' : ''}`}
@@ -460,10 +470,10 @@ export function StageRenderer({
       <div ref={mediaSurfaceRef} className="stage-media-surface" style={mediaSurfaceStyle}>
         <canvas ref={canvasRef} className="stage-canvas" />
       </div>
-      {!asset ? (
+      {showEmptyState ? (
         <div className="stage-empty">
           <p className="stage-empty-eyebrow">NO SIGNAL</p>
-          <p className="stage-empty-copy">Load an image or video to drive the stage.</p>
+          <p className="stage-empty-copy">{emptyStateCopy}</p>
         </div>
       ) : null}
     </div>

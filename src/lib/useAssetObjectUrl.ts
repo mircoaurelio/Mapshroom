@@ -4,7 +4,14 @@ import { getAssetBlob } from './storage';
 
 const assetObjectUrlCache = new Map<string, string>();
 
-export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
+export type AssetObjectUrlStatus = 'idle' | 'loading' | 'ready' | 'missing';
+
+interface AssetObjectUrlResult {
+  url: string | null;
+  status: AssetObjectUrlStatus;
+}
+
+export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResult {
   const [resolvedAsset, setResolvedAsset] = useState<{
     assetId: string | null;
     url: string | null;
@@ -45,5 +52,36 @@ export function useAssetObjectUrl(asset: AssetRecord | null): string | null {
     };
   }, [assetId, assetKind, cachedUrl]);
 
-  return cachedUrl ?? (resolvedAsset.assetId === assetId ? resolvedAsset.url : null);
+  if (!assetId || !assetKind) {
+    return {
+      url: null,
+      status: 'idle',
+    };
+  }
+
+  if (cachedUrl) {
+    return {
+      url: cachedUrl,
+      status: 'ready',
+    };
+  }
+
+  if (resolvedAsset.assetId !== assetId) {
+    return {
+      url: null,
+      status: 'loading',
+    };
+  }
+
+  if (resolvedAsset.url) {
+    return {
+      url: resolvedAsset.url,
+      status: 'ready',
+    };
+  }
+
+  return {
+    url: null,
+    status: 'missing',
+  };
 }
