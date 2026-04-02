@@ -51,24 +51,35 @@ export function StudioPanel({
   versions,
   onRestoreVersion,
 }: StudioPanelProps) {
+  const activeShaderName =
+    savedShaders.find((shader) => shader.id === activeShaderId)?.name ?? 'Custom Shader';
+
   return (
     <>
       <PanelSection title="Shader Studio">
         <div className="stack gap-md">
-          <label className="field">
-            <span>Preset Library</span>
-            <select
-              className="select-field"
-              value={activeShaderId}
-              onChange={(event) => onSelectShader(event.target.value)}
-            >
+          <div className="stack gap-sm">
+            <div className="field-inline-label">
+              <span>Preset Library</span>
+              <small>{activeShaderName}</small>
+            </div>
+            <div className="preset-grid" role="list" aria-label="Shader presets">
               {savedShaders.map((shader) => (
-                <option key={shader.id} value={shader.id}>
-                  {shader.name}
-                </option>
+                <button
+                  key={shader.id}
+                  type="button"
+                  role="listitem"
+                  className={`preset-card ${
+                    shader.id === activeShaderId ? 'preset-card-active' : ''
+                  }`}
+                  onClick={() => onSelectShader(shader.id)}
+                >
+                  <strong>{shader.name}</strong>
+                  <span>{shader.id === activeShaderId ? 'Active' : 'Load preset'}</span>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
           <div className="button-row">
             <button type="button" className="primary-button" onClick={onNewShader}>
               New Shader

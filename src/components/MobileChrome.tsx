@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { MobileUiMode } from '../types';
 
-export type MobilePanelKey = 'studio' | 'ai' | 'mapping' | null;
+export type MobilePanelKey = 'studio' | 'mapping' | null;
 
 interface MobileChromeProps {
   activeAssetName: string;
@@ -15,14 +15,12 @@ interface MobileChromeProps {
   onPanelChange: (panel: MobilePanelKey) => void;
   panels: {
     studio: ReactNode;
-    ai: ReactNode;
     mapping: ReactNode;
   };
 }
 
 const MOBILE_PANEL_TITLES: Record<Exclude<MobilePanelKey, null>, string> = {
-  studio: 'Studio',
-  ai: 'AI',
+  studio: 'Shader',
   mapping: 'Mapping',
 };
 
@@ -56,13 +54,6 @@ export function MobileChrome({
       </header>
 
       <nav className="mobile-dock">
-        <button
-          type="button"
-          className={activePanel === 'ai' ? 'mobile-dock-button-active' : ''}
-          onClick={() => onPanelChange('ai')}
-        >
-          AI
-        </button>
         <button
           type="button"
           className={activePanel === 'studio' ? 'mobile-dock-button-active' : ''}
@@ -103,7 +94,6 @@ export function MobileChrome({
           </div>
           <div className="mobile-sheet-body">
             {activePanel === 'studio' ? panels.studio : null}
-            {activePanel === 'ai' ? panels.ai : null}
             {activePanel === 'mapping' ? panels.mapping : null}
           </div>
         </aside>

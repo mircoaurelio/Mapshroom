@@ -629,6 +629,53 @@ a {
   gap: 0.65rem;
 }
 
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.preset-card {
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-soft);
+  text-align: left;
+}
+
+.preset-card strong {
+  color: var(--text-bright);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.preset-card span {
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.preset-card:hover {
+  border-color: var(--line-strong);
+  background: #17171a;
+}
+
+.preset-card-active {
+  border-color: rgba(52, 211, 153, 0.28);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.preset-card-active span {
+  color: #a7f3d0;
+}
+
 .asset-row,
 .version-card,
 .future-card {
@@ -950,7 +997,7 @@ a {
   bottom: calc(0.8rem + var(--safe-bottom));
   z-index: 15;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.45rem;
   padding: 0.45rem;
   border: 1px solid var(--line);
@@ -1220,6 +1267,10 @@ a {
 }
 
 @media (max-width: 960px) {
+  .preset-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .stage-mapping-overlay {
     right: 0.75rem;
     bottom: calc(4.7rem + var(--safe-bottom));
