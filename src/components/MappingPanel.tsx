@@ -9,6 +9,7 @@ interface MappingPanelProps {
   onPrecisionChange: (value: number) => void;
   onToggleRotationLock: () => void;
   onAction: (action: MappingAction) => void;
+  showPrecisionSlider?: boolean;
 }
 
 export function MappingPanel({
@@ -18,6 +19,7 @@ export function MappingPanel({
   onPrecisionChange,
   onToggleRotationLock,
   onAction,
+  showPrecisionSlider = true,
 }: MappingPanelProps) {
   return (
     <>
@@ -35,16 +37,18 @@ export function MappingPanel({
               Reset Framing
             </button>
           </div>
-          <label className="field">
-            <span>Precision</span>
-            <input
-              type="range"
-              min={1}
-              max={40}
-              value={stageTransform.precision}
-              onChange={(event) => onPrecisionChange(Number(event.target.value))}
-            />
-          </label>
+          {showPrecisionSlider ? (
+            <label className="field">
+              <span>Precision</span>
+              <input
+                type="range"
+                min={1}
+                max={40}
+                value={stageTransform.precision}
+                onChange={(event) => onPrecisionChange(Number(event.target.value))}
+              />
+            </label>
+          ) : null}
           <button
             type="button"
             className={`toggle-chip ${stageTransform.rotationLocked ? 'toggle-chip-active' : ''}`}

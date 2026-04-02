@@ -4,6 +4,7 @@ import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
+import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { StageRenderer } from '../components/StageRenderer';
 import { StudioPanel } from '../components/StudioPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
@@ -15,10 +16,7 @@ import {
 } from '../config';
 import { pauseTransport, playTransport, resetTransport } from '../lib/clock';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
-import {
-  getShaderProviderLabel,
-  requestShaderMutation,
-} from '../lib/shaderGeneration';
+import { requestShaderMutation } from '../lib/shaderGeneration';
 import { createSessionSync } from '../lib/sessionSync';
 import {
   getOrCreateSessionId,
@@ -140,6 +138,15 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
       uniformValues: syncUniformValues(project.studio.uniformValues, uniformDefinitions),
     },
   };
+}
+
+function sanitizeAiMessage(message: string): string {
+  return message
+    .replaceAll('Google Gemini', 'AI')
+    .replaceAll('OpenAI', 'AI')
+    .replaceAll('Gemini', 'AI')
+    .replaceAll('Google AI', 'AI')
+    .replaceAll('Google', 'AI');
 }
 
 export function WorkspaceRoute() {
@@ -558,8 +565,7 @@ export function WorkspaceRoute() {
 
     setAiLoading(true);
     setCompilerError('');
-    const providerLabel = getShaderProviderLabel(project.ai.settings.shaderProvider);
-    setStatusMessage(`Requesting shader mutation from ${providerLabel}...`);
+    setStatusMessage('Generating shader...');
 
     try {
       const nextCode = await requestShaderMutation({
@@ -589,10 +595,11 @@ export function WorkspaceRoute() {
         },
       }));
       setAiPrompt('');
-      setStatusMessage(`${providerLabel} updated shader: ${nextName}`);
+      setStatusMessage(`Shader updated: ${nextName}`);
     } catch (error) {
-      setCompilerError(error instanceof Error ? error.message : 'Shader mutation failed.');
-      setStatusMessage(`${providerLabel} mutation failed.`);
+      const message = error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader generation failed.';
+      setCompilerError(message);
+      setStatusMessage('Shader generation failed.');
     } finally {
       setAiLoading(false);
     }
@@ -737,6 +744,7 @@ export function WorkspaceRoute() {
         void toggleRotationLock();
       }}
       onAction={handleMappingAction}
+      showPrecisionSlider={!isMobile}
     />
   );
 
@@ -796,6 +804,13 @@ export function WorkspaceRoute() {
             </div>
           ) : null}
 
+          {isMobile && stageControlsVisible ? (
+            <MobilePrecisionOverlay
+              precision={stageTransform.precision}
+              onPrecisionChange={updateStagePrecision}
+            />
+          ) : null}
+
           {!isMobile && uiPreferences.chromeVisible ? (
             <button
               type="button"
@@ -831,7 +846,7 @@ export function WorkspaceRoute() {
           activePanel={mobilePanel}
           onLoadAsset={openFilePicker}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
-          onHideUi={toggleChromeVisibility}
+          onToggleControls={toggleChromeVisibility}
           onPlayToggle={handlePlayToggle}
           onPanelChange={setMobilePanel}
           panels={{
