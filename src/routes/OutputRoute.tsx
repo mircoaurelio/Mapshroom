@@ -38,7 +38,8 @@ export function OutputRoute() {
     return project.library.assets.find((asset) => asset.id === activeId) ?? null;
   }, [project]);
 
-  const activeAssetUrl = useAssetObjectUrl(activeAsset);
+  const activeAssetResolution = useAssetObjectUrl(activeAsset);
+  const activeAssetUrl = activeAssetResolution.url;
   const uniformDefinitions = useMemo(
     () => (project ? parseUniforms(project.studio.activeShaderCode) : {}),
     [project],
@@ -61,6 +62,7 @@ export function OutputRoute() {
       <StageRenderer
         asset={activeAsset}
         assetUrl={activeAssetUrl}
+        assetUrlStatus={activeAssetResolution.status}
         shaderCode={project.studio.activeShaderCode}
         uniformDefinitions={uniformDefinitions}
         uniformValues={project.studio.uniformValues}
