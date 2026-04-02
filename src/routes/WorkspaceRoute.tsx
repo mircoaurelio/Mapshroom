@@ -989,7 +989,10 @@ ${errorSnapshot}`,
 
   const studioPanel = (
     <StudioPanel
-      onNewShader={createNewShader}
+      onNewShader={() => {
+        createNewShader();
+        setMobilePanel(null);
+      }}
       onSaveShader={saveCurrentShader}
       onResetClock={handlePlaybackReset}
       uniformDefinitions={uniformDefinitions}
