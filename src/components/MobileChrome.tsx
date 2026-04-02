@@ -45,10 +45,10 @@ export function MobileChrome({
   return (
     <>
       <header className="mobile-header">
-        <div>
+        <button type="button" className="mobile-header-logo" onClick={onHide}>
           <strong>Mapshroom</strong>
           <span className="mobile-header-meta">{activeAssetName}</span>
-        </div>
+        </button>
         <div className="button-row">
           <button type="button" className="secondary-button" onClick={onLoadAsset}>
             Load

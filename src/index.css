@@ -215,8 +215,14 @@ a {
 }
 
 .toolbar-brand,
-.mobile-header > div:first-child {
+.mobile-header > div:first-child,
+.mobile-header-logo {
   min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
 }
 
 .toolbar-brand,
