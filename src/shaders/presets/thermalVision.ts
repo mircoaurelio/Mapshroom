@@ -1,6 +1,8 @@
 export const thermalVisionShader = {
   id: 'default_thermal',
   name: 'Thermal Vision',
+  description: 'False-color heat mapping that follows the darkest contours.',
+  group: 'Color',
   code: `// NAME: Thermal Vision
 uniform float contrast; // @min 0.5 @max 3.0 @default 1.5
 uniform float heatSpread; // @min 0.0 @max 1.0 @default 0.5
@@ -30,11 +32,10 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     vec3 hot = vec3(1.0, 0.0, 0.0);
     vec3 white = vec3(1.0, 0.9, 0.8);
 
-    vec3 thermal;
-    if (heat < 0.25) thermal = mix(cold, cool, heat / 0.25);
-    else if (heat < 0.5) thermal = mix(cool, warm, (heat - 0.25) / 0.25);
-    else if (heat < 0.75) thermal = mix(warm, hot, (heat - 0.5) / 0.25);
-    else thermal = mix(hot, white, (heat - 0.75) / 0.25);
+    vec3 thermal = mix(cold, cool, smoothstep(0.0, 0.25, heat));
+    thermal = mix(thermal, warm, smoothstep(0.25, 0.5, heat));
+    thermal = mix(thermal, hot, smoothstep(0.5, 0.75, heat));
+    thermal = mix(thermal, white, smoothstep(0.75, 1.0, heat));
 
     vec3 bg = vec3(0.0, 0.0, 0.12 + 0.03 * sin(t * 0.8));
     vec3 result = mix(bg, thermal, max(lineMask * 0.3, heat));

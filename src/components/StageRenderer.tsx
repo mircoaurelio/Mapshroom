@@ -24,6 +24,7 @@ interface StageRendererProps {
   assetUrl: string | null;
   assetUrlStatus?: AssetObjectUrlStatus;
   shaderCode: string;
+  shaderCompileNonce?: number;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   stageTransform: StageTransform;
@@ -93,6 +94,7 @@ export function StageRenderer({
   assetUrl,
   assetUrlStatus = 'idle',
   shaderCode,
+  shaderCompileNonce = 0,
   uniformDefinitions,
   uniformValues,
   stageTransform,
@@ -274,7 +276,7 @@ export function StageRenderer({
       const message = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
       onCompilerError?.(`GLSL Error: ${message}`);
     }
-  }, [shaderCode, uniformDefinitions, onCompilerError]);
+  }, [shaderCode, shaderCompileNonce, uniformDefinitions, onCompilerError]);
 
   useEffect(() => {
     let disposed = false;

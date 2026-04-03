@@ -6,7 +6,7 @@ export const cyberGlitchShader = {
   code: `// NAME: Spectral Contour Split
 uniform float split; // @min 0.0 @max 0.08 @default 0.02
 uniform float pulse; // @min 0.0 @max 4.0 @default 0.9
-uniform bool invert; // @default false
+uniform float invertMix; // @min 0.0 @max 1.0 @default 0.0
 
 vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     vec2 center = uv - 0.5;
@@ -21,10 +21,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     float ink = 1.0 - smoothstep(0.72, 0.95, lum);
     vec3 aberration = vec3(red.r, base.g, blue.b);
     vec3 result = mix(base.rgb, aberration, ink);
-
-    if (invert) {
-        result = 1.0 - result;
-    }
+    result = mix(result, 1.0 - result, step(0.5, invertMix));
 
     return vec4(result, base.a);
 }`,

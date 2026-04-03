@@ -15,7 +15,8 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     float grain = node_noise(uv * resolution * 0.02 + time * 0.04) * 0.05;
 
     vec3 paperShade = clamp(paper - vec3(grain * 0.7), 0.0, 1.0);
-    vec3 result = mix(inkColor, paperShade, tone);
+    vec3 inkShade = clamp(inkColor + vec3(grain * 0.15), 0.0, 1.0);
+    vec3 result = mix(inkShade, paperShade, tone);
     return vec4(result, source.a);
 }`,
 };

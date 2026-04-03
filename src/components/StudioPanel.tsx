@@ -8,13 +8,11 @@ import type {
 } from '../types';
 import { hexToRgb, rgbToHex } from '../lib/shader';
 import { PanelSection } from './PanelSection';
-import { ShaderPresetLibrary } from './ShaderPresetLibrary';
 
 interface StudioPanelProps {
   savedShaders: SavedShader[];
   activeShaderId: string;
   onNewShader: () => void;
-  onSelectShader: (shaderId: string) => void;
   onSaveShader: () => void;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
@@ -29,7 +27,6 @@ interface StudioPanelProps {
   onFixError: () => void;
   onBrowsePresets: () => void;
   onReloadShaderCode: () => void;
-  canReloadShaderCode: boolean;
   versions: ShaderVersion[];
   onRestoreVersion: (versionId: string) => void;
 }
@@ -64,7 +61,6 @@ export function StudioPanel({
   savedShaders,
   activeShaderId,
   onNewShader,
-  onSelectShader,
   onSaveShader,
   uniformDefinitions,
   uniformValues,
@@ -79,7 +75,6 @@ export function StudioPanel({
   onFixError,
   onBrowsePresets,
   onReloadShaderCode,
-  canReloadShaderCode,
   versions,
   onRestoreVersion,
 }: StudioPanelProps) {
@@ -130,11 +125,6 @@ export function StudioPanel({
                 See Presets
               </button>
             </div>
-            <ShaderPresetLibrary
-              presets={savedShaders}
-              activeShaderId={activeShaderId}
-              onSelectShader={onSelectShader}
-            />
           </div>
           <div className="button-row">
             <button type="button" className="primary-button" onClick={onNewShader}>
@@ -149,8 +139,7 @@ export function StudioPanel({
 
       <PanelSection title="Uniform Map">
         <div className="stack gap-md">
-          {Object.keys(uniformDefinitions).length > 0
-            ? (
+          {Object.keys(uniformDefinitions).length > 0 ? (
             Object.entries(uniformDefinitions).map(([name, definition]) => {
               const value = uniformValues[name];
               if (value === undefined) {
@@ -194,8 +183,7 @@ export function StudioPanel({
                 </label>
               );
             })
-            )
-            : null}
+          ) : null}
           <div className="inline-form">
             <input
               className="text-field"
@@ -260,9 +248,8 @@ export function StudioPanel({
             <button
               type="button"
               className="icon-button"
-              aria-label="Reload code from the latest version"
-              title="Reload code from the latest version"
-              disabled={!canReloadShaderCode}
+              aria-label="Recompile current code"
+              title="Recompile current code"
               onClick={onReloadShaderCode}
             >
               <ReloadIcon />
