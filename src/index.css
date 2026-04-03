@@ -1363,6 +1363,58 @@ a {
   box-shadow: -20px 0 50px rgba(0, 0, 0, 0.45);
 }
 
+.workspace-shell-immersive .workspace-toolbar {
+  background: rgba(9, 9, 11, 0.12);
+  border-bottom-color: rgba(63, 63, 70, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.workspace-shell-immersive .workspace-sidebar {
+  background: rgba(9, 9, 11, 0.14);
+  border-left-color: rgba(63, 63, 70, 0.24);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+}
+
+.workspace-shell-immersive .workspace-sidebar-scroll,
+.workspace-shell-immersive .panel-section,
+.workspace-shell-immersive .status-card,
+.workspace-shell-immersive .dialog-note {
+  background: transparent;
+}
+
+.workspace-shell-immersive .panel-section {
+  border-bottom-color: rgba(63, 63, 70, 0.3);
+}
+
+.workspace-shell-immersive .text-field,
+.workspace-shell-immersive .select-field,
+.workspace-shell-immersive .prompt-field,
+.workspace-shell-immersive .code-editor {
+  background: rgba(13, 13, 16, 0.14);
+  border-color: rgba(63, 63, 70, 0.22);
+}
+
+.workspace-shell-immersive .secondary-button,
+.workspace-shell-immersive .ghost-button,
+.workspace-shell-immersive .toggle-chip,
+.workspace-shell-immersive .primary-button,
+.workspace-shell-immersive .icon-button {
+  background: rgba(17, 17, 20, 0.12);
+  border-color: rgba(63, 63, 70, 0.24);
+}
+
+.workspace-shell-immersive .dialog-panel {
+  background: rgba(9, 9, 11, 0.18);
+  border-color: rgba(63, 63, 70, 0.24);
+  backdrop-filter: blur(12px);
+}
+
+.workspace-shell-immersive .ai-feedback {
+  background: rgba(13, 13, 16, 0.12);
+  border-color: rgba(63, 63, 70, 0.22);
+}
+
 .mobile-header {
   position: fixed;
   top: 0;
