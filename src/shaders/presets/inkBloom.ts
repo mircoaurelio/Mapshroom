@@ -20,8 +20,19 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     blur += 1.0 - smoothstep(threshold - 0.16, threshold, dot(texture2D(tex, uv - vec2(0.0, px.y)).rgb, vec3(0.299, 0.587, 0.114)));
     blur *= 0.25;
 
-    float glow = max(0.0, blur - center * 0.5) * bloom;
-    vec3 result = clamp(source.rgb + bloomColor * glow + bloomColor * center * 0.15, 0.0, 1.0);
+    float pulse = 0.82 + 0.18 * sin(time * 0.9 + uv.y * 10.0);
+    float swirl = node_noise(uv * 3.0 + vec2(time * 0.12, -time * 0.08));
+    float glow = max(0.0, blur - center * 0.5) * bloom * pulse;
+    vec3 animatedBloom = clamp(
+        bloomColor + vec3(
+            sin(time * 0.7 + swirl * 6.28318),
+            sin(time * 0.9 + swirl * 6.28318 + 2.1),
+            sin(time * 1.1 + swirl * 6.28318 + 4.2)
+        ) * 0.08,
+        0.0,
+        1.0
+    );
+    vec3 result = clamp(source.rgb + animatedBloom * glow + animatedBloom * center * 0.15, 0.0, 1.0);
     return vec4(result, source.a);
 }`,
 };

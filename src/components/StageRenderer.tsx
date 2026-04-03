@@ -427,7 +427,7 @@ export function StageRenderer({
 
       const currentTransport = transportRef.current;
       const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
-      const shaderTime = currentTransport.isPlaying ? transportTime : timestamp / 1000;
+      const shaderTime = transportTime;
       gl.useProgram(program);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
