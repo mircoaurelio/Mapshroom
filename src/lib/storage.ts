@@ -7,6 +7,7 @@ import {
   PROJECT_STORAGE_PREFIX,
   UI_STORAGE_KEY,
 } from '../config';
+import { restoreTransport, snapshotTransport } from './clock';
 import type { ProjectDocument, UiPreferences } from '../types';
 
 let cachedDbPromise: Promise<IDBDatabase | null> | null = null;
@@ -40,7 +41,13 @@ export function loadProjectDocument(sessionId: string): ProjectDocument | null {
     if (parsed.version !== APP_VERSION) {
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      playback: {
+        ...parsed.playback,
+        transport: restoreTransport(parsed.playback.transport),
+      },
+    };
   } catch (error) {
     console.warn('Unable to parse persisted project document.', error);
     return null;
@@ -48,7 +55,15 @@ export function loadProjectDocument(sessionId: string): ProjectDocument | null {
 }
 
 export function saveProjectDocument(project: ProjectDocument): void {
-  localStorage.setItem(getProjectStorageKey(project.sessionId), JSON.stringify(project));
+  const snapshot = {
+    ...project,
+    playback: {
+      ...project.playback,
+      transport: snapshotTransport(project.playback.transport),
+    },
+  };
+
+  localStorage.setItem(getProjectStorageKey(project.sessionId), JSON.stringify(snapshot));
 }
 
 export function loadUiPreferences<T extends UiPreferences>(fallback: T): T {

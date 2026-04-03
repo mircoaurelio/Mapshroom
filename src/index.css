@@ -1041,9 +1041,12 @@ a {
   color: #a7f3d0;
 }
 
-.preset-preview-canvas {
+.preset-preview-canvas,
+.preset-preview-image {
   width: 100%;
   height: 100%;
+  display: block;
+  object-fit: cover;
   border-radius: 2px;
   background: #000;
 }

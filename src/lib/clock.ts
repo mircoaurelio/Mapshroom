@@ -65,3 +65,32 @@ export function resetTransport(
     anchorTimestampMs: transport.isPlaying ? nowMs : null,
   };
 }
+
+export function snapshotTransport(
+  transport: PlaybackTransport,
+  nowMs = performance.now(),
+): PlaybackTransport {
+  if (!transport.isPlaying) {
+    return transport;
+  }
+
+  return {
+    ...transport,
+    currentTimeSeconds: getTransportTimeSeconds(transport, nowMs),
+    anchorTimestampMs: null,
+  };
+}
+
+export function restoreTransport(
+  transport: PlaybackTransport,
+  nowMs = performance.now(),
+): PlaybackTransport {
+  if (!transport.isPlaying) {
+    return transport;
+  }
+
+  return {
+    ...transport,
+    anchorTimestampMs: nowMs,
+  };
+}
