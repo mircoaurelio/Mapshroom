@@ -16,7 +16,7 @@ import {
   DEFAULT_UI_PREFERENCES,
   createDefaultProject,
 } from '../config';
-import { pauseTransport, playTransport, resetTransport } from '../lib/clock';
+import { pauseTransport, playTransport } from '../lib/clock';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
@@ -432,17 +432,6 @@ export function WorkspaceRoute() {
           : playTransport(currentProject.playback.transport),
       },
     }));
-  };
-
-  const handlePlaybackReset = () => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      playback: {
-        ...currentProject.playback,
-        transport: resetTransport(currentProject.playback.transport),
-      },
-    }));
-    setStatusMessage('Playback clock reset.');
   };
 
   const handleMappingAction = (action: MappingAction) => {
@@ -1048,7 +1037,6 @@ ${errorSnapshot}`,
       }}
       onSelectShader={selectShader}
       onSaveShader={saveCurrentShader}
-      onResetClock={handlePlaybackReset}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}

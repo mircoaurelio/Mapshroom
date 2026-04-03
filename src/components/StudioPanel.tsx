@@ -16,7 +16,6 @@ interface StudioPanelProps {
   onNewShader: () => void;
   onSelectShader: (shaderId: string) => void;
   onSaveShader: () => void;
-  onResetClock: () => void;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
@@ -67,7 +66,6 @@ export function StudioPanel({
   onNewShader,
   onSelectShader,
   onSaveShader,
-  onResetClock,
   uniformDefinitions,
   uniformValues,
   onUniformChange,
@@ -145,18 +143,14 @@ export function StudioPanel({
             <button type="button" className="secondary-button" onClick={onSaveShader}>
               Save
             </button>
-            <button type="button" className="secondary-button" onClick={onResetClock}>
-              Reset Clock
-            </button>
           </div>
         </div>
       </PanelSection>
 
       <PanelSection title="Uniform Map">
         <div className="stack gap-md">
-          {Object.keys(uniformDefinitions).length === 0 ? (
-            <p className="empty-copy">No live uniforms are declared in this shader.</p>
-          ) : (
+          {Object.keys(uniformDefinitions).length > 0
+            ? (
             Object.entries(uniformDefinitions).map(([name, definition]) => {
               const value = uniformValues[name];
               if (value === undefined) {
@@ -200,7 +194,8 @@ export function StudioPanel({
                 </label>
               );
             })
-          )}
+            )
+            : null}
           <div className="inline-form">
             <input
               className="text-field"
