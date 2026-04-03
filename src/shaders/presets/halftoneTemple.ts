@@ -12,8 +12,10 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     vec2 grid = uv * scale;
     vec2 cell = fract(grid) - 0.5;
     float angle = 0.35;
-    mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
-    vec2 rotatedCell = rot * cell;
+    vec2 rotatedCell = vec2(
+        cell.x * cos(angle) - cell.y * sin(angle),
+        cell.x * sin(angle) + cell.y * cos(angle)
+    );
 
     vec4 source = texture2D(tex, uv);
     float lum = dot(source.rgb, vec3(0.299, 0.587, 0.114));

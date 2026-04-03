@@ -1,29 +1,81 @@
-import { useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import type { SavedShader } from '../types';
 import {
   buildFragmentShaderSource,
   VERTEX_SHADER_SOURCE,
   parseUniforms,
 } from '../lib/shader';
 
-interface SavedShaderOption {
-  id: string;
-  name: string;
-  code: string;
-}
+const GROUP_ORDER = ['Glow', 'Color', 'Graphic', 'Geometry', 'Motion', 'Default', 'Saved'];
+const PREVIEW_WIDTH = 128;
+const PREVIEW_HEIGHT = 96;
+const PREVIEW_SOURCE_MAX_EDGE = 256;
 
 interface PresetBrowserDialogProps {
   open: boolean;
-  presets: SavedShaderOption[];
+  presets: SavedShader[];
   activeShaderId: string;
   assetUrl: string | null;
   onSelect: (shaderId: string) => void;
   onClose: () => void;
 }
 
+function getPresetGroup(preset: SavedShader): string {
+  if (preset.group?.trim()) {
+    return preset.group;
+  }
+
+  return preset.id.startsWith('default_') ? 'Default' : 'Saved';
+}
+
+function sortGroups(left: string, right: string): number {
+  const leftIndex = GROUP_ORDER.indexOf(left);
+  const rightIndex = GROUP_ORDER.indexOf(right);
+
+  if (leftIndex === -1 && rightIndex === -1) {
+    return left.localeCompare(right);
+  }
+  if (leftIndex === -1) {
+    return 1;
+  }
+  if (rightIndex === -1) {
+    return -1;
+  }
+
+  return leftIndex - rightIndex;
+}
+
+function createPreviewSource(image: HTMLImageElement) {
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+
+  if (!width || !height) {
+    return null;
+  }
+
+  const longestEdge = Math.max(width, height);
+  const scale = Math.min(1, PREVIEW_SOURCE_MAX_EDGE / longestEdge);
+  const nextWidth = Math.max(1, Math.round(width * scale));
+  const nextHeight = Math.max(1, Math.round(height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = nextWidth;
+  canvas.height = nextHeight;
+
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return null;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'low';
+  context.drawImage(image, 0, 0, nextWidth, nextHeight);
+  return canvas;
+}
+
 function renderPreviewToCanvas(
   canvas: HTMLCanvasElement,
   shaderCode: string,
-  image: HTMLImageElement,
+  image: HTMLCanvasElement,
 ) {
   const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
   if (!gl) return;
@@ -104,32 +156,73 @@ function PreviewCard({
   image,
   onSelect,
 }: {
-  preset: SavedShaderOption;
+  preset: SavedShader;
   isActive: boolean;
-  image: HTMLImageElement | null;
+  image: HTMLCanvasElement | null;
   onSelect: () => void;
 }) {
+  const cardRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    if (!canvasRef.current || !image) return;
+    if (isVisible || !cardRef.current) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '220px 0px' },
+    );
+
+    observer.observe(cardRef.current);
+    return () => {
+      observer.disconnect();
+    };
+  }, [isVisible]);
+
+  useEffect(() => {
+    if (!isVisible || !canvasRef.current || !image) return;
     renderPreviewToCanvas(canvasRef.current, preset.code, image);
-  }, [image, preset.code]);
+  }, [image, isVisible, preset.code]);
+
+  const presetGroup = getPresetGroup(preset);
 
   return (
     <button
+      ref={cardRef}
       type="button"
       className={`preset-preview-card ${isActive ? 'preset-preview-card-active' : ''}`}
       onClick={onSelect}
     >
-      <canvas
-        ref={canvasRef}
-        className="preset-preview-canvas"
-        width={160}
-        height={120}
-      />
-      <span className="preset-preview-name">{preset.name}</span>
-      {isActive ? <span className="preset-preview-badge">Active</span> : null}
+      <div className="preset-preview-shell">
+        {isVisible && image ? (
+          <canvas
+            ref={canvasRef}
+            className="preset-preview-canvas"
+            width={PREVIEW_WIDTH}
+            height={PREVIEW_HEIGHT}
+          />
+        ) : (
+          <div className="preset-preview-placeholder">
+            {image ? 'Loading preview...' : 'Load an asset to see previews'}
+          </div>
+        )}
+      </div>
+      <div className="preset-preview-meta">
+        <div className="preset-preview-header">
+          <span className="preset-preview-name">{preset.name}</span>
+          <span className="preset-preview-tag">{isActive ? 'Active' : presetGroup}</span>
+        </div>
+        <p className="preset-preview-copy">
+          {preset.description ?? 'Shader preset ready to load into the stage.'}
+        </p>
+      </div>
     </button>
   );
 }
@@ -143,10 +236,13 @@ export function PresetBrowserDialog({
   onClose,
 }: PresetBrowserDialogProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('All');
   const [loadedPreview, setLoadedPreview] = useState<{
     assetUrl: string;
-    image: HTMLImageElement;
+    image: HTMLCanvasElement;
   } | null>(null);
+  const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
     if (!open || !assetUrl) {
@@ -157,8 +253,12 @@ export function PresetBrowserDialog({
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      const previewSource = createPreviewSource(img);
+      if (!previewSource) {
+        return;
+      }
       if (!disposed) {
-        setLoadedPreview({ assetUrl, image: img });
+        setLoadedPreview({ assetUrl, image: previewSource });
       }
     };
     img.src = assetUrl;
@@ -176,6 +276,41 @@ export function PresetBrowserDialog({
     setPendingId(null);
     onClose();
   };
+  const categories = ['All', ...Array.from(new Set(presets.map(getPresetGroup))).sort(sortGroups)];
+  const selectedCategory = categories.includes(activeCategory) ? activeCategory : 'All';
+  const normalizedQuery = deferredQuery.trim().toLowerCase();
+  const filteredPresets = presets.filter((preset) => {
+    const matchesCategory =
+      selectedCategory === 'All' || getPresetGroup(preset) === selectedCategory;
+    if (!matchesCategory) {
+      return false;
+    }
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    const haystack = [preset.name, preset.description, preset.group, preset.id]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedQuery);
+  });
+  const groupedPresets = Array.from(
+    filteredPresets.reduce((groups, preset) => {
+      const group = getPresetGroup(preset);
+      const items = groups.get(group) ?? [];
+      items.push(preset);
+      groups.set(group, items);
+      return groups;
+    }, new Map<string, SavedShader[]>()),
+  )
+    .sort(([left], [right]) => sortGroups(left, right))
+    .map(([group, items]) => ({
+      group,
+      items: [...items].sort((left, right) => left.name.localeCompare(right.name)),
+    }));
 
   const pendingPreset = pendingId
     ? presets.find((p) => p.id === pendingId)
@@ -232,17 +367,60 @@ export function PresetBrowserDialog({
               </div>
             </div>
           ) : (
-            <div className="preset-preview-grid">
-              {presets.map((preset) => (
-                <PreviewCard
-                  key={preset.id}
-                  preset={preset}
-                  isActive={preset.id === activeShaderId}
-                  image={image}
-                  onSelect={() => setPendingId(preset.id)}
+            <>
+              <div className="preset-browser-toolbar">
+                <div className="field-inline-label">
+                  <span>Preset Browser</span>
+                  <small>{filteredPresets.length} results</small>
+                </div>
+                <input
+                  className="text-field preset-browser-search"
+                  placeholder="Search presets..."
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
                 />
-              ))}
-            </div>
+                <div className="preset-category-row" role="tablist" aria-label="Preset categories">
+                  {categories.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      className={`preset-category-chip ${
+                        category === selectedCategory ? 'preset-category-chip-active' : ''
+                      }`}
+                      onClick={() => setActiveCategory(category)}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {groupedPresets.length === 0 ? (
+                <p className="empty-copy">No presets match this filter.</p>
+              ) : (
+                <div className="preset-group-stack">
+                  {groupedPresets.map(({ group, items }) => (
+                    <section className="preset-group" key={group}>
+                      <div className="preset-group-header">
+                        <strong className="preset-group-title">{group}</strong>
+                        <span className="preset-group-count">{items.length}</span>
+                      </div>
+                      <div className="preset-preview-grid">
+                        {items.map((preset) => (
+                          <PreviewCard
+                            key={preset.id}
+                            preset={preset}
+                            isActive={preset.id === activeShaderId}
+                            image={image}
+                            onSelect={() => setPendingId(preset.id)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

@@ -1,6 +1,8 @@
 export const watercolorShader = {
   id: 'default_watercolor',
   name: 'Watercolor Bleed',
+  description: 'A watercolor wash with soft paper grain and bleeding edges.',
+  group: 'Color',
   code: `// NAME: Watercolor Bleed
 uniform float bleed; // @min 0.001 @max 0.02 @default 0.006
 uniform float speed; // @min 0.0 @max 2.0 @default 0.4
@@ -21,8 +23,9 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     pigment = mix(vec3(dot(pigment, vec3(0.333))), pigment, saturation);
 
     float paper = 0.95 + 0.05 * node_noise(uv * 30.0);
-    float edgeSoft = smoothstep(0.0, 0.5, lineMask);
-    vec3 result = mix(vec3(paper), pigment * 0.7, edgeSoft);
+    float bloom = smoothstep(0.0, 0.65, lineMask);
+    vec3 wash = mix(vec3(paper), pigment * 0.72, bloom);
+    vec3 result = mix(vec3(paper), wash, 0.9);
     return vec4(result, col.a);
 }`,
 };

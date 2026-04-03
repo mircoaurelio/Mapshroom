@@ -1,6 +1,8 @@
 export const psychedelicHaloShader = {
   id: 'default_psych_halo',
   name: 'Psychedelic Dark Halo Echoes',
+  description: 'Animated halo echoes that stack color around dark contours.',
+  group: 'Glow',
   code: `// NAME: Psychedelic Dark Halo Echoes
 uniform float intensity; // @min 0.0 @max 5.0 @default 2.0
 uniform float speed; // @min 0.0 @max 3.0 @default 1.0
@@ -12,41 +14,38 @@ uniform float blobDarkness; // @min 0.0 @max 5.0 @default 1.5
 
 vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     float t = time * speed;
+    vec2 center = uv - 0.5;
+    vec2 warp = (vec2(
+        node_noise(uv * 2.2 + vec2(t * 0.12, -t * 0.18)),
+        node_noise(uv * 2.2 + vec2(-t * 0.16, t * 0.11) + 3.1)
+    ) - 0.5) * 0.05;
 
-    vec2 q = vec2(node_noise(uv * 2.0 + t * 0.2), node_noise(uv * 2.0 - t * 0.3));
-    vec2 r = vec2(node_noise(uv * 4.0 + q + t * 0.5), node_noise(uv * 4.0 + q - t * 0.4));
-    float blobNoise = node_noise(uv * 3.0 + r * 2.0 + t * 0.3);
+    vec2 echoUv0 = uv + warp * 0.35;
+    vec2 echoUv1 = 0.5 + center * (1.0 - echoDistance * 0.7) + warp;
+    vec2 echoUv2 = 0.5 + center * (1.0 - echoDistance * 1.4) - warp * 0.8;
 
-    float darkSpotNoise = node_noise(uv * 4.0 - r * 1.5 + t * 0.4);
-    float darkMultiplier = clamp(pow(darkSpotNoise, blobDarkness), 0.0, 1.0);
+    vec4 source = texture2D(tex, uv);
+    float lum0 = dot(texture2D(tex, echoUv0).rgb, vec3(0.299, 0.587, 0.114));
+    float lum1 = dot(texture2D(tex, echoUv1).rgb, vec3(0.299, 0.587, 0.114));
+    float lum2 = dot(texture2D(tex, echoUv2).rgb, vec3(0.299, 0.587, 0.114));
 
-    vec3 a = vec3(0.5);
-    vec3 b = vec3(0.5);
-    vec3 c = vec3(1.0);
+    float blobNoise = node_noise(uv * 3.2 + warp * 8.0 + t * 0.2);
+    float darkMultiplier = 0.35 + 0.65 * (1.0 - smoothstep(0.18, 0.88, blobNoise * blobDarkness * 0.35));
 
-    vec3 finalColor = vec3(0.0);
+    float mask0 = smoothstep(0.0, 0.06, lum0) * (1.0 - smoothstep(haloSize, haloSize + haloSoftness, lum0));
+    float mask1 = smoothstep(0.0, 0.06, lum1) * (1.0 - smoothstep(haloSize, haloSize + haloSoftness, lum1));
+    float mask2 = smoothstep(0.0, 0.06, lum2) * (1.0 - smoothstep(haloSize, haloSize + haloSoftness, lum2));
 
-    for(int i = 0; i < 5; i++) {
-        float fi = float(i);
-        float scale = 1.0 - fi * echoDistance;
-        vec2 offsetUv = (uv - 0.5) * scale + 0.5;
+    vec3 color0 = 0.5 + 0.5 * cos(6.28318 * (vec3(lum0 + blobNoise * 0.9 + t * 0.18) + tint + vec3(0.00, 0.12, 0.24)));
+    vec3 color1 = 0.5 + 0.5 * cos(6.28318 * (vec3(lum1 + blobNoise * 1.1 + t * 0.20) + tint + vec3(0.08, 0.20, 0.32)));
+    vec3 color2 = 0.5 + 0.5 * cos(6.28318 * (vec3(lum2 + blobNoise * 1.3 + t * 0.22) + tint + vec3(0.16, 0.28, 0.40)));
 
-        vec4 orig = texture2D(tex, offsetUv);
-        float lum = dot(orig.rgb, vec3(0.299, 0.587, 0.114));
+    vec3 finalColor =
+        color0 * mask0 +
+        color1 * mask1 * 0.78 +
+        color2 * mask2 * 0.56;
 
-        float darkHaloMask = smoothstep(0.0, 0.05, lum) *
-                             (1.0 - smoothstep(haloSize, haloSize + haloSoftness, lum));
-
-        float phase = lum * 0.5 + blobNoise * 1.2 + t * 0.2 - fi * 0.15;
-        vec3 psychColor = a + b * cos(6.28318 * (c * phase + tint));
-
-        psychColor *= darkMultiplier;
-
-        float alpha = 1.0 - (fi / 5.0);
-        finalColor += psychColor * clamp(darkHaloMask * intensity, 0.0, 1.0) * alpha;
-    }
-
-    vec4 original = texture2D(tex, uv);
-    return vec4(finalColor, original.a);
+    finalColor *= intensity * darkMultiplier;
+    return vec4(clamp(finalColor, 0.0, 1.0), source.a);
 }`,
 };

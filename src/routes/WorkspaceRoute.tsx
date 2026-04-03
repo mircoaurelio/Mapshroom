@@ -177,6 +177,7 @@ export function WorkspaceRoute() {
   const [aiFeedbackTone, setAiFeedbackTone] = useState<'idle' | 'loading' | 'success' | 'error'>(
     'idle',
   );
+  const [shaderCompileNonce, setShaderCompileNonce] = useState(0);
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
@@ -655,37 +656,10 @@ export function WorkspaceRoute() {
       return;
     }
 
-    const latestVersion =
-      project.studio.shaderVersions[project.studio.shaderVersions.length - 1] ?? null;
-    const activePreset =
-      project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId) ??
-      null;
-    const nextCode = latestVersion?.code ?? activePreset?.code;
-
-    if (!nextCode) {
-      return;
-    }
-
-    if (nextCode === project.studio.activeShaderCode) {
-      setStatusMessage('Code already matches the latest shader version.');
-      return;
-    }
-
     clearGeneratedShaderRetry();
     setCompilerError('');
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
-        activeShaderCode: nextCode,
-        activeShaderName: latestVersion?.name ?? activePreset?.name ?? parseShaderName(nextCode),
-      },
-    }));
-    setStatusMessage(
-      latestVersion
-        ? `Code reloaded from "${latestVersion.name}".`
-        : `Code reloaded from "${activePreset?.name ?? 'current shader'}".`,
-    );
+    setShaderCompileNonce((currentValue) => currentValue + 1);
+    setStatusMessage('Recompiling current code...');
   };
 
   const handleShaderMutation = async (prompt: string) => {
@@ -1019,14 +993,6 @@ ${errorSnapshot}`,
     />
   );
 
-  const latestShaderVersion =
-    project.studio.shaderVersions[project.studio.shaderVersions.length - 1] ?? null;
-  const latestShaderSource =
-    latestShaderVersion?.code ??
-    project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId)
-      ?.code ??
-    '';
-
   const studioPanel = (
     <StudioPanel
       savedShaders={project.studio.savedShaders}
@@ -1035,7 +1001,6 @@ ${errorSnapshot}`,
         createNewShader();
         setMobilePanel(null);
       }}
-      onSelectShader={selectShader}
       onSaveShader={saveCurrentShader}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
@@ -1061,9 +1026,6 @@ ${errorSnapshot}`,
       onFixError={handleFixError}
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
       onReloadShaderCode={reloadShaderCode}
-      canReloadShaderCode={
-        Boolean(latestShaderSource) && latestShaderSource !== project.studio.activeShaderCode
-      }
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
     />
@@ -1132,6 +1094,7 @@ ${errorSnapshot}`,
             assetUrl={activeAssetUrl}
             assetUrlStatus={activeAssetResolution.status}
             shaderCode={project.studio.activeShaderCode}
+            shaderCompileNonce={shaderCompileNonce}
             uniformDefinitions={uniformDefinitions}
             uniformValues={project.studio.uniformValues}
             stageTransform={project.mapping.stageTransform}
