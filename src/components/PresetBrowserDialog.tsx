@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { SavedShader } from '../types';
 import {
   buildFragmentShaderSource,
@@ -10,6 +10,16 @@ const GROUP_ORDER = ['Glow', 'Color', 'Graphic', 'Geometry', 'Motion', 'Default'
 const PREVIEW_WIDTH = 128;
 const PREVIEW_HEIGHT = 96;
 const PREVIEW_SOURCE_MAX_EDGE = 256;
+const PREVIEW_FALLBACK_BG = '#050506';
+const PREVIEW_IMAGE_QUALITY = 0.68;
+
+interface PreviewRenderer {
+  canvas: HTMLCanvasElement;
+  gl: WebGLRenderingContext;
+  quadBuffer: WebGLBuffer;
+  texture: WebGLTexture;
+  vertexShader: WebGLShader;
+}
 
 interface PresetBrowserDialogProps {
   open: boolean;
@@ -72,65 +82,178 @@ function createPreviewSource(image: HTMLImageElement) {
   return canvas;
 }
 
-function renderPreviewToCanvas(
-  canvas: HTMLCanvasElement,
-  shaderCode: string,
-  image: HTMLCanvasElement,
-) {
-  const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
-  if (!gl) return;
+function createPreviewMessageDataUrl(message: string) {
+  const canvas = document.createElement('canvas');
+  canvas.width = PREVIEW_WIDTH;
+  canvas.height = PREVIEW_HEIGHT;
 
-  const vs = gl.createShader(gl.VERTEX_SHADER);
-  const fs = gl.createShader(gl.FRAGMENT_SHADER);
-  if (!vs || !fs) return;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return '';
+  }
 
-  gl.shaderSource(vs, VERTEX_SHADER_SOURCE);
-  gl.compileShader(vs);
-  if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) return;
+  context.fillStyle = PREVIEW_FALLBACK_BG;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#71717a';
+  context.font = "10px 'IBM Plex Mono', monospace";
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(message, canvas.width / 2, canvas.height / 2);
+  return canvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
+}
 
-  gl.shaderSource(fs, buildFragmentShaderSource(shaderCode));
-  gl.compileShader(fs);
-  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) return;
+function createPreviewRenderer(): PreviewRenderer | null {
+  const canvas = document.createElement('canvas');
+  canvas.width = PREVIEW_WIDTH;
+  canvas.height = PREVIEW_HEIGHT;
 
-  const program = gl.createProgram();
-  if (!program) return;
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+  const gl = canvas.getContext('webgl', {
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: true,
+  });
+  if (!gl) {
+    return null;
+  }
 
-  const buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
-
+  const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+  const quadBuffer = gl.createBuffer();
   const texture = gl.createTexture();
+  if (!vertexShader || !quadBuffer || !texture) {
+    if (texture) {
+      gl.deleteTexture(texture);
+    }
+    if (quadBuffer) {
+      gl.deleteBuffer(quadBuffer);
+    }
+    if (vertexShader) {
+      gl.deleteShader(vertexShader);
+    }
+    return null;
+  }
+
+  gl.shaderSource(vertexShader, VERTEX_SHADER_SOURCE);
+  gl.compileShader(vertexShader);
+  if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+    gl.deleteTexture(texture);
+    gl.deleteBuffer(quadBuffer);
+    gl.deleteShader(vertexShader);
+    return null;
+  }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+    gl.STATIC_DRAW,
+  );
+
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  return {
+    canvas,
+    gl,
+    quadBuffer,
+    texture,
+    vertexShader,
+  };
+}
+
+function destroyPreviewRenderer(renderer: PreviewRenderer | null) {
+  if (!renderer) {
+    return;
+  }
+
+  renderer.gl.deleteTexture(renderer.texture);
+  renderer.gl.deleteBuffer(renderer.quadBuffer);
+  renderer.gl.deleteShader(renderer.vertexShader);
+  renderer.gl.getExtension('WEBGL_lose_context')?.loseContext();
+}
+
+function getPreviewRenderer(rendererRef: MutableRefObject<PreviewRenderer | null>) {
+  if (!rendererRef.current) {
+    rendererRef.current = createPreviewRenderer();
+  }
+
+  return rendererRef.current;
+}
+
+function renderPreviewToCanvas(
+  shaderCode: string,
+  image: HTMLCanvasElement,
+  rendererRef: MutableRefObject<PreviewRenderer | null>,
+) {
+  const renderer = getPreviewRenderer(rendererRef);
+  if (!renderer) {
+    return createPreviewMessageDataUrl('Preview unavailable');
+  }
+
+  const { gl, canvas: renderCanvas, quadBuffer, texture, vertexShader } = renderer;
+  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!fragmentShader) {
+    return createPreviewMessageDataUrl('Preview unavailable');
+  }
+
+  gl.shaderSource(fragmentShader, buildFragmentShaderSource(shaderCode));
+  gl.compileShader(fragmentShader);
+  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(fragmentShader);
+    return createPreviewMessageDataUrl('Shader error');
+  }
+
+  const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(fragmentShader);
+    return createPreviewMessageDataUrl('Preview unavailable');
+  }
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    gl.deleteProgram(program);
+    gl.deleteShader(fragmentShader);
+    return createPreviewMessageDataUrl('Shader error');
+  }
+
+  gl.viewport(0, 0, renderCanvas.width, renderCanvas.height);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
   gl.useProgram(program);
 
   const posLoc = gl.getAttribLocation(program, 'a_position');
+  if (posLoc === -1) {
+    gl.deleteProgram(program);
+    gl.deleteShader(fragmentShader);
+    return createPreviewMessageDataUrl('Preview unavailable');
+  }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
   gl.enableVertexAttribArray(posLoc);
   gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 
   const imgLoc = gl.getUniformLocation(program, 'u_image');
-  if (imgLoc) gl.uniform1i(imgLoc, 0);
+  if (imgLoc !== null) gl.uniform1i(imgLoc, 0);
 
   const timeLoc = gl.getUniformLocation(program, 'u_time');
-  if (timeLoc) gl.uniform1f(timeLoc, 1.0);
+  if (timeLoc !== null) gl.uniform1f(timeLoc, 1.0);
 
   const resLoc = gl.getUniformLocation(program, 'u_resolution');
-  if (resLoc) gl.uniform2f(resLoc, canvas.width, canvas.height);
+  if (resLoc !== null) gl.uniform2f(resLoc, renderCanvas.width, renderCanvas.height);
 
   const uniforms = parseUniforms(shaderCode);
   for (const [name, def] of Object.entries(uniforms)) {
     const loc = gl.getUniformLocation(program, name);
-    if (!loc) continue;
+    if (loc === null) continue;
     if (def.type === 'float' || def.type === 'int') {
       gl.uniform1f(loc, Number(def.default));
     } else if (def.type === 'bool') {
@@ -140,29 +263,32 @@ function renderPreviewToCanvas(
     }
   }
 
-  gl.viewport(0, 0, canvas.width, canvas.height);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+  gl.finish();
+  const previewSrc = renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
 
-  gl.deleteTexture(texture);
-  gl.deleteBuffer(buffer);
+  gl.disableVertexAttribArray(posLoc);
   gl.deleteProgram(program);
-  gl.deleteShader(vs);
-  gl.deleteShader(fs);
+  gl.deleteShader(fragmentShader);
+  return previewSrc;
 }
 
 function PreviewCard({
   preset,
   isActive,
   image,
+  previewSrc,
+  onRequestPreview,
   onSelect,
 }: {
   preset: SavedShader;
   isActive: boolean;
   image: HTMLCanvasElement | null;
+  previewSrc: string | null;
+  onRequestPreview: () => void;
   onSelect: () => void;
 }) {
   const cardRef = useRef<HTMLButtonElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -187,9 +313,10 @@ function PreviewCard({
   }, [isVisible]);
 
   useEffect(() => {
-    if (!isVisible || !canvasRef.current || !image) return;
-    renderPreviewToCanvas(canvasRef.current, preset.code, image);
-  }, [image, isVisible, preset.code]);
+    if (isVisible && image && !previewSrc) {
+      onRequestPreview();
+    }
+  }, [image, isVisible, onRequestPreview, previewSrc]);
 
   const presetGroup = getPresetGroup(preset);
 
@@ -201,16 +328,17 @@ function PreviewCard({
       onClick={onSelect}
     >
       <div className="preset-preview-shell">
-        {isVisible && image ? (
-          <canvas
-            ref={canvasRef}
-            className="preset-preview-canvas"
+        {isVisible && image && previewSrc ? (
+          <img
+            className="preset-preview-image"
+            src={previewSrc}
+            alt=""
             width={PREVIEW_WIDTH}
             height={PREVIEW_HEIGHT}
           />
         ) : (
           <div className="preset-preview-placeholder">
-            {image ? 'Loading preview...' : 'Load an asset to see previews'}
+            {image ? 'Loading snapshot...' : 'Load an asset to see previews'}
           </div>
         )}
       </div>
@@ -242,7 +370,28 @@ export function PresetBrowserDialog({
     assetUrl: string;
     image: HTMLCanvasElement;
   } | null>(null);
+  const [previewSources, setPreviewSources] = useState<Record<string, string>>({});
   const deferredQuery = useDeferredValue(query);
+  const previewRendererRef = useRef<PreviewRenderer | null>(null);
+  const previewSourceRef = useRef<Record<string, string>>({});
+  const previewRequestsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+
+    destroyPreviewRenderer(previewRendererRef.current);
+    previewRendererRef.current = null;
+  }, [open]);
+
+  useEffect(
+    () => () => {
+      destroyPreviewRenderer(previewRendererRef.current);
+      previewRendererRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open || !assetUrl) {
@@ -272,9 +421,40 @@ export function PresetBrowserDialog({
   if (!open) return null;
 
   const image = assetUrl && loadedPreview?.assetUrl === assetUrl ? loadedPreview.image : null;
+  const previewNamespace = assetUrl ?? '__no_asset__';
   const handleClose = () => {
     setPendingId(null);
     onClose();
+  };
+  const requestPreview = (preset: SavedShader) => {
+    if (!image) {
+      return;
+    }
+
+    const previewKey = `${previewNamespace}\u0000${preset.id}\u0000${preset.code}`;
+    if (previewSourceRef.current[previewKey] || previewRequestsRef.current.has(previewKey)) {
+      return;
+    }
+
+    previewRequestsRef.current.add(previewKey);
+    const previewSrc = renderPreviewToCanvas(preset.code, image, previewRendererRef);
+    previewRequestsRef.current.delete(previewKey);
+
+    previewSourceRef.current = {
+      ...previewSourceRef.current,
+      [previewKey]: previewSrc,
+    };
+
+    setPreviewSources((current) => {
+      if (current[previewKey]) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [previewKey]: previewSrc,
+      };
+    });
   };
   const categories = ['All', ...Array.from(new Set(presets.map(getPresetGroup))).sort(sortGroups)];
   const selectedCategory = categories.includes(activeCategory) ? activeCategory : 'All';
@@ -412,6 +592,12 @@ export function PresetBrowserDialog({
                             preset={preset}
                             isActive={preset.id === activeShaderId}
                             image={image}
+                            previewSrc={
+                              previewSources[
+                                `${previewNamespace}\u0000${preset.id}\u0000${preset.code}`
+                              ] ?? null
+                            }
+                            onRequestPreview={() => requestPreview(preset)}
                             onSelect={() => setPendingId(preset.id)}
                           />
                         ))}

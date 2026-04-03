@@ -1,4 +1,5 @@
 import { BROADCAST_PREFIX, PROJECT_STORAGE_PREFIX } from '../config';
+import { restoreTransport, snapshotTransport } from './clock';
 import type { ProjectDocument } from '../types';
 
 function getProjectStorageKey(sessionId: string): string {
@@ -20,7 +21,13 @@ export function createSessionSync(
 
     try {
       const nextProject = JSON.parse(event.newValue) as ProjectDocument;
-      onProjectUpdate(nextProject);
+      onProjectUpdate({
+        ...nextProject,
+        playback: {
+          ...nextProject.playback,
+          transport: restoreTransport(nextProject.playback.transport),
+        },
+      });
     } catch (error) {
       console.warn('Unable to parse synced project payload.', error);
     }
@@ -30,7 +37,13 @@ export function createSessionSync(
     if (!event.data) {
       return;
     }
-    onProjectUpdate(event.data);
+    onProjectUpdate({
+      ...event.data,
+      playback: {
+        ...event.data.playback,
+        transport: restoreTransport(event.data.playback.transport),
+      },
+    });
   };
 
   window.addEventListener('storage', handleStorage);
@@ -38,7 +51,13 @@ export function createSessionSync(
 
   return {
     publish(project: ProjectDocument) {
-      broadcastChannel?.postMessage(project);
+      broadcastChannel?.postMessage({
+        ...project,
+        playback: {
+          ...project.playback,
+          transport: snapshotTransport(project.playback.transport),
+        },
+      });
     },
     destroy() {
       window.removeEventListener('storage', handleStorage);
