@@ -33,7 +33,6 @@ interface ShaderTimelineEditorProps {
   assetUrl: string | null;
   savedShaders: SavedShader[];
   activeShaderId: string;
-  isActiveShaderSaved: boolean;
   editingStepId: string | null;
   activeStepId: string | null;
   transitionStepId: string | null;
@@ -55,13 +54,11 @@ interface ShaderTimelineEditorProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
-  onAddStep: () => void;
-  onAddStepWithShader: (shaderId: string) => void;
+  onAddStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
   onMoveStep: (stepId: string, direction: -1 | 1) => void;
   onEditStep: (stepId: string) => void;
-  onSaveCurrentShader: () => void;
 }
 
 const EDITOR_VIEW_OPTIONS: Array<{
@@ -172,12 +169,28 @@ function RandomChoiceIcon() {
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 3.25v9.5" />
+      <path d="M3.25 8h9.5" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="m4.5 6.5 3.5 3 3.5-3" />
+    </svg>
+  );
+}
+
 export function ShaderTimelineEditor({
   assetKind,
   assetUrl,
   savedShaders,
   activeShaderId,
-  isActiveShaderSaved,
   editingStepId,
   activeStepId,
   transitionStepId,
@@ -193,13 +206,11 @@ export function ShaderTimelineEditor({
   onToggleRandomChoice,
   onSharedTransitionChange,
   onStepChange,
-  onAddStep,
-  onAddStepWithShader,
+  onAddStepsWithShaders,
   onDuplicateStep,
   onRemoveStep,
   onMoveStep,
   onEditStep,
-  onSaveCurrentShader,
 }: ShaderTimelineEditorProps) {
   const title =
     sequence.mode === 'randomMix'
@@ -217,7 +228,10 @@ export function ShaderTimelineEditor({
   const [previewSources, setPreviewSources] = useState<Record<string, string>>({});
   const previewRendererRef = useRef<ShaderPreviewRenderer | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
-  const [addShaderId, setAddShaderId] = useState(activeShaderId);
+  const addMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [selectedAddShaderIds, setSelectedAddShaderIds] = useState<string[]>([]);
+  const hasInitializedAddSelectionRef = useRef(false);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
@@ -244,17 +258,50 @@ export function ShaderTimelineEditor({
   const usesSharedTransition = sequence.mode === 'randomMix';
 
   useEffect(() => {
-    if (addableShaders.some((shader) => shader.id === addShaderId)) {
+    setSelectedAddShaderIds((currentIds) => {
+      const validIds = currentIds.filter((shaderId) =>
+        addableShaders.some((shader) => shader.id === shaderId),
+      );
+
+      if (validIds.length > 0 || hasInitializedAddSelectionRef.current) {
+        return validIds;
+      }
+
+      hasInitializedAddSelectionRef.current = true;
+
+      if (addableShaders.some((shader) => shader.id === activeShaderId)) {
+        return [activeShaderId];
+      }
+
+      return addableShaders[0] ? [addableShaders[0].id] : [];
+    });
+  }, [activeShaderId, addableShaders]);
+
+  useEffect(() => {
+    if (!isAddMenuOpen) {
       return;
     }
 
-    if (addableShaders.some((shader) => shader.id === activeShaderId)) {
-      setAddShaderId(activeShaderId);
-      return;
-    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!addMenuRef.current?.contains(event.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
 
-    setAddShaderId(addableShaders[0]?.id ?? '');
-  }, [activeShaderId, addShaderId, addableShaders]);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsAddMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isAddMenuOpen]);
 
   useEffect(
     () => () => {
@@ -338,8 +385,15 @@ export function ShaderTimelineEditor({
         : previewStatus === 'error'
           ? 'No preview'
           : 'Render...';
-  const selectedAddShader = addableShaders.find((shader) => shader.id === addShaderId) ?? null;
-  const liveShaderButtonLabel = isActiveShaderSaved ? 'Add Live' : 'Save + Add Live';
+  const selectedAddShaderCount = selectedAddShaderIds.length;
+
+  const toggleAddShaderSelection = (shaderId: string) => {
+    setSelectedAddShaderIds((currentIds) =>
+      currentIds.includes(shaderId)
+        ? currentIds.filter((currentId) => currentId !== shaderId)
+        : [...currentIds, shaderId],
+    );
+  };
 
   return (
     <section className="timeline-sequence-editor">
@@ -395,6 +449,75 @@ export function ShaderTimelineEditor({
             ))}
           </div>
 
+          <div className="timeline-add-toolbar" ref={addMenuRef}>
+            <button
+              type="button"
+              className={`secondary-button timeline-add-trigger ${
+                isAddMenuOpen ? 'timeline-add-trigger-active' : ''
+              }`}
+              aria-haspopup="dialog"
+              aria-expanded={isAddMenuOpen}
+              onClick={() => setIsAddMenuOpen((currentValue) => !currentValue)}
+            >
+              <span>Add Shader</span>
+              {selectedAddShaderCount > 0 ? (
+                <span className="timeline-add-count">{selectedAddShaderCount}</span>
+              ) : null}
+              <ChevronDownIcon />
+            </button>
+
+            <button
+              type="button"
+              className="icon-button timeline-add-submit-button"
+              aria-label="Add selected shaders to timeline"
+              title="Add selected shaders to timeline"
+              disabled={selectedAddShaderCount === 0}
+              onClick={() => {
+                if (selectedAddShaderCount === 0) {
+                  return;
+                }
+                onAddStepsWithShaders(selectedAddShaderIds);
+                setSelectedAddShaderIds([]);
+                setIsAddMenuOpen(false);
+              }}
+            >
+              <PlusIcon />
+            </button>
+
+            {isAddMenuOpen ? (
+              <div className="timeline-add-popover" role="dialog" aria-label="Select shaders to add">
+                <div className="timeline-add-popover-copy">
+                  <strong>Pick shaders</strong>
+                  <span>Choose one or more shaders to append to the timeline.</span>
+                </div>
+
+                <div className="timeline-add-option-list">
+                  {addableShaders.map((shader) => {
+                    const isSelected = selectedAddShaderIds.includes(shader.id);
+                    return (
+                      <label
+                        key={shader.id}
+                        className={`timeline-add-option ${
+                          isSelected ? 'timeline-add-option-active' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleAddShaderSelection(shader.id)}
+                        />
+                        <span className="timeline-add-option-copy">
+                          <strong>{shader.name}</strong>
+                          <small>{shader.group ?? 'Shader'}</small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
           <div className="timeline-sequence-playback-actions">
             <button
               type="button"
@@ -429,50 +552,6 @@ export function ShaderTimelineEditor({
             </button>
           </div>
 
-        </div>
-      </div>
-
-      <div className="timeline-add-bar">
-        <label className="field timeline-compact-field timeline-add-field">
-          <span>Add Shader</span>
-          <select
-            className="select-field"
-            value={addShaderId}
-            onChange={(event) => setAddShaderId(event.target.value)}
-          >
-            {addableShaders.map((shader) => (
-              <option key={shader.id} value={shader.id}>
-                {shader.id === activeShaderId && !isActiveShaderSaved
-                  ? `${shader.name} (Live)`
-                  : shader.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="timeline-add-actions">
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={!selectedAddShader}
-            onClick={() => {
-              if (selectedAddShader) {
-                onAddStepWithShader(selectedAddShader.id);
-              }
-            }}
-          >
-            Add Selected
-          </button>
-
-          <button type="button" className="secondary-button" onClick={onAddStep}>
-            {liveShaderButtonLabel}
-          </button>
-
-          {!isActiveShaderSaved ? (
-            <button type="button" className="ghost-button" onClick={onSaveCurrentShader}>
-              Save Live
-            </button>
-          ) : null}
         </div>
       </div>
 
@@ -674,9 +753,6 @@ export function ShaderTimelineEditor({
                   <span className="timeline-step-chip">{shader?.name ?? 'Unknown shader'}</span>
                   {shader?.isTemporary ? (
                     <span className="timeline-step-chip timeline-step-chip-timeline">Timeline</span>
-                  ) : null}
-                  {step.shaderId === activeShaderId ? (
-                    <span className="timeline-step-chip timeline-step-chip-live">Live</span>
                   ) : null}
                   {usesSharedTransition ? (
                     <span className="timeline-step-chip">

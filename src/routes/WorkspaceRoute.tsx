@@ -1142,131 +1142,53 @@ export function WorkspaceRoute() {
     }
   }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
-  const resolveTimelineStepShader = useCallback((
-    currentProject: ProjectDocument,
-    requestedShaderId: string,
-  ) => {
-    const liveShaderId = currentProject.studio.activeShaderId;
-    const liveShaderName = currentProject.studio.activeShaderName;
-    const liveShaderCode = currentProject.studio.activeShaderCode;
-    const savedShader = currentProject.studio.savedShaders.find((shader) => shader.id === requestedShaderId);
-
-    if (savedShader) {
-      return {
-        shaderId: savedShader.id,
-        shaderName: savedShader.name,
-        nextSavedShaders: currentProject.studio.savedShaders,
-        savedLiveSnapshot: false,
-      };
-    }
-
-    if (requestedShaderId === liveShaderId) {
-      const snapshot = createSavedShaderRecord(
-        liveShaderName,
-        liveShaderCode,
-        currentProject.studio.uniformValues,
-      );
-      return {
-        shaderId: snapshot.id,
-        shaderName: snapshot.name,
-        nextSavedShaders: [...currentProject.studio.savedShaders, snapshot],
-        savedLiveSnapshot: true,
-      };
-    }
-
-    return null;
-  }, []);
-
-  const handleTimelineAddStep = useCallback(() => {
-    const fallbackShaderId = project?.studio.activeShaderId ?? project?.studio.savedShaders[0]?.id ?? '';
-    if (!fallbackShaderId) {
+  const handleTimelineAddStepsWithShaders = useCallback((shaderIds: string[]) => {
+    const requestedShaderIds = Array.from(
+      new Set(shaderIds.map((shaderId) => shaderId.trim()).filter(Boolean)),
+    );
+    if (requestedShaderIds.length === 0) {
       return;
     }
 
-    let nextStatusMessage = '';
+    let addedShaderNames: string[] = [];
+
     updateProject((currentProject) => {
-      const timelineShader = resolveTimelineStepShader(currentProject, fallbackShaderId);
-      if (!timelineShader) {
-        return currentProject;
-      }
-      const nextStep = createTimelineShaderStep(timelineShader.shaderId);
+      let nextProject = currentProject;
+      addedShaderNames = [];
 
-      nextStatusMessage = timelineShader.savedLiveSnapshot
-        ? `Saved "${timelineShader.shaderName}" and added it to the timeline.`
-        : `Added "${timelineShader.shaderName}" to the timeline.`;
+      for (const shaderId of requestedShaderIds) {
+        const savedShader = nextProject.studio.savedShaders.find((shader) => shader.id === shaderId);
+        if (!savedShader) {
+          continue;
+        }
 
-      return {
-        ...currentProject,
-        studio: {
-          ...currentProject.studio,
-          savedShaders: timelineShader.nextSavedShaders,
-        },
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              enabled: true,
-              focusedStepId: nextStep.id,
-              steps: [
-                ...currentProject.timeline.stub.shaderSequence.steps,
-                nextStep,
-              ],
+        const nextStep = createTimelineShaderStep(savedShader.id);
+        addedShaderNames.push(savedShader.name);
+        nextProject = {
+          ...nextProject,
+          timeline: {
+            stub: {
+              ...nextProject.timeline.stub,
+              shaderSequence: {
+                ...nextProject.timeline.stub.shaderSequence,
+                enabled: true,
+                focusedStepId: nextStep.id,
+                steps: [...nextProject.timeline.stub.shaderSequence.steps, nextStep],
+              },
             },
           },
-        },
-      };
-    });
-
-    if (nextStatusMessage) {
-      setStatusMessage(nextStatusMessage);
-    }
-  }, [project?.studio.activeShaderId, project?.studio.savedShaders, resolveTimelineStepShader, updateProject]);
-
-  const handleTimelineAddStepWithShader = useCallback((shaderId: string) => {
-    if (!shaderId) {
-      return;
-    }
-
-    let nextStatusMessage = '';
-    updateProject((currentProject) => {
-      const timelineShader = resolveTimelineStepShader(currentProject, shaderId);
-      if (!timelineShader) {
-        return currentProject;
+        };
       }
-      const nextStep = createTimelineShaderStep(timelineShader.shaderId);
 
-      nextStatusMessage = timelineShader.savedLiveSnapshot
-        ? `Saved "${timelineShader.shaderName}" and added it to the timeline.`
-        : `Added "${timelineShader.shaderName}" to the timeline.`;
-
-      return {
-        ...currentProject,
-        studio: {
-          ...currentProject.studio,
-          savedShaders: timelineShader.nextSavedShaders,
-        },
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              enabled: true,
-              focusedStepId: nextStep.id,
-              steps: [
-                ...currentProject.timeline.stub.shaderSequence.steps,
-                nextStep,
-              ],
-            },
-          },
-        },
-      };
+      return nextProject;
     });
 
-    if (nextStatusMessage) {
-      setStatusMessage(nextStatusMessage);
+    if (addedShaderNames.length === 1) {
+      setStatusMessage(`Added "${addedShaderNames[0]}" to the timeline.`);
+    } else if (addedShaderNames.length > 1) {
+      setStatusMessage(`Added ${addedShaderNames.length} shaders to the timeline.`);
     }
-  }, [resolveTimelineStepShader, updateProject]);
+  }, [updateProject]);
 
   const handleTimelineRemoveStep = useCallback((stepId: string) => {
     let nextSelectedStepId: string | null = null;
@@ -2411,20 +2333,15 @@ ${errorSnapshot}`,
     id: project.studio.activeShaderId,
     name: project.studio.activeShaderName,
     code: project.studio.activeShaderCode,
-    description: 'Current shader from the live editor.',
-    group: 'Live',
+    description: 'Current shader from the editor.',
+    group: 'Autosaved',
     uniformValues: project.studio.uniformValues,
   };
   const timelineSelectableShaders = project.studio.savedShaders.some(
     (shader) => shader.id === project.studio.activeShaderId,
   )
-    ? project.studio.savedShaders.map((shader) =>
-        shader.id === project.studio.activeShaderId ? liveShaderEntry : shader,
-      )
+    ? project.studio.savedShaders
     : [liveShaderEntry, ...project.studio.savedShaders];
-  const isActiveShaderSaved = project.studio.savedShaders.some(
-    (shader) => shader.id === project.studio.activeShaderId,
-  );
   const timelineSequenceEnabled =
     timelineStub.shaderSequence.enabled && timelineStub.shaderSequence.steps.length > 0;
   const timelineMarkers = timelineSequenceEnabled
@@ -2627,7 +2544,6 @@ ${errorSnapshot}`,
       assetKind={activeAsset?.kind ?? null}
       assetUrl={activeAssetUrl}
       activeShaderId={project.studio.activeShaderId}
-      isActiveShaderSaved={isActiveShaderSaved}
       savedShaders={timelineSelectableShaders}
       editingStepId={editingTimelineStepId}
       sequence={timelineStub.shaderSequence}
@@ -2645,14 +2561,12 @@ ${errorSnapshot}`,
       onSequenceEditorViewChange={handleTimelineEditorViewChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceStepChange={handleTimelineStepChange}
-      onAddSequenceStep={handleTimelineAddStep}
-      onAddSequenceStepWithShader={handleTimelineAddStepWithShader}
+      onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
       onRemoveSequenceStep={handleTimelineRemoveStep}
       onMoveSequenceStep={handleTimelineMoveStep}
       onResizeSequenceBoundary={handleTimelineResizeBoundary}
       onEditSequenceStep={handleTimelineEditStep}
-      onSaveCurrentShader={saveCurrentShader}
     />
   );
 
@@ -2924,7 +2838,6 @@ ${errorSnapshot}`,
         assetKind={activeAsset?.kind ?? null}
         assetUrl={activeAssetUrl}
         activeShaderId={project.studio.activeShaderId}
-        isActiveShaderSaved={isActiveShaderSaved}
         savedShaders={timelineSelectableShaders}
         editingStepId={editingTimelineStepId}
         sequence={timelineStub.shaderSequence}
@@ -2942,14 +2855,12 @@ ${errorSnapshot}`,
         onSequenceEditorViewChange={handleTimelineEditorViewChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceStepChange={handleTimelineStepChange}
-        onAddSequenceStep={handleTimelineAddStep}
-        onAddSequenceStepWithShader={handleTimelineAddStepWithShader}
+        onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}
         onRemoveSequenceStep={handleTimelineRemoveStep}
         onMoveSequenceStep={handleTimelineMoveStep}
         onResizeSequenceBoundary={handleTimelineResizeBoundary}
         onEditSequenceStep={handleTimelineEditStep}
-        onSaveCurrentShader={saveCurrentShader}
         onClose={() => setIsMobileTimelineOpen(false)}
       />
 
