@@ -23,7 +23,6 @@ interface TimelineBarProps {
   assetKind: AssetKind | null;
   assetUrl: string | null;
   activeShaderId: string;
-  activeShaderName: string;
   isActiveShaderSaved: boolean;
   savedShaders: SavedShader[];
   editingStepId: string | null;
@@ -181,7 +180,6 @@ export function TimelineBar({
   assetKind,
   assetUrl,
   activeShaderId,
-  activeShaderName,
   isActiveShaderSaved,
   savedShaders,
   editingStepId,
@@ -498,7 +496,6 @@ export function TimelineBar({
         assetUrl={assetUrl}
         savedShaders={savedShaders}
         activeShaderId={activeShaderId}
-        activeShaderName={activeShaderName}
         isActiveShaderSaved={isActiveShaderSaved}
         editingStepId={editingStepId}
         activeStepId={timelineState?.currentStep.id ?? null}

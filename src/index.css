@@ -368,8 +368,8 @@ a {
   min-width: 0;
   min-height: 0;
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  align-items: center;
+  justify-content: center;
   background: var(--bg-stage);
 }
 
@@ -378,8 +378,8 @@ a {
   flex: 1;
   overflow: hidden;
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  align-items: center;
+  justify-content: center;
   background: var(--bg-stage);
 }
 
@@ -395,13 +395,15 @@ a {
 .stage-media-surface {
   position: absolute;
   inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
 }
 
 .stage-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
   display: block;
   background: #000;
 }
@@ -783,7 +785,7 @@ a {
 }
 
 .prompt-field-hero {
-  min-height: 210px;
+  min-height: 132px;
   font-size: 0.92rem;
   line-height: 1.65;
 }
@@ -1837,13 +1839,6 @@ a {
   gap: 0.35rem;
 }
 
-.timeline-add-copy {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.64rem;
-  line-height: 1.4;
-}
-
 .timeline-mix-copy {
   margin: 0;
   color: var(--text-muted);
@@ -2533,6 +2528,7 @@ a {
 
 .output-route {
   min-height: 100vh;
+  display: flex;
   background: #000;
 }
 
