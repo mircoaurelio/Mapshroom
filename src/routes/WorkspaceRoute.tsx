@@ -297,6 +297,58 @@ function getSyncedShaderUniformValues(
   return syncUniformValues(uniformValues ?? {}, parseUniforms(code));
 }
 
+function applyActiveShaderPatch(
+  currentProject: ProjectDocument,
+  patch: Partial<
+    Pick<
+      ProjectDocument['studio'],
+      | 'activeShaderId'
+      | 'activeShaderName'
+      | 'activeShaderCode'
+      | 'shaderChatHistory'
+      | 'shaderVersions'
+      | 'uniformValues'
+    >
+  >,
+): ProjectDocument {
+  const nextActiveShaderId = patch.activeShaderId ?? currentProject.studio.activeShaderId;
+  const nextActiveShaderCode = patch.activeShaderCode ?? currentProject.studio.activeShaderCode;
+  const nextActiveShaderName = patch.activeShaderName ?? parseShaderName(nextActiveShaderCode);
+  const nextUniformValues = getSyncedShaderUniformValues(
+    nextActiveShaderCode,
+    patch.uniformValues ?? currentProject.studio.uniformValues,
+  );
+  const activeDraft =
+    currentProject.studio.savedShaders.find(
+      (shader) => shader.id === nextActiveShaderId && shader.isTemporary,
+    ) ?? null;
+
+  return {
+    ...currentProject,
+    studio: {
+      ...currentProject.studio,
+      ...patch,
+      activeShaderId: nextActiveShaderId,
+      activeShaderName: nextActiveShaderName,
+      activeShaderCode: nextActiveShaderCode,
+      uniformValues: nextUniformValues,
+      savedShaders: activeDraft
+        ? currentProject.studio.savedShaders.map((shader) =>
+            shader.id === activeDraft.id
+              ? {
+                  ...shader,
+                  name: nextActiveShaderName,
+                  code: nextActiveShaderCode,
+                  uniformValues: nextUniformValues,
+                  isDirty: true,
+                }
+              : shader,
+          )
+        : currentProject.studio.savedShaders,
+    },
+  };
+}
+
 function createSavedShaderRecord(
   name: string,
   code: string,
@@ -1486,16 +1538,14 @@ export function WorkspaceRoute() {
   };
 
   const handleUniformChange = (name: string, value: ShaderUniformValue) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
+    updateProject((currentProject) =>
+      applyActiveShaderPatch(currentProject, {
         uniformValues: {
           ...currentProject.studio.uniformValues,
           [name]: value,
         },
-      },
-    }));
+      }),
+    );
   };
 
   const selectShader = (shaderId: string) => {
@@ -1637,14 +1687,12 @@ export function WorkspaceRoute() {
     }
 
     clearGeneratedShaderRetry();
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
+    updateProject((currentProject) =>
+      applyActiveShaderPatch(currentProject, {
         activeShaderCode: version.code,
         activeShaderName: version.name,
-      },
-    }));
+      }),
+    );
     setStatusMessage(`Restored "${version.name}".`);
   };
 
@@ -1697,10 +1745,8 @@ export function WorkspaceRoute() {
         retryInFlight: false,
       };
 
-      updateProject((currentProject) => ({
-        ...currentProject,
-        studio: {
-          ...currentProject.studio,
+      updateProject((currentProject) =>
+        applyActiveShaderPatch(currentProject, {
           activeShaderId:
             currentProject.studio.savedShaders.find(
               (shader) =>
@@ -1717,8 +1763,8 @@ export function WorkspaceRoute() {
             ...currentProject.studio.shaderVersions,
             createShaderVersion(prompt, nextName, nextCode, versionId),
           ],
-        },
-      }));
+        }),
+      );
       setAiPrompt('');
       setAiFeedbackTone('success');
       setAiFeedbackMessage(`Shader applied to the stage: ${nextName}.`);
@@ -1806,10 +1852,8 @@ ${compilerError}`;
           retryInFlight: false,
         };
 
-        updateProject((currentProject) => ({
-          ...currentProject,
-          studio: {
-            ...currentProject.studio,
+        updateProject((currentProject) =>
+          applyActiveShaderPatch(currentProject, {
             activeShaderId:
               currentProject.studio.savedShaders.find(
                 (shader) =>
@@ -1821,8 +1865,8 @@ ${compilerError}`;
               ...currentProject.studio.shaderVersions,
               createShaderVersion('Auto-fix after GLSL error', nextName, nextCode, versionId),
             ],
-          },
-        }));
+          }),
+        );
         setAiFeedbackTone('success');
         setAiFeedbackMessage(`Shader auto-fixed and applied: ${nextName}.`);
         setStatusMessage(`Shader auto-fixed: ${nextName}`);
@@ -2254,13 +2298,11 @@ ${errorSnapshot}`,
     clearGeneratedShaderRetry();
     setCompilerError('');
     setShaderCompileNonce((currentValue) => currentValue + 1);
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
+    updateProject((currentProject) =>
+      applyActiveShaderPatch(currentProject, {
         activeShaderCode: value,
-      },
-    }));
+      }),
+    );
   };
 
   const aiPanel = (
