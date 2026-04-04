@@ -5,6 +5,7 @@ export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
 export type ShaderProvider = 'openai' | 'google';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
+export type TimelineTransitionEffect = 'cut' | 'mix' | 'wipe' | 'radial' | 'glitch';
 
 export interface AssetRecord {
   id: string;
@@ -71,6 +72,16 @@ export interface TimelineStub {
     label: string;
     type: string;
   }>;
+  shaderSequence: {
+    enabled: boolean;
+    steps: Array<{
+      id: string;
+      shaderId: string;
+      durationSeconds: number;
+      transitionDurationSeconds: number;
+      transitionEffect: TimelineTransitionEffect;
+    }>;
+  };
 }
 
 export interface ExportStub {

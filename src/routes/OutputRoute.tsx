@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { StageRenderer } from '../components/StageRenderer';
-import { parseUniforms } from '../lib/shader';
+import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { createSessionSync } from '../lib/sessionSync';
 import { loadProjectDocument } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
 import type { ProjectDocument } from '../types';
+
+const FALLBACK_TIMELINE_STUB = {
+  enabled: false,
+  durationSeconds: 180,
+  markers: [],
+  tracks: [],
+  shaderSequence: {
+    enabled: false,
+    steps: [],
+  },
+} as const;
 
 export function OutputRoute() {
   const { sessionId = '' } = useParams();
@@ -40,10 +50,6 @@ export function OutputRoute() {
 
   const activeAssetResolution = useAssetObjectUrl(activeAsset);
   const activeAssetUrl = activeAssetResolution.url;
-  const uniformDefinitions = useMemo(
-    () => (project ? parseUniforms(project.studio.activeShaderCode) : {}),
-    [project],
-  );
 
   if (!project) {
     return (
@@ -59,13 +65,16 @@ export function OutputRoute() {
 
   return (
     <div className="output-route">
-      <StageRenderer
+      <TimelineStageRenderer
         asset={activeAsset}
         assetUrl={activeAssetUrl}
         assetUrlStatus={activeAssetResolution.status}
-        shaderCode={project.studio.activeShaderCode}
-        uniformDefinitions={uniformDefinitions}
-        uniformValues={project.studio.uniformValues}
+        activeShaderId={project.studio.activeShaderId}
+        activeShaderName={project.studio.activeShaderName}
+        activeShaderCode={project.studio.activeShaderCode}
+        activeUniformValues={project.studio.uniformValues}
+        savedShaders={project.studio.savedShaders}
+        timeline={project.timeline?.stub ?? FALLBACK_TIMELINE_STUB}
         stageTransform={project.mapping.stageTransform}
         transport={project.playback.transport}
         isOutputOnly
