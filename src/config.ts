@@ -102,6 +102,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
         ],
         shaderSequence: {
           enabled: false,
+          mode: 'sequence',
           steps: [
             {
               id: crypto.randomUUID(),

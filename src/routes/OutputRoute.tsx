@@ -13,6 +13,7 @@ const FALLBACK_TIMELINE_STUB = {
   tracks: [],
   shaderSequence: {
     enabled: false,
+    mode: 'sequence',
     steps: [],
   },
 } as const;

@@ -87,7 +87,7 @@ export function TimelineStageRenderer({
       ...savedShaders,
     ];
   }, [activeShaderCode, activeShaderId, activeShaderName, savedShaders]);
-  const shaderSequence = timeline.shaderSequence ?? { enabled: false, steps: [] };
+  const shaderSequence = timeline.shaderSequence ?? { enabled: false, mode: 'sequence', steps: [] };
   const sequenceEnabled = shaderSequence.enabled && shaderSequence.steps.length > 0;
 
   useEffect(() => {
@@ -120,6 +120,7 @@ export function TimelineStageRenderer({
 
     return resolveShaderTimelineState({
       shaders: availableShaders,
+      mode: shaderSequence.mode ?? 'sequence',
       steps: shaderSequence.steps,
       timeSeconds: getTransportTimeSeconds(transport, timelineNowMs),
       loop: transport.loop,
