@@ -109,6 +109,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           focusedStepId: firstTimelineStepId,
           singleStepLoopEnabled: false,
           randomChoiceEnabled: false,
+          sharedTransitionEnabled: false,
           sharedTransitionEffect: 'mix',
           sharedTransitionDurationSeconds: 0.75,
           steps: [

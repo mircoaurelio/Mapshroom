@@ -148,6 +148,7 @@ export function resolveShaderTimelineState({
   focusedStepId,
   singleStepLoopEnabled,
   randomChoiceEnabled,
+  sharedTransitionEnabled,
   sharedTransitionEffect,
   sharedTransitionDurationSeconds,
   steps,
@@ -159,6 +160,7 @@ export function resolveShaderTimelineState({
   focusedStepId: string | null;
   singleStepLoopEnabled: boolean;
   randomChoiceEnabled: boolean;
+  sharedTransitionEnabled: boolean;
   sharedTransitionEffect: TimelineTransitionEffect;
   sharedTransitionDurationSeconds: number;
   steps: TimelineStub['shaderSequence']['steps'];
@@ -179,6 +181,8 @@ export function resolveShaderTimelineState({
   const playbackSteps =
     singleStepLoopEnabled && focusedStep ? [focusedStep] : validSteps;
   const effectiveMode = randomChoiceEnabled ? 'random' : mode;
+  const usesSharedTransition =
+    effectiveMode === 'randomMix' || sharedTransitionEnabled;
 
   const totalDurationSeconds = getShaderTimelineDuration(playbackSteps);
   if (totalDurationSeconds <= 0) {
@@ -216,12 +220,12 @@ export function resolveShaderTimelineState({
       const nextShader = nextStep ? shaderMap.get(nextStep.shaderId) ?? null : null;
       const localTimeSeconds = Math.max(0, Math.min(durationSeconds, resolvedTime - cursor));
       const effectiveTransitionEffect =
-        effectiveMode === 'randomMix' ? sharedTransitionEffect : step.transitionEffect;
+        usesSharedTransition ? sharedTransitionEffect : step.transitionEffect;
       const transitionDurationSeconds = clampTransitionDuration(
         durationSeconds,
         singleStepLoopEnabled
           ? 0
-          : effectiveMode === 'randomMix'
+          : usesSharedTransition
             ? sharedTransitionDurationSeconds
             : step.transitionDurationSeconds,
       );

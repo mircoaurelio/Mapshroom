@@ -18,6 +18,7 @@ const FALLBACK_TIMELINE_STUB = {
     focusedStepId: null,
     singleStepLoopEnabled: false,
     randomChoiceEnabled: false,
+    sharedTransitionEnabled: false,
     sharedTransitionEffect: 'mix',
     sharedTransitionDurationSeconds: 0.75,
     steps: [],

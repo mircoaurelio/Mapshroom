@@ -48,6 +48,7 @@ interface TimelineBarProps {
   onSequenceModeChange: (mode: TimelineSequenceMode) => void;
   onSequenceEditorViewChange: (editorView: TimelineEditorViewMode) => void;
   onSequenceSharedTransitionChange: (patch: {
+    sharedTransitionEnabled?: boolean;
     sharedTransitionEffect?: TimelineTransitionEffect;
     sharedTransitionDurationSeconds?: number;
   }) => void;
@@ -59,7 +60,6 @@ interface TimelineBarProps {
   onAddSequenceStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
-  onMoveSequenceStep: (stepId: string, direction: -1 | 1) => void;
   onEditSequenceStep: (stepId: string) => void;
   onResizeSequenceBoundary: (
     leftStepId: string,
@@ -194,15 +194,18 @@ function getTimelineTransitionSegments({
     return [];
   }
 
+  const usesSharedTransition =
+    sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled;
+
   return stepSegments.slice(0, -1).flatMap((segment) => {
     const baseDurationSeconds = clampTimelineStepDuration(segment.step.durationSeconds);
     const effect =
-      sequence.mode === 'randomMix'
+      usesSharedTransition
         ? sequence.sharedTransitionEffect
         : segment.step.transitionEffect;
     const transitionDurationSeconds = clampTransitionDuration(
       baseDurationSeconds,
-      sequence.mode === 'randomMix'
+      usesSharedTransition
         ? sequence.sharedTransitionDurationSeconds
         : segment.step.transitionDurationSeconds,
     );
@@ -253,7 +256,6 @@ export function TimelineBar({
   onAddSequenceStepsWithShaders,
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
-  onMoveSequenceStep,
   onEditSequenceStep,
   onResizeSequenceBoundary,
   variant = 'desktop',
@@ -354,6 +356,7 @@ export function TimelineBar({
       focusedStepId: sequence.focusedStepId,
       singleStepLoopEnabled: sequence.singleStepLoopEnabled,
       randomChoiceEnabled: sequence.randomChoiceEnabled,
+      sharedTransitionEnabled: sequence.sharedTransitionEnabled,
       sharedTransitionEffect: sequence.sharedTransitionEffect,
       sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
       steps: sequence.steps,
@@ -366,6 +369,7 @@ export function TimelineBar({
     sequence.focusedStepId,
     sequence.mode,
     sequence.randomChoiceEnabled,
+    sequence.sharedTransitionEnabled,
     sequence.singleStepLoopEnabled,
     sequence.sharedTransitionDurationSeconds,
     sequence.sharedTransitionEffect,
@@ -395,6 +399,8 @@ export function TimelineBar({
     0.75,
     safeDurationSeconds / Math.max(markerStops.length * 10, 24),
   );
+  const usesSharedTransition =
+    sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled;
   const activeTransitionSegment =
     activeTransitionEditorStepId
       ? transitionSegments.find((segment) => segment.stepId === activeTransitionEditorStepId) ?? null
@@ -413,6 +419,12 @@ export function TimelineBar({
       setActiveTransitionEditorStepId(null);
     }
   }, [activeTransitionEditorStepId, transitionSegments]);
+
+  useEffect(() => {
+    if (usesSharedTransition && activeTransitionEditorStepId !== null) {
+      setActiveTransitionEditorStepId(null);
+    }
+  }, [activeTransitionEditorStepId, usesSharedTransition]);
 
   const handleScrubChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextTimeSeconds = Number(event.target.value);
@@ -526,11 +538,7 @@ export function TimelineBar({
       </div>
 
       {sequence.enabled && stepSegments.length > 0 ? (
-        <div
-          className={`timeline-segment-track-shell ${
-            activeTransitionSegment ? 'timeline-segment-track-shell-editing' : ''
-          }`}
-        >
+        <div className="timeline-segment-track-shell">
           <div className="timeline-segment-track" ref={stepTrackRef}>
             {stepSegments.map((segment) => {
               const shaderName =
@@ -573,21 +581,24 @@ export function TimelineBar({
               <button
                 key={`transition:${segment.stepId}`}
                 type="button"
-                className={`timeline-transition-block ${
-                  activeTransitionEditorStepId === segment.stepId ? 'timeline-transition-block-active' : ''
+                className={`timeline-transition-pin ${
+                  activeTransitionEditorStepId === segment.stepId ? 'timeline-transition-pin-active' : ''
                 }`}
                 style={{
-                  left: `${segment.startRatio * 100}%`,
-                  width: `${Math.max(1.5, (segment.endRatio - segment.startRatio) * 100)}%`,
+                  left: `${segment.endRatio * 100}%`,
                 }}
                 title={`${segment.effect} - ${roundTimelineSeconds(segment.durationSeconds).toFixed(2)}s`}
-                onClick={() =>
+                onClick={() => {
+                  if (usesSharedTransition) {
+                    return;
+                  }
+
                   setActiveTransitionEditorStepId((currentValue) =>
                     currentValue === segment.stepId ? null : segment.stepId,
-                  )
-                }
+                  );
+                }}
               >
-                <span>{segment.effect}</span>
+                <span className="timeline-transition-pin-label">{segment.effect}</span>
               </button>
             ))}
 
@@ -615,23 +626,23 @@ export function TimelineBar({
             })}
           </div>
 
-          {activeTransitionSegment ? (
+          {activeTransitionSegment && !usesSharedTransition ? (
             <div
               className="timeline-transition-editor"
-              style={{ left: `${Math.min(82, Math.max(18, activeTransitionSegment.centerRatio * 100))}%` }}
+              style={{ left: `${Math.min(84, Math.max(16, activeTransitionSegment.endRatio * 100))}%` }}
             >
               <label className="field timeline-compact-field timeline-transition-editor-field">
                 <span>Fx</span>
                 <select
                   className="select-field"
                   value={
-                    sequence.mode === 'randomMix'
+                    usesSharedTransition
                       ? sequence.sharedTransitionEffect
                       : sequence.steps.find((step) => step.id === activeTransitionSegment.stepId)
                           ?.transitionEffect ?? 'mix'
                   }
                   onChange={(event) => {
-                    if (sequence.mode === 'randomMix') {
+                    if (usesSharedTransition) {
                       onSequenceSharedTransitionChange({
                         sharedTransitionEffect: event.target.value as TimelineTransitionEffect,
                       });
@@ -659,14 +670,14 @@ export function TimelineBar({
                   min={0}
                   step={0.01}
                   value={
-                    sequence.mode === 'randomMix'
+                    usesSharedTransition
                       ? sequence.sharedTransitionDurationSeconds
                       : sequence.steps.find((step) => step.id === activeTransitionSegment.stepId)
                           ?.transitionDurationSeconds ?? 0
                   }
                   onChange={(event) => {
                     const nextDurationSeconds = Number(event.target.value);
-                    if (sequence.mode === 'randomMix') {
+                    if (usesSharedTransition) {
                       onSequenceSharedTransitionChange({
                         sharedTransitionDurationSeconds: nextDurationSeconds,
                       });
@@ -734,11 +745,11 @@ export function TimelineBar({
         onReset={onReset}
         onToggleSingleStepLoop={onToggleSingleStepLoop}
         onToggleRandomChoice={onToggleRandomChoice}
+        onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
         onAddStepsWithShaders={onAddSequenceStepsWithShaders}
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
-        onMoveStep={onMoveSequenceStep}
         onEditStep={onEditSequenceStep}
       />
     </div>

@@ -88,6 +88,7 @@ export interface TimelineStub {
     focusedStepId: string | null;
     singleStepLoopEnabled: boolean;
     randomChoiceEnabled: boolean;
+    sharedTransitionEnabled: boolean;
     sharedTransitionEffect: TimelineTransitionEffect;
     sharedTransitionDurationSeconds: number;
     steps: Array<{
