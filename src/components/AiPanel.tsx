@@ -6,8 +6,6 @@ interface AiPanelProps {
   feedbackMessage: string;
   feedbackTone: 'idle' | 'loading' | 'success' | 'error';
   shaderError: string;
-  targetLabel?: string | null;
-  targetStatus?: string | null;
   onPromptChange: (value: string) => void;
   onSubmit: () => void;
   onFixError: () => void;
@@ -19,8 +17,6 @@ export function AiPanel({
   feedbackMessage,
   feedbackTone,
   shaderError,
-  targetLabel,
-  targetStatus,
   onPromptChange,
   onSubmit,
   onFixError,
@@ -31,16 +27,6 @@ export function AiPanel({
   return (
     <PanelSection>
       <div className="stack gap-md ai-panel-stack">
-        {targetLabel ? (
-          <div className="selection-target-banner">
-            <div>
-              <strong>{targetLabel}</strong>
-              <p>AI edits apply to this selected timeline shader.</p>
-            </div>
-            {targetStatus ? <span className="selection-target-status">{targetStatus}</span> : null}
-          </div>
-        ) : null}
-
         <textarea
           className="prompt-field prompt-field-hero"
           aria-label="Shader prompt"
