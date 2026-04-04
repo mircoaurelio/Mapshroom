@@ -35,7 +35,6 @@ interface TimelineBarProps {
   onSeek: (seconds: number) => void;
   onPlayToggle: () => void;
   onReset: () => void;
-  onToggleLoop: () => void;
   onToggleSingleStepLoop: () => void;
   onToggleRandomChoice: () => void;
   onSequenceEnabledChange: (enabled: boolean) => void;
@@ -226,7 +225,6 @@ export function TimelineBar({
   onSeek,
   onPlayToggle,
   onReset,
-  onToggleLoop,
   onToggleSingleStepLoop,
   onToggleRandomChoice,
   onSequenceEnabledChange,
@@ -430,13 +428,6 @@ export function TimelineBar({
           </button>
           <button type="button" className="secondary-button" onClick={onReset}>
             Reset
-          </button>
-          <button
-            type="button"
-            className={`toggle-chip ${transport.loop ? 'toggle-chip-active' : ''}`}
-            onClick={onToggleLoop}
-          >
-            Loop
           </button>
         </div>
       </div>
