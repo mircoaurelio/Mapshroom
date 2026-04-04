@@ -6,7 +6,7 @@ interface WorkspaceToolbarProps {
   workspaceMode: WorkspaceMode;
   sidebarVisible: boolean;
   desktopSlidersWindowEnabled: boolean;
-  onLoadAsset: () => void;
+  onOpenAssets: () => void;
   onOpenSettings: () => void;
   onPlayToggle: () => void;
   onOpenOutput: () => void;
@@ -20,7 +20,7 @@ export function WorkspaceToolbar({
   workspaceMode,
   sidebarVisible,
   desktopSlidersWindowEnabled,
-  onLoadAsset,
+  onOpenAssets,
   onOpenSettings,
   onPlayToggle,
   onOpenOutput,
@@ -106,8 +106,8 @@ export function WorkspaceToolbar({
           ) : null}
         </div>
 
-        <button type="button" className="secondary-button" onClick={onLoadAsset}>
-          Load
+        <button type="button" className="secondary-button" onClick={onOpenAssets}>
+          Assets
         </button>
         <button type="button" className="secondary-button" onClick={onOpenSettings}>
           APIs

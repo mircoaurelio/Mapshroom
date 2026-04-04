@@ -40,6 +40,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
 
 export function createDefaultProject(sessionId: string): ProjectDocument {
   const defaultShader = DEFAULT_SHADERS.default_psych;
+  const firstTimelineStepId = crypto.randomUUID();
 
   return {
     version: APP_VERSION,
@@ -105,11 +106,14 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           enabled: false,
           mode: 'sequence',
           editorView: 'simple',
+          focusedStepId: firstTimelineStepId,
+          singleStepLoopEnabled: false,
+          randomChoiceEnabled: false,
           sharedTransitionEffect: 'mix',
           sharedTransitionDurationSeconds: 0.75,
           steps: [
             {
-              id: crypto.randomUUID(),
+              id: firstTimelineStepId,
               shaderId: defaultShader.id,
               durationSeconds: 8,
               transitionDurationSeconds: 0.75,

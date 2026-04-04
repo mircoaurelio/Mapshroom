@@ -1,36 +1,56 @@
 import { useEffect, useState } from 'react';
-import type { SavedShader, ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap, ShaderVersion } from '../types';
+import type {
+  SavedShader,
+  ShaderUniformMap,
+  ShaderUniformValue,
+  ShaderUniformValueMap,
+  ShaderVersion,
+} from '../types';
 import { PanelSection } from './PanelSection';
 import { UniformPanel } from './UniformPanel';
 
-interface StudioPanelProps {
+interface TimelineDraftInfo {
+  label: string;
+  sourceName: string | null;
+  isDirty: boolean;
+}
+
+interface ShaderStudioControlsSectionProps {
   savedShaders: SavedShader[];
   activeShaderId: string;
   onNewShader: () => void;
   onSaveShader: () => void;
   onDiscardDraft?: () => void;
+  onBrowsePresets: () => void;
+  timelineDraft?: TimelineDraftInfo;
+}
+
+interface ShaderVersionTrailSectionProps {
+  versions: ShaderVersion[];
+  onRestoreVersion: (versionId: string) => void;
+}
+
+interface ShaderCodeSectionProps {
+  shaderCode: string;
+  onShaderCodeChange: (value: string) => void;
+  compilerError: string;
+  aiLoading: boolean;
+  onFixError: () => void;
+  onReloadShaderCode: () => void;
+}
+
+interface StudioPanelProps
+  extends ShaderStudioControlsSectionProps,
+    ShaderVersionTrailSectionProps,
+    ShaderCodeSectionProps {
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   newUniformName: string;
   onNewUniformNameChange: (value: string) => void;
   onQuickAddUniform: () => void;
-  shaderCode: string;
-  onShaderCodeChange: (value: string) => void;
-  compilerError: string;
-  aiLoading: boolean;
-  onFixError: () => void;
-  onBrowsePresets: () => void;
-  onReloadShaderCode: () => void;
-  versions: ShaderVersion[];
-  onRestoreVersion: (versionId: string) => void;
   showUniformPanel?: boolean;
   uniformPanelTitle?: string;
-  timelineDraft?: {
-    label: string;
-    sourceName: string | null;
-    isDirty: boolean;
-  };
 }
 
 function CopyIcon() {
@@ -59,34 +79,103 @@ function ReloadIcon() {
   );
 }
 
-export function StudioPanel({
+export function ShaderStudioControlsSection({
   savedShaders,
   activeShaderId,
   onNewShader,
   onSaveShader,
   onDiscardDraft,
-  uniformDefinitions,
-  uniformValues,
-  onUniformChange,
-  newUniformName,
-  onNewUniformNameChange,
-  onQuickAddUniform,
+  onBrowsePresets,
+  timelineDraft,
+}: ShaderStudioControlsSectionProps) {
+  const activeShaderName =
+    savedShaders.find((shader) => shader.id === activeShaderId)?.name ?? 'Custom Shader';
+
+  return (
+    <PanelSection title="Shader Studio">
+      <div className="stack gap-md">
+        {timelineDraft ? (
+          <div className="draft-target-banner draft-target-banner-studio">
+            <div>
+              <strong>{timelineDraft.label}</strong>
+              <p>
+                {timelineDraft.sourceName
+                  ? `Based on ${timelineDraft.sourceName}. Save it to keep this timeline version.`
+                  : 'Temporary timeline shader draft.'}
+              </p>
+            </div>
+            <span className="draft-target-status">
+              {timelineDraft.isDirty ? 'Unsaved Draft' : 'Temporary Draft'}
+            </span>
+          </div>
+        ) : null}
+
+        <div className="stack gap-sm">
+          <div className="field-inline-label">
+            <span>Current Shader</span>
+            <small>{activeShaderName}</small>
+          </div>
+          <div className="button-row">
+            <button type="button" className="secondary-button" onClick={onBrowsePresets}>
+              Preset List
+            </button>
+            <button type="button" className="primary-button" onClick={onSaveShader}>
+              {timelineDraft ? 'Save Draft' : 'Save'}
+            </button>
+          </div>
+        </div>
+
+        <div className="button-row">
+          <button type="button" className="secondary-button" onClick={onNewShader}>
+            New Shader
+          </button>
+          {timelineDraft && onDiscardDraft ? (
+            <button type="button" className="ghost-button" onClick={onDiscardDraft}>
+              Discard Draft
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </PanelSection>
+  );
+}
+
+export function ShaderVersionTrailSection({
+  versions,
+  onRestoreVersion,
+}: ShaderVersionTrailSectionProps) {
+  return (
+    <PanelSection title="History">
+      <div className="version-list">
+        {[...versions].reverse().map((version) => (
+          <article className="version-card" key={version.id}>
+            <div>
+              <strong>{version.name}</strong>
+              <p>{version.prompt}</p>
+            </div>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => onRestoreVersion(version.id)}
+            >
+              Restore
+            </button>
+          </article>
+        ))}
+      </div>
+    </PanelSection>
+  );
+}
+
+export function ShaderCodeSection({
   shaderCode,
   onShaderCodeChange,
   compilerError,
   aiLoading,
   onFixError,
-  onBrowsePresets,
   onReloadShaderCode,
-  versions,
-  onRestoreVersion,
-  showUniformPanel = true,
-  uniformPanelTitle,
-  timelineDraft,
-}: StudioPanelProps) {
+}: ShaderCodeSectionProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-  const activeShaderName =
-    savedShaders.find((shader) => shader.id === activeShaderId)?.name ?? 'Custom Shader';
   const copyLabel =
     copyState === 'copied' ? 'Code copied' : copyState === 'error' ? 'Copy failed' : 'Copy code';
 
@@ -118,51 +207,100 @@ export function StudioPanel({
   };
 
   return (
-    <>
-      <PanelSection title="Shader Studio">
-        <div className="stack gap-md">
-          {timelineDraft ? (
-            <div className="draft-target-banner draft-target-banner-studio">
-              <div>
-                <strong>{timelineDraft.label}</strong>
-                <p>
-                  {timelineDraft.sourceName
-                    ? `Based on ${timelineDraft.sourceName}. Save it to keep this timeline version.`
-                    : 'Temporary timeline shader draft.'}
-                </p>
-              </div>
-              <span className="draft-target-status">
-                {timelineDraft.isDirty ? 'Unsaved Draft' : 'Temporary Draft'}
-              </span>
-            </div>
-          ) : null}
+    <PanelSection
+      title="Code"
+      actions={
+        <>
+          <button
+            type="button"
+            className={`icon-button ${
+              copyState === 'copied'
+                ? 'icon-button-success'
+                : copyState === 'error'
+                  ? 'icon-button-error'
+                  : ''
+            }`}
+            aria-label={copyLabel}
+            title={copyLabel}
+            onClick={() => {
+              void handleCopyCode();
+            }}
+          >
+            {copyState === 'copied' ? <CheckIcon /> : <CopyIcon />}
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Recompile current code"
+            title="Recompile current code"
+            onClick={onReloadShaderCode}
+          >
+            <ReloadIcon />
+          </button>
+        </>
+      }
+    >
+      <div className="stack gap-md">
+        <textarea
+          className="code-editor"
+          value={shaderCode}
+          spellCheck={false}
+          onChange={(event) => onShaderCodeChange(event.target.value)}
+        />
+        {compilerError ? (
+          <div className="error-panel">
+            {compilerError}
+            <button
+              type="button"
+              className="fix-error-button"
+              disabled={aiLoading}
+              onClick={onFixError}
+            >
+              {aiLoading ? 'Fixing...' : 'Fix Error'}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </PanelSection>
+  );
+}
 
-          <div className="stack gap-sm">
-            <div className="field-inline-label">
-              <span>Current Shader</span>
-              <small>{activeShaderName}</small>
-            </div>
-            <div className="button-row">
-              <button type="button" className="secondary-button" onClick={onBrowsePresets}>
-                See Presets
-              </button>
-            </div>
-          </div>
-          <div className="button-row">
-            <button type="button" className="primary-button" onClick={onNewShader}>
-              New Shader
-            </button>
-            <button type="button" className="secondary-button" onClick={onSaveShader}>
-              {timelineDraft ? 'Save Draft' : 'Save'}
-            </button>
-            {timelineDraft && onDiscardDraft ? (
-              <button type="button" className="ghost-button" onClick={onDiscardDraft}>
-                Discard Draft
-              </button>
-            ) : null}
-          </div>
-        </div>
-      </PanelSection>
+export function StudioPanel({
+  savedShaders,
+  activeShaderId,
+  onNewShader,
+  onSaveShader,
+  onDiscardDraft,
+  uniformDefinitions,
+  uniformValues,
+  onUniformChange,
+  newUniformName,
+  onNewUniformNameChange,
+  onQuickAddUniform,
+  shaderCode,
+  onShaderCodeChange,
+  compilerError,
+  aiLoading,
+  onFixError,
+  onBrowsePresets,
+  onReloadShaderCode,
+  versions,
+  onRestoreVersion,
+  showUniformPanel = true,
+  uniformPanelTitle,
+  timelineDraft,
+}: StudioPanelProps) {
+  return (
+    <>
+      <ShaderStudioControlsSection
+        savedShaders={savedShaders}
+        activeShaderId={activeShaderId}
+        onNewShader={onNewShader}
+        onSaveShader={onSaveShader}
+        onDiscardDraft={onDiscardDraft}
+        onBrowsePresets={onBrowsePresets}
+        timelineDraft={timelineDraft}
+      />
 
       {showUniformPanel ? (
         <UniformPanel
@@ -176,81 +314,16 @@ export function StudioPanel({
         />
       ) : null}
 
-      <PanelSection title="Version Trail">
-        <div className="version-list">
-          {[...versions].reverse().map((version) => (
-            <article className="version-card" key={version.id}>
-              <div>
-                <strong>{version.name}</strong>
-                <p>{version.prompt}</p>
-              </div>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => onRestoreVersion(version.id)}
-              >
-                Restore
-              </button>
-            </article>
-          ))}
-        </div>
-      </PanelSection>
+      <ShaderVersionTrailSection versions={versions} onRestoreVersion={onRestoreVersion} />
 
-      <PanelSection
-        title="Code"
-        actions={
-          <>
-            <button
-              type="button"
-              className={`icon-button ${
-                copyState === 'copied'
-                  ? 'icon-button-success'
-                  : copyState === 'error'
-                    ? 'icon-button-error'
-                    : ''
-              }`}
-              aria-label={copyLabel}
-              title={copyLabel}
-              onClick={() => {
-                void handleCopyCode();
-              }}
-            >
-              {copyState === 'copied' ? <CheckIcon /> : <CopyIcon />}
-            </button>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Recompile current code"
-              title="Recompile current code"
-              onClick={onReloadShaderCode}
-            >
-              <ReloadIcon />
-            </button>
-          </>
-        }
-      >
-        <div className="stack gap-md">
-          <textarea
-            className="code-editor"
-            value={shaderCode}
-            spellCheck={false}
-            onChange={(event) => onShaderCodeChange(event.target.value)}
-          />
-          {compilerError ? (
-            <div className="error-panel">
-              {compilerError}
-              <button
-                type="button"
-                className="fix-error-button"
-                disabled={aiLoading}
-                onClick={onFixError}
-              >
-                {aiLoading ? 'Fixing...' : 'Fix Error'}
-              </button>
-            </div>
-          ) : null}
-        </div>
-      </PanelSection>
+      <ShaderCodeSection
+        shaderCode={shaderCode}
+        onShaderCodeChange={onShaderCodeChange}
+        compilerError={compilerError}
+        aiLoading={aiLoading}
+        onFixError={onFixError}
+        onReloadShaderCode={onReloadShaderCode}
+      />
     </>
   );
 }
