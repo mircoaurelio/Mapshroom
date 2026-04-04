@@ -17,6 +17,7 @@ import {
 import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { UniformPanel } from '../components/UniformPanel';
+import type { TimelineSelectionInfo } from '../components/TimelineSelectionBanner';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_STAGE_TRANSFORM,
@@ -1265,14 +1266,33 @@ export function WorkspaceRoute() {
   }, [resolveTimelineStepShader, updateProject]);
 
   const handleTimelineRemoveStep = useCallback((stepId: string) => {
+    let nextSelectedStepId: string | null = null;
+    let nextStatusMessage = '';
+
     updateProject((currentProject) => {
-      const nextSteps = currentProject.timeline.stub.shaderSequence.steps.filter(
-        (step) => step.id !== stepId,
-      );
+      const currentSteps = currentProject.timeline.stub.shaderSequence.steps;
+      const removedStepIndex = currentSteps.findIndex((step) => step.id === stepId);
+      if (removedStepIndex < 0) {
+        return currentProject;
+      }
+
+      const removedStep = currentSteps[removedStepIndex];
+      const removedShaderName =
+        currentProject.studio.savedShaders.find((shader) => shader.id === removedStep.shaderId)?.name ??
+        `Step ${removedStepIndex + 1}`;
+      const nextSteps = currentSteps.filter((step) => step.id !== stepId);
 
       if (!nextSteps.length) {
         return currentProject;
       }
+
+      if (editingTimelineStepId === stepId) {
+        nextSelectedStepId = nextSteps[Math.min(removedStepIndex, nextSteps.length - 1)]?.id ?? null;
+      }
+
+      nextStatusMessage = nextSelectedStepId
+        ? `Removed "${removedShaderName}" and linked the editor to the next timeline shader.`
+        : `Removed "${removedShaderName}" from the timeline.`;
 
       return pruneTemporaryTimelineShaders({
         ...currentProject,
@@ -1284,7 +1304,7 @@ export function WorkspaceRoute() {
               focusedStepId: getPreferredTimelineStepId(
                 nextSteps,
                 currentProject.timeline.stub.shaderSequence.focusedStepId === stepId
-                  ? null
+                  ? nextSelectedStepId
                   : currentProject.timeline.stub.shaderSequence.focusedStepId,
               ),
               steps: nextSteps,
@@ -1293,10 +1313,20 @@ export function WorkspaceRoute() {
         },
       });
     });
-    if (editingTimelineStepId === stepId) {
+
+    if (nextSelectedStepId) {
+      void selectTimelineStepForEditing(nextSelectedStepId, {
+        suppressStatus: true,
+        focusStudioOnMobile: false,
+      });
+    } else if (editingTimelineStepId === stepId) {
       setEditingTimelineStepId(null);
     }
-  }, [editingTimelineStepId, updateProject]);
+
+    if (nextStatusMessage) {
+      setStatusMessage(nextStatusMessage);
+    }
+  }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
   const handleTimelineDuplicateStep = useCallback((stepId: string) => {
     let nextStatusMessage = '';
@@ -2030,8 +2060,15 @@ ${errorSnapshot}`,
     }
   };
 
-  const handleTimelineEditStep = useCallback((stepId: string) => {
+  function selectTimelineStepForEditing(
+    stepId: string,
+    options?: {
+      suppressStatus?: boolean;
+      focusStudioOnMobile?: boolean;
+    },
+  ) {
     let nextStatusMessage = '';
+    let didSelectStep = false;
 
     updateProject((currentProject) => {
       const step = currentProject.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
@@ -2043,6 +2080,8 @@ ${errorSnapshot}`,
       if (!sourceShader) {
         return currentProject;
       }
+
+      didSelectStep = true;
 
       const stepIndex = currentProject.timeline.stub.shaderSequence.steps.findIndex(
         (item) => item.id === stepId,
@@ -2112,16 +2151,22 @@ ${errorSnapshot}`,
     setCompilerError('');
     setEditingTimelineStepId(stepId);
 
-    if (isMobile) {
+    if (isMobile && options?.focusStudioOnMobile !== false) {
       updateMobileUiMode('full');
       setMobilePanel('studio');
       setIsMobileTimelineOpen(false);
     }
 
-    if (nextStatusMessage) {
+    if (nextStatusMessage && !options?.suppressStatus) {
       setStatusMessage(nextStatusMessage);
     }
-  }, [isMobile, updateProject]);
+
+    return didSelectStep;
+  }
+
+  const handleTimelineEditStep = useCallback((stepId: string) => {
+    void selectTimelineStepForEditing(stepId);
+  }, [selectTimelineStepForEditing]);
 
   const handleDiscardActiveTimelineDraft = useCallback(() => {
     if (!activeTimelineDraft) {
@@ -2283,12 +2328,14 @@ ${errorSnapshot}`,
       : activeTimelineDraft
         ? 'Timeline Draft'
         : null;
-  const timelineDraftInfo =
-    activeTimelineDraft
+  const timelineSelectionInfo: TimelineSelectionInfo | undefined =
+    editingTimelineStepId
       ? {
-          label: timelineDraftTargetLabel ?? 'Timeline Draft',
+          label: timelineDraftTargetLabel ?? 'Timeline Shader',
+          shaderName: project.studio.activeShaderName,
           sourceName: activeTimelineDraftSource?.name ?? null,
-          isDirty: Boolean(activeTimelineDraft.isDirty),
+          isDirty: Boolean(activeTimelineDraft?.isDirty),
+          isDraft: Boolean(activeTimelineDraft),
         }
       : undefined;
   const handleActiveShaderCodeChange = (value: string) => {
@@ -2350,7 +2397,7 @@ ${errorSnapshot}`,
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
       showUniformPanel={!showDesktopSlidersWindow}
-      timelineDraft={timelineDraftInfo}
+      timelineSelection={timelineSelectionInfo}
     />
   );
 
@@ -2365,6 +2412,7 @@ ${errorSnapshot}`,
       onQuickAddUniform={() => {
         void handleUniformQuickAdd();
       }}
+      timelineSelection={timelineSelectionInfo}
     />
   ) : null;
   const desktopSlidersPanel =
@@ -2379,6 +2427,7 @@ ${errorSnapshot}`,
         onQuickAddUniform={() => {
           void handleUniformQuickAdd();
         }}
+        timelineSelection={timelineSelectionInfo}
       />
     );
 
@@ -2400,7 +2449,7 @@ ${errorSnapshot}`,
       onSaveShader={saveCurrentShader}
       onDiscardDraft={activeTimelineDraft ? handleDiscardActiveTimelineDraft : undefined}
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
-      timelineDraft={timelineDraftInfo}
+      timelineSelection={timelineSelectionInfo}
     />
   );
 
