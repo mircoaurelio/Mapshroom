@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
+  TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
 import {
   destroyShaderPreviewRenderer,
@@ -42,6 +43,11 @@ interface ShaderTimelineEditorProps {
   onReset: () => void;
   onToggleSingleStepLoop: () => void;
   onToggleRandomChoice: () => void;
+  onSharedTransitionChange: (patch: {
+    sharedTransitionEnabled?: boolean;
+    sharedTransitionEffect?: TimelineStub['shaderSequence']['sharedTransitionEffect'];
+    sharedTransitionDurationSeconds?: number;
+  }) => void;
   onStepChange: (
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
@@ -49,7 +55,6 @@ interface ShaderTimelineEditorProps {
   onAddStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
-  onMoveStep: (stepId: string, direction: -1 | 1) => void;
   onEditStep: (stepId: string) => void;
 }
 
@@ -121,30 +126,14 @@ function DeleteIcon() {
   );
 }
 
-function MoveBackIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M9.75 3.5 5 8l4.75 4.5" />
-    </svg>
-  );
-}
-
-function MoveForwardIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="m6.25 3.5 4.75 4.5-4.75 4.5" />
-    </svg>
-  );
-}
-
 function RepeatSingleIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M3 4.5h7.5a2 2 0 0 1 0 4H6" />
-      <path d="m4.25 2.75-1.75 1.75 1.75 1.75" />
-      <path d="M8 9.5h5" />
-      <path d="m11.5 7.75 1.75 1.75-1.75 1.75" />
-      <path d="M5.75 12.5V7" />
+      <path d="M4 5h6.75a2 2 0 0 1 0 4H9.5" />
+      <path d="m9.75 3.25 2 1.75-2 1.75" />
+      <path d="M12 11H5.25a2 2 0 0 1 0-4H6.5" />
+      <path d="m6.25 9.25-2-1.75 2-1.75" />
+      <circle cx="8" cy="8" r="1.15" />
     </svg>
   );
 }
@@ -157,6 +146,17 @@ function RandomChoiceIcon() {
       <path d="M10 4h3.3" />
       <path d="m11.75 2.5 1.75 1.5-1.75 1.5" />
       <path d="m11.75 10.5 1.75 1.5-1.75 1.5" />
+    </svg>
+  );
+}
+
+function SharedMixIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 5.25h3.5l2.1 2.75h4.4" />
+      <path d="M3 10.75h3.5l2.1-2.75h4.4" />
+      <path d="m11.25 3.75 1.75 1.5-1.75 1.5" />
+      <path d="m11.25 9.25 1.75 1.5-1.75 1.5" />
     </svg>
   );
 }
@@ -196,11 +196,11 @@ export function ShaderTimelineEditor({
   onReset,
   onToggleSingleStepLoop,
   onToggleRandomChoice,
+  onSharedTransitionChange,
   onStepChange,
   onAddStepsWithShaders,
   onDuplicateStep,
   onRemoveStep,
-  onMoveStep,
   onEditStep,
 }: ShaderTimelineEditorProps) {
   const title =
@@ -246,7 +246,9 @@ export function ShaderTimelineEditor({
     return Array.from(nextShaders.values());
   }, [sequence.steps, shaderMap]);
   const isAdvancedView = sequence.editorView === 'advanced';
-  const usesSharedTransition = sequence.mode === 'randomMix';
+  const sharedTransitionLocked = sequence.mode === 'randomMix';
+  const usesSharedTransition =
+    sharedTransitionLocked || sequence.sharedTransitionEnabled;
 
   useEffect(() => {
     setSelectedAddShaderIds((currentIds) => {
@@ -440,6 +442,69 @@ export function ShaderTimelineEditor({
             ))}
           </div>
 
+          <div className="timeline-shared-transition-toolbar">
+            <button
+              type="button"
+              className={`toggle-chip timeline-shared-transition-toggle ${
+                usesSharedTransition ? 'toggle-chip-active' : ''
+              }`}
+              disabled={sharedTransitionLocked}
+              title={
+                sharedTransitionLocked
+                  ? 'Random Mix uses one shared transition for the whole sequence.'
+                  : 'Use the same mix effect and time for every transition.'
+              }
+              onClick={() =>
+                onSharedTransitionChange({
+                  sharedTransitionEnabled: !sequence.sharedTransitionEnabled,
+                })
+              }
+            >
+              <SharedMixIcon />
+              <span>Shared Mix</span>
+            </button>
+
+            {usesSharedTransition ? (
+              <>
+                <label className="field timeline-compact-field timeline-shared-transition-field">
+                  <span>Fx</span>
+                  <select
+                    className="select-field"
+                    value={sequence.sharedTransitionEffect}
+                    onChange={(event) =>
+                      onSharedTransitionChange({
+                        sharedTransitionEffect:
+                          event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
+                      })
+                    }
+                  >
+                    {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field timeline-compact-field timeline-shared-transition-field">
+                  <span>Time</span>
+                  <input
+                    className="text-field"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={sequence.sharedTransitionDurationSeconds}
+                    onChange={(event) =>
+                      onSharedTransitionChange({
+                        sharedTransitionDurationSeconds: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
+          </div>
+
           <div className="timeline-add-toolbar" ref={addMenuRef}>
             <button
               type="button"
@@ -547,9 +612,8 @@ export function ShaderTimelineEditor({
       </div>
 
       <div className="timeline-flow-strip" role="list" aria-label="Shader timeline flow">
-        {sequence.steps.map((step, index) => {
+        {sequence.steps.map((step) => {
           const shader = shaderMap.get(step.shaderId);
-          const isLast = index === sequence.steps.length - 1;
           const isPlayingStep = step.id === activeStepId;
           const isTransitionStep = step.id === transitionStepId && transitionStepId !== activeStepId;
           const previewKey = shader
@@ -591,37 +655,6 @@ export function ShaderTimelineEditor({
                   )}
 
                   <div className="timeline-step-preview-actions">
-                    {isAdvancedView && sequence.mode === 'sequence' ? (
-                      <>
-                        <button
-                          type="button"
-                          className="icon-button timeline-step-overlay-button"
-                          aria-label="Move shader earlier"
-                          title="Move earlier"
-                          disabled={index === 0}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onMoveStep(step.id, -1);
-                          }}
-                        >
-                          <MoveBackIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button timeline-step-overlay-button"
-                          aria-label="Move shader later"
-                          title="Move later"
-                          disabled={isLast}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onMoveStep(step.id, 1);
-                          }}
-                        >
-                          <MoveForwardIcon />
-                        </button>
-                      </>
-                    ) : null}
-
                     <button
                       type="button"
                       className="icon-button timeline-step-overlay-button"
@@ -692,34 +725,7 @@ export function ShaderTimelineEditor({
                     ))}
                   </select>
                 </label>
-
-                {shader?.isTemporary ? (
-                  <div className="timeline-step-chip-row">
-                    <span className="timeline-step-chip timeline-step-chip-timeline">Timeline</span>
-                  </div>
-                ) : null}
               </article>
-
-              {!isLast ? (
-                <div className="timeline-flow-connector">
-                  <span className="timeline-flow-arrow">
-                    {sequence.mode === 'randomMix'
-                      ? 'Mix'
-                      : sequence.mode === 'random'
-                        ? 'Random'
-                        : 'Next'}
-                  </span>
-                  <span className="timeline-flow-transition">
-                    {usesSharedTransition
-                      ? `${sequence.sharedTransitionEffect} / ${formatStepDuration(
-                          sequence.sharedTransitionDurationSeconds,
-                        )}`
-                      : `${step.transitionEffect} / ${formatStepDuration(
-                          step.transitionDurationSeconds,
-                        )}`}
-                  </span>
-                </div>
-              ) : null}
             </div>
           );
         })}

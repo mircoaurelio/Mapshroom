@@ -208,6 +208,9 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
           randomChoiceEnabled:
             project.timeline?.stub?.shaderSequence?.randomChoiceEnabled ??
             defaultProject.timeline.stub.shaderSequence.randomChoiceEnabled,
+          sharedTransitionEnabled:
+            project.timeline?.stub?.shaderSequence?.sharedTransitionEnabled ??
+            defaultProject.timeline.stub.shaderSequence.sharedTransitionEnabled,
           sharedTransitionEffect:
             project.timeline?.stub?.shaderSequence?.sharedTransitionEffect ??
             defaultProject.timeline.stub.shaderSequence.sharedTransitionEffect,
@@ -1090,6 +1093,7 @@ export function WorkspaceRoute() {
 
   const handleTimelineSharedTransitionChange = useCallback((
     patch: {
+      sharedTransitionEnabled?: boolean;
       sharedTransitionEffect?: TimelineTransitionEffect;
       sharedTransitionDurationSeconds?: number;
     },
@@ -1379,37 +1383,6 @@ export function WorkspaceRoute() {
     if (nextStatusMessage) {
       setStatusMessage(nextStatusMessage);
     }
-  }, [updateProject]);
-
-  const handleTimelineMoveStep = useCallback((stepId: string, direction: -1 | 1) => {
-    updateProject((currentProject) => {
-      const steps = [...currentProject.timeline.stub.shaderSequence.steps];
-      const index = steps.findIndex((step) => step.id === stepId);
-      const nextIndex = index + direction;
-
-      if (index < 0 || nextIndex < 0 || nextIndex >= steps.length) {
-        return currentProject;
-      }
-
-      [steps[index], steps[nextIndex]] = [steps[nextIndex], steps[index]];
-
-      return {
-        ...currentProject,
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              focusedStepId: getPreferredTimelineStepId(
-                steps,
-                currentProject.timeline.stub.shaderSequence.focusedStepId,
-              ),
-              steps,
-            },
-          },
-        },
-      };
-    });
   }, [updateProject]);
 
   const handleTimelineResizeBoundary = useCallback((
@@ -2704,7 +2677,6 @@ ${errorSnapshot}`,
       onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
       onRemoveSequenceStep={handleTimelineRemoveStep}
-      onMoveSequenceStep={handleTimelineMoveStep}
       onResizeSequenceBoundary={handleTimelineResizeBoundary}
       onEditSequenceStep={handleTimelineEditStep}
     />
@@ -2999,7 +2971,6 @@ ${errorSnapshot}`,
         onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}
         onRemoveSequenceStep={handleTimelineRemoveStep}
-        onMoveSequenceStep={handleTimelineMoveStep}
         onResizeSequenceBoundary={handleTimelineResizeBoundary}
         onEditSequenceStep={handleTimelineEditStep}
         onClose={() => setIsMobileTimelineOpen(false)}
