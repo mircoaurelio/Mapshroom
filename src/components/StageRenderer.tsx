@@ -113,6 +113,8 @@ export function StageRenderer({
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const transportRef = useRef(transport);
+  const uniformDefinitionsRef = useRef(uniformDefinitions);
+  const uniformValuesRef = useRef(uniformValues);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const assetId = asset?.id ?? null;
   const assetKind = asset?.kind ?? null;
@@ -129,6 +131,14 @@ export function StageRenderer({
   useEffect(() => {
     transportRef.current = transport;
   }, [transport]);
+
+  useEffect(() => {
+    uniformDefinitionsRef.current = uniformDefinitions;
+  }, [uniformDefinitions]);
+
+  useEffect(() => {
+    uniformValuesRef.current = uniformValues;
+  }, [uniformValues]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -454,9 +464,12 @@ export function StageRenderer({
         gl.uniform2f(locationsRef.current.resolution, canvas.width, canvas.height);
       }
 
-      for (const [name, definition] of Object.entries(uniformDefinitions)) {
+      const currentUniformDefinitions = uniformDefinitionsRef.current;
+      const currentUniformValues = uniformValuesRef.current;
+
+      for (const [name, definition] of Object.entries(currentUniformDefinitions)) {
         const location = locationsRef.current.custom[name];
-        const value = uniformValues[name];
+        const value = currentUniformValues[name];
 
         if (!location || value === undefined) {
           continue;
@@ -486,7 +499,7 @@ export function StageRenderer({
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [assetKind, shaderCode, uniformDefinitions, uniformValues]);
+  }, [assetKind]);
 
   const mediaSurfaceStyle = useMemo<CSSProperties>(
     () => ({

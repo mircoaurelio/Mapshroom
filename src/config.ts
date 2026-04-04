@@ -100,6 +100,18 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           { id: 'timeline-track-assets', label: 'Assets', type: 'media' },
           { id: 'timeline-track-effects', label: 'Effects', type: 'automation' },
         ],
+        shaderSequence: {
+          enabled: false,
+          steps: [
+            {
+              id: crypto.randomUUID(),
+              shaderId: defaultShader.id,
+              durationSeconds: 8,
+              transitionDurationSeconds: 0.75,
+              transitionEffect: 'mix',
+            },
+          ],
+        },
       },
     },
     export: {

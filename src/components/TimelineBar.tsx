@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
-import type { AssetKind, PlaybackTransport, TimelineStub } from '../types';
+import type { AssetKind, PlaybackTransport, SavedShader, TimelineStub } from '../types';
+import { ShaderTimelineEditor } from './ShaderTimelineEditor';
 
 type TimelineBarVariant = 'desktop' | 'dialog';
 
 interface TimelineBarProps {
   assetName: string;
   assetKind: AssetKind | null;
+  activeShaderId: string;
+  savedShaders: SavedShader[];
+  sequence: TimelineStub['shaderSequence'];
   transport: PlaybackTransport;
   durationSeconds: number;
   markers: string[];
@@ -15,6 +19,14 @@ interface TimelineBarProps {
   onPlayToggle: () => void;
   onReset: () => void;
   onToggleLoop: () => void;
+  onSequenceEnabledChange: (enabled: boolean) => void;
+  onSequenceStepChange: (
+    stepId: string,
+    patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
+  ) => void;
+  onAddSequenceStep: () => void;
+  onRemoveSequenceStep: (stepId: string) => void;
+  onMoveSequenceStep: (stepId: string, direction: -1 | 1) => void;
   variant?: TimelineBarVariant;
 }
 
@@ -81,6 +93,9 @@ function getMarkerStops(markers: string[], durationSeconds: number): TimelineMar
 export function TimelineBar({
   assetName,
   assetKind,
+  activeShaderId,
+  savedShaders,
+  sequence,
   transport,
   durationSeconds,
   markers,
@@ -89,6 +104,11 @@ export function TimelineBar({
   onPlayToggle,
   onReset,
   onToggleLoop,
+  onSequenceEnabledChange,
+  onSequenceStepChange,
+  onAddSequenceStep,
+  onRemoveSequenceStep,
+  onMoveSequenceStep,
   variant = 'desktop',
 }: TimelineBarProps) {
   const [nowMs, setNowMs] = useState(() => performance.now());
@@ -147,8 +167,8 @@ export function TimelineBar({
           <span className="timeline-bar-label">Timeline</span>
           <strong className="timeline-bar-title">{assetName}</strong>
           <span className="timeline-bar-copy">
-            {assetKind === 'video' ? 'Video transport' : 'Scene clock'} -{' '}
-            {assetKind === 'video' ? 'asset duration' : 'timeline duration'}
+            {sequence.enabled ? 'Shader sequence clock' : assetKind === 'video' ? 'Video transport' : 'Scene clock'} -{' '}
+            {sequence.enabled ? 'step timing and shader transitions' : assetKind === 'video' ? 'asset duration' : 'timeline duration'}
           </span>
         </div>
 
@@ -230,6 +250,18 @@ export function TimelineBar({
           ))}
         </div>
       </div>
+
+      <ShaderTimelineEditor
+        savedShaders={savedShaders}
+        activeShaderId={activeShaderId}
+        sequence={sequence}
+        totalDurationSeconds={durationSeconds}
+        onEnabledChange={onSequenceEnabledChange}
+        onStepChange={onSequenceStepChange}
+        onAddStep={onAddSequenceStep}
+        onRemoveStep={onRemoveSequenceStep}
+        onMoveStep={onMoveSequenceStep}
+      />
     </div>
   );
 }

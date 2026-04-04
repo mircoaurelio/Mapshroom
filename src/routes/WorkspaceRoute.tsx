@@ -7,9 +7,9 @@ import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
-import { StageRenderer } from '../components/StageRenderer';
 import { StudioPanel } from '../components/StudioPanel';
 import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
+import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_GOOGLE_SHADER_MODEL,
@@ -20,6 +20,12 @@ import {
 import { pauseTransport, playTransport, resetTransport, seekTransport } from '../lib/clock';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
+import {
+  clampTimelineStepDuration,
+  clampTransitionDuration,
+  createTimelineShaderStep,
+  getShaderTimelineDuration,
+} from '../lib/timeline';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import {
@@ -148,6 +154,25 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         ...project.timeline?.stub,
         markers: project.timeline?.stub?.markers ?? defaultProject.timeline.stub.markers,
         tracks: project.timeline?.stub?.tracks ?? defaultProject.timeline.stub.tracks,
+        shaderSequence: {
+          ...defaultProject.timeline.stub.shaderSequence,
+          ...project.timeline?.stub?.shaderSequence,
+          steps:
+            project.timeline?.stub?.shaderSequence?.steps?.length
+              ? project.timeline.stub.shaderSequence.steps.map((step) => {
+                  const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
+                  return {
+                    ...step,
+                    durationSeconds,
+                    transitionDurationSeconds: clampTransitionDuration(
+                      durationSeconds,
+                      step.transitionDurationSeconds,
+                    ),
+                    transitionEffect: step.transitionEffect ?? 'mix',
+                  };
+                })
+              : defaultProject.timeline.stub.shaderSequence.steps,
+        },
       },
     },
     export: {
@@ -533,6 +558,134 @@ export function WorkspaceRoute() {
         },
       },
     }));
+  }, [updateProject]);
+
+  const handleTimelineSequenceEnabledChange = useCallback((enabled: boolean) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            enabled,
+          },
+        },
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineStepChange = useCallback((
+    stepId: string,
+    patch: Partial<ProjectDocument['timeline']['stub']['shaderSequence']['steps'][number]>,
+  ) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => {
+              if (step.id !== stepId) {
+                return step;
+              }
+
+              const durationSeconds = clampTimelineStepDuration(
+                patch.durationSeconds ?? step.durationSeconds,
+              );
+
+              return {
+                ...step,
+                ...patch,
+                durationSeconds,
+                transitionDurationSeconds: clampTransitionDuration(
+                  durationSeconds,
+                  patch.transitionDurationSeconds ?? step.transitionDurationSeconds,
+                ),
+              };
+            }),
+          },
+        },
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineAddStep = useCallback(() => {
+    const fallbackShaderId =
+      project?.studio.activeShaderId ?? project?.studio.savedShaders[0]?.id ?? '';
+    if (!fallbackShaderId) {
+      return;
+    }
+
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            enabled: true,
+            steps: [
+              ...currentProject.timeline.stub.shaderSequence.steps,
+              createTimelineShaderStep(fallbackShaderId),
+            ],
+          },
+        },
+      },
+    }));
+  }, [project?.studio.activeShaderId, project?.studio.savedShaders, updateProject]);
+
+  const handleTimelineRemoveStep = useCallback((stepId: string) => {
+    updateProject((currentProject) => {
+      const nextSteps = currentProject.timeline.stub.shaderSequence.steps.filter(
+        (step) => step.id !== stepId,
+      );
+
+      if (!nextSteps.length) {
+        return currentProject;
+      }
+
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              steps: nextSteps,
+            },
+          },
+        },
+      };
+    });
+  }, [updateProject]);
+
+  const handleTimelineMoveStep = useCallback((stepId: string, direction: -1 | 1) => {
+    updateProject((currentProject) => {
+      const steps = [...currentProject.timeline.stub.shaderSequence.steps];
+      const index = steps.findIndex((step) => step.id === stepId);
+      const nextIndex = index + direction;
+
+      if (index < 0 || nextIndex < 0 || nextIndex >= steps.length) {
+        return currentProject;
+      }
+
+      [steps[index], steps[nextIndex]] = [steps[nextIndex], steps[index]];
+
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              steps,
+            },
+          },
+        },
+      };
+    });
   }, [updateProject]);
 
   const handleMappingAction = (action: MappingAction) => {
@@ -1085,8 +1238,39 @@ ${errorSnapshot}`,
     ? mobileUiMode === 'full' && stageTransform.moveMode
     : uiPreferences.chromeVisible && stageTransform.moveMode;
   const timelineStub = project.timeline.stub;
-  const timelineDurationSeconds =
-    activeAsset?.kind === 'video' && activeAssetDurationSeconds
+  const timelineSelectableShaders = project.studio.savedShaders.some(
+    (shader) => shader.id === project.studio.activeShaderId,
+  )
+    ? project.studio.savedShaders
+    : [
+        {
+          id: project.studio.activeShaderId,
+          name: project.studio.activeShaderName,
+          code: project.studio.activeShaderCode,
+          description: 'Current shader from the live editor.',
+          group: 'Live',
+        },
+        ...project.studio.savedShaders,
+      ];
+  const timelineSequenceEnabled =
+    timelineStub.shaderSequence.enabled && timelineStub.shaderSequence.steps.length > 0;
+  const timelineMarkers = timelineSequenceEnabled
+    ? timelineStub.shaderSequence.steps.map((step, index) => {
+        const shaderName =
+          timelineSelectableShaders.find((shader) => shader.id === step.shaderId)?.name ??
+          `Step ${index + 1}`;
+        return shaderName;
+      })
+    : timelineStub.markers;
+  const timelineTracks = timelineSequenceEnabled
+    ? [
+        { id: 'timeline-track-shader-sequence', label: 'Shader Flow', type: 'sequence' },
+        ...timelineStub.tracks,
+      ]
+    : timelineStub.tracks;
+  const timelineDurationSeconds = timelineSequenceEnabled
+    ? getShaderTimelineDuration(timelineStub.shaderSequence.steps)
+    : activeAsset?.kind === 'video' && activeAssetDurationSeconds
       ? activeAssetDurationSeconds
       : timelineStub.durationSeconds;
 
@@ -1168,14 +1352,22 @@ ${errorSnapshot}`,
     <TimelineBar
       assetName={activeAsset?.name ?? 'No asset selected'}
       assetKind={activeAsset?.kind ?? null}
+      activeShaderId={project.studio.activeShaderId}
+      savedShaders={timelineSelectableShaders}
+      sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
-      markers={timelineStub.markers}
-      tracks={timelineStub.tracks}
+      markers={timelineMarkers}
+      tracks={timelineTracks}
       onSeek={handleTimelineSeek}
       onPlayToggle={handlePlayToggle}
       onReset={handleTimelineReset}
       onToggleLoop={handleTimelineLoopToggle}
+      onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
+      onSequenceStepChange={handleTimelineStepChange}
+      onAddSequenceStep={handleTimelineAddStep}
+      onRemoveSequenceStep={handleTimelineRemoveStep}
+      onMoveSequenceStep={handleTimelineMoveStep}
     />
   );
 
@@ -1216,14 +1408,17 @@ ${errorSnapshot}`,
 
       <div className="workspace-body">
         <section className="workspace-stage-column" onClick={handleStageReveal}>
-          <StageRenderer
+          <TimelineStageRenderer
             asset={activeAsset}
             assetUrl={activeAssetUrl}
             assetUrlStatus={activeAssetResolution.status}
-            shaderCode={project.studio.activeShaderCode}
+            activeShaderId={project.studio.activeShaderId}
+            activeShaderName={project.studio.activeShaderName}
+            activeShaderCode={project.studio.activeShaderCode}
+            activeUniformValues={project.studio.uniformValues}
+            savedShaders={project.studio.savedShaders}
+            timeline={project.timeline.stub}
             shaderCompileNonce={shaderCompileNonce}
-            uniformDefinitions={uniformDefinitions}
-            uniformValues={project.studio.uniformValues}
             stageTransform={project.mapping.stageTransform}
             transport={project.playback.transport}
             onCompilerError={setCompilerError}
@@ -1339,14 +1534,22 @@ ${errorSnapshot}`,
         open={isMobile && isMobileTimelineOpen}
         assetName={activeAsset?.name ?? 'No asset selected'}
         assetKind={activeAsset?.kind ?? null}
+        activeShaderId={project.studio.activeShaderId}
+        savedShaders={timelineSelectableShaders}
+        sequence={timelineStub.shaderSequence}
         transport={project.playback.transport}
         durationSeconds={timelineDurationSeconds}
-        markers={timelineStub.markers}
-        tracks={timelineStub.tracks}
+        markers={timelineMarkers}
+        tracks={timelineTracks}
         onSeek={handleTimelineSeek}
         onPlayToggle={handlePlayToggle}
         onReset={handleTimelineReset}
         onToggleLoop={handleTimelineLoopToggle}
+        onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
+        onSequenceStepChange={handleTimelineStepChange}
+        onAddSequenceStep={handleTimelineAddStep}
+        onRemoveSequenceStep={handleTimelineRemoveStep}
+        onMoveSequenceStep={handleTimelineMoveStep}
         onClose={() => setIsMobileTimelineOpen(false)}
       />
 

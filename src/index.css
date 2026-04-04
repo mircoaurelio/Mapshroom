@@ -1496,6 +1496,83 @@ a {
   padding: 0;
 }
 
+.timeline-sequence-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid rgba(63, 63, 70, 0.38);
+}
+
+.timeline-sequence-header,
+.timeline-sequence-footer,
+.timeline-step-header,
+.timeline-step-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.timeline-sequence-header,
+.timeline-step-header {
+  justify-content: space-between;
+}
+
+.timeline-sequence-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+}
+
+.timeline-sequence-label,
+.timeline-step-badge {
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.timeline-sequence-title {
+  color: var(--text-bright);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.timeline-sequence-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.65rem;
+}
+
+.timeline-step-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-soft);
+}
+
+.timeline-step-card-active {
+  border-color: rgba(52, 211, 153, 0.24);
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.timeline-step-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.timeline-step-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
 .mapping-pad {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2018,6 +2095,10 @@ a {
 
   .timeline-timecode {
     min-width: 0;
+  }
+
+  .timeline-step-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .timeline-dialog-panel {
