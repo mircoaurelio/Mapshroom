@@ -7,13 +7,11 @@ import type {
   ShaderVersion,
 } from '../types';
 import { PanelSection } from './PanelSection';
+import {
+  TimelineSelectionBanner,
+  type TimelineSelectionInfo,
+} from './TimelineSelectionBanner';
 import { UniformPanel } from './UniformPanel';
-
-interface TimelineDraftInfo {
-  label: string;
-  sourceName: string | null;
-  isDirty: boolean;
-}
 
 interface ShaderStudioControlsSectionProps {
   savedShaders: SavedShader[];
@@ -22,7 +20,7 @@ interface ShaderStudioControlsSectionProps {
   onSaveShader: () => void;
   onDiscardDraft?: () => void;
   onBrowsePresets: () => void;
-  timelineDraft?: TimelineDraftInfo;
+  timelineSelection?: TimelineSelectionInfo;
 }
 
 interface ShaderVersionTrailSectionProps {
@@ -37,6 +35,7 @@ interface ShaderCodeSectionProps {
   aiLoading: boolean;
   onFixError: () => void;
   onReloadShaderCode: () => void;
+  timelineSelection?: TimelineSelectionInfo;
 }
 
 interface StudioPanelProps
@@ -51,6 +50,7 @@ interface StudioPanelProps
   onQuickAddUniform: () => void;
   showUniformPanel?: boolean;
   uniformPanelTitle?: string;
+  timelineSelection?: TimelineSelectionInfo;
 }
 
 function CopyIcon() {
@@ -86,7 +86,7 @@ export function ShaderStudioControlsSection({
   onSaveShader,
   onDiscardDraft,
   onBrowsePresets,
-  timelineDraft,
+  timelineSelection,
 }: ShaderStudioControlsSectionProps) {
   const activeShaderName =
     savedShaders.find((shader) => shader.id === activeShaderId)?.name ?? 'Custom Shader';
@@ -94,20 +94,8 @@ export function ShaderStudioControlsSection({
   return (
     <PanelSection title="Shader Studio">
       <div className="stack gap-md">
-        {timelineDraft ? (
-          <div className="draft-target-banner draft-target-banner-studio">
-            <div>
-              <strong>{timelineDraft.label}</strong>
-              <p>
-                {timelineDraft.sourceName
-                  ? `Based on ${timelineDraft.sourceName}. Save it to keep this timeline version.`
-                  : 'Temporary timeline shader draft.'}
-              </p>
-            </div>
-            <span className="draft-target-status">
-              {timelineDraft.isDirty ? 'Unsaved Draft' : 'Temporary Draft'}
-            </span>
-          </div>
+        {timelineSelection ? (
+          <TimelineSelectionBanner selection={timelineSelection} />
         ) : null}
 
         <div className="stack gap-sm">
@@ -120,7 +108,7 @@ export function ShaderStudioControlsSection({
               Preset List
             </button>
             <button type="button" className="primary-button" onClick={onSaveShader}>
-              {timelineDraft ? 'Save Draft' : 'Save'}
+              {timelineSelection?.isDraft ? 'Save Draft' : 'Save'}
             </button>
           </div>
         </div>
@@ -129,7 +117,7 @@ export function ShaderStudioControlsSection({
           <button type="button" className="secondary-button" onClick={onNewShader}>
             New Shader
           </button>
-          {timelineDraft && onDiscardDraft ? (
+          {timelineSelection?.isDraft && onDiscardDraft ? (
             <button type="button" className="ghost-button" onClick={onDiscardDraft}>
               Discard Draft
             </button>
@@ -174,6 +162,7 @@ export function ShaderCodeSection({
   aiLoading,
   onFixError,
   onReloadShaderCode,
+  timelineSelection,
 }: ShaderCodeSectionProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const copyLabel =
@@ -241,6 +230,9 @@ export function ShaderCodeSection({
       }
     >
       <div className="stack gap-md">
+        {timelineSelection ? (
+          <TimelineSelectionBanner selection={timelineSelection} compact />
+        ) : null}
         <textarea
           className="code-editor"
           value={shaderCode}
@@ -288,7 +280,7 @@ export function StudioPanel({
   onRestoreVersion,
   showUniformPanel = true,
   uniformPanelTitle,
-  timelineDraft,
+  timelineSelection,
 }: StudioPanelProps) {
   return (
     <>
@@ -299,7 +291,7 @@ export function StudioPanel({
         onSaveShader={onSaveShader}
         onDiscardDraft={onDiscardDraft}
         onBrowsePresets={onBrowsePresets}
-        timelineDraft={timelineDraft}
+        timelineSelection={timelineSelection}
       />
 
       {showUniformPanel ? (
@@ -311,6 +303,7 @@ export function StudioPanel({
           newUniformName={newUniformName}
           onNewUniformNameChange={onNewUniformNameChange}
           onQuickAddUniform={onQuickAddUniform}
+          timelineSelection={timelineSelection}
         />
       ) : null}
 
@@ -323,6 +316,7 @@ export function StudioPanel({
         aiLoading={aiLoading}
         onFixError={onFixError}
         onReloadShaderCode={onReloadShaderCode}
+        timelineSelection={timelineSelection}
       />
     </>
   );

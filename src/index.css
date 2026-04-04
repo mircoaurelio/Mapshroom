@@ -1494,6 +1494,32 @@ a {
   background: rgba(52, 211, 153, 0.06);
 }
 
+.timeline-selection-banner {
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.09), rgba(52, 211, 153, 0.04));
+}
+
+.timeline-selection-banner-compact {
+  padding: 0.62rem 0.72rem;
+}
+
+.timeline-selection-eyebrow {
+  display: inline-flex;
+  margin-bottom: 0.22rem;
+  color: rgba(209, 250, 229, 0.88);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.timeline-selection-status {
+  border-color: rgba(52, 211, 153, 0.2);
+  background: rgba(9, 9, 11, 0.32);
+  color: #d1fae5;
+}
+
 .draft-target-status {
   display: inline-flex;
   align-items: center;

@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import {
   clampTimelineStepDuration,
@@ -88,6 +95,8 @@ interface BoundaryDragState {
   rightDurationSeconds: number;
   totalDurationSeconds: number;
   trackWidth: number;
+  pointerId: number;
+  handleElement: HTMLButtonElement;
 }
 
 function clampTimelineTime(
@@ -216,9 +225,9 @@ export function TimelineBar({
   }, [transport.anchorTimestampMs, transport.isPlaying, transport.playbackRate]);
 
   useEffect(() => {
-    const handlePointerMove = (event: MouseEvent) => {
+    const handlePointerMove = (event: PointerEvent) => {
       const dragState = dragStateRef.current;
-      if (!dragState) {
+      if (!dragState || event.pointerId !== dragState.pointerId) {
         return;
       }
 
@@ -239,9 +248,21 @@ export function TimelineBar({
       );
     };
 
-    const handlePointerUp = () => {
-      if (!dragStateRef.current) {
+    const handlePointerUp = (event?: PointerEvent | Event) => {
+      const dragState = dragStateRef.current;
+      if (!dragState) {
         return;
+      }
+
+      if (
+        event instanceof PointerEvent &&
+        event.pointerId !== dragState.pointerId
+      ) {
+        return;
+      }
+
+      if (dragState.handleElement.hasPointerCapture(dragState.pointerId)) {
+        dragState.handleElement.releasePointerCapture(dragState.pointerId);
       }
 
       dragStateRef.current = null;
@@ -249,12 +270,16 @@ export function TimelineBar({
       document.body.style.userSelect = '';
     };
 
-    window.addEventListener('mousemove', handlePointerMove);
-    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    window.addEventListener('blur', handlePointerUp);
 
     return () => {
-      window.removeEventListener('mousemove', handlePointerMove);
-      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('blur', handlePointerUp);
     };
   }, [onResizeSequenceBoundary]);
 
@@ -319,7 +344,7 @@ export function TimelineBar({
   };
 
   const beginBoundaryDrag = (
-    event: ReactMouseEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLButtonElement>,
     leftSegment: TimelineStepSegment,
     rightSegment: TimelineStepSegment,
   ) => {
@@ -336,7 +361,11 @@ export function TimelineBar({
       rightDurationSeconds: clampTimelineStepDuration(rightSegment.step.durationSeconds),
       totalDurationSeconds: getShaderTimelineDuration(sequence.steps),
       trackWidth,
+      pointerId: event.pointerId,
+      handleElement: event.currentTarget,
     };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.blur();
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
   };
@@ -429,7 +458,7 @@ export function TimelineBar({
                   aria-label={`Resize ${leftShaderName} and ${rightShaderName}`}
                   title={`Resize ${leftShaderName} and ${rightShaderName}`}
                   style={{ left: `${segment.endRatio * 100}%` }}
-                  onMouseDown={(event) => {
+                  onPointerDown={(event) => {
                     event.preventDefault();
                     beginBoundaryDrag(event, segment, nextSegment);
                   }}

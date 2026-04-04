@@ -1,6 +1,10 @@
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
 import { hexToRgb, rgbToHex } from '../lib/shader';
 import { PanelSection } from './PanelSection';
+import {
+  TimelineSelectionBanner,
+  type TimelineSelectionInfo,
+} from './TimelineSelectionBanner';
 
 interface UniformPanelProps {
   title?: string;
@@ -10,6 +14,7 @@ interface UniformPanelProps {
   newUniformName: string;
   onNewUniformNameChange: (value: string) => void;
   onQuickAddUniform: () => void;
+  timelineSelection?: TimelineSelectionInfo;
 }
 
 export function UniformPanel({
@@ -20,10 +25,14 @@ export function UniformPanel({
   newUniformName,
   onNewUniformNameChange,
   onQuickAddUniform,
+  timelineSelection,
 }: UniformPanelProps) {
   return (
     <PanelSection title={title}>
       <div className="stack gap-md">
+        {timelineSelection ? (
+          <TimelineSelectionBanner selection={timelineSelection} compact />
+        ) : null}
         {Object.keys(uniformDefinitions).length > 0 ? (
           Object.entries(uniformDefinitions).map(([name, definition]) => {
             const value = uniformValues[name];
