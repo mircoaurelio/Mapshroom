@@ -3,7 +3,7 @@ export interface TimelineSelectionInfo {
   shaderName: string;
   sourceName: string | null;
   isDirty: boolean;
-  isDraft: boolean;
+  isLinked: boolean;
 }
 
 interface TimelineSelectionBannerProps {
@@ -15,30 +15,24 @@ export function TimelineSelectionBanner({
   selection,
   compact = false,
 }: TimelineSelectionBannerProps) {
-  const statusLabel = selection.isDraft
-    ? selection.isDirty
-      ? 'Unsaved Draft'
-      : 'Draft Linked'
-    : 'Linked';
+  const statusLabel = selection.isLinked ? 'Timeline Linked' : 'Linked';
 
   return (
     <div
-      className={`draft-target-banner timeline-selection-banner ${
+      className={`selection-target-banner timeline-selection-banner ${
         compact ? 'timeline-selection-banner-compact' : ''
       }`}
     >
       <div>
         <span className="timeline-selection-eyebrow">Selected Timeline Shader</span>
-        <strong>
-          {selection.label} · {selection.shaderName}
-        </strong>
+        <strong>{selection.label} - {selection.shaderName}</strong>
         <p>
           {selection.sourceName
             ? `Based on ${selection.sourceName}. Changes here update this timeline shader live.`
             : 'Changes here update this selected timeline shader live.'}
         </p>
       </div>
-      <span className="draft-target-status timeline-selection-status">{statusLabel}</span>
+      <span className="selection-target-status timeline-selection-status">{statusLabel}</span>
     </div>
   );
 }

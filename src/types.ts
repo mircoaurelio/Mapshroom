@@ -39,6 +39,8 @@ export interface SavedShader {
   isDirty?: boolean;
   sourceShaderId?: string;
   ownerTimelineStepId?: string;
+  pendingAiJobCount?: number;
+  hasUnreadAiResult?: boolean;
 }
 
 export interface StageTransform {

@@ -18,7 +18,6 @@ interface ShaderStudioControlsSectionProps {
   activeShaderId: string;
   onNewShader: () => void;
   onSaveShader: () => void;
-  onDiscardDraft?: () => void;
   onBrowsePresets: () => void;
   timelineSelection?: TimelineSelectionInfo;
 }
@@ -84,7 +83,6 @@ export function ShaderStudioControlsSection({
   activeShaderId,
   onNewShader,
   onSaveShader,
-  onDiscardDraft,
   onBrowsePresets,
   timelineSelection,
 }: ShaderStudioControlsSectionProps) {
@@ -108,7 +106,7 @@ export function ShaderStudioControlsSection({
               Preset List
             </button>
             <button type="button" className="primary-button" onClick={onSaveShader}>
-              {timelineSelection?.isDraft ? 'Save Draft' : 'Save'}
+              {timelineSelection?.isLinked ? 'Save To Library' : 'Save'}
             </button>
           </div>
         </div>
@@ -117,11 +115,6 @@ export function ShaderStudioControlsSection({
           <button type="button" className="secondary-button" onClick={onNewShader}>
             New Shader
           </button>
-          {timelineSelection?.isDraft && onDiscardDraft ? (
-            <button type="button" className="ghost-button" onClick={onDiscardDraft}>
-              Discard Draft
-            </button>
-          ) : null}
         </div>
       </div>
     </PanelSection>
@@ -262,7 +255,6 @@ export function StudioPanel({
   activeShaderId,
   onNewShader,
   onSaveShader,
-  onDiscardDraft,
   uniformDefinitions,
   uniformValues,
   onUniformChange,
@@ -289,7 +281,6 @@ export function StudioPanel({
         activeShaderId={activeShaderId}
         onNewShader={onNewShader}
         onSaveShader={onSaveShader}
-        onDiscardDraft={onDiscardDraft}
         onBrowsePresets={onBrowsePresets}
         timelineSelection={timelineSelection}
       />
