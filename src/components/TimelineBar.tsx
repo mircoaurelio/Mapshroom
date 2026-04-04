@@ -26,6 +26,7 @@ interface TimelineBarProps {
   activeShaderName: string;
   isActiveShaderSaved: boolean;
   savedShaders: SavedShader[];
+  editingStepId: string | null;
   sequence: TimelineStub['shaderSequence'];
   transport: PlaybackTransport;
   durationSeconds: number;
@@ -51,6 +52,7 @@ interface TimelineBarProps {
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
   onMoveSequenceStep: (stepId: string, direction: -1 | 1) => void;
+  onEditSequenceStep: (stepId: string) => void;
   onResizeSequenceBoundary: (
     leftStepId: string,
     rightStepId: string,
@@ -182,6 +184,7 @@ export function TimelineBar({
   activeShaderName,
   isActiveShaderSaved,
   savedShaders,
+  editingStepId,
   sequence,
   transport,
   durationSeconds,
@@ -201,6 +204,7 @@ export function TimelineBar({
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
   onMoveSequenceStep,
+  onEditSequenceStep,
   onResizeSequenceBoundary,
   onSaveCurrentShader,
   variant = 'desktop',
@@ -496,6 +500,7 @@ export function TimelineBar({
         activeShaderId={activeShaderId}
         activeShaderName={activeShaderName}
         isActiveShaderSaved={isActiveShaderSaved}
+        editingStepId={editingStepId}
         activeStepId={timelineState?.currentStep.id ?? null}
         transitionStepId={
           timelineState?.isTransitioning ? timelineState.nextStep?.id ?? null : null
@@ -512,6 +517,7 @@ export function TimelineBar({
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
         onMoveStep={onMoveSequenceStep}
+        onEditStep={onEditSequenceStep}
         onSaveCurrentShader={onSaveCurrentShader}
       />
     </div>

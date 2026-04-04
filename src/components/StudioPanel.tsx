@@ -14,6 +14,7 @@ interface StudioPanelProps {
   activeShaderId: string;
   onNewShader: () => void;
   onSaveShader: () => void;
+  onDiscardDraft?: () => void;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
@@ -29,6 +30,11 @@ interface StudioPanelProps {
   onReloadShaderCode: () => void;
   versions: ShaderVersion[];
   onRestoreVersion: (versionId: string) => void;
+  timelineDraft?: {
+    label: string;
+    sourceName: string | null;
+    isDirty: boolean;
+  };
 }
 
 function CopyIcon() {
@@ -62,6 +68,7 @@ export function StudioPanel({
   activeShaderId,
   onNewShader,
   onSaveShader,
+  onDiscardDraft,
   uniformDefinitions,
   uniformValues,
   onUniformChange,
@@ -77,6 +84,7 @@ export function StudioPanel({
   onReloadShaderCode,
   versions,
   onRestoreVersion,
+  timelineDraft,
 }: StudioPanelProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const activeShaderName =
@@ -115,6 +123,22 @@ export function StudioPanel({
     <>
       <PanelSection title="Shader Studio">
         <div className="stack gap-md">
+          {timelineDraft ? (
+            <div className="draft-target-banner draft-target-banner-studio">
+              <div>
+                <strong>{timelineDraft.label}</strong>
+                <p>
+                  {timelineDraft.sourceName
+                    ? `Based on ${timelineDraft.sourceName}. Save it to keep this timeline version.`
+                    : 'Temporary timeline shader draft.'}
+                </p>
+              </div>
+              <span className="draft-target-status">
+                {timelineDraft.isDirty ? 'Unsaved Draft' : 'Temporary Draft'}
+              </span>
+            </div>
+          ) : null}
+
           <div className="stack gap-sm">
             <div className="field-inline-label">
               <span>Current Shader</span>
@@ -131,8 +155,13 @@ export function StudioPanel({
               New Shader
             </button>
             <button type="button" className="secondary-button" onClick={onSaveShader}>
-              Save
+              {timelineDraft ? 'Save Draft' : 'Save'}
             </button>
+            {timelineDraft && onDiscardDraft ? (
+              <button type="button" className="ghost-button" onClick={onDiscardDraft}>
+                Discard Draft
+              </button>
+            ) : null}
           </div>
         </div>
       </PanelSection>

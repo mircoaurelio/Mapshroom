@@ -34,6 +34,11 @@ export interface SavedShader {
   code: string;
   description?: string;
   group?: string;
+  uniformValues?: ShaderUniformValueMap;
+  isTemporary?: boolean;
+  isDirty?: boolean;
+  sourceShaderId?: string;
+  ownerTimelineStepId?: string;
 }
 
 export interface StageTransform {
