@@ -6,10 +6,12 @@ export type MobilePanelKey = 'studio' | 'mapping' | 'sliders' | null;
 interface MobileChromeProps {
   activeAssetName: string;
   isPlaying: boolean;
+  isTimelineOpen: boolean;
   uiMode: Exclude<MobileUiMode, 'hidden'>;
   activePanel: MobilePanelKey;
   onLoadAsset: () => void;
   onOpenSettings: () => void;
+  onOpenTimeline: () => void;
   onToggleMapping: () => void;
   onHide: () => void;
   onPlayToggle: () => void;
@@ -29,10 +31,12 @@ const MOBILE_PANEL_TITLES: Record<Exclude<MobilePanelKey, null>, string> = {
 export function MobileChrome({
   activeAssetName,
   isPlaying,
+  isTimelineOpen,
   uiMode,
   activePanel,
   onLoadAsset,
   onOpenSettings,
+  onOpenTimeline,
   onToggleMapping,
   onHide,
   onPlayToggle,
@@ -73,6 +77,13 @@ export function MobileChrome({
           onClick={() => onPanelChange('sliders')}
         >
           Sliders
+        </button>
+        <button
+          type="button"
+          className={isTimelineOpen ? 'mobile-dock-button-active' : ''}
+          onClick={onOpenTimeline}
+        >
+          Timeline
         </button>
         <button
           type="button"

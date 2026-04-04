@@ -9,6 +9,7 @@ import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
 import { StageRenderer } from '../components/StageRenderer';
 import { StudioPanel } from '../components/StudioPanel';
+import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_GOOGLE_SHADER_MODEL,
@@ -16,7 +17,7 @@ import {
   DEFAULT_UI_PREFERENCES,
   createDefaultProject,
 } from '../config';
-import { pauseTransport, playTransport } from '../lib/clock';
+import { pauseTransport, playTransport, resetTransport, seekTransport } from '../lib/clock';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
@@ -141,6 +142,20 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     ai: {
       settings: normalizedAiSettings,
     },
+    timeline: {
+      stub: {
+        ...defaultProject.timeline.stub,
+        ...project.timeline?.stub,
+        markers: project.timeline?.stub?.markers ?? defaultProject.timeline.stub.markers,
+        tracks: project.timeline?.stub?.tracks ?? defaultProject.timeline.stub.tracks,
+      },
+    },
+    export: {
+      stub: {
+        ...defaultProject.export.stub,
+        ...project.export?.stub,
+      },
+    },
     studio: {
       ...project.studio,
       shaderChatHistory: project.studio.shaderChatHistory ?? [],
@@ -182,6 +197,8 @@ export function WorkspaceRoute() {
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
+  const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
+  const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
   const generatedShaderRetryRef = useRef<{
     sourcePrompt: string;
     code: string;
@@ -266,6 +283,12 @@ export function WorkspaceRoute() {
   }, [isMobile, mobilePanel, uiPreferences.mobileUiMode]);
 
   useEffect(() => {
+    if ((!isMobile || uiPreferences.mobileUiMode === 'hidden') && isMobileTimelineOpen) {
+      setIsMobileTimelineOpen(false);
+    }
+  }, [isMobile, isMobileTimelineOpen, uiPreferences.mobileUiMode]);
+
+  useEffect(() => {
     if (aiFeedbackTone !== 'success' && aiFeedbackTone !== 'error') return;
     const timer = setTimeout(() => {
       setAiFeedbackMessage('');
@@ -317,6 +340,50 @@ export function WorkspaceRoute() {
   const activeAssetResolution = useAssetObjectUrl(activeAsset);
   const activeAssetUrl = activeAssetResolution.url;
   const lastMissingAssetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setActiveAssetDurationSeconds(null);
+
+    if (
+      !activeAsset ||
+      activeAsset.kind !== 'video' ||
+      !activeAssetUrl ||
+      activeAssetResolution.status !== 'ready'
+    ) {
+      return;
+    }
+
+    let disposed = false;
+    const probe = document.createElement('video');
+    const cleanup = () => {
+      probe.onloadedmetadata = null;
+      probe.onerror = null;
+      probe.removeAttribute('src');
+      probe.load();
+    };
+
+    probe.preload = 'metadata';
+    probe.src = activeAssetUrl;
+    probe.onloadedmetadata = () => {
+      if (!disposed) {
+        setActiveAssetDurationSeconds(
+          Number.isFinite(probe.duration) && probe.duration > 0 ? probe.duration : null,
+        );
+      }
+      cleanup();
+    };
+    probe.onerror = () => {
+      if (!disposed) {
+        setActiveAssetDurationSeconds(null);
+      }
+      cleanup();
+    };
+
+    return () => {
+      disposed = true;
+      cleanup();
+    };
+  }, [activeAsset, activeAssetResolution.status, activeAssetUrl]);
 
   const clearGeneratedShaderRetry = () => {
     generatedShaderRetryRef.current = null;
@@ -434,6 +501,39 @@ export function WorkspaceRoute() {
       },
     }));
   };
+
+  const handleTimelineSeek = useCallback((nextTimeSeconds: number) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      playback: {
+        ...currentProject.playback,
+        transport: seekTransport(currentProject.playback.transport, nextTimeSeconds),
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineReset = useCallback(() => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      playback: {
+        ...currentProject.playback,
+        transport: resetTransport(currentProject.playback.transport),
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineLoopToggle = useCallback(() => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      playback: {
+        ...currentProject.playback,
+        transport: {
+          ...currentProject.playback.transport,
+          loop: !currentProject.playback.transport.loop,
+        },
+      },
+    }));
+  }, [updateProject]);
 
   const handleMappingAction = (action: MappingAction) => {
     updateProject((currentProject) => ({
@@ -938,6 +1038,12 @@ ${errorSnapshot}`,
     toggleMoveMode();
   };
 
+  const handleOpenMobileTimeline = () => {
+    setMobilePanel(null);
+    setMoveMode(false);
+    setIsMobileTimelineOpen(true);
+  };
+
   const handleStageReveal = useCallback(() => {
     if (!isMobile || uiPreferences.mobileUiMode !== 'hidden') return;
     updateMobileUiMode('bar');
@@ -946,6 +1052,7 @@ ${errorSnapshot}`,
   const handleMobileHide = () => {
     setMobilePanel(null);
     setMoveMode(false);
+    setIsMobileTimelineOpen(false);
     updateMobileUiMode('hidden');
   };
 
@@ -977,6 +1084,11 @@ ${errorSnapshot}`,
   const stageControlsVisible = isMobile
     ? mobileUiMode === 'full' && stageTransform.moveMode
     : uiPreferences.chromeVisible && stageTransform.moveMode;
+  const timelineStub = project.timeline.stub;
+  const timelineDurationSeconds =
+    activeAsset?.kind === 'video' && activeAssetDurationSeconds
+      ? activeAssetDurationSeconds
+      : timelineStub.durationSeconds;
 
   const aiPanel = (
     <AiPanel
@@ -1049,6 +1161,21 @@ ${errorSnapshot}`,
       }}
       onAction={handleMappingAction}
       showPrecisionSlider={!isMobile}
+    />
+  );
+
+  const timelineBar = (
+    <TimelineBar
+      assetName={activeAsset?.name ?? 'No asset selected'}
+      assetKind={activeAsset?.kind ?? null}
+      transport={project.playback.transport}
+      durationSeconds={timelineDurationSeconds}
+      markers={timelineStub.markers}
+      tracks={timelineStub.tracks}
+      onSeek={handleTimelineSeek}
+      onPlayToggle={handlePlayToggle}
+      onReset={handleTimelineReset}
+      onToggleLoop={handleTimelineLoopToggle}
     />
   );
 
@@ -1183,14 +1310,20 @@ ${errorSnapshot}`,
         ) : null}
       </div>
 
+      {!isMobile && uiPreferences.chromeVisible ? (
+        <div className="workspace-timeline-shell">{timelineBar}</div>
+      ) : null}
+
       {isMobile && mobileChromeVisible ? (
         <MobileChrome
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
           isPlaying={project.playback.transport.isPlaying}
+          isTimelineOpen={isMobileTimelineOpen}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
           onLoadAsset={openFilePicker}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
+          onOpenTimeline={handleOpenMobileTimeline}
           onToggleMapping={handleMobileToggleMapping}
           onHide={handleMobileHide}
           onPlayToggle={handlePlayToggle}
@@ -1201,6 +1334,21 @@ ${errorSnapshot}`,
           }}
         />
       ) : null}
+
+      <TimelineDialog
+        open={isMobile && isMobileTimelineOpen}
+        assetName={activeAsset?.name ?? 'No asset selected'}
+        assetKind={activeAsset?.kind ?? null}
+        transport={project.playback.transport}
+        durationSeconds={timelineDurationSeconds}
+        markers={timelineStub.markers}
+        tracks={timelineStub.tracks}
+        onSeek={handleTimelineSeek}
+        onPlayToggle={handlePlayToggle}
+        onReset={handleTimelineReset}
+        onToggleLoop={handleTimelineLoopToggle}
+        onClose={() => setIsMobileTimelineOpen(false)}
+      />
 
       <ApiSettingsDialog
         open={isApiSettingsOpen}
