@@ -103,6 +103,9 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
         shaderSequence: {
           enabled: false,
           mode: 'sequence',
+          editorView: 'simple',
+          sharedTransitionEffect: 'mix',
+          sharedTransitionDurationSeconds: 0.75,
           steps: [
             {
               id: crypto.randomUUID(),

@@ -1541,6 +1541,78 @@ a {
   justify-content: space-between;
 }
 
+.timeline-segment-track-shell {
+  padding: 0.08rem 0 0.22rem;
+}
+
+.timeline-segment-track {
+  position: relative;
+  height: 20px;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+  border-radius: 999px;
+  background: rgba(13, 13, 16, 0.75);
+  overflow: hidden;
+}
+
+.timeline-segment-block {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 0.45rem;
+  background: rgba(63, 63, 70, 0.34);
+  color: rgba(244, 244, 245, 0.68);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.timeline-segment-block span {
+  min-width: 0;
+  overflow: hidden;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.timeline-segment-block-current {
+  background: rgba(52, 211, 153, 0.22);
+  color: #d1fae5;
+}
+
+.timeline-segment-block-next {
+  background: rgba(244, 244, 245, 0.12);
+  color: rgba(244, 244, 245, 0.82);
+}
+
+.timeline-segment-pin {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: col-resize;
+}
+
+.timeline-segment-pin::before {
+  content: '';
+  position: absolute;
+  inset: 2px 4px;
+  border-radius: 999px;
+  background: rgba(244, 244, 245, 0.65);
+}
+
+.timeline-segment-pin:hover::before {
+  background: #d1fae5;
+}
+
 .timeline-chip-row {
   flex-wrap: wrap;
 }
@@ -1619,6 +1691,23 @@ a {
   flex-wrap: wrap;
 }
 
+.timeline-view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.timeline-view-button {
+  width: 24px;
+  height: 24px;
+}
+
+.timeline-view-button-active {
+  border-color: rgba(52, 211, 153, 0.22);
+  background: rgba(52, 211, 153, 0.1);
+  color: #d1fae5;
+}
+
 .timeline-sequence-copy {
   display: flex;
   flex-direction: column;
@@ -1679,6 +1768,20 @@ a {
   color: #d1fae5;
 }
 
+.timeline-mix-bar {
+  display: grid;
+  grid-template-columns: 92px 92px minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: end;
+}
+
+.timeline-mix-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
 .timeline-flow-strip {
   display: flex;
   align-items: stretch;
@@ -1709,6 +1812,79 @@ a {
 .timeline-step-card-active {
   border-color: rgba(52, 211, 153, 0.24);
   background: rgba(52, 211, 153, 0.06);
+}
+
+.timeline-step-card-current {
+  border-color: rgba(52, 211, 153, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.12);
+}
+
+.timeline-step-card-transition {
+  border-color: rgba(244, 244, 245, 0.14);
+}
+
+.timeline-step-card-simple {
+  width: 192px;
+}
+
+.timeline-step-preview-shell {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 5 / 3;
+  border: 1px solid rgba(63, 63, 70, 0.45);
+  border-radius: var(--radius-sm);
+  background: #050506;
+}
+
+.timeline-step-preview-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.timeline-step-preview-placeholder,
+.timeline-step-preview-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+}
+
+.timeline-step-preview-placeholder {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem;
+  color: var(--text-dim);
+  font-size: 0.54rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.timeline-step-preview-badges {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.timeline-step-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.34rem;
+  border: 1px solid rgba(244, 244, 245, 0.18);
+  border-radius: 999px;
+  background: rgba(9, 9, 11, 0.72);
+  color: rgba(244, 244, 245, 0.84);
+  font-size: 0.5rem;
+  letter-spacing: 0.12em;
+}
+
+.timeline-step-preview-badge-active {
+  border-color: rgba(52, 211, 153, 0.28);
+  color: #d1fae5;
 }
 
 .timeline-step-chip-row {
@@ -1748,6 +1924,12 @@ a {
   gap: 0.4rem;
 }
 
+.timeline-step-simple-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.4rem;
+}
+
 .timeline-flow-connector {
   flex-direction: column;
   justify-content: center;
@@ -1776,6 +1958,11 @@ a {
 .timeline-step-card .select-field {
   min-height: 26px;
   padding: 0.32rem 0.45rem;
+}
+
+.timeline-step-card-simple .timeline-step-actions .ghost-button {
+  min-width: 24px;
+  padding: 0.2rem 0.35rem;
 }
 
 .mapping-pad {

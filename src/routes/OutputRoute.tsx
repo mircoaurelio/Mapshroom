@@ -14,6 +14,9 @@ const FALLBACK_TIMELINE_STUB = {
   shaderSequence: {
     enabled: false,
     mode: 'sequence',
+    editorView: 'simple',
+    sharedTransitionEffect: 'mix',
+    sharedTransitionDurationSeconds: 0.75,
     steps: [],
   },
 } as const;

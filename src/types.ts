@@ -6,7 +6,8 @@ export type WorkspaceMode = 'split' | 'immersive';
 export type ShaderProvider = 'openai' | 'google';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
 export type TimelineTransitionEffect = 'cut' | 'mix' | 'wipe' | 'radial' | 'glitch';
-export type TimelineSequenceMode = 'sequence' | 'random';
+export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix';
+export type TimelineEditorViewMode = 'simple' | 'advanced';
 
 export interface AssetRecord {
   id: string;
@@ -76,6 +77,9 @@ export interface TimelineStub {
   shaderSequence: {
     enabled: boolean;
     mode: TimelineSequenceMode;
+    editorView: TimelineEditorViewMode;
+    sharedTransitionEffect: TimelineTransitionEffect;
+    sharedTransitionDurationSeconds: number;
     steps: Array<{
       id: string;
       shaderId: string;

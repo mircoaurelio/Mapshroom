@@ -1,11 +1,18 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
+import {
+  clampTimelineStepDuration,
+  getShaderTimelineDuration,
+  resolveShaderTimelineState,
+} from '../lib/timeline';
 import type {
   AssetKind,
   PlaybackTransport,
   SavedShader,
+  TimelineEditorViewMode,
   TimelineSequenceMode,
   TimelineStub,
+  TimelineTransitionEffect,
 } from '../types';
 import { ShaderTimelineEditor } from './ShaderTimelineEditor';
 
@@ -14,6 +21,7 @@ type TimelineBarVariant = 'desktop' | 'dialog';
 interface TimelineBarProps {
   assetName: string;
   assetKind: AssetKind | null;
+  assetUrl: string | null;
   activeShaderId: string;
   savedShaders: SavedShader[];
   sequence: TimelineStub['shaderSequence'];
@@ -27,6 +35,11 @@ interface TimelineBarProps {
   onToggleLoop: () => void;
   onSequenceEnabledChange: (enabled: boolean) => void;
   onSequenceModeChange: (mode: TimelineSequenceMode) => void;
+  onSequenceEditorViewChange: (editorView: TimelineEditorViewMode) => void;
+  onSequenceSharedTransitionChange: (patch: {
+    sharedTransitionEffect?: TimelineTransitionEffect;
+    sharedTransitionDurationSeconds?: number;
+  }) => void;
   onSequenceStepChange: (
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
@@ -34,6 +47,12 @@ interface TimelineBarProps {
   onAddSequenceStep: () => void;
   onRemoveSequenceStep: (stepId: string) => void;
   onMoveSequenceStep: (stepId: string, direction: -1 | 1) => void;
+  onResizeSequenceBoundary: (
+    leftStepId: string,
+    rightStepId: string,
+    leftDurationSeconds: number,
+    rightDurationSeconds: number,
+  ) => void;
   variant?: TimelineBarVariant;
 }
 
@@ -46,6 +65,22 @@ interface TimelineMarkerStop {
   label: string;
   timeSeconds: number;
   ratio: number;
+}
+
+interface TimelineStepSegment {
+  step: TimelineStub['shaderSequence']['steps'][number];
+  startRatio: number;
+  endRatio: number;
+}
+
+interface BoundaryDragState {
+  leftStepId: string;
+  rightStepId: string;
+  startX: number;
+  leftDurationSeconds: number;
+  rightDurationSeconds: number;
+  totalDurationSeconds: number;
+  trackWidth: number;
 }
 
 function clampTimelineTime(
@@ -97,9 +132,47 @@ function getMarkerStops(markers: string[], durationSeconds: number): TimelineMar
   });
 }
 
+function getTimelineStepSegments(
+  steps: TimelineStub['shaderSequence']['steps'],
+): TimelineStepSegment[] {
+  const totalDurationSeconds = getShaderTimelineDuration(steps);
+  if (steps.length === 0 || totalDurationSeconds <= 0) {
+    return [];
+  }
+
+  let cursor = 0;
+  return steps.map((step) => {
+    const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
+    const startRatio = cursor / totalDurationSeconds;
+    cursor += durationSeconds;
+    return {
+      step,
+      startRatio,
+      endRatio: cursor / totalDurationSeconds,
+    };
+  });
+}
+
+function getSequenceSummaryCopy(sequence: TimelineStub['shaderSequence'], assetKind: AssetKind | null) {
+  if (!sequence.enabled) {
+    return assetKind === 'video' ? 'Video transport - asset duration' : 'Scene clock - timeline duration';
+  }
+
+  if (sequence.mode === 'randomMix') {
+    return 'Random mix - shared transition and compact shader list';
+  }
+
+  if (sequence.mode === 'random') {
+    return 'Random shader flow with transitions - compact editor';
+  }
+
+  return 'Sequenced shader flow with transitions - compact editor';
+}
+
 export function TimelineBar({
   assetName,
   assetKind,
+  assetUrl,
   activeShaderId,
   savedShaders,
   sequence,
@@ -113,17 +186,21 @@ export function TimelineBar({
   onToggleLoop,
   onSequenceEnabledChange,
   onSequenceModeChange,
+  onSequenceEditorViewChange,
+  onSequenceSharedTransitionChange,
   onSequenceStepChange,
   onAddSequenceStep,
   onRemoveSequenceStep,
   onMoveSequenceStep,
+  onResizeSequenceBoundary,
   variant = 'desktop',
 }: TimelineBarProps) {
   const [nowMs, setNowMs] = useState(() => performance.now());
   const [scrubValue, setScrubValue] = useState<string | null>(null);
-  const safeDurationSeconds = Number.isFinite(durationSeconds) && durationSeconds > 0
-    ? durationSeconds
-    : 1;
+  const dragStateRef = useRef<BoundaryDragState | null>(null);
+  const stepTrackRef = useRef<HTMLDivElement | null>(null);
+  const safeDurationSeconds =
+    Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
 
   useEffect(() => {
     if (!transport.isPlaying) {
@@ -141,6 +218,49 @@ export function TimelineBar({
     return () => cancelAnimationFrame(frameId);
   }, [transport.anchorTimestampMs, transport.isPlaying, transport.playbackRate]);
 
+  useEffect(() => {
+    const handlePointerMove = (event: MouseEvent) => {
+      const dragState = dragStateRef.current;
+      if (!dragState) {
+        return;
+      }
+
+      const pairTotal = dragState.leftDurationSeconds + dragState.rightDurationSeconds;
+      const deltaRatio = dragState.trackWidth > 0 ? (event.clientX - dragState.startX) / dragState.trackWidth : 0;
+      const deltaSeconds = deltaRatio * dragState.totalDurationSeconds;
+      const nextLeftDurationSeconds = Math.max(
+        0.5,
+        Math.min(pairTotal - 0.5, dragState.leftDurationSeconds + deltaSeconds),
+      );
+      const nextRightDurationSeconds = pairTotal - nextLeftDurationSeconds;
+
+      onResizeSequenceBoundary(
+        dragState.leftStepId,
+        dragState.rightStepId,
+        nextLeftDurationSeconds,
+        nextRightDurationSeconds,
+      );
+    };
+
+    const handlePointerUp = () => {
+      if (!dragStateRef.current) {
+        return;
+      }
+
+      dragStateRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+    };
+  }, [onResizeSequenceBoundary]);
+
   const transportTimeSeconds = getTransportTimeSeconds(transport, nowMs);
   const visibleTimeSeconds = clampTimelineTime(
     transportTimeSeconds,
@@ -151,6 +271,31 @@ export function TimelineBar({
     () => getMarkerStops(markers, safeDurationSeconds),
     [markers, safeDurationSeconds],
   );
+  const timelineState = useMemo(() => {
+    if (!sequence.enabled || sequence.steps.length === 0) {
+      return null;
+    }
+
+    return resolveShaderTimelineState({
+      shaders: savedShaders,
+      mode: sequence.mode,
+      sharedTransitionEffect: sequence.sharedTransitionEffect,
+      sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
+      steps: sequence.steps,
+      timeSeconds: transportTimeSeconds,
+      loop: transport.loop,
+    });
+  }, [
+    savedShaders,
+    sequence.enabled,
+    sequence.mode,
+    sequence.sharedTransitionDurationSeconds,
+    sequence.sharedTransitionEffect,
+    sequence.steps,
+    transport.loop,
+    transportTimeSeconds,
+  ]);
+  const stepSegments = useMemo(() => getTimelineStepSegments(sequence.steps), [sequence.steps]);
   const sliderValue = scrubValue ?? String(visibleTimeSeconds);
   const markerThresholdSeconds = Math.max(
     0.75,
@@ -168,27 +313,36 @@ export function TimelineBar({
     onSeek(timeSeconds);
   };
 
+  const beginBoundaryDrag = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    leftSegment: TimelineStepSegment,
+    rightSegment: TimelineStepSegment,
+  ) => {
+    const trackWidth = stepTrackRef.current?.clientWidth ?? 0;
+    if (trackWidth <= 0) {
+      return;
+    }
+
+    dragStateRef.current = {
+      leftStepId: leftSegment.step.id,
+      rightStepId: rightSegment.step.id,
+      startX: event.clientX,
+      leftDurationSeconds: clampTimelineStepDuration(leftSegment.step.durationSeconds),
+      rightDurationSeconds: clampTimelineStepDuration(rightSegment.step.durationSeconds),
+      totalDurationSeconds: getShaderTimelineDuration(sequence.steps),
+      trackWidth,
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   return (
     <div className={`timeline-bar timeline-bar-${variant}`}>
       <div className="timeline-bar-header">
         <div className="timeline-bar-meta">
           <span className="timeline-bar-label">Timeline</span>
           <strong className="timeline-bar-title">{assetName}</strong>
-          <span className="timeline-bar-copy">
-            {sequence.enabled
-              ? sequence.mode === 'random'
-                ? 'Random shader flow with transitions'
-                : 'Sequenced shader flow with transitions'
-              : assetKind === 'video'
-                ? 'Video transport'
-                : 'Scene clock'}{' '}
-            -{' '}
-            {sequence.enabled
-              ? 'simple timeline editor'
-              : assetKind === 'video'
-                ? 'asset duration'
-                : 'timeline duration'}
-          </span>
+          <span className="timeline-bar-copy">{getSequenceSummaryCopy(sequence, assetKind)}</span>
         </div>
 
         <div className="timeline-bar-actions">
@@ -242,6 +396,59 @@ export function TimelineBar({
         <span className="timeline-timecode">{formatTimelineTime(safeDurationSeconds)}</span>
       </div>
 
+      {sequence.enabled && stepSegments.length > 0 ? (
+        <div className="timeline-segment-track-shell">
+          <div className="timeline-segment-track" ref={stepTrackRef}>
+            {stepSegments.map((segment) => {
+              const shaderName =
+                savedShaders.find((shader) => shader.id === segment.step.shaderId)?.name ?? 'Shader';
+              const isCurrent = timelineState?.currentStep.id === segment.step.id;
+              const isNext =
+                timelineState?.isTransitioning && timelineState.nextStep?.id === segment.step.id;
+
+              return (
+                <div
+                  key={segment.step.id}
+                  className={`timeline-segment-block ${
+                    isCurrent ? 'timeline-segment-block-current' : ''
+                  } ${isNext ? 'timeline-segment-block-next' : ''}`}
+                  style={{
+                    left: `${segment.startRatio * 100}%`,
+                    width: `${Math.max(0.8, (segment.endRatio - segment.startRatio) * 100)}%`,
+                  }}
+                  title={`${shaderName} - ${segment.step.durationSeconds.toFixed(1)}s`}
+                >
+                  <span>{shaderName}</span>
+                </div>
+              );
+            })}
+
+            {stepSegments.slice(0, -1).map((segment, index) => {
+              const nextSegment = stepSegments[index + 1];
+              const leftShaderName =
+                savedShaders.find((shader) => shader.id === segment.step.shaderId)?.name ?? 'Left';
+              const rightShaderName =
+                savedShaders.find((shader) => shader.id === nextSegment.step.shaderId)?.name ?? 'Right';
+
+              return (
+                <button
+                  key={`${segment.step.id}:${nextSegment.step.id}`}
+                  type="button"
+                  className="timeline-segment-pin"
+                  aria-label={`Resize ${leftShaderName} and ${rightShaderName}`}
+                  title={`Resize ${leftShaderName} and ${rightShaderName}`}
+                  style={{ left: `${segment.endRatio * 100}%` }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    beginBoundaryDrag(event, segment, nextSegment);
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {!sequence.enabled ? (
         <div className="timeline-bar-footer">
           <div className="timeline-chip-row">
@@ -273,12 +480,20 @@ export function TimelineBar({
       ) : null}
 
       <ShaderTimelineEditor
+        assetKind={assetKind}
+        assetUrl={assetUrl}
         savedShaders={savedShaders}
         activeShaderId={activeShaderId}
+        activeStepId={timelineState?.currentStep.id ?? null}
+        transitionStepId={
+          timelineState?.isTransitioning ? timelineState.nextStep?.id ?? null : null
+        }
         sequence={sequence}
         totalDurationSeconds={durationSeconds}
         onEnabledChange={onSequenceEnabledChange}
         onModeChange={onSequenceModeChange}
+        onEditorViewChange={onSequenceEditorViewChange}
+        onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
         onAddStep={onAddSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
