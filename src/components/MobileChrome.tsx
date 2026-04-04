@@ -58,7 +58,7 @@ export function MobileChrome({
             Load
           </button>
           <button type="button" className="secondary-button" onClick={onOpenSettings}>
-            APIs
+            Settings
           </button>
         </div>
       </header>

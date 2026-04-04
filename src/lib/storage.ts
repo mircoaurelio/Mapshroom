@@ -87,6 +87,58 @@ export function saveUiPreferences(preferences: UiPreferences): void {
   localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(preferences));
 }
 
+export async function clearPersistedSiteData(): Promise<void> {
+  const localStorageKeys = Array.from({ length: localStorage.length }, (_, index) =>
+    localStorage.key(index),
+  ).filter((key): key is string => Boolean(key));
+
+  for (const key of localStorageKeys) {
+    if (
+      key === ACTIVE_SESSION_KEY ||
+      key === UI_STORAGE_KEY ||
+      key.startsWith(PROJECT_STORAGE_PREFIX)
+    ) {
+      localStorage.removeItem(key);
+    }
+  }
+
+  sessionStorage.clear();
+
+  let openDatabaseHandle: IDBDatabase | null = null;
+  try {
+    openDatabaseHandle = await openDatabase();
+  } catch (error) {
+    console.warn('Unable to access IndexedDB before clearing site data.', error);
+  }
+
+  openDatabaseHandle?.close();
+  cachedDbPromise = null;
+
+  if ('indexedDB' in window) {
+    await new Promise<void>((resolve) => {
+      const request = indexedDB.deleteDatabase(ASSET_DB_NAME);
+      request.onsuccess = () => resolve();
+      request.onerror = () => {
+        console.warn('Unable to delete IndexedDB while clearing site data.', request.error);
+        resolve();
+      };
+      request.onblocked = () => {
+        console.warn('IndexedDB deletion was blocked while clearing site data.');
+        resolve();
+      };
+    });
+  }
+
+  if ('caches' in window) {
+    try {
+      const cacheKeys = await caches.keys();
+      await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
+    } catch (error) {
+      console.warn('Unable to clear Cache Storage while clearing site data.', error);
+    }
+  }
+}
+
 function openDatabase(): Promise<IDBDatabase | null> {
   if (cachedDbPromise) {
     return cachedDbPromise;
