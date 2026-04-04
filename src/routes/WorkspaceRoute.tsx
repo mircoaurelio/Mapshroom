@@ -1788,12 +1788,18 @@ export function WorkspaceRoute() {
     setStatusMessage('Recompiling current code...');
   };
 
-  const handleShaderMutation = async (prompt: string) => {
+  const handleShaderMutation = async (
+    prompt: string,
+    options?: {
+      historyPrompt?: string;
+    },
+  ) => {
     if (!project) {
       return;
     }
 
     const trimmedPrompt = prompt.trim();
+    const historyPrompt = options?.historyPrompt?.trim() || trimmedPrompt;
     if (!trimmedPrompt) {
       setAiFeedbackTone('error');
       setAiFeedbackMessage('Write a shader prompt first, then generate.');
@@ -1924,7 +1930,7 @@ export function WorkspaceRoute() {
             shaderVersions: appliedToActiveShader
               ? [
                   ...currentProject.studio.shaderVersions,
-                  createShaderVersion(trimmedPrompt, nextName, nextCode, versionId),
+                  createShaderVersion(historyPrompt, nextName, nextCode, versionId),
                 ]
               : currentProject.studio.shaderVersions,
             savedShaders: currentProject.studio.savedShaders.map((shader) =>
@@ -2161,6 +2167,7 @@ ${errorSnapshot}`,
     setNewUniformName('');
     await handleShaderMutation(
       `Integrate a new parameter named '${sanitized}'. Add 'uniform float ${sanitized}; // @min 0.0 @max 1.0 @default 0.5' and use it.`,
+      { historyPrompt: `Add slider: ${sanitized}` },
     );
   };
 
@@ -2885,9 +2892,9 @@ ${errorSnapshot}`,
             >
               <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
                 {aiPanel}
-                {desktopCodePanel}
                 {desktopShaderToolsPanel}
                 {desktopHistoryPanel}
+                {desktopCodePanel}
               </div>
             </aside>
           </>

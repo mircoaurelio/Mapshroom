@@ -74,6 +74,49 @@ function ReloadIcon() {
   );
 }
 
+function PresetIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="3" y="4" width="5" height="5" rx="1" />
+      <rect x="12" y="4" width="5" height="5" rx="1" />
+      <rect x="3" y="11" width="5" height="5" rx="1" />
+      <rect x="12" y="11" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function SaveIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3h8.38L17 6.12V15.5A1.5 1.5 0 0 1 15.5 17h-10A1.5 1.5 0 0 1 4 15.5Z" />
+      <path d="M7 3.75v4.5h5.5v-4.5" />
+      <path d="M7.25 17v-4.75h5.5V17" />
+    </svg>
+  );
+}
+
+function NewShaderIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 4v12" />
+      <path d="M4 10h12" />
+      <path d="m14.5 4.5 1-2 1 2 2 1-2 1-1 2-1-2-2-1z" />
+    </svg>
+  );
+}
+
+function CollapseIcon({ collapsed }: { collapsed: boolean }) {
+  return collapsed ? (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="m7 6 6 4-6 4" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="m6 7 4 6 4-6" />
+    </svg>
+  );
+}
+
 export function ShaderStudioControlsSection({
   savedShaders,
   activeShaderId,
@@ -93,20 +136,32 @@ export function ShaderStudioControlsSection({
             <span>Current Shader</span>
             <small>{activeShaderName}</small>
           </div>
-          <div className="button-row">
-            <button type="button" className="secondary-button" onClick={onBrowsePresets}>
-              Preset List
+          <div className="button-row shader-studio-action-row">
+            <button
+              type="button"
+              className="secondary-button shader-studio-action-button"
+              onClick={onBrowsePresets}
+            >
+              <PresetIcon />
+              <span>Preset List</span>
             </button>
-            <button type="button" className="primary-button" onClick={onSaveShader}>
-              {timelineSelection?.isLinked ? 'Save To Library' : 'Save'}
+            <button
+              type="button"
+              className="primary-button shader-studio-action-button"
+              onClick={onSaveShader}
+            >
+              <SaveIcon />
+              <span>{timelineSelection?.isLinked ? 'Save To Library' : 'Save'}</span>
+            </button>
+            <button
+              type="button"
+              className="secondary-button shader-studio-action-button"
+              onClick={onNewShader}
+            >
+              <NewShaderIcon />
+              <span>New Shader</span>
             </button>
           </div>
-        </div>
-
-        <div className="button-row">
-          <button type="button" className="secondary-button" onClick={onNewShader}>
-            New Shader
-          </button>
         </div>
       </div>
     </PanelSection>
@@ -149,6 +204,7 @@ export function ShaderCodeSection({
   onReloadShaderCode,
 }: ShaderCodeSectionProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [collapsed, setCollapsed] = useState(false);
   const copyLabel =
     copyState === 'copied' ? 'Code copied' : copyState === 'error' ? 'Copy failed' : 'Copy code';
 
@@ -186,6 +242,15 @@ export function ShaderCodeSection({
         <>
           <button
             type="button"
+            className="icon-button"
+            aria-label={collapsed ? 'Expand code editor' : 'Collapse code editor'}
+            title={collapsed ? 'Expand code editor' : 'Collapse code editor'}
+            onClick={() => setCollapsed((currentValue) => !currentValue)}
+          >
+            <CollapseIcon collapsed={collapsed} />
+          </button>
+          <button
+            type="button"
             className={`icon-button ${
               copyState === 'copied'
                 ? 'icon-button-success'
@@ -213,27 +278,31 @@ export function ShaderCodeSection({
         </>
       }
     >
-      <div className="stack gap-md">
-        <textarea
-          className="code-editor"
-          value={shaderCode}
-          spellCheck={false}
-          onChange={(event) => onShaderCodeChange(event.target.value)}
-        />
-        {compilerError ? (
-          <div className="error-panel">
-            {compilerError}
-            <button
-              type="button"
-              className="fix-error-button"
-              disabled={aiLoading}
-              onClick={onFixError}
-            >
-              {aiLoading ? 'Fixing...' : 'Fix Error'}
-            </button>
-          </div>
-        ) : null}
-      </div>
+      {collapsed ? (
+        <div className="code-collapsed-note">Code editor collapsed.</div>
+      ) : (
+        <div className="stack gap-md">
+          <textarea
+            className="code-editor"
+            value={shaderCode}
+            spellCheck={false}
+            onChange={(event) => onShaderCodeChange(event.target.value)}
+          />
+          {compilerError ? (
+            <div className="error-panel">
+              {compilerError}
+              <button
+                type="button"
+                className="fix-error-button"
+                disabled={aiLoading}
+                onClick={onFixError}
+              >
+                {aiLoading ? 'Fixing...' : 'Fix Error'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
     </PanelSection>
   );
 }

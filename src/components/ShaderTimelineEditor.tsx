@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
@@ -222,7 +222,7 @@ export function ShaderTimelineEditor({
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [selectedAddShaderIds, setSelectedAddShaderIds] = useState<string[]>([]);
-  const hasInitializedAddSelectionRef = useRef(false);
+  const [cardScale, setCardScale] = useState(1);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
@@ -249,26 +249,21 @@ export function ShaderTimelineEditor({
   const sharedTransitionLocked = sequence.mode === 'randomMix';
   const usesSharedTransition =
     sharedTransitionLocked || sequence.sharedTransitionEnabled;
+  const flowStripStyle = useMemo(
+    () =>
+      ({
+        '--timeline-card-width': `${Math.round(220 * cardScale)}px`,
+        '--timeline-card-simple-width': `${Math.round(192 * cardScale)}px`,
+      }) as CSSProperties,
+    [cardScale],
+  );
 
   useEffect(() => {
     setSelectedAddShaderIds((currentIds) => {
-      const validIds = currentIds.filter((shaderId) =>
-        addableShaders.some((shader) => shader.id === shaderId),
-      );
-
-      if (validIds.length > 0 || hasInitializedAddSelectionRef.current) {
-        return validIds;
-      }
-
-      hasInitializedAddSelectionRef.current = true;
-
-      if (addableShaders.some((shader) => shader.id === activeShaderId)) {
-        return [activeShaderId];
-      }
-
-      return addableShaders[0] ? [addableShaders[0].id] : [];
+      const validShaderIds = new Set(addableShaders.map((shader) => shader.id));
+      return currentIds.filter((shaderId) => validShaderIds.has(shaderId));
     });
-  }, [activeShaderId, addableShaders]);
+  }, [addableShaders]);
 
   useEffect(() => {
     if (!isAddMenuOpen) {
@@ -505,6 +500,21 @@ export function ShaderTimelineEditor({
             ) : null}
           </div>
 
+          <label className="field timeline-compact-field timeline-card-size-field">
+            <span>Cards</span>
+            <input
+              className="timeline-card-size-slider"
+              type="range"
+              min={0.55}
+              max={1}
+              step={0.05}
+              value={cardScale}
+              aria-label="Timeline shader card size"
+              title="Timeline shader card size"
+              onChange={(event) => setCardScale(Number(event.target.value))}
+            />
+          </label>
+
           <div className="timeline-add-toolbar" ref={addMenuRef}>
             <button
               type="button"
@@ -611,7 +621,12 @@ export function ShaderTimelineEditor({
         </div>
       </div>
 
-      <div className="timeline-flow-strip" role="list" aria-label="Shader timeline flow">
+      <div
+        className="timeline-flow-strip"
+        role="list"
+        aria-label="Shader timeline flow"
+        style={flowStripStyle}
+      >
         {sequence.steps.map((step) => {
           const shader = shaderMap.get(step.shaderId);
           const isPlayingStep = step.id === activeStepId;
