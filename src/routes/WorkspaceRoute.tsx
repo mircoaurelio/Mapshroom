@@ -157,6 +157,9 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         shaderSequence: {
           ...defaultProject.timeline.stub.shaderSequence,
           ...project.timeline?.stub?.shaderSequence,
+          mode:
+            project.timeline?.stub?.shaderSequence?.mode ??
+            defaultProject.timeline.stub.shaderSequence.mode,
           steps:
             project.timeline?.stub?.shaderSequence?.steps?.length
               ? project.timeline.stub.shaderSequence.steps.map((step) => {
@@ -569,6 +572,21 @@ export function WorkspaceRoute() {
           shaderSequence: {
             ...currentProject.timeline.stub.shaderSequence,
             enabled,
+          },
+        },
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineSequenceModeChange = useCallback((mode: ProjectDocument['timeline']['stub']['shaderSequence']['mode']) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            mode,
           },
         },
       },
@@ -1255,16 +1273,23 @@ ${errorSnapshot}`,
   const timelineSequenceEnabled =
     timelineStub.shaderSequence.enabled && timelineStub.shaderSequence.steps.length > 0;
   const timelineMarkers = timelineSequenceEnabled
-    ? timelineStub.shaderSequence.steps.map((step, index) => {
-        const shaderName =
-          timelineSelectableShaders.find((shader) => shader.id === step.shaderId)?.name ??
-          `Step ${index + 1}`;
-        return shaderName;
-      })
+    ? timelineStub.shaderSequence.mode === 'random'
+      ? timelineStub.shaderSequence.steps.map((_, index) => `Pick ${index + 1}`)
+      : timelineStub.shaderSequence.steps.map((step, index) => {
+          const shaderName =
+            timelineSelectableShaders.find((shader) => shader.id === step.shaderId)?.name ??
+            `Step ${index + 1}`;
+          return shaderName;
+        })
     : timelineStub.markers;
   const timelineTracks = timelineSequenceEnabled
     ? [
-        { id: 'timeline-track-shader-sequence', label: 'Shader Flow', type: 'sequence' },
+        {
+          id: 'timeline-track-shader-sequence',
+          label:
+            timelineStub.shaderSequence.mode === 'random' ? 'Random Flow' : 'Shader Flow',
+          type: timelineStub.shaderSequence.mode,
+        },
         ...timelineStub.tracks,
       ]
     : timelineStub.tracks;
@@ -1364,6 +1389,7 @@ ${errorSnapshot}`,
       onReset={handleTimelineReset}
       onToggleLoop={handleTimelineLoopToggle}
       onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
+      onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceStepChange={handleTimelineStepChange}
       onAddSequenceStep={handleTimelineAddStep}
       onRemoveSequenceStep={handleTimelineRemoveStep}
@@ -1546,6 +1572,7 @@ ${errorSnapshot}`,
         onReset={handleTimelineReset}
         onToggleLoop={handleTimelineLoopToggle}
         onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
+        onSequenceModeChange={handleTimelineSequenceModeChange}
         onSequenceStepChange={handleTimelineStepChange}
         onAddSequenceStep={handleTimelineAddStep}
         onRemoveSequenceStep={handleTimelineRemoveStep}

@@ -1,8 +1,17 @@
 import type {
   SavedShader,
   TimelineStub,
+  TimelineSequenceMode,
   TimelineTransitionEffect,
 } from '../types';
+
+export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
+  value: TimelineSequenceMode;
+  label: string;
+}> = [
+  { value: 'sequence', label: 'Sequence' },
+  { value: 'random', label: 'Random' },
+];
 
 export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{
   value: TimelineTransitionEffect;
@@ -50,6 +59,55 @@ export function getShaderTimelineDuration(
   return steps.reduce((total, step) => total + clampTimelineStepDuration(step.durationSeconds), 0);
 }
 
+function hashTimelineSeed(seedSource: string): number {
+  let hash = 2166136261;
+
+  for (let index = 0; index < seedSource.length; index += 1) {
+    hash ^= seedSource.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function createDeterministicRandom(seed: number): () => number {
+  let state = seed >>> 0;
+
+  return () => {
+    state = Math.imul(state + 0x6d2b79f5, 1);
+    let next = state;
+    next ^= next >>> 15;
+    next = Math.imul(next | 1, next);
+    next ^= next + Math.imul(next ^ (next >>> 7), next | 61);
+    return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function getTimelineCycleSteps({
+  mode,
+  steps,
+  cycleIndex,
+}: {
+  mode: TimelineSequenceMode;
+  steps: TimelineStub['shaderSequence']['steps'];
+  cycleIndex: number;
+}): TimelineStub['shaderSequence']['steps'] {
+  if (mode !== 'random' || steps.length <= 1) {
+    return steps;
+  }
+
+  const nextSteps = [...steps];
+  const seed = hashTimelineSeed(`${cycleIndex}:${steps.map((step) => step.id).join('|')}`);
+  const random = createDeterministicRandom(seed);
+
+  for (let index = nextSteps.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [nextSteps[index], nextSteps[swapIndex]] = [nextSteps[swapIndex], nextSteps[index]];
+  }
+
+  return nextSteps;
+}
+
 interface TimelineResolution {
   currentStep: TimelineStub['shaderSequence']['steps'][number];
   currentShader: SavedShader;
@@ -66,11 +124,13 @@ interface TimelineResolution {
 
 export function resolveShaderTimelineState({
   shaders,
+  mode,
   steps,
   timeSeconds,
   loop,
 }: {
   shaders: SavedShader[];
+  mode: TimelineSequenceMode;
   steps: TimelineStub['shaderSequence']['steps'];
   timeSeconds: number;
   loop: boolean;
@@ -90,22 +150,25 @@ export function resolveShaderTimelineState({
     return null;
   }
 
-  let resolvedTime = Math.max(0, timeSeconds);
-  if (loop) {
-    resolvedTime %= totalDurationSeconds;
-    if (resolvedTime < 0) {
-      resolvedTime += totalDurationSeconds;
-    }
-  } else {
-    resolvedTime = Math.min(resolvedTime, totalDurationSeconds);
-  }
+  const absoluteTimeSeconds = Math.max(0, timeSeconds);
+  const cycleIndex = loop
+    ? Math.floor(absoluteTimeSeconds / totalDurationSeconds)
+    : 0;
+  const cycleSteps = getTimelineCycleSteps({
+    mode,
+    steps: validSteps,
+    cycleIndex,
+  });
+  let resolvedTime = loop
+    ? absoluteTimeSeconds % totalDurationSeconds
+    : Math.min(absoluteTimeSeconds, totalDurationSeconds);
 
   let cursor = 0;
-  for (let index = 0; index < validSteps.length; index += 1) {
-    const step = validSteps[index];
+  for (let index = 0; index < cycleSteps.length; index += 1) {
+    const step = cycleSteps[index];
     const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
     const nextCursor = cursor + durationSeconds;
-    const isLastStep = index === validSteps.length - 1;
+    const isLastStep = index === cycleSteps.length - 1;
     const withinStep = resolvedTime < nextCursor || isLastStep;
 
     if (withinStep) {
@@ -114,7 +177,7 @@ export function resolveShaderTimelineState({
         return null;
       }
 
-      const nextStep = validSteps[index + 1] ?? (loop ? validSteps[0] : null);
+      const nextStep = cycleSteps[index + 1] ?? (loop ? cycleSteps[0] : null);
       const nextShader = nextStep ? shaderMap.get(nextStep.shaderId) ?? null : null;
       const localTimeSeconds = Math.max(0, Math.min(durationSeconds, resolvedTime - cursor));
       const transitionDurationSeconds = clampTransitionDuration(

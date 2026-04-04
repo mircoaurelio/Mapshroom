@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
-import type { AssetKind, PlaybackTransport, SavedShader, TimelineStub } from '../types';
+import type {
+  AssetKind,
+  PlaybackTransport,
+  SavedShader,
+  TimelineSequenceMode,
+  TimelineStub,
+} from '../types';
 import { ShaderTimelineEditor } from './ShaderTimelineEditor';
 
 type TimelineBarVariant = 'desktop' | 'dialog';
@@ -20,6 +26,7 @@ interface TimelineBarProps {
   onReset: () => void;
   onToggleLoop: () => void;
   onSequenceEnabledChange: (enabled: boolean) => void;
+  onSequenceModeChange: (mode: TimelineSequenceMode) => void;
   onSequenceStepChange: (
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
@@ -105,6 +112,7 @@ export function TimelineBar({
   onReset,
   onToggleLoop,
   onSequenceEnabledChange,
+  onSequenceModeChange,
   onSequenceStepChange,
   onAddSequenceStep,
   onRemoveSequenceStep,
@@ -167,8 +175,19 @@ export function TimelineBar({
           <span className="timeline-bar-label">Timeline</span>
           <strong className="timeline-bar-title">{assetName}</strong>
           <span className="timeline-bar-copy">
-            {sequence.enabled ? 'Shader sequence clock' : assetKind === 'video' ? 'Video transport' : 'Scene clock'} -{' '}
-            {sequence.enabled ? 'step timing and shader transitions' : assetKind === 'video' ? 'asset duration' : 'timeline duration'}
+            {sequence.enabled
+              ? sequence.mode === 'random'
+                ? 'Random shader flow with transitions'
+                : 'Sequenced shader flow with transitions'
+              : assetKind === 'video'
+                ? 'Video transport'
+                : 'Scene clock'}{' '}
+            -{' '}
+            {sequence.enabled
+              ? 'simple timeline editor'
+              : assetKind === 'video'
+                ? 'asset duration'
+                : 'timeline duration'}
           </span>
         </div>
 
@@ -257,6 +276,7 @@ export function TimelineBar({
         sequence={sequence}
         totalDurationSeconds={durationSeconds}
         onEnabledChange={onSequenceEnabledChange}
+        onModeChange={onSequenceModeChange}
         onStepChange={onSequenceStepChange}
         onAddStep={onAddSequenceStep}
         onRemoveStep={onRemoveSequenceStep}

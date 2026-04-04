@@ -1499,7 +1499,7 @@ a {
 .timeline-sequence-editor {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.8rem;
   padding-top: 0.15rem;
   border-top: 1px solid rgba(63, 63, 70, 0.38);
 }
@@ -1507,7 +1507,10 @@ a {
 .timeline-sequence-header,
 .timeline-sequence-footer,
 .timeline-step-header,
-.timeline-step-actions {
+.timeline-step-actions,
+.timeline-mode-bar,
+.timeline-step-chip-row,
+.timeline-flow-connector {
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -1535,14 +1538,72 @@ a {
 
 .timeline-sequence-title {
   color: var(--text-bright);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
-.timeline-sequence-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.65rem;
+.timeline-editor-note,
+.timeline-flow-transition {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.timeline-mode-bar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.timeline-mode-label,
+.timeline-flow-arrow,
+.timeline-step-chip {
+  font-family: 'IBM Plex Mono', monospace;
+  text-transform: uppercase;
+}
+
+.timeline-mode-label,
+.timeline-flow-arrow {
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+}
+
+.timeline-mode-switch {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-panel-soft);
+}
+
+.timeline-mode-button {
+  min-height: 28px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.timeline-mode-button-active {
+  background: rgba(52, 211, 153, 0.1);
+  color: #d1fae5;
+}
+
+.timeline-flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.timeline-flow-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
 }
 
 .timeline-step-card {
@@ -1560,17 +1621,38 @@ a {
   background: rgba(52, 211, 153, 0.06);
 }
 
+.timeline-step-chip-row {
+  flex-wrap: wrap;
+}
+
+.timeline-step-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid rgba(63, 63, 70, 0.45);
+  border-radius: 999px;
+  background: rgba(17, 17, 20, 0.5);
+  color: var(--text-muted);
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+}
+
+.timeline-step-chip-live {
+  border-color: rgba(52, 211, 153, 0.25);
+  background: rgba(52, 211, 153, 0.08);
+  color: #d1fae5;
+}
+
 .timeline-step-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
 }
 
-.timeline-step-note {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  line-height: 1.45;
+.timeline-flow-connector {
+  padding-left: 0.65rem;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .mapping-pad {
