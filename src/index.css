@@ -2274,7 +2274,7 @@ a {
   display: flex;
   align-items: stretch;
   width: 100%;
-  gap: 0;
+  gap: 0.35rem;
   overflow: hidden;
   padding-bottom: 0.2rem;
 }
@@ -2283,7 +2283,7 @@ a {
   display: flex;
   align-items: center;
   min-width: 0;
-  flex: 0 0 auto;
+  flex: 1 1 0;
 }
 
 .timeline-step-card {
