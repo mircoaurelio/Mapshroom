@@ -13,6 +13,7 @@ export function createSessionSync(
   const channelName = `${BROADCAST_PREFIX}${sessionId}`;
   const broadcastChannel =
     typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(channelName) : null;
+  const shouldUseStorageFallback = broadcastChannel === null;
 
   const handleStorage = (event: StorageEvent) => {
     if (event.key !== getProjectStorageKey(sessionId) || !event.newValue) {
@@ -46,7 +47,9 @@ export function createSessionSync(
     });
   };
 
-  window.addEventListener('storage', handleStorage);
+  if (shouldUseStorageFallback) {
+    window.addEventListener('storage', handleStorage);
+  }
   broadcastChannel?.addEventListener('message', handleMessage);
 
   return {
@@ -60,7 +63,9 @@ export function createSessionSync(
       });
     },
     destroy() {
-      window.removeEventListener('storage', handleStorage);
+      if (shouldUseStorageFallback) {
+        window.removeEventListener('storage', handleStorage);
+      }
       broadcastChannel?.removeEventListener('message', handleMessage);
       broadcastChannel?.close();
     },
