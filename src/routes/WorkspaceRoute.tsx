@@ -2306,6 +2306,20 @@ ${errorSnapshot}`,
       }}
     />
   ) : null;
+  const desktopSlidersPanel =
+    slidersPanel ?? (
+      <UniformPanel
+        title="Sliders"
+        uniformDefinitions={uniformDefinitions}
+        uniformValues={project.studio.uniformValues}
+        onUniformChange={handleUniformChange}
+        newUniformName={newUniformName}
+        onNewUniformNameChange={setNewUniformName}
+        onQuickAddUniform={() => {
+          void handleUniformQuickAdd();
+        }}
+      />
+    );
 
   const mobileShaderPanel = (
     <>
@@ -2398,9 +2412,10 @@ ${errorSnapshot}`,
   );
 
   const useDesktopPaneLayout = !isMobile && uiPreferences.chromeVisible;
-  const desktopGridTemplateColumns = uiPreferences.sidebarVisible
-    ? `${desktopLayout.leftSidebarWidth}px 10px minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`
-    : `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
+  const desktopGridTemplateColumns = `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
+  const desktopMainTopGridTemplateColumns = uiPreferences.sidebarVisible
+    ? `${desktopLayout.leftSidebarWidth}px 10px minmax(0, 1fr)`
+    : 'minmax(0, 1fr)';
 
   const stageViewport = (
     <section className="workspace-stage-column" onClick={handleStageReveal}>
@@ -2528,40 +2543,61 @@ ${errorSnapshot}`,
         />
       ) : null}
 
-      {!isMobile && uiPreferences.chromeVisible ? (
-        <div className="workspace-top-timeline-shell">{timelineBar}</div>
-      ) : null}
-
       <div
         className={`workspace-body ${useDesktopPaneLayout ? 'workspace-body-desktop-grid' : ''}`}
         style={useDesktopPaneLayout ? { gridTemplateColumns: desktopGridTemplateColumns } : undefined}
       >
         {useDesktopPaneLayout ? (
           <>
-            {uiPreferences.sidebarVisible ? (
-              <>
-                <aside
-                  className="workspace-pane workspace-pane-left"
-                  style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
-                >
-                  <div className="workspace-pane-scroll">
-                    {slidersPanel}
-                    {mappingPanel}
-                  </div>
-                </aside>
+            <section
+              className="workspace-desktop-main"
+              style={{ gridTemplateRows: `minmax(0, 1fr) 10px ${desktopLayout.timelineHeight}px` }}
+            >
+              <div
+                className="workspace-desktop-top"
+                style={{ gridTemplateColumns: desktopMainTopGridTemplateColumns }}
+              >
+                {uiPreferences.sidebarVisible ? (
+                  <>
+                    <aside
+                      className="workspace-pane workspace-pane-left"
+                      style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
+                    >
+                      <div className="workspace-pane-scroll">
+                        {desktopSlidersPanel}
+                        {mappingPanel}
+                      </div>
+                    </aside>
 
-                <div
-                  className="workspace-resize-handle workspace-resize-handle-vertical"
-                  role="presentation"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    beginDesktopResize('left', event.clientX, event.clientY);
-                  }}
-                />
-              </>
-            ) : null}
+                    <div
+                      className="workspace-resize-handle workspace-resize-handle-vertical"
+                      role="presentation"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        beginDesktopResize('left', event.clientX, event.clientY);
+                      }}
+                    />
+                  </>
+                ) : null}
 
-            {stageViewport}
+                <div className="workspace-desktop-stage">{stageViewport}</div>
+              </div>
+
+              <div
+                className="workspace-resize-handle workspace-resize-handle-horizontal"
+                role="presentation"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  beginDesktopResize('right-split', event.clientX, event.clientY);
+                }}
+              />
+
+              <section className="workspace-pane-section workspace-pane-timeline">
+                <div className="workspace-pane-scroll workspace-pane-scroll-timeline">
+                  {timelineBar}
+                </div>
+              </section>
+            </section>
 
             <div
               className="workspace-resize-handle workspace-resize-handle-vertical"

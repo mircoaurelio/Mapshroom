@@ -319,16 +319,11 @@ a {
 }
 
 .workspace-body-desktop-grid {
-  grid-template-columns: auto 10px minmax(0, 1fr) 10px auto;
+  grid-template-columns: minmax(0, 1fr) 10px auto;
 }
 
 .workspace-timeline-shell {
   border-top: 1px solid var(--line);
-  background: var(--bg-panel);
-}
-
-.workspace-top-timeline-shell {
-  border-bottom: 1px solid var(--line);
   background: var(--bg-panel);
 }
 
@@ -380,6 +375,31 @@ a {
 
 .workspace-pane-scroll-inspector {
   background: var(--bg-panel);
+}
+
+.workspace-desktop-main {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  background: var(--bg);
+}
+
+.workspace-desktop-top {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  background: var(--bg);
+}
+
+.workspace-desktop-stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-desktop-stage .workspace-stage-column {
+  height: 100%;
 }
 
 .workspace-right-stack {
