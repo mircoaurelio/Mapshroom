@@ -220,6 +220,11 @@ function sanitizeAiMessage(message: string): string {
 
 type DesktopResizeTarget = 'left' | 'right' | 'right-split';
 
+const DESKTOP_PANE_MIN_WIDTH = 180;
+const DESKTOP_PANE_MAX_WIDTH = 520;
+const DESKTOP_RIGHT_TOP_MIN_HEIGHT = 180;
+const DESKTOP_RIGHT_TOP_MAX_HEIGHT = 520;
+
 export function WorkspaceRoute() {
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -342,20 +347,29 @@ export function WorkspaceRoute() {
         if (resizeState.target === 'left') {
           return {
             ...currentValue,
-            leftSidebarWidth: Math.max(280, Math.min(520, resizeState.leftSidebarWidth + deltaX)),
+            leftSidebarWidth: Math.max(
+              DESKTOP_PANE_MIN_WIDTH,
+              Math.min(DESKTOP_PANE_MAX_WIDTH, resizeState.leftSidebarWidth + deltaX),
+            ),
           };
         }
 
         if (resizeState.target === 'right') {
           return {
             ...currentValue,
-            rightSidebarWidth: Math.max(280, Math.min(520, resizeState.rightSidebarWidth - deltaX)),
+            rightSidebarWidth: Math.max(
+              DESKTOP_PANE_MIN_WIDTH,
+              Math.min(DESKTOP_PANE_MAX_WIDTH, resizeState.rightSidebarWidth - deltaX),
+            ),
           };
         }
 
         return {
           ...currentValue,
-          rightTopHeight: Math.max(180, Math.min(520, resizeState.rightTopHeight + deltaY)),
+          rightTopHeight: Math.max(
+            DESKTOP_RIGHT_TOP_MIN_HEIGHT,
+            Math.min(DESKTOP_RIGHT_TOP_MAX_HEIGHT, resizeState.rightTopHeight + deltaY),
+          ),
         };
       });
     };
