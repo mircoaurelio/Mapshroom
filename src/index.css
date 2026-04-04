@@ -1008,6 +1008,7 @@ a {
 
 .primary-button,
 .secondary-button,
+.danger-button,
 .ghost-button,
 .toggle-chip,
 .mobile-dock button,
@@ -1020,6 +1021,7 @@ a {
 
 .primary-button,
 .secondary-button,
+.danger-button,
 .ghost-button,
 .toggle-chip {
   min-height: 28px;
@@ -1035,6 +1037,12 @@ a {
 .primary-button {
   background: var(--bg-panel-raised);
   color: var(--text-bright);
+}
+
+.danger-button {
+  background: rgba(127, 29, 29, 0.28);
+  border-color: rgba(248, 113, 113, 0.34);
+  color: #fecaca;
 }
 
 .primary-button-hero {
@@ -1063,6 +1071,7 @@ a {
 
 .primary-button:hover,
 .secondary-button:hover,
+.danger-button:hover,
 .ghost-button:hover,
 .toggle-chip:hover,
 .mobile-dock button:hover,
@@ -1076,6 +1085,12 @@ a {
   background: rgba(52, 211, 153, 0.16);
   border-color: rgba(52, 211, 153, 0.28);
   color: #a7f3d0;
+}
+
+.danger-button:hover {
+  background: rgba(127, 29, 29, 0.42);
+  border-color: rgba(248, 113, 113, 0.46);
+  color: #fee2e2;
 }
 
 .asset-list,
@@ -2544,6 +2559,7 @@ a {
 }
 
 .workspace-shell-immersive .secondary-button,
+.workspace-shell-immersive .danger-button,
 .workspace-shell-immersive .ghost-button,
 .workspace-shell-immersive .toggle-chip,
 .workspace-shell-immersive .primary-button,
@@ -2801,6 +2817,12 @@ a {
   background: var(--bg-panel-soft);
 }
 
+.dialog-section-danger {
+  margin-top: 1rem;
+  border-color: rgba(248, 113, 113, 0.18);
+  background: rgba(127, 29, 29, 0.08);
+}
+
 .workspace-shell-mobile .workspace-body {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -2829,6 +2851,7 @@ a {
 
 .workspace-shell-mobile .mobile-dock button,
 .workspace-shell-mobile .secondary-button,
+.workspace-shell-mobile .danger-button,
 .workspace-shell-mobile .ghost-button,
 .workspace-shell-mobile .toggle-chip,
 .workspace-shell-mobile .primary-button {

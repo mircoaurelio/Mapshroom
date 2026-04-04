@@ -38,6 +38,7 @@ import {
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import {
+  clearPersistedSiteData,
   deleteAssetBlob,
   getOrCreateSessionId,
   loadProjectDocument,
@@ -460,6 +461,7 @@ export function WorkspaceRoute() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
+  const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
@@ -2135,6 +2137,30 @@ ${errorSnapshot}`,
     }));
   };
 
+  const handleClearLocalData = async () => {
+    const confirmed = window.confirm(
+      'Clear all saved Mapshroom data for this site on this device? This removes projects, imported assets, UI settings, and local cache.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsClearingLocalData(true);
+
+    try {
+      if (outputWindowRef.current && !outputWindowRef.current.closed) {
+        outputWindowRef.current.close();
+      }
+      sessionSyncRef.current?.destroy();
+      await clearPersistedSiteData();
+      window.location.reload();
+    } catch (error) {
+      console.warn('Unable to clear local site data.', error);
+      setIsClearingLocalData(false);
+      setStatusMessage('Unable to clear local data.');
+    }
+  };
+
   const toggleDesktopSlidersWindow = () => {
     setUiPreferences((currentValue) => {
       const nextEnabled = !currentValue.desktopSlidersWindowEnabled;
@@ -2867,8 +2893,12 @@ ${errorSnapshot}`,
       <ApiSettingsDialog
         open={isApiSettingsOpen}
         settings={project.ai.settings}
+        isClearingLocalData={isClearingLocalData}
         onClose={() => setIsApiSettingsOpen(false)}
         onChange={updateAiSetting}
+        onClearLocalData={() => {
+          void handleClearLocalData();
+        }}
       />
 
       <PresetBrowserDialog

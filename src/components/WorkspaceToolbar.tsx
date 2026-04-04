@@ -110,7 +110,7 @@ export function WorkspaceToolbar({
           Assets
         </button>
         <button type="button" className="secondary-button" onClick={onOpenSettings}>
-          APIs
+          Settings
         </button>
         <button type="button" className="secondary-button" onClick={onPlayToggle}>
           {isPlaying ? 'Pause' : 'Play'}

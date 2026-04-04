@@ -4,15 +4,19 @@ import type { AiSettings } from '../types';
 interface ApiSettingsDialogProps {
   open: boolean;
   settings: AiSettings;
+  isClearingLocalData?: boolean;
   onClose: () => void;
   onChange: (field: keyof AiSettings, value: string) => void;
+  onClearLocalData: () => void;
 }
 
 export function ApiSettingsDialog({
   open,
   settings,
+  isClearingLocalData = false,
   onClose,
   onChange,
+  onClearLocalData,
 }: ApiSettingsDialogProps) {
   if (!open) {
     return null;
@@ -31,9 +35,9 @@ export function ApiSettingsDialog({
       <section className="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="api-settings-title">
         <header className="dialog-header">
           <div>
-            <span className="panel-eyebrow">AI Settings</span>
+            <span className="panel-eyebrow">Settings</span>
             <h2 id="api-settings-title" className="dialog-title">
-              Gemini and Media Keys
+              App Settings
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -97,6 +101,24 @@ export function ApiSettingsDialog({
               </div>
             </section>
           </div>
+
+          <section className="dialog-section dialog-section-danger">
+            <span className="panel-eyebrow">Local Data</span>
+            <div className="stack gap-md">
+              <p className="helper-copy">
+                Clear saved shaders, timeline state, imported assets, browser cache, and local
+                settings for this site on this device.
+              </p>
+              <button
+                type="button"
+                className="danger-button"
+                disabled={isClearingLocalData}
+                onClick={onClearLocalData}
+              >
+                {isClearingLocalData ? 'Clearing Data...' : 'Clear Local Data'}
+              </button>
+            </div>
+          </section>
         </div>
 
         <footer className="dialog-footer">
