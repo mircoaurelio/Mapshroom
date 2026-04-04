@@ -87,7 +87,14 @@ export function TimelineStageRenderer({
       ...savedShaders,
     ];
   }, [activeShaderCode, activeShaderId, activeShaderName, savedShaders]);
-  const shaderSequence = timeline.shaderSequence ?? { enabled: false, mode: 'sequence', steps: [] };
+  const shaderSequence = timeline.shaderSequence ?? {
+    enabled: false,
+    mode: 'sequence',
+    editorView: 'simple',
+    sharedTransitionEffect: 'mix',
+    sharedTransitionDurationSeconds: 0.75,
+    steps: [],
+  };
   const sequenceEnabled = shaderSequence.enabled && shaderSequence.steps.length > 0;
 
   useEffect(() => {
@@ -121,6 +128,8 @@ export function TimelineStageRenderer({
     return resolveShaderTimelineState({
       shaders: availableShaders,
       mode: shaderSequence.mode ?? 'sequence',
+      sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+      sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
       steps: shaderSequence.steps,
       timeSeconds: getTransportTimeSeconds(transport, timelineNowMs),
       loop: transport.loop,

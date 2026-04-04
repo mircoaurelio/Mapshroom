@@ -49,6 +49,8 @@ import type {
   ProjectDocument,
   ShaderUniformValue,
   StageTransform,
+  TimelineEditorViewMode,
+  TimelineTransitionEffect,
   UiPreferences,
   WorkspaceMode,
 } from '../types';
@@ -162,6 +164,17 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
           mode:
             project.timeline?.stub?.shaderSequence?.mode ??
             defaultProject.timeline.stub.shaderSequence.mode,
+          editorView:
+            project.timeline?.stub?.shaderSequence?.editorView ??
+            defaultProject.timeline.stub.shaderSequence.editorView,
+          sharedTransitionEffect:
+            project.timeline?.stub?.shaderSequence?.sharedTransitionEffect ??
+            defaultProject.timeline.stub.shaderSequence.sharedTransitionEffect,
+          sharedTransitionDurationSeconds: clampTransitionDuration(
+            600,
+            project.timeline?.stub?.shaderSequence?.sharedTransitionDurationSeconds ??
+              defaultProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
+          ),
           steps:
             project.timeline?.stub?.shaderSequence?.steps?.length
               ? project.timeline.stub.shaderSequence.steps.map((step) => {
@@ -721,6 +734,46 @@ export function WorkspaceRoute() {
     }));
   }, [updateProject]);
 
+  const handleTimelineEditorViewChange = useCallback((editorView: TimelineEditorViewMode) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            editorView,
+          },
+        },
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineSharedTransitionChange = useCallback((
+    patch: {
+      sharedTransitionEffect?: TimelineTransitionEffect;
+      sharedTransitionDurationSeconds?: number;
+    },
+  ) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            ...patch,
+            sharedTransitionDurationSeconds: clampTransitionDuration(
+              600,
+              patch.sharedTransitionDurationSeconds ??
+                currentProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
+            ),
+          },
+        },
+      },
+    }));
+  }, [updateProject]);
+
   const handleTimelineStepChange = useCallback((
     stepId: string,
     patch: Partial<ProjectDocument['timeline']['stub']['shaderSequence']['steps'][number]>,
@@ -832,6 +885,52 @@ export function WorkspaceRoute() {
         },
       };
     });
+  }, [updateProject]);
+
+  const handleTimelineResizeBoundary = useCallback((
+    leftStepId: string,
+    rightStepId: string,
+    leftDurationSeconds: number,
+    rightDurationSeconds: number,
+  ) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => {
+              if (step.id === leftStepId) {
+                const durationSeconds = clampTimelineStepDuration(leftDurationSeconds);
+                return {
+                  ...step,
+                  durationSeconds,
+                  transitionDurationSeconds: clampTransitionDuration(
+                    durationSeconds,
+                    step.transitionDurationSeconds,
+                  ),
+                };
+              }
+
+              if (step.id === rightStepId) {
+                const durationSeconds = clampTimelineStepDuration(rightDurationSeconds);
+                return {
+                  ...step,
+                  durationSeconds,
+                  transitionDurationSeconds: clampTransitionDuration(
+                    durationSeconds,
+                    step.transitionDurationSeconds,
+                  ),
+                };
+              }
+
+              return step;
+            }),
+          },
+        },
+      },
+    }));
   }, [updateProject]);
 
   const handleMappingAction = (action: MappingAction) => {
@@ -1415,7 +1514,11 @@ ${errorSnapshot}`,
         {
           id: 'timeline-track-shader-sequence',
           label:
-            timelineStub.shaderSequence.mode === 'random' ? 'Random Flow' : 'Shader Flow',
+            timelineStub.shaderSequence.mode === 'random'
+              ? 'Random Flow'
+              : timelineStub.shaderSequence.mode === 'randomMix'
+                ? 'Random Mix'
+                : 'Shader Flow',
           type: timelineStub.shaderSequence.mode,
         },
         ...timelineStub.tracks,
@@ -1505,6 +1608,7 @@ ${errorSnapshot}`,
     <TimelineBar
       assetName={activeAsset?.name ?? 'No asset selected'}
       assetKind={activeAsset?.kind ?? null}
+      assetUrl={activeAssetUrl}
       activeShaderId={project.studio.activeShaderId}
       savedShaders={timelineSelectableShaders}
       sequence={timelineStub.shaderSequence}
@@ -1518,10 +1622,13 @@ ${errorSnapshot}`,
       onToggleLoop={handleTimelineLoopToggle}
       onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
       onSequenceModeChange={handleTimelineSequenceModeChange}
+      onSequenceEditorViewChange={handleTimelineEditorViewChange}
+      onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceStepChange={handleTimelineStepChange}
       onAddSequenceStep={handleTimelineAddStep}
       onRemoveSequenceStep={handleTimelineRemoveStep}
       onMoveSequenceStep={handleTimelineMoveStep}
+      onResizeSequenceBoundary={handleTimelineResizeBoundary}
     />
   );
 
@@ -1771,6 +1878,7 @@ ${errorSnapshot}`,
         open={isMobile && isMobileTimelineOpen}
         assetName={activeAsset?.name ?? 'No asset selected'}
         assetKind={activeAsset?.kind ?? null}
+        assetUrl={activeAssetUrl}
         activeShaderId={project.studio.activeShaderId}
         savedShaders={timelineSelectableShaders}
         sequence={timelineStub.shaderSequence}
@@ -1784,10 +1892,13 @@ ${errorSnapshot}`,
         onToggleLoop={handleTimelineLoopToggle}
         onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
         onSequenceModeChange={handleTimelineSequenceModeChange}
+        onSequenceEditorViewChange={handleTimelineEditorViewChange}
+        onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceStepChange={handleTimelineStepChange}
         onAddSequenceStep={handleTimelineAddStep}
         onRemoveSequenceStep={handleTimelineRemoveStep}
         onMoveSequenceStep={handleTimelineMoveStep}
+        onResizeSequenceBoundary={handleTimelineResizeBoundary}
         onClose={() => setIsMobileTimelineOpen(false)}
       />
 

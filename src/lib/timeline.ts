@@ -11,6 +11,7 @@ export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
 }> = [
   { value: 'sequence', label: 'Sequence' },
   { value: 'random', label: 'Random' },
+  { value: 'randomMix', label: 'Random Mix' },
 ];
 
 export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{
@@ -92,7 +93,7 @@ export function getTimelineCycleSteps({
   steps: TimelineStub['shaderSequence']['steps'];
   cycleIndex: number;
 }): TimelineStub['shaderSequence']['steps'] {
-  if (mode !== 'random' || steps.length <= 1) {
+  if ((mode !== 'random' && mode !== 'randomMix') || steps.length <= 1) {
     return steps;
   }
 
@@ -125,12 +126,16 @@ interface TimelineResolution {
 export function resolveShaderTimelineState({
   shaders,
   mode,
+  sharedTransitionEffect,
+  sharedTransitionDurationSeconds,
   steps,
   timeSeconds,
   loop,
 }: {
   shaders: SavedShader[];
   mode: TimelineSequenceMode;
+  sharedTransitionEffect: TimelineTransitionEffect;
+  sharedTransitionDurationSeconds: number;
   steps: TimelineStub['shaderSequence']['steps'];
   timeSeconds: number;
   loop: boolean;
@@ -180,9 +185,11 @@ export function resolveShaderTimelineState({
       const nextStep = cycleSteps[index + 1] ?? (loop ? cycleSteps[0] : null);
       const nextShader = nextStep ? shaderMap.get(nextStep.shaderId) ?? null : null;
       const localTimeSeconds = Math.max(0, Math.min(durationSeconds, resolvedTime - cursor));
+      const effectiveTransitionEffect =
+        mode === 'randomMix' ? sharedTransitionEffect : step.transitionEffect;
       const transitionDurationSeconds = clampTransitionDuration(
         durationSeconds,
-        step.transitionDurationSeconds,
+        mode === 'randomMix' ? sharedTransitionDurationSeconds : step.transitionDurationSeconds,
       );
       const transitionStartSeconds = Math.max(0, durationSeconds - transitionDurationSeconds);
       const isTransitioning =
@@ -210,7 +217,7 @@ export function resolveShaderTimelineState({
         localTimeSeconds,
         totalDurationSeconds,
         transitionProgress,
-        transitionEffect: step.transitionEffect,
+        transitionEffect: effectiveTransitionEffect,
         isTransitioning,
       };
     }
