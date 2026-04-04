@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
-  clampTimelineStepDuration,
-  getShaderTimelineDuration,
   roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
@@ -130,12 +128,9 @@ function DeleteIcon() {
 
 function RepeatSingleIcon() {
   return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M4 5h6.75a2 2 0 0 1 0 4H9.5" />
-      <path d="m9.75 3.25 2 1.75-2 1.75" />
-      <path d="M12 11H5.25a2 2 0 0 1 0-4H6.5" />
-      <path d="m6.25 9.25-2-1.75 2-1.75" />
-      <circle cx="8" cy="8" r="1.15" />
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M16 10A6 6 0 1 1 14.24 5.76" />
+      <path d="M12.5 2.5H16V6" />
     </svg>
   );
 }
@@ -251,15 +246,6 @@ export function ShaderTimelineEditor({
   const sharedTransitionLocked = sequence.mode === 'randomMix';
   const usesSharedTransition =
     sharedTransitionLocked || sequence.sharedTransitionEnabled;
-  const totalSequenceDurationSeconds = useMemo(() => {
-    const durationFromSteps = getShaderTimelineDuration(sequence.steps);
-
-    if (durationFromSteps > 0) {
-      return durationFromSteps;
-    }
-
-    return Math.max(totalDurationSeconds, sequence.steps.length || 1);
-  }, [sequence.steps, totalDurationSeconds]);
   const flowStripStyle = useMemo(
     () =>
       ({
@@ -642,10 +628,6 @@ export function ShaderTimelineEditor({
         style={flowStripStyle}
       >
         {sequence.steps.map((step) => {
-          const stepRatio =
-            totalSequenceDurationSeconds > 0
-              ? clampTimelineStepDuration(step.durationSeconds) / totalSequenceDurationSeconds
-              : 1 / Math.max(sequence.steps.length, 1);
           const shader = shaderMap.get(step.shaderId);
           const isPlayingStep = step.id === activeStepId;
           const isTransitionStep = step.id === transitionStepId && transitionStepId !== activeStepId;
@@ -659,10 +641,6 @@ export function ShaderTimelineEditor({
               className="timeline-flow-node"
               key={step.id}
               role="listitem"
-              style={{
-                width: `${stepRatio * 100}%`,
-                flexBasis: `${stepRatio * 100}%`,
-              }}
             >
               <article
                 className={`timeline-step-card ${
