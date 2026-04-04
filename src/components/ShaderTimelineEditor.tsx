@@ -85,6 +85,10 @@ function formatStepDuration(seconds: number): string {
   return `${roundTimelineSeconds(seconds).toFixed(2)}s`;
 }
 
+function getPendingAiJobCount(shader: SavedShader | null | undefined): number {
+  return Math.max(0, shader?.pendingAiJobCount ?? 0);
+}
+
 function ViewModeIcon({ mode }: { mode: TimelineEditorViewMode }) {
   if (mode === 'simple') {
     return (
@@ -635,6 +639,19 @@ export function ShaderTimelineEditor({
                       ) : null}
                     </div>
                   )}
+
+                  {getPendingAiJobCount(shader) > 0 || shader?.hasUnreadAiResult ? (
+                    <div className="timeline-step-preview-badges timeline-step-preview-badges-bottom">
+                      {getPendingAiJobCount(shader) > 0 ? (
+                        <span className="timeline-step-preview-badge">AI...</span>
+                      ) : null}
+                      {shader?.hasUnreadAiResult ? (
+                        <span className="timeline-step-preview-badge timeline-step-preview-badge-active">
+                          Updated
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 <label className="field timeline-compact-field">
@@ -647,7 +664,7 @@ export function ShaderTimelineEditor({
                   >
                     {savedShaders.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.isTemporary ? `${item.name} (Draft)` : item.name}
+                        {item.isTemporary ? `${item.name} (Timeline)` : item.name}
                       </option>
                     ))}
                   </select>
@@ -656,7 +673,7 @@ export function ShaderTimelineEditor({
                 <div className="timeline-step-chip-row">
                   <span className="timeline-step-chip">{shader?.name ?? 'Unknown shader'}</span>
                   {shader?.isTemporary ? (
-                    <span className="timeline-step-chip timeline-step-chip-draft">Draft</span>
+                    <span className="timeline-step-chip timeline-step-chip-timeline">Timeline</span>
                   ) : null}
                   {step.shaderId === activeShaderId ? (
                     <span className="timeline-step-chip timeline-step-chip-live">Live</span>

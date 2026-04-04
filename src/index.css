@@ -1466,7 +1466,7 @@ a {
   gap: 0.6rem;
 }
 
-.draft-target-banner {
+.selection-target-banner {
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
@@ -1477,20 +1477,20 @@ a {
   background: rgba(52, 211, 153, 0.08);
 }
 
-.draft-target-banner strong {
+.selection-target-banner strong {
   display: block;
   color: #d1fae5;
   font-size: 0.78rem;
 }
 
-.draft-target-banner p {
+.selection-target-banner p {
   margin: 0.2rem 0 0;
   color: #a7f3d0;
   font-size: 0.72rem;
   line-height: 1.45;
 }
 
-.draft-target-banner-studio {
+.selection-target-banner-studio {
   background: rgba(52, 211, 153, 0.06);
 }
 
@@ -1520,7 +1520,7 @@ a {
   color: #d1fae5;
 }
 
-.draft-target-status {
+.selection-target-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2123,6 +2123,11 @@ a {
   gap: 0.35rem;
 }
 
+.timeline-step-preview-badges-bottom {
+  top: auto;
+  bottom: 0.45rem;
+}
+
 .timeline-step-preview-badge {
   display: inline-flex;
   align-items: center;
@@ -2171,7 +2176,7 @@ a {
   color: #d1fae5;
 }
 
-.timeline-step-chip-draft {
+.timeline-step-chip-timeline {
   border-color: rgba(251, 191, 36, 0.22);
   background: rgba(251, 191, 36, 0.08);
   color: #fde68a;
@@ -2227,7 +2232,7 @@ a {
 }
 
 @media (max-width: 900px) {
-  .draft-target-banner {
+  .selection-target-banner {
     flex-direction: column;
     align-items: flex-start;
   }

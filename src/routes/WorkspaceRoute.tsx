@@ -131,14 +131,23 @@ function applyMappingTransform(transform: StageTransform, action: MappingAction)
 function normalizeProject(project: ProjectDocument): ProjectDocument {
   const uniformDefinitions = parseUniforms(project.studio.activeShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
-  const shippedPresets = Object.values(DEFAULT_SHADERS).map((shader) => ({
-    ...shader,
-  }));
-  const presetIds = new Set(shippedPresets.map((shader) => shader.id));
   const mergedSavedShaders = [
-    ...shippedPresets,
-    ...project.studio.savedShaders.filter((shader) => !presetIds.has(shader.id)),
-  ];
+    ...Object.values(DEFAULT_SHADERS),
+    ...project.studio.savedShaders,
+  ].reduce<SavedShader[]>((collection, shader) => {
+    const normalizedShader: SavedShader = {
+      ...shader,
+      pendingAiJobCount: 0,
+      hasUnreadAiResult: 'hasUnreadAiResult' in shader ? Boolean(shader.hasUnreadAiResult) : false,
+    };
+    const existingIndex = collection.findIndex((item) => item.id === normalizedShader.id);
+    if (existingIndex >= 0) {
+      collection[existingIndex] = normalizedShader;
+    } else {
+      collection.push(normalizedShader);
+    }
+    return collection;
+  }, []);
   const legacySettings = project.ai?.settings as Partial<
     AiSettings & {
       shaderModel?: string;
@@ -328,10 +337,8 @@ function applyActiveShaderPatch(
     nextActiveShaderCode,
     patch.uniformValues ?? currentProject.studio.uniformValues,
   );
-  const activeDraft =
-    currentProject.studio.savedShaders.find(
-      (shader) => shader.id === nextActiveShaderId && shader.isTemporary,
-    ) ?? null;
+  const activeSavedShader =
+    currentProject.studio.savedShaders.find((shader) => shader.id === nextActiveShaderId) ?? null;
 
   return {
     ...currentProject,
@@ -342,9 +349,9 @@ function applyActiveShaderPatch(
       activeShaderName: nextActiveShaderName,
       activeShaderCode: nextActiveShaderCode,
       uniformValues: nextUniformValues,
-      savedShaders: activeDraft
+      savedShaders: activeSavedShader
         ? currentProject.studio.savedShaders.map((shader) =>
-            shader.id === activeDraft.id
+            shader.id === activeSavedShader.id
               ? {
                   ...shader,
                   name: nextActiveShaderName,
@@ -383,7 +390,13 @@ function createSavedShaderRecord(
     isDirty: options.isDirty,
     sourceShaderId: options.sourceShaderId,
     ownerTimelineStepId: options.ownerTimelineStepId,
+    pendingAiJobCount: 0,
+    hasUnreadAiResult: false,
   };
+}
+
+function getPendingAiJobCount(shader: SavedShader | null | undefined): number {
+  return Math.max(0, shader?.pendingAiJobCount ?? 0);
 }
 
 function pruneTemporaryTimelineShaders(
@@ -437,7 +450,6 @@ export function WorkspaceRoute() {
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
   );
   const [aiPrompt, setAiPrompt] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
   const [compilerError, setCompilerError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [aiFeedbackMessage, setAiFeedbackMessage] = useState('');
@@ -458,13 +470,13 @@ export function WorkspaceRoute() {
     rightSidebarWidth: 360,
     timelineHeight: 300,
   });
-  const generatedShaderRetryRef = useRef<{
+  const generatedShaderRetryRef = useRef<Record<string, {
     sourcePrompt: string;
     code: string;
     autoRepairUsed: boolean;
     versionId: string | null;
     retryInFlight: boolean;
-  } | null>(null);
+  }>>({});
   const resizeStateRef = useRef<{
     target: DesktopResizeTarget;
     startX: number;
@@ -678,26 +690,6 @@ export function WorkspaceRoute() {
     return stepIndex >= 0 ? stepIndex : null;
   }, [editingTimelineStepId, project]);
 
-  const dirtyTimelineDraftCount = useMemo(
-    () =>
-      project?.studio.savedShaders.filter((shader) => shader.isTemporary && shader.isDirty).length ?? 0,
-    [project],
-  );
-
-  useEffect(() => {
-    if (!dirtyTimelineDraftCount) {
-      return;
-    }
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [dirtyTimelineDraftCount]);
-
   useEffect(() => {
     if (!project || !activeTimelineDraft) {
       return;
@@ -793,8 +785,13 @@ export function WorkspaceRoute() {
     };
   }, [activeAsset, activeAssetResolution.status, activeAssetUrl]);
 
-  const clearGeneratedShaderRetry = () => {
-    generatedShaderRetryRef.current = null;
+  const clearGeneratedShaderRetry = (shaderId?: string) => {
+    if (!shaderId) {
+      generatedShaderRetryRef.current = {};
+      return;
+    }
+
+    delete generatedShaderRetryRef.current[shaderId];
   };
 
   useEffect(() => {
@@ -1100,9 +1097,7 @@ export function WorkspaceRoute() {
     stepId: string,
     patch: Partial<ProjectDocument['timeline']['stub']['shaderSequence']['steps'][number]>,
   ) => {
-    if (patch.shaderId && editingTimelineStepId === stepId) {
-      setEditingTimelineStepId(null);
-    }
+    const shouldRelinkSelection = Boolean(patch.shaderId && editingTimelineStepId === stepId);
 
     updateProject((currentProject) =>
       pruneTemporaryTimelineShaders({
@@ -1137,7 +1132,15 @@ export function WorkspaceRoute() {
         },
       }),
     );
-  }, [editingTimelineStepId, updateProject]);
+    if (shouldRelinkSelection) {
+      window.setTimeout(() => {
+        void selectTimelineStepForEditing(stepId, {
+          suppressStatus: true,
+          focusStudioOnMobile: false,
+        });
+      }, 0);
+    }
+  }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
   const resolveTimelineStepShader = useCallback((
     currentProject: ProjectDocument,
@@ -1351,8 +1354,8 @@ export function WorkspaceRoute() {
           stepShader.code,
           stepShader.uniformValues,
           {
-            description: 'Temporary timeline shader draft.',
-            group: 'Timeline Drafts',
+            description: 'Linked timeline shader.',
+            group: 'Timeline',
             isTemporary: true,
             isDirty: stepShader.isDirty,
             sourceShaderId: stepShader.sourceShaderId ?? stepShader.id,
@@ -1594,13 +1597,21 @@ export function WorkspaceRoute() {
         shaderChatHistory: [],
         shaderVersions: [createShaderVersion('Base Node Source', shader.name, shader.code)],
         uniformValues: getSyncedShaderUniformValues(shader.code, shader.uniformValues),
+        savedShaders: currentProject.studio.savedShaders.map((item) =>
+          item.id === shader.id
+            ? {
+                ...item,
+                hasUnreadAiResult: false,
+              }
+            : item,
+        ),
       },
     }));
     setEditingTimelineStepId(shader.isTemporary ? shader.ownerTimelineStepId ?? null : null);
     clearGeneratedShaderRetry();
     setStatusMessage(
       shader.isTemporary
-        ? `Editing timeline draft "${shader.name}".`
+        ? `Editing linked timeline shader "${shader.name}".`
         : `Shader preset "${shader.name}" loaded.`,
     );
     closeMobileShaderDialog();
@@ -1647,6 +1658,7 @@ export function WorkspaceRoute() {
                     isDirty: false,
                     sourceShaderId: undefined,
                     ownerTimelineStepId: undefined,
+                    hasUnreadAiResult: false,
                   }
                 : shader,
             ),
@@ -1670,12 +1682,9 @@ export function WorkspaceRoute() {
         },
       };
     });
-    if (activeTimelineDraft) {
-      setEditingTimelineStepId(null);
-    }
     setStatusMessage(
       activeTimelineDraft
-        ? `Saved timeline shader "${label}" to the library.`
+        ? `Saved linked timeline shader "${label}" to the library.`
         : `Saved shader "${label}" to the library.`,
     );
   };
@@ -1689,8 +1698,8 @@ export function WorkspaceRoute() {
       nextCode,
       {},
       {
-        description: 'Temporary timeline shader draft.',
-        group: 'Timeline Drafts',
+        description: 'Linked timeline shader.',
+        group: 'Timeline',
         isTemporary: true,
         isDirty: false,
         ownerTimelineStepId: nextStepId,
@@ -1730,7 +1739,7 @@ export function WorkspaceRoute() {
       },
     }));
     setEditingTimelineStepId(nextStepId);
-    setStatusMessage(`Started ${nextName} and added it to the timeline.`);
+    setStatusMessage(`Started ${nextName} and linked it into the timeline.`);
   };
 
   const restoreShaderVersion = (versionId: string) => {
@@ -1769,72 +1778,199 @@ export function WorkspaceRoute() {
       return;
     }
 
-    if (!prompt.trim()) {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
       setAiFeedbackTone('error');
       setAiFeedbackMessage('Write a shader prompt first, then generate.');
       setStatusMessage('Add a prompt before generating.');
       return;
     }
 
-    setAiLoading(true);
+    const requestedShaderId = project.studio.activeShaderId;
+    const requestedShader = project.studio.savedShaders.find(
+      (shader) => shader.id === requestedShaderId,
+    );
+    const nextAutosavedShader = requestedShader
+      ? null
+      : createSavedShaderRecord(
+          project.studio.activeShaderName,
+          project.studio.activeShaderCode,
+          project.studio.uniformValues,
+          {
+            description: 'Autosaved shader from the workspace editor.',
+            group: 'Autosaved',
+          },
+        );
+    const targetShaderId = nextAutosavedShader?.id ?? requestedShaderId;
+    const currentCode = project.studio.activeShaderCode;
+    const chatHistorySnapshot =
+      requestedShader && requestedShader.id === project.studio.activeShaderId
+        ? project.studio.shaderChatHistory
+        : [];
+
     setCompilerError('');
-    clearGeneratedShaderRetry();
+    clearGeneratedShaderRetry(targetShaderId);
     setAiFeedbackTone('loading');
     setAiFeedbackMessage('');
-    setStatusMessage('Generating shader...');
+    setStatusMessage(
+      editingTimelineStepIndex !== null
+        ? `Generating shader for timeline step ${editingTimelineStepIndex + 1}...`
+        : 'Generating shader...',
+    );
 
-    const userMessage = buildShaderMutationPrompt(prompt, project.studio.activeShaderCode);
+    updateProject((currentProject) => {
+      const shouldRetargetActiveShader =
+        nextAutosavedShader !== null && currentProject.studio.activeShaderId === requestedShaderId;
+      const baseSavedShaders =
+        nextAutosavedShader && !currentProject.studio.savedShaders.some((shader) => shader.id === targetShaderId)
+          ? [...currentProject.studio.savedShaders, nextAutosavedShader]
+          : currentProject.studio.savedShaders;
+
+      return {
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          activeShaderId: shouldRetargetActiveShader ? targetShaderId : currentProject.studio.activeShaderId,
+          activeShaderName: shouldRetargetActiveShader
+            ? nextAutosavedShader?.name ?? currentProject.studio.activeShaderName
+            : currentProject.studio.activeShaderName,
+          activeShaderCode: shouldRetargetActiveShader
+            ? nextAutosavedShader?.code ?? currentProject.studio.activeShaderCode
+            : currentProject.studio.activeShaderCode,
+          uniformValues: shouldRetargetActiveShader
+            ? getSyncedShaderUniformValues(
+                nextAutosavedShader?.code ?? currentProject.studio.activeShaderCode,
+                nextAutosavedShader?.uniformValues ?? currentProject.studio.uniformValues,
+              )
+            : currentProject.studio.uniformValues,
+          savedShaders: baseSavedShaders.map((shader) =>
+            shader.id === targetShaderId
+              ? {
+                  ...shader,
+                  pendingAiJobCount: getPendingAiJobCount(shader) + 1,
+                  hasUnreadAiResult: false,
+                }
+              : shader,
+          ),
+        },
+      };
+    });
+
+    const userMessage = buildShaderMutationPrompt(trimmedPrompt, currentCode);
 
     try {
       const nextCode = await requestShaderMutation({
         settings: project.ai.settings,
-        prompt,
-        currentCode: project.studio.activeShaderCode,
-        chatHistory: project.studio.shaderChatHistory,
+        prompt: trimmedPrompt,
+        currentCode,
+        chatHistory: chatHistorySnapshot,
       });
       const nextName = parseShaderName(nextCode);
       const versionId = crypto.randomUUID();
-      generatedShaderRetryRef.current = {
-        sourcePrompt: prompt,
+      generatedShaderRetryRef.current[targetShaderId] = {
+        sourcePrompt: trimmedPrompt,
         code: nextCode,
         autoRepairUsed: false,
         versionId,
         retryInFlight: false,
       };
+      let appliedToActiveShader = false;
 
-      updateProject((currentProject) =>
-        applyActiveShaderPatch(currentProject, {
-          activeShaderId:
-            currentProject.studio.savedShaders.find(
-              (shader) =>
-                shader.id === currentProject.studio.activeShaderId && shader.isTemporary,
-            )?.id ?? `custom-${currentProject.ai.settings.shaderProvider}`,
-          activeShaderName: nextName,
-          activeShaderCode: nextCode,
-          shaderChatHistory: [
-            ...currentProject.studio.shaderChatHistory,
-            { role: 'user' as const, text: userMessage },
-            { role: 'model' as const, text: `\`\`\`glsl\n${nextCode}\n\`\`\`` },
-          ],
-          shaderVersions: [
-            ...currentProject.studio.shaderVersions,
-            createShaderVersion(prompt, nextName, nextCode, versionId),
-          ],
-        }),
+      updateProject((currentProject) => {
+        const targetShader = currentProject.studio.savedShaders.find(
+          (shader) => shader.id === targetShaderId,
+        );
+        if (!targetShader) {
+          return currentProject;
+        }
+
+        appliedToActiveShader = currentProject.studio.activeShaderId === targetShaderId;
+        const nextUniformValues = getSyncedShaderUniformValues(
+          nextCode,
+          appliedToActiveShader ? currentProject.studio.uniformValues : targetShader.uniformValues,
+        );
+
+        return {
+          ...currentProject,
+          studio: {
+            ...currentProject.studio,
+            activeShaderName: appliedToActiveShader ? nextName : currentProject.studio.activeShaderName,
+            activeShaderCode: appliedToActiveShader ? nextCode : currentProject.studio.activeShaderCode,
+            uniformValues: appliedToActiveShader
+              ? nextUniformValues
+              : currentProject.studio.uniformValues,
+            shaderChatHistory: appliedToActiveShader
+              ? [
+                  ...currentProject.studio.shaderChatHistory,
+                  { role: 'user' as const, text: userMessage },
+                  { role: 'model' as const, text: `\`\`\`glsl\n${nextCode}\n\`\`\`` },
+                ]
+              : currentProject.studio.shaderChatHistory,
+            shaderVersions: appliedToActiveShader
+              ? [
+                  ...currentProject.studio.shaderVersions,
+                  createShaderVersion(trimmedPrompt, nextName, nextCode, versionId),
+                ]
+              : currentProject.studio.shaderVersions,
+            savedShaders: currentProject.studio.savedShaders.map((shader) =>
+              shader.id === targetShaderId
+                ? {
+                    ...shader,
+                    name: nextName,
+                    code: nextCode,
+                    uniformValues: nextUniformValues,
+                    isDirty: true,
+                    pendingAiJobCount: Math.max(0, getPendingAiJobCount(shader) - 1),
+                    hasUnreadAiResult: appliedToActiveShader ? false : true,
+                  }
+                : shader,
+            ),
+          },
+        };
+      });
+      setAiPrompt((currentPrompt) =>
+        currentPrompt.trim() === trimmedPrompt ? '' : currentPrompt,
       );
-      setAiPrompt('');
-      setAiFeedbackTone('success');
-      setAiFeedbackMessage(`Shader applied to the stage: ${nextName}.`);
-      setStatusMessage(`Shader updated: ${nextName}`);
-      closeMobileShaderDialog();
+      if (appliedToActiveShader) {
+        setAiFeedbackTone('success');
+        setAiFeedbackMessage(`Shader applied to the stage: ${nextName}.`);
+        setStatusMessage(`Shader updated: ${nextName}`);
+        closeMobileShaderDialog();
+      } else {
+        setStatusMessage(`AI finished and updated "${nextName}" in the timeline.`);
+      }
     } catch (error) {
       const message = error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader generation failed.';
-      setCompilerError(message);
-      setAiFeedbackTone('error');
-      setAiFeedbackMessage(message);
-      setStatusMessage('Shader generation failed.');
-    } finally {
-      setAiLoading(false);
+      let failedOnActiveShader = false;
+
+      updateProject((currentProject) => {
+        failedOnActiveShader = currentProject.studio.activeShaderId === targetShaderId;
+
+        return {
+          ...currentProject,
+          studio: {
+            ...currentProject.studio,
+            savedShaders: currentProject.studio.savedShaders.map((shader) =>
+              shader.id === targetShaderId
+                ? {
+                    ...shader,
+                    pendingAiJobCount: Math.max(0, getPendingAiJobCount(shader) - 1),
+                  }
+                : shader,
+            ),
+          },
+        };
+      });
+
+      if (failedOnActiveShader) {
+        setCompilerError(message);
+        setAiFeedbackTone('error');
+        setAiFeedbackMessage(message);
+        setStatusMessage('Shader generation failed.');
+      } else {
+        setStatusMessage(`Background shader generation failed: ${message}`);
+      }
+      clearGeneratedShaderRetry(targetShaderId);
     }
   };
 
@@ -1843,7 +1979,8 @@ export function WorkspaceRoute() {
       return;
     }
 
-    const generatedShaderState = generatedShaderRetryRef.current;
+    const activeShaderId = project.studio.activeShaderId;
+    const generatedShaderState = generatedShaderRetryRef.current[activeShaderId];
     if (!generatedShaderState || generatedShaderState.autoRepairUsed) {
       return;
     }
@@ -1870,7 +2007,7 @@ export function WorkspaceRoute() {
       setAiFeedbackTone('error');
       setAiFeedbackMessage(compilerError);
       setStatusMessage('Shader still has GLSL errors.');
-      clearGeneratedShaderRetry();
+      clearGeneratedShaderRetry(activeShaderId);
       return;
     }
 
@@ -1886,7 +2023,20 @@ The previous shader failed to compile in WebGL GLSL. Fix the shader and return a
 Compiler error:
 ${compilerError}`;
 
-    setAiLoading(true);
+    updateProject((currentProject) => ({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        savedShaders: currentProject.studio.savedShaders.map((shader) =>
+          shader.id === activeShaderId
+            ? {
+                ...shader,
+                pendingAiJobCount: getPendingAiJobCount(shader) + 1,
+              }
+            : shader,
+        ),
+      },
+    }));
     setAiFeedbackTone('loading');
     setAiFeedbackMessage(
       'Generated shader hit a GLSL error. Retrying once with the compiler error.',
@@ -1901,7 +2051,7 @@ ${compilerError}`;
       .then((nextCode) => {
         const nextName = parseShaderName(nextCode);
         const versionId = crypto.randomUUID();
-        generatedShaderRetryRef.current = {
+        generatedShaderRetryRef.current[activeShaderId] = {
           sourcePrompt: originalPrompt,
           code: nextCode,
           autoRepairUsed: true,
@@ -1909,21 +2059,39 @@ ${compilerError}`;
           retryInFlight: false,
         };
 
-        updateProject((currentProject) =>
-          applyActiveShaderPatch(currentProject, {
-            activeShaderId:
-              currentProject.studio.savedShaders.find(
-                (shader) =>
-                  shader.id === currentProject.studio.activeShaderId && shader.isTemporary,
-              )?.id ?? `custom-${currentProject.ai.settings.shaderProvider}`,
-            activeShaderName: nextName,
-            activeShaderCode: nextCode,
-            shaderVersions: [
-              ...currentProject.studio.shaderVersions,
-              createShaderVersion('Auto-fix after GLSL error', nextName, nextCode, versionId),
-            ],
-          }),
-        );
+        updateProject((currentProject) => {
+          const nextUniformValues = getSyncedShaderUniformValues(
+            nextCode,
+            currentProject.studio.uniformValues,
+          );
+
+          return {
+            ...currentProject,
+            studio: {
+              ...currentProject.studio,
+              activeShaderName: nextName,
+              activeShaderCode: nextCode,
+              uniformValues: nextUniformValues,
+              shaderVersions: [
+                ...currentProject.studio.shaderVersions,
+                createShaderVersion('Auto-fix after GLSL error', nextName, nextCode, versionId),
+              ],
+              savedShaders: currentProject.studio.savedShaders.map((shader) =>
+                shader.id === activeShaderId
+                  ? {
+                      ...shader,
+                      name: nextName,
+                      code: nextCode,
+                      uniformValues: nextUniformValues,
+                      isDirty: true,
+                      pendingAiJobCount: Math.max(0, getPendingAiJobCount(shader) - 1),
+                      hasUnreadAiResult: false,
+                    }
+                  : shader,
+              ),
+            },
+          };
+        });
         setAiFeedbackTone('success');
         setAiFeedbackMessage(`Shader auto-fixed and applied: ${nextName}.`);
         setStatusMessage(`Shader auto-fixed: ${nextName}`);
@@ -1935,11 +2103,23 @@ ${compilerError}`;
         setAiFeedbackTone('error');
         setAiFeedbackMessage(message);
         setStatusMessage('Shader auto-fix failed.');
-        clearGeneratedShaderRetry();
+        clearGeneratedShaderRetry(activeShaderId);
+        updateProject((currentProject) => ({
+          ...currentProject,
+          studio: {
+            ...currentProject.studio,
+            savedShaders: currentProject.studio.savedShaders.map((shader) =>
+              shader.id === activeShaderId
+                ? {
+                    ...shader,
+                    pendingAiJobCount: Math.max(0, getPendingAiJobCount(shader) - 1),
+                  }
+                : shader,
+            ),
+          },
+        }));
       })
-      .finally(() => {
-        setAiLoading(false);
-      });
+      .finally(() => {});
   }, [compilerError, project, removeShaderVersion, updateProject]);
 
   const handleFixError = () => {
@@ -2125,8 +2305,8 @@ ${errorSnapshot}`,
             sourceShader.code,
             sourceShader.uniformValues,
             {
-              description: 'Temporary timeline shader draft.',
-              group: 'Timeline Drafts',
+              description: 'Linked timeline shader.',
+              group: 'Timeline',
               isTemporary: true,
               isDirty: false,
               sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
@@ -2142,8 +2322,8 @@ ${errorSnapshot}`,
       const isAlreadyActive = currentProject.studio.activeShaderId === editableShader.id;
 
       nextStatusMessage = isOwnedDraft
-        ? `Editing timeline step ${stepIndex + 1} draft.`
-        : `Editing timeline step ${stepIndex + 1} as a temporary shader draft.`;
+        ? `Editing linked shader for timeline step ${stepIndex + 1}.`
+        : `Linked timeline step ${stepIndex + 1} to its own editable shader.`;
 
       return pruneTemporaryTimelineShaders(
         {
@@ -2156,12 +2336,19 @@ ${errorSnapshot}`,
             shaderChatHistory: isAlreadyActive ? currentProject.studio.shaderChatHistory : [],
             shaderVersions: isAlreadyActive
               ? currentProject.studio.shaderVersions
-              : [createShaderVersion('Timeline Draft', editableShader.name, editableShader.code)],
+              : [createShaderVersion('Timeline Shader', editableShader.name, editableShader.code)],
             uniformValues: getSyncedShaderUniformValues(
               editableShader.code,
               editableShader.uniformValues,
             ),
-            savedShaders: nextSavedShaders,
+            savedShaders: nextSavedShaders.map((shader) =>
+              shader.id === editableShader.id
+                ? {
+                    ...shader,
+                    hasUnreadAiResult: false,
+                  }
+                : shader,
+            ),
           },
           timeline: {
             stub: {
@@ -2198,85 +2385,6 @@ ${errorSnapshot}`,
   const handleTimelineEditStep = useCallback((stepId: string) => {
     void selectTimelineStepForEditing(stepId);
   }, [selectTimelineStepForEditing]);
-
-  const handleDiscardActiveTimelineDraft = useCallback(() => {
-    if (!activeTimelineDraft) {
-      return;
-    }
-
-    let nextStatusMessage = '';
-
-    updateProject((currentProject) => {
-      const draftShader = currentProject.studio.savedShaders.find(
-        (shader) => shader.id === currentProject.studio.activeShaderId && shader.isTemporary,
-      );
-      if (!draftShader) {
-        return currentProject;
-      }
-
-      const fallbackShader =
-        currentProject.studio.savedShaders.find(
-          (shader) => shader.id === draftShader.sourceShaderId && !shader.isTemporary,
-        ) ?? currentProject.studio.savedShaders.find((shader) => !shader.isTemporary) ?? null;
-
-      if (!fallbackShader) {
-        return currentProject;
-      }
-
-      nextStatusMessage = `Discarded timeline draft "${draftShader.name}".`;
-
-      return pruneTemporaryTimelineShaders({
-        ...currentProject,
-        studio: {
-          ...currentProject.studio,
-          activeShaderId: fallbackShader.id,
-          activeShaderName: fallbackShader.name,
-          activeShaderCode: fallbackShader.code,
-          shaderChatHistory: [],
-          shaderVersions: [createShaderVersion('Base Node Source', fallbackShader.name, fallbackShader.code)],
-          uniformValues: getSyncedShaderUniformValues(
-            fallbackShader.code,
-            fallbackShader.uniformValues,
-          ),
-        },
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              focusedStepId: getPreferredTimelineStepId(
-                currentProject.timeline.stub.shaderSequence.steps.map((step) =>
-                  step.shaderId === draftShader.id
-                    ? {
-                        ...step,
-                        shaderId: draftShader.sourceShaderId ?? fallbackShader.id,
-                      }
-                    : step,
-                ),
-                draftShader.ownerTimelineStepId ?? currentProject.timeline.stub.shaderSequence.focusedStepId,
-              ),
-              steps: currentProject.timeline.stub.shaderSequence.steps.map((step) =>
-                step.shaderId === draftShader.id
-                  ? {
-                      ...step,
-                      shaderId: draftShader.sourceShaderId ?? fallbackShader.id,
-                    }
-                  : step,
-              ),
-            },
-          },
-        },
-      });
-    });
-
-    clearGeneratedShaderRetry();
-    setCompilerError('');
-    setEditingTimelineStepId(null);
-
-    if (nextStatusMessage) {
-      setStatusMessage(nextStatusMessage);
-    }
-  }, [activeTimelineDraft, updateProject]);
 
   if (!project) {
     return (
@@ -2349,16 +2457,15 @@ ${errorSnapshot}`,
     : activeAsset?.kind === 'video' && activeAssetDurationSeconds
       ? activeAssetDurationSeconds
       : timelineStub.durationSeconds;
+  const activeShaderRecord =
+    project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId) ?? null;
+  const aiLoading = getPendingAiJobCount(activeShaderRecord) > 0;
   const activeTimelineDraftSource =
     activeTimelineDraft?.sourceShaderId
       ? project.studio.savedShaders.find((shader) => shader.id === activeTimelineDraft.sourceShaderId) ?? null
       : null;
   const timelineDraftTargetLabel =
-    activeTimelineDraft && editingTimelineStepIndex !== null
-      ? `Timeline Step ${editingTimelineStepIndex + 1}`
-      : activeTimelineDraft
-        ? 'Timeline Draft'
-        : null;
+    editingTimelineStepIndex !== null ? `Timeline Step ${editingTimelineStepIndex + 1}` : null;
   const timelineSelectionInfo: TimelineSelectionInfo | undefined =
     editingTimelineStepId
       ? {
@@ -2366,7 +2473,7 @@ ${errorSnapshot}`,
           shaderName: project.studio.activeShaderName,
           sourceName: activeTimelineDraftSource?.name ?? null,
           isDirty: Boolean(activeTimelineDraft?.isDirty),
-          isDraft: Boolean(activeTimelineDraft),
+          isLinked: Boolean(activeTimelineDraft),
         }
       : undefined;
   const handleActiveShaderCodeChange = (value: string) => {
@@ -2388,7 +2495,7 @@ ${errorSnapshot}`,
       feedbackTone={aiFeedbackTone}
       shaderError={compilerError}
       targetLabel={timelineDraftTargetLabel}
-      targetStatus={activeTimelineDraft?.isDirty ? 'Unsaved Draft' : 'Temporary Draft'}
+      targetStatus={editingTimelineStepId ? (aiLoading ? 'AI Running' : 'Autosaved') : null}
       onPromptChange={setAiPrompt}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
@@ -2409,7 +2516,6 @@ ${errorSnapshot}`,
         setMobilePanel(null);
       }}
       onSaveShader={saveCurrentShader}
-      onDiscardDraft={activeTimelineDraft ? handleDiscardActiveTimelineDraft : undefined}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}
@@ -2478,7 +2584,6 @@ ${errorSnapshot}`,
         setMobilePanel(null);
       }}
       onSaveShader={saveCurrentShader}
-      onDiscardDraft={activeTimelineDraft ? handleDiscardActiveTimelineDraft : undefined}
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
       timelineSelection={timelineSelectionInfo}
     />
@@ -2492,6 +2597,7 @@ ${errorSnapshot}`,
       aiLoading={aiLoading}
       onFixError={handleFixError}
       onReloadShaderCode={reloadShaderCode}
+      timelineSelection={timelineSelectionInfo}
     />
   );
 

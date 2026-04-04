@@ -32,12 +32,12 @@ export function AiPanel({
     <PanelSection>
       <div className="stack gap-md ai-panel-stack">
         {targetLabel ? (
-          <div className="draft-target-banner">
+          <div className="selection-target-banner">
             <div>
               <strong>{targetLabel}</strong>
-              <p>AI edits apply to this temporary timeline shader.</p>
+              <p>AI edits apply to this selected timeline shader.</p>
             </div>
-            {targetStatus ? <span className="draft-target-status">{targetStatus}</span> : null}
+            {targetStatus ? <span className="selection-target-status">{targetStatus}</span> : null}
           </div>
         ) : null}
 

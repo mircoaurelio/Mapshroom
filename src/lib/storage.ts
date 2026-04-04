@@ -8,7 +8,6 @@ import {
   UI_STORAGE_KEY,
 } from '../config';
 import { restoreTransport, snapshotTransport } from './clock';
-import { parseUniforms, syncUniformValues } from './shader';
 import type { ProjectDocument, UiPreferences } from '../types';
 
 let cachedDbPromise: Promise<IDBDatabase | null> | null = null;
@@ -55,99 +54,9 @@ export function loadProjectDocument(sessionId: string): ProjectDocument | null {
   }
 }
 
-function resolvePersistedShaderId(
-  shaderId: string,
-  shaderMap: Map<string, ProjectDocument['studio']['savedShaders'][number]>,
-): string {
-  let nextShaderId = shaderId;
-  const visited = new Set<string>();
-
-  while (!visited.has(nextShaderId)) {
-    visited.add(nextShaderId);
-    const shader = shaderMap.get(nextShaderId);
-    if (!shader?.isTemporary) {
-      return nextShaderId;
-    }
-
-    if (!shader.sourceShaderId) {
-      return nextShaderId;
-    }
-
-    nextShaderId = shader.sourceShaderId;
-  }
-
-  return nextShaderId;
-}
-
-function sanitizeProjectForPersistence(project: ProjectDocument): ProjectDocument {
-  const shaderMap = new Map(project.studio.savedShaders.map((shader) => [shader.id, shader]));
-  const persistedSavedShaders = project.studio.savedShaders.filter((shader) => !shader.isTemporary);
-  const persistedShaderMap = new Map(persistedSavedShaders.map((shader) => [shader.id, shader]));
-  const persistedSteps = project.timeline.stub.shaderSequence.steps.map((step) => ({
-    ...step,
-    shaderId: resolvePersistedShaderId(step.shaderId, shaderMap),
-  }));
-  const persistedActiveShaderId = resolvePersistedShaderId(project.studio.activeShaderId, shaderMap);
-  const persistedActiveShader =
-    persistedShaderMap.get(persistedActiveShaderId) ?? persistedSavedShaders[0] ?? null;
-
-  if (!persistedActiveShader) {
-    return {
-      ...project,
-      studio: {
-        ...project.studio,
-        savedShaders: persistedSavedShaders,
-      },
-      timeline: {
-        stub: {
-          ...project.timeline.stub,
-          shaderSequence: {
-            ...project.timeline.stub.shaderSequence,
-            steps: persistedSteps,
-          },
-        },
-      },
-    };
-  }
-
-  return {
-    ...project,
-    studio: {
-      ...project.studio,
-      activeShaderId: persistedActiveShader.id,
-      activeShaderName: persistedActiveShader.name,
-      activeShaderCode: persistedActiveShader.code,
-      savedShaders: persistedSavedShaders,
-      shaderChatHistory: [],
-      shaderVersions: [
-        {
-          id: crypto.randomUUID(),
-          prompt: 'Base Node Source',
-          name: persistedActiveShader.name,
-          code: persistedActiveShader.code,
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      uniformValues: syncUniformValues(
-        persistedActiveShader.uniformValues ?? {},
-        parseUniforms(persistedActiveShader.code),
-      ),
-    },
-    timeline: {
-      stub: {
-        ...project.timeline.stub,
-        shaderSequence: {
-          ...project.timeline.stub.shaderSequence,
-          steps: persistedSteps,
-        },
-      },
-    },
-  };
-}
-
 export function saveProjectDocument(project: ProjectDocument): void {
   const snapshot = {
-    ...sanitizeProjectForPersistence(project),
+    ...project,
     playback: {
       ...project.playback,
       transport: snapshotTransport(project.playback.transport),
