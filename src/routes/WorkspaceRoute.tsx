@@ -1,6 +1,7 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
+import { AssetLibraryPanel } from '../components/AssetLibraryPanel';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
@@ -29,6 +30,7 @@ import {
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import {
+  deleteAssetBlob,
   getOrCreateSessionId,
   loadProjectDocument,
   loadUiPreferences,
@@ -203,6 +205,8 @@ function sanitizeAiMessage(message: string): string {
     .replaceAll('Google', 'AI');
 }
 
+type DesktopResizeTarget = 'left' | 'right' | 'right-split';
+
 export function WorkspaceRoute() {
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -227,12 +231,25 @@ export function WorkspaceRoute() {
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
+  const [desktopLayout, setDesktopLayout] = useState({
+    leftSidebarWidth: 360,
+    rightSidebarWidth: 360,
+    rightTopHeight: 300,
+  });
   const generatedShaderRetryRef = useRef<{
     sourcePrompt: string;
     code: string;
     autoRepairUsed: boolean;
     versionId: string | null;
     retryInFlight: boolean;
+  } | null>(null);
+  const resizeStateRef = useRef<{
+    target: DesktopResizeTarget;
+    startX: number;
+    startY: number;
+    leftSidebarWidth: number;
+    rightSidebarWidth: number;
+    rightTopHeight: number;
   } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
 
@@ -297,6 +314,57 @@ export function WorkspaceRoute() {
   useEffect(() => {
     saveUiPreferences(uiPreferences);
   }, [uiPreferences]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: MouseEvent) => {
+      const resizeState = resizeStateRef.current;
+      if (!resizeState) {
+        return;
+      }
+
+      setDesktopLayout((currentValue) => {
+        const deltaX = event.clientX - resizeState.startX;
+        const deltaY = event.clientY - resizeState.startY;
+
+        if (resizeState.target === 'left') {
+          return {
+            ...currentValue,
+            leftSidebarWidth: Math.max(280, Math.min(520, resizeState.leftSidebarWidth + deltaX)),
+          };
+        }
+
+        if (resizeState.target === 'right') {
+          return {
+            ...currentValue,
+            rightSidebarWidth: Math.max(280, Math.min(520, resizeState.rightSidebarWidth - deltaX)),
+          };
+        }
+
+        return {
+          ...currentValue,
+          rightTopHeight: Math.max(180, Math.min(520, resizeState.rightTopHeight + deltaY)),
+        };
+      });
+    };
+
+    const handlePointerUp = () => {
+      if (!resizeStateRef.current) {
+        return;
+      }
+
+      resizeStateRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isMobile && mobilePanel !== null) {
@@ -455,6 +523,19 @@ export function WorkspaceRoute() {
 
   const openFilePicker = () => fileInputRef.current?.click();
 
+  const beginDesktopResize = (target: DesktopResizeTarget, clientX: number, clientY: number) => {
+    resizeStateRef.current = {
+      target,
+      startX: clientX,
+      startY: clientY,
+      leftSidebarWidth: desktopLayout.leftSidebarWidth,
+      rightSidebarWidth: desktopLayout.rightSidebarWidth,
+      rightTopHeight: desktopLayout.rightTopHeight,
+    };
+    document.body.style.cursor = target === 'right-split' ? 'row-resize' : 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   const handleFileSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) {
@@ -528,6 +609,53 @@ export function WorkspaceRoute() {
           : playTransport(currentProject.playback.transport),
       },
     }));
+  };
+
+  const handleAssetSelect = (assetId: string) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      library: {
+        ...currentProject.library,
+        activeAssetId: assetId,
+      },
+      playback: {
+        ...currentProject.playback,
+        activeAssetId: assetId,
+      },
+    }));
+  };
+
+  const handleAssetRemove = (assetId: string) => {
+    const removedAsset = project?.library.assets.find((asset) => asset.id === assetId) ?? null;
+    void deleteAssetBlob(assetId);
+
+    updateProject((currentProject) => {
+      const nextAssets = currentProject.library.assets.filter((asset) => asset.id !== assetId);
+      const removedWasActive =
+        currentProject.library.activeAssetId === assetId || currentProject.playback.activeAssetId === assetId;
+      const nextActiveId = removedWasActive ? nextAssets[0]?.id ?? null : currentProject.library.activeAssetId;
+
+      return {
+        ...currentProject,
+        library: {
+          ...currentProject.library,
+          assets: nextAssets,
+          activeAssetId: nextActiveId,
+        },
+        playback: {
+          ...currentProject.playback,
+          activeAssetId: removedWasActive ? nextActiveId : currentProject.playback.activeAssetId,
+          transport:
+            removedWasActive && nextActiveId === null
+              ? pauseTransport(currentProject.playback.transport)
+              : currentProject.playback.transport,
+        },
+      };
+    });
+
+    if (removedAsset) {
+      setStatusMessage(`Removed asset "${removedAsset.name}".`);
+    }
   };
 
   const handleTimelineSeek = useCallback((nextTimeSeconds: number) => {
@@ -1397,6 +1525,108 @@ ${errorSnapshot}`,
     />
   );
 
+  const assetLibraryPanel = (
+    <AssetLibraryPanel
+      assets={project.library.assets}
+      activeAssetId={activeAsset?.id ?? null}
+      onLoadAsset={openFilePicker}
+      onSelectAsset={handleAssetSelect}
+      onRemoveAsset={handleAssetRemove}
+    />
+  );
+
+  const useDesktopPaneLayout =
+    !isMobile &&
+    uiPreferences.chromeVisible &&
+    uiPreferences.sidebarVisible &&
+    uiPreferences.workspaceMode !== 'immersive';
+
+  const stageViewport = (
+    <section className="workspace-stage-column" onClick={handleStageReveal}>
+      <TimelineStageRenderer
+        asset={activeAsset}
+        assetUrl={activeAssetUrl}
+        assetUrlStatus={activeAssetResolution.status}
+        activeShaderId={project.studio.activeShaderId}
+        activeShaderName={project.studio.activeShaderName}
+        activeShaderCode={project.studio.activeShaderCode}
+        activeUniformValues={project.studio.uniformValues}
+        savedShaders={project.studio.savedShaders}
+        timeline={project.timeline.stub}
+        shaderCompileNonce={shaderCompileNonce}
+        stageTransform={project.mapping.stageTransform}
+        transport={project.playback.transport}
+        onCompilerError={setCompilerError}
+      />
+
+      {aiLoading ? (
+        <div className="ai-loading-overlay">
+          <div className="ai-loading-spinner" />
+          <span>Generating shader...</span>
+        </div>
+      ) : null}
+
+      {isMobile && uiPreferences.chromeVisible && aiFeedbackMessage ? (
+        <div className={`mobile-feedback-banner mobile-feedback-banner-${aiFeedbackTone}`}>
+          {aiFeedbackMessage}
+        </div>
+      ) : null}
+
+      {isMobile && compilerError ? (
+        <div className="mobile-feedback-banner mobile-feedback-banner-error">
+          <span>{compilerError}</span>
+          <button
+            type="button"
+            className="fix-error-button"
+            disabled={aiLoading}
+            onClick={handleFixError}
+          >
+            {aiLoading ? 'Fixing...' : 'Fix Error'}
+          </button>
+        </div>
+      ) : null}
+
+      {stageControlsVisible ? (
+        <div className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}>
+          <MappingPad
+            onAction={handleMappingAction}
+            onPrecisionChange={updateStagePrecision}
+            precision={stageTransform.precision}
+            variant={isMobile ? 'overlay' : 'default'}
+          />
+        </div>
+      ) : null}
+
+      {isMobile && stageControlsVisible ? (
+        <MobilePrecisionOverlay
+          precision={stageTransform.precision}
+          onPrecisionChange={updateStagePrecision}
+        />
+      ) : null}
+
+      {isMobile && mobilePanel === 'sliders' && mobileUiMode === 'full' ? (
+        <MobileUniformOverlay
+          uniformDefinitions={uniformDefinitions}
+          uniformValues={project.studio.uniformValues}
+          onUniformChange={handleUniformChange}
+          onClose={() => handleMobilePanelChange(null)}
+        />
+      ) : null}
+
+      {!isMobile && uiPreferences.chromeVisible && !useDesktopPaneLayout ? (
+        <button
+          type="button"
+          className={`sidebar-rail-button ${
+            uiPreferences.sidebarVisible ? 'sidebar-rail-button-active' : ''
+          }`}
+          onClick={toggleSidebarVisibility}
+        >
+          {uiPreferences.sidebarVisible ? 'Hide Panels' : 'Show Panels'}
+        </button>
+      ) : null}
+    </section>
+  );
+
   return (
     <div
       className={`workspace-shell ${isMobile ? 'workspace-shell-mobile' : ''} ${
@@ -1432,106 +1662,87 @@ ${errorSnapshot}`,
         />
       ) : null}
 
-      <div className="workspace-body">
-        <section className="workspace-stage-column" onClick={handleStageReveal}>
-          <TimelineStageRenderer
-            asset={activeAsset}
-            assetUrl={activeAssetUrl}
-            assetUrlStatus={activeAssetResolution.status}
-            activeShaderId={project.studio.activeShaderId}
-            activeShaderName={project.studio.activeShaderName}
-            activeShaderCode={project.studio.activeShaderCode}
-            activeUniformValues={project.studio.uniformValues}
-            savedShaders={project.studio.savedShaders}
-            timeline={project.timeline.stub}
-            shaderCompileNonce={shaderCompileNonce}
-            stageTransform={project.mapping.stageTransform}
-            transport={project.playback.transport}
-            onCompilerError={setCompilerError}
-          />
+      <div className={`workspace-body ${useDesktopPaneLayout ? 'workspace-body-desktop-grid' : ''}`}>
+        {useDesktopPaneLayout ? (
+          <>
+            <aside
+              className="workspace-pane workspace-pane-left"
+              style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
+            >
+              <div className="workspace-pane-scroll">
+                {aiPanel}
+                {studioPanel}
+                {mappingPanel}
+              </div>
+            </aside>
 
-          {aiLoading ? (
-            <div className="ai-loading-overlay">
-              <div className="ai-loading-spinner" />
-              <span>Generating shader...</span>
-            </div>
-          ) : null}
-
-          {isMobile && uiPreferences.chromeVisible && aiFeedbackMessage ? (
-            <div className={`mobile-feedback-banner mobile-feedback-banner-${aiFeedbackTone}`}>
-              {aiFeedbackMessage}
-            </div>
-          ) : null}
-
-          {isMobile && compilerError ? (
-            <div className="mobile-feedback-banner mobile-feedback-banner-error">
-              <span>{compilerError}</span>
-              <button
-                type="button"
-                className="fix-error-button"
-                disabled={aiLoading}
-                onClick={handleFixError}
-              >
-                {aiLoading ? 'Fixing...' : 'Fix Error'}
-              </button>
-            </div>
-          ) : null}
-
-          {stageControlsVisible ? (
             <div
-              className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}
-            >
-              <MappingPad
-                onAction={handleMappingAction}
-                onPrecisionChange={updateStagePrecision}
-                precision={stageTransform.precision}
-                variant={isMobile ? 'overlay' : 'default'}
-              />
-            </div>
-          ) : null}
-
-          {isMobile && stageControlsVisible ? (
-            <MobilePrecisionOverlay
-              precision={stageTransform.precision}
-              onPrecisionChange={updateStagePrecision}
+              className="workspace-resize-handle workspace-resize-handle-vertical"
+              role="presentation"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                beginDesktopResize('left', event.clientX, event.clientY);
+              }}
             />
-          ) : null}
 
-          {isMobile && mobilePanel === 'sliders' && mobileUiMode === 'full' ? (
-            <MobileUniformOverlay
-              uniformDefinitions={uniformDefinitions}
-              uniformValues={project.studio.uniformValues}
-              onUniformChange={handleUniformChange}
-              onClose={() => handleMobilePanelChange(null)}
+            {stageViewport}
+
+            <div
+              className="workspace-resize-handle workspace-resize-handle-vertical"
+              role="presentation"
+              onMouseDown={(event) => {
+                event.preventDefault();
+                beginDesktopResize('right', event.clientX, event.clientY);
+              }}
             />
-          ) : null}
 
-          {!isMobile && uiPreferences.chromeVisible ? (
-            <button
-              type="button"
-              className={`sidebar-rail-button ${
-                uiPreferences.sidebarVisible ? 'sidebar-rail-button-active' : ''
-              }`}
-              onClick={toggleSidebarVisibility}
+            <aside
+              className="workspace-pane workspace-pane-right"
+              style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
             >
-              {uiPreferences.sidebarVisible ? 'Hide Panels' : 'Show Panels'}
-            </button>
-          ) : null}
+              <div
+                className="workspace-right-stack"
+                style={{ gridTemplateRows: `${desktopLayout.rightTopHeight}px 10px minmax(0, 1fr)` }}
+              >
+                <section className="workspace-pane-section workspace-pane-assets">
+                  <div className="workspace-pane-scroll">{assetLibraryPanel}</div>
+                </section>
 
-        </section>
+                <div
+                  className="workspace-resize-handle workspace-resize-handle-horizontal"
+                  role="presentation"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    beginDesktopResize('right-split', event.clientX, event.clientY);
+                  }}
+                />
 
-        {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
-          <aside className="workspace-sidebar">
-            <div className="workspace-sidebar-scroll">
-              {aiPanel}
-              {studioPanel}
-              {mappingPanel}
-            </div>
-          </aside>
-        ) : null}
+                <section className="workspace-pane-section workspace-pane-timeline">
+                  <div className="workspace-pane-scroll workspace-pane-scroll-timeline">
+                    {timelineBar}
+                  </div>
+                </section>
+              </div>
+            </aside>
+          </>
+        ) : (
+          <>
+            {stageViewport}
+
+            {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
+              <aside className="workspace-sidebar">
+                <div className="workspace-sidebar-scroll">
+                  {aiPanel}
+                  {studioPanel}
+                  {mappingPanel}
+                </div>
+              </aside>
+            ) : null}
+          </>
+        )}
       </div>
 
-      {!isMobile && uiPreferences.chromeVisible ? (
+      {!isMobile && uiPreferences.chromeVisible && !useDesktopPaneLayout ? (
         <div className="workspace-timeline-shell">{timelineBar}</div>
       ) : null}
 
