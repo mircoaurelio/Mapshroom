@@ -577,9 +577,42 @@ export function TimelineBar({
               );
             })}
 
+            {transitionSegments.map((segment) => {
+              const isActive = activeTransitionEditorStepId === segment.stepId;
+              const title = `${segment.effect} - ${roundTimelineSeconds(segment.durationSeconds).toFixed(2)}s`;
+
+              return (
+                <button
+                  key={`transition-range:${segment.stepId}`}
+                  type="button"
+                  className={`timeline-transition-range timeline-transition-range-${segment.effect} ${
+                    isActive ? 'timeline-transition-range-active' : ''
+                  }`}
+                  style={{
+                    left: `${segment.startRatio * 100}%`,
+                    width: `${Math.max(1.5, (segment.endRatio - segment.startRatio) * 100)}%`,
+                  }}
+                  title={title}
+                  onClick={() => {
+                    if (usesSharedTransition) {
+                      return;
+                    }
+
+                    setActiveTransitionEditorStepId((currentValue) =>
+                      currentValue === segment.stepId ? null : segment.stepId,
+                    );
+                  }}
+                >
+                  <span className="timeline-transition-range-time">
+                    {roundTimelineSeconds(segment.durationSeconds).toFixed(2)}s
+                  </span>
+                </button>
+              );
+            })}
+
             {transitionSegments.map((segment) => (
               <button
-                key={`transition:${segment.stepId}`}
+                key={`transition-pin:${segment.stepId}`}
                 type="button"
                 className={`timeline-transition-pin ${
                   activeTransitionEditorStepId === segment.stepId ? 'timeline-transition-pin-active' : ''

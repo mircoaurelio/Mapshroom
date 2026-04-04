@@ -1819,6 +1819,70 @@ a {
   background: #d1fae5;
 }
 
+.timeline-transition-range {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5%;
+  padding: 0 0.3rem;
+  border: 1px solid rgba(161, 161, 170, 0.18);
+  border-radius: 999px;
+  background: rgba(161, 161, 170, 0.16);
+  color: rgba(228, 228, 231, 0.86);
+  z-index: 2;
+}
+
+.timeline-transition-range-cut {
+  background: rgba(161, 161, 170, 0.22);
+}
+
+.timeline-transition-range-mix,
+.timeline-transition-range-wipe {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(113, 113, 122, 0.08) 0%,
+      rgba(161, 161, 170, 0.28) 50%,
+      rgba(113, 113, 122, 0.08) 100%
+    );
+}
+
+.timeline-transition-range-radial {
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(161, 161, 170, 0.32) 0%,
+      rgba(113, 113, 122, 0.1) 78%
+    );
+}
+
+.timeline-transition-range-glitch {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(161, 161, 170, 0.08) 0 6px,
+      rgba(212, 212, 216, 0.26) 6px 10px,
+      rgba(113, 113, 122, 0.08) 10px 16px
+    );
+}
+
+.timeline-transition-range:hover,
+.timeline-transition-range-active {
+  border-color: rgba(212, 212, 216, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(212, 212, 216, 0.08);
+}
+
+.timeline-transition-range-time {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
 .timeline-transition-pin {
   position: absolute;
   top: 0;
@@ -2209,25 +2273,26 @@ a {
 .timeline-flow-strip {
   display: flex;
   align-items: stretch;
-  gap: 0.35rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+  width: 100%;
+  gap: 0;
+  overflow: hidden;
   padding-bottom: 0.2rem;
 }
 
 .timeline-flow-node {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  min-width: 0;
   flex: 0 0 auto;
 }
 
 .timeline-step-card {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-  width: var(--timeline-card-width, 220px);
-  padding: 0.55rem 0.6rem;
+  gap: var(--timeline-card-gap, 0.45rem);
+  width: 100%;
+  min-width: 0;
+  padding: var(--timeline-card-padding-y, 0.55rem) var(--timeline-card-padding-x, 0.6rem);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
@@ -2258,14 +2323,10 @@ a {
   border-color: rgba(244, 244, 245, 0.14);
 }
 
-.timeline-step-card-simple {
-  width: var(--timeline-card-simple-width, 192px);
-}
-
 .timeline-step-preview-shell {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 5 / 3;
+  height: var(--timeline-card-preview-height, 74px);
   border: 1px solid rgba(63, 63, 70, 0.45);
   border-radius: var(--radius-sm);
   background: #050506;
@@ -2389,7 +2450,7 @@ a {
 
 .timeline-step-card .text-field,
 .timeline-step-card .select-field {
-  min-height: 26px;
+  min-height: var(--timeline-card-select-height, 26px);
   padding: 0.32rem 0.45rem;
 }
 
