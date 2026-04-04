@@ -1576,22 +1576,10 @@ a {
   padding: 0.7rem 0.9rem 0.75rem;
 }
 
-.timeline-bar-header,
 .timeline-bar-scrub {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-}
-
-.timeline-bar-header {
-  justify-content: space-between;
-}
-
-.timeline-bar-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-  min-width: 0;
 }
 
 .timeline-bar-label,
@@ -1621,13 +1609,6 @@ a {
   color: var(--text-dim);
   font-size: 0.58rem;
   letter-spacing: 0.08em;
-}
-
-.timeline-bar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.35rem;
 }
 
 .timeline-toggle-icon-button {
@@ -1856,6 +1837,7 @@ a {
 .timeline-step-header,
 .timeline-step-actions,
 .timeline-sequence-toolbar-actions,
+.timeline-sequence-playback-actions,
 .timeline-step-chip-row,
 .timeline-flow-connector {
   display: flex;
@@ -1870,6 +1852,10 @@ a {
 
 .timeline-sequence-toolbar,
 .timeline-sequence-toolbar-actions {
+  flex-wrap: wrap;
+}
+
+.timeline-sequence-playback-actions {
   flex-wrap: wrap;
 }
 
@@ -2828,14 +2814,9 @@ a {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .timeline-bar-header,
   .timeline-bar-scrub {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .timeline-bar-actions {
-    justify-content: flex-start;
   }
 
   .timeline-timecode {

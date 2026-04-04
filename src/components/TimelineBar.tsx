@@ -20,7 +20,6 @@ import { ShaderTimelineEditor } from './ShaderTimelineEditor';
 type TimelineBarVariant = 'desktop' | 'dialog';
 
 interface TimelineBarProps {
-  assetName: string;
   assetKind: AssetKind | null;
   assetUrl: string | null;
   activeShaderId: string;
@@ -161,56 +160,7 @@ function getTimelineStepSegments(
   });
 }
 
-function getSequenceSummaryCopy(sequence: TimelineStub['shaderSequence'], assetKind: AssetKind | null) {
-  if (!sequence.enabled) {
-    return assetKind === 'video' ? 'Video transport - asset duration' : 'Scene clock - timeline duration';
-  }
-
-  if (sequence.singleStepLoopEnabled) {
-    return 'Single shader repeat - looping the focused timeline card';
-  }
-
-  if (sequence.randomChoiceEnabled) {
-    return 'Random choice - playback picks a shuffled shader order each cycle';
-  }
-
-  if (sequence.mode === 'randomMix') {
-    return 'Random mix - shared transition and compact shader list';
-  }
-
-  if (sequence.mode === 'random') {
-    return 'Random shader flow with transitions - compact editor';
-  }
-
-  return 'Sequenced shader flow with transitions - compact editor';
-}
-
-function RepeatSingleIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M3 4.5h7.5a2 2 0 0 1 0 4H6" />
-      <path d="m4.25 2.75-1.75 1.75 1.75 1.75" />
-      <path d="M8 9.5h5" />
-      <path d="m11.5 7.75 1.75 1.75-1.75 1.75" />
-      <path d="M5.75 12.5V7" />
-    </svg>
-  );
-}
-
-function RandomChoiceIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M2.75 4h2.2l4.2 8h4.1" />
-      <path d="M2.75 12h2.2l1.35-2.55" />
-      <path d="M10 4h3.3" />
-      <path d="m11.75 2.5 1.75 1.5-1.75 1.5" />
-      <path d="m11.75 10.5 1.75 1.5-1.75 1.5" />
-    </svg>
-  );
-}
-
 export function TimelineBar({
-  assetName,
   assetKind,
   assetUrl,
   activeShaderId,
@@ -393,45 +343,6 @@ export function TimelineBar({
 
   return (
     <div className={`timeline-bar timeline-bar-${variant}`}>
-      <div className="timeline-bar-header">
-        <div className="timeline-bar-meta">
-          <span className="timeline-bar-label">Timeline</span>
-          <strong className="timeline-bar-title">{assetName}</strong>
-          <span className="timeline-bar-copy">{getSequenceSummaryCopy(sequence, assetKind)}</span>
-        </div>
-
-        <div className="timeline-bar-actions">
-          <button
-            type="button"
-            className={`icon-button timeline-toggle-icon-button ${
-              sequence.singleStepLoopEnabled ? 'timeline-toggle-icon-button-active' : ''
-            }`}
-            aria-label="Repeat focused shader"
-            title="Repeat focused shader"
-            onClick={onToggleSingleStepLoop}
-          >
-            <RepeatSingleIcon />
-          </button>
-          <button
-            type="button"
-            className={`icon-button timeline-toggle-icon-button ${
-              sequence.randomChoiceEnabled ? 'timeline-toggle-icon-button-active' : ''
-            }`}
-            aria-label="Random timeline choice"
-            title="Random timeline choice"
-            onClick={onToggleRandomChoice}
-          >
-            <RandomChoiceIcon />
-          </button>
-          <button type="button" className="secondary-button" onClick={onPlayToggle}>
-            {transport.isPlaying ? 'Pause' : 'Play'}
-          </button>
-          <button type="button" className="secondary-button" onClick={onReset}>
-            Reset
-          </button>
-        </div>
-      </div>
-
       <div className="timeline-bar-scrub">
         <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
 
@@ -575,6 +486,11 @@ export function TimelineBar({
         onEnabledChange={onSequenceEnabledChange}
         onModeChange={onSequenceModeChange}
         onEditorViewChange={onSequenceEditorViewChange}
+        isPlaying={transport.isPlaying}
+        onPlayToggle={onPlayToggle}
+        onReset={onReset}
+        onToggleSingleStepLoop={onToggleSingleStepLoop}
+        onToggleRandomChoice={onToggleRandomChoice}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
         onAddStep={onAddSequenceStep}

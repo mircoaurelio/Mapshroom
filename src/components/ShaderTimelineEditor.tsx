@@ -42,6 +42,11 @@ interface ShaderTimelineEditorProps {
   onEnabledChange: (enabled: boolean) => void;
   onModeChange: (mode: TimelineSequenceMode) => void;
   onEditorViewChange: (editorView: TimelineEditorViewMode) => void;
+  isPlaying: boolean;
+  onPlayToggle: () => void;
+  onReset: () => void;
+  onToggleSingleStepLoop: () => void;
+  onToggleRandomChoice: () => void;
   onSharedTransitionChange: (patch: {
     sharedTransitionEffect?: TimelineTransitionEffect;
     sharedTransitionDurationSeconds?: number;
@@ -139,6 +144,30 @@ function MoveForwardIcon() {
   );
 }
 
+function RepeatSingleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 4.5h7.5a2 2 0 0 1 0 4H6" />
+      <path d="m4.25 2.75-1.75 1.75 1.75 1.75" />
+      <path d="M8 9.5h5" />
+      <path d="m11.5 7.75 1.75 1.75-1.75 1.75" />
+      <path d="M5.75 12.5V7" />
+    </svg>
+  );
+}
+
+function RandomChoiceIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.75 4h2.2l4.2 8h4.1" />
+      <path d="M2.75 12h2.2l1.35-2.55" />
+      <path d="M10 4h3.3" />
+      <path d="m11.75 2.5 1.75 1.5-1.75 1.5" />
+      <path d="m11.75 10.5 1.75 1.5-1.75 1.5" />
+    </svg>
+  );
+}
+
 export function ShaderTimelineEditor({
   assetKind,
   assetUrl,
@@ -153,6 +182,11 @@ export function ShaderTimelineEditor({
   onEnabledChange,
   onModeChange,
   onEditorViewChange,
+  isPlaying,
+  onPlayToggle,
+  onReset,
+  onToggleSingleStepLoop,
+  onToggleRandomChoice,
   onSharedTransitionChange,
   onStepChange,
   onAddStep,
@@ -355,6 +389,40 @@ export function ShaderTimelineEditor({
                 {option.label}
               </button>
             ))}
+          </div>
+
+          <div className="timeline-sequence-playback-actions">
+            <button
+              type="button"
+              className={`icon-button timeline-toggle-icon-button ${
+                sequence.singleStepLoopEnabled ? 'timeline-toggle-icon-button-active' : ''
+              }`}
+              aria-label="Repeat focused shader"
+              title="Repeat focused shader"
+              onClick={onToggleSingleStepLoop}
+            >
+              <RepeatSingleIcon />
+            </button>
+
+            <button
+              type="button"
+              className={`icon-button timeline-toggle-icon-button ${
+                sequence.randomChoiceEnabled ? 'timeline-toggle-icon-button-active' : ''
+              }`}
+              aria-label="Random timeline choice"
+              title="Random timeline choice"
+              onClick={onToggleRandomChoice}
+            >
+              <RandomChoiceIcon />
+            </button>
+
+            <button type="button" className="secondary-button" onClick={onPlayToggle}>
+              {isPlaying ? 'Pause' : 'Play'}
+            </button>
+
+            <button type="button" className="secondary-button" onClick={onReset}>
+              Reset
+            </button>
           </div>
 
         </div>
