@@ -49,6 +49,7 @@ import type {
   ProjectDocument,
   SavedShader,
   ShaderUniformValue,
+  ShaderUniformValueMap,
   StageTransform,
   TimelineEditorViewMode,
   TimelineTransitionEffect,
@@ -226,15 +227,109 @@ const DESKTOP_PANE_MAX_WIDTH = 520;
 const DESKTOP_RIGHT_TOP_MIN_HEIGHT = 180;
 const DESKTOP_RIGHT_TOP_MAX_HEIGHT = 520;
 
-function createSavedShaderRecord(name: string, code: string): SavedShader {
+function createShaderVersion(
+  prompt: string,
+  name: string,
+  code: string,
+  id = crypto.randomUUID(),
+) {
+  return {
+    id,
+    prompt,
+    name,
+    code,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function areUniformValuesEqual(
+  left: ShaderUniformValueMap | undefined,
+  right: ShaderUniformValueMap | undefined,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => {
+    const leftValue = left?.[key];
+    const rightValue = right?.[key];
+
+    if (Array.isArray(leftValue) || Array.isArray(rightValue)) {
+      return (
+        Array.isArray(leftValue) &&
+        Array.isArray(rightValue) &&
+        leftValue.length === rightValue.length &&
+        leftValue.every((component, index) => component === rightValue[index])
+      );
+    }
+
+    return leftValue === rightValue;
+  });
+}
+
+function getSyncedShaderUniformValues(
+  code: string,
+  uniformValues: ShaderUniformValueMap | undefined,
+): ShaderUniformValueMap {
+  return syncUniformValues(uniformValues ?? {}, parseUniforms(code));
+}
+
+function createSavedShaderRecord(
+  name: string,
+  code: string,
+  uniformValues: ShaderUniformValueMap = {},
+  options: Partial<
+    Pick<
+      SavedShader,
+      'description' | 'group' | 'isTemporary' | 'isDirty' | 'sourceShaderId' | 'ownerTimelineStepId'
+    >
+  > = {},
+): SavedShader {
   const label = name.trim() || 'Mapshroom Shader';
 
   return {
-    id: `saved-${crypto.randomUUID()}`,
+    id: `${options.isTemporary ? 'timeline' : 'saved'}-${crypto.randomUUID()}`,
     name: label,
     code,
-    description: 'Saved from the current workspace state.',
-    group: 'Saved',
+    description: options.description ?? 'Saved from the current workspace state.',
+    group: options.group ?? 'Saved',
+    uniformValues: getSyncedShaderUniformValues(code, uniformValues),
+    isTemporary: options.isTemporary,
+    isDirty: options.isDirty,
+    sourceShaderId: options.sourceShaderId,
+    ownerTimelineStepId: options.ownerTimelineStepId,
+  };
+}
+
+function pruneTemporaryTimelineShaders(
+  project: ProjectDocument,
+  keepShaderIds: string[] = [],
+): ProjectDocument {
+  const referencedShaderIds = new Set([
+    project.studio.activeShaderId,
+    ...keepShaderIds,
+    ...project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
+  ]);
+  const nextSavedShaders = project.studio.savedShaders.filter(
+    (shader) => !shader.isTemporary || referencedShaderIds.has(shader.id),
+  );
+
+  if (nextSavedShaders.length === project.studio.savedShaders.length) {
+    return project;
+  }
+
+  return {
+    ...project,
+    studio: {
+      ...project.studio,
+      savedShaders: nextSavedShaders,
+    },
   };
 }
 
@@ -261,6 +356,7 @@ export function WorkspaceRoute() {
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
+  const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
   const [desktopLayout, setDesktopLayout] = useState({
     leftSidebarWidth: 360,
@@ -463,6 +559,87 @@ export function WorkspaceRoute() {
       });
     }
   }, [project, uniformDefinitions]);
+
+  const activeTimelineDraft = useMemo(() => {
+    if (!project) {
+      return null;
+    }
+
+    return (
+      project.studio.savedShaders.find(
+        (shader) => shader.id === project.studio.activeShaderId && shader.isTemporary,
+      ) ?? null
+    );
+  }, [project]);
+
+  const editingTimelineStepIndex = useMemo(() => {
+    if (!project || !editingTimelineStepId) {
+      return null;
+    }
+
+    const stepIndex = project.timeline.stub.shaderSequence.steps.findIndex(
+      (step) => step.id === editingTimelineStepId,
+    );
+    return stepIndex >= 0 ? stepIndex : null;
+  }, [editingTimelineStepId, project]);
+
+  const dirtyTimelineDraftCount = useMemo(
+    () =>
+      project?.studio.savedShaders.filter((shader) => shader.isTemporary && shader.isDirty).length ?? 0,
+    [project],
+  );
+
+  useEffect(() => {
+    if (!dirtyTimelineDraftCount) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [dirtyTimelineDraftCount]);
+
+  useEffect(() => {
+    if (!project || !activeTimelineDraft) {
+      return;
+    }
+
+    const nextName = parseShaderName(project.studio.activeShaderCode);
+    const nextUniformValues = getSyncedShaderUniformValues(
+      project.studio.activeShaderCode,
+      project.studio.uniformValues,
+    );
+
+    if (
+      activeTimelineDraft.code === project.studio.activeShaderCode &&
+      activeTimelineDraft.name === nextName &&
+      areUniformValuesEqual(activeTimelineDraft.uniformValues, nextUniformValues)
+    ) {
+      return;
+    }
+
+    updateProject((currentProject) => ({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        savedShaders: currentProject.studio.savedShaders.map((shader) =>
+          shader.id === activeTimelineDraft.id
+            ? {
+                ...shader,
+                name: parseShaderName(currentProject.studio.activeShaderCode),
+                code: currentProject.studio.activeShaderCode,
+                uniformValues: nextUniformValues,
+                isDirty: true,
+              }
+            : shader,
+        ),
+      },
+    }));
+  }, [activeTimelineDraft, project, updateProject]);
 
   const activeAsset = useMemo(() => {
     if (!project) {
@@ -805,37 +982,43 @@ export function WorkspaceRoute() {
     stepId: string,
     patch: Partial<ProjectDocument['timeline']['stub']['shaderSequence']['steps'][number]>,
   ) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => {
-              if (step.id !== stepId) {
-                return step;
-              }
+    if (patch.shaderId && editingTimelineStepId === stepId) {
+      setEditingTimelineStepId(null);
+    }
 
-              const durationSeconds = clampTimelineStepDuration(
-                patch.durationSeconds ?? step.durationSeconds,
-              );
+    updateProject((currentProject) =>
+      pruneTemporaryTimelineShaders({
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => {
+                if (step.id !== stepId) {
+                  return step;
+                }
 
-              return {
-                ...step,
-                ...patch,
-                durationSeconds,
-                transitionDurationSeconds: clampTransitionDuration(
+                const durationSeconds = clampTimelineStepDuration(
+                  patch.durationSeconds ?? step.durationSeconds,
+                );
+
+                return {
+                  ...step,
+                  ...patch,
                   durationSeconds,
-                  patch.transitionDurationSeconds ?? step.transitionDurationSeconds,
-                ),
-              };
-            }),
+                  transitionDurationSeconds: clampTransitionDuration(
+                    durationSeconds,
+                    patch.transitionDurationSeconds ?? step.transitionDurationSeconds,
+                  ),
+                };
+              }),
+            },
           },
         },
-      },
-    }));
-  }, [updateProject]);
+      }),
+    );
+  }, [editingTimelineStepId, updateProject]);
 
   const resolveTimelineStepShader = useCallback((
     currentProject: ProjectDocument,
@@ -856,7 +1039,11 @@ export function WorkspaceRoute() {
     }
 
     if (requestedShaderId === liveShaderId) {
-      const snapshot = createSavedShaderRecord(liveShaderName, liveShaderCode);
+      const snapshot = createSavedShaderRecord(
+        liveShaderName,
+        liveShaderCode,
+        currentProject.studio.uniformValues,
+      );
       return {
         shaderId: snapshot.id,
         shaderName: snapshot.name,
@@ -965,7 +1152,7 @@ export function WorkspaceRoute() {
         return currentProject;
       }
 
-      return {
+      return pruneTemporaryTimelineShaders({
         ...currentProject,
         timeline: {
           stub: {
@@ -976,9 +1163,12 @@ export function WorkspaceRoute() {
             },
           },
         },
-      };
+      });
     });
-  }, [updateProject]);
+    if (editingTimelineStepId === stepId) {
+      setEditingTimelineStepId(null);
+    }
+  }, [editingTimelineStepId, updateProject]);
 
   const handleTimelineDuplicateStep = useCallback((stepId: string) => {
     let nextStatusMessage = '';
@@ -991,9 +1181,34 @@ export function WorkspaceRoute() {
       }
 
       const step = steps[index];
+      const stepShader =
+        currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId) ?? null;
+      const duplicateStepId = crypto.randomUUID();
+      let nextSavedShaders = currentProject.studio.savedShaders;
+      let duplicateShaderId = step.shaderId;
+
+      if (stepShader?.isTemporary) {
+        const duplicateShader = createSavedShaderRecord(
+          stepShader.name,
+          stepShader.code,
+          stepShader.uniformValues,
+          {
+            description: 'Temporary timeline shader draft.',
+            group: 'Timeline Drafts',
+            isTemporary: true,
+            isDirty: stepShader.isDirty,
+            sourceShaderId: stepShader.sourceShaderId ?? stepShader.id,
+            ownerTimelineStepId: duplicateStepId,
+          },
+        );
+        nextSavedShaders = [...currentProject.studio.savedShaders, duplicateShader];
+        duplicateShaderId = duplicateShader.id;
+      }
+
       const duplicateStep = {
         ...step,
-        id: crypto.randomUUID(),
+        id: duplicateStepId,
+        shaderId: duplicateShaderId,
       };
       const nextSteps = [...steps];
       nextSteps.splice(index + 1, 0, duplicateStep);
@@ -1002,8 +1217,12 @@ export function WorkspaceRoute() {
         currentProject.studio.activeShaderName;
       nextStatusMessage = `Duplicated "${shaderName}" in the timeline.`;
 
-      return {
+      return pruneTemporaryTimelineShaders({
         ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          savedShaders: nextSavedShaders,
+        },
         timeline: {
           stub: {
             ...currentProject.timeline.stub,
@@ -1014,7 +1233,7 @@ export function WorkspaceRoute() {
             },
           },
         },
-      };
+      });
     });
 
     if (nextStatusMessage) {
@@ -1212,19 +1431,17 @@ export function WorkspaceRoute() {
         activeShaderName: shader.name,
         activeShaderCode: shader.code,
         shaderChatHistory: [],
-        shaderVersions: [
-          {
-            id: crypto.randomUUID(),
-            prompt: 'Base Node Source',
-            name: shader.name,
-            code: shader.code,
-            createdAt: new Date().toISOString(),
-          },
-        ],
+        shaderVersions: [createShaderVersion('Base Node Source', shader.name, shader.code)],
+        uniformValues: getSyncedShaderUniformValues(shader.code, shader.uniformValues),
       },
     }));
+    setEditingTimelineStepId(shader.isTemporary ? shader.ownerTimelineStepId ?? null : null);
     clearGeneratedShaderRetry();
-    setStatusMessage(`Shader preset "${shader.name}" loaded.`);
+    setStatusMessage(
+      shader.isTemporary
+        ? `Editing timeline draft "${shader.name}".`
+        : `Shader preset "${shader.name}" loaded.`,
+    );
   };
 
   const saveCurrentShader = () => {
@@ -1240,21 +1457,65 @@ export function WorkspaceRoute() {
       return;
     }
 
-    const savedShader = createSavedShaderRecord(label, project.studio.activeShaderCode);
+    updateProject((currentProject) => {
+      const nextUniformValues = getSyncedShaderUniformValues(
+        currentProject.studio.activeShaderCode,
+        currentProject.studio.uniformValues,
+      );
+      const activeShader = currentProject.studio.savedShaders.find(
+        (shader) => shader.id === currentProject.studio.activeShaderId,
+      );
 
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
-        savedShaders: [
-          ...currentProject.studio.savedShaders,
-          savedShader,
-        ],
-        activeShaderId: savedShader.id,
-        activeShaderName: label,
-      },
-    }));
-    setStatusMessage(`Saved shader "${label}" to the library.`);
+      if (activeShader?.isTemporary) {
+        return {
+          ...currentProject,
+          studio: {
+            ...currentProject.studio,
+            activeShaderName: label,
+            savedShaders: currentProject.studio.savedShaders.map((shader) =>
+              shader.id === activeShader.id
+                ? {
+                    ...shader,
+                    name: label,
+                    code: currentProject.studio.activeShaderCode,
+                    uniformValues: nextUniformValues,
+                    description: 'Saved from the timeline editor.',
+                    group: 'Saved',
+                    isTemporary: false,
+                    isDirty: false,
+                    sourceShaderId: undefined,
+                    ownerTimelineStepId: undefined,
+                  }
+                : shader,
+            ),
+          },
+        };
+      }
+
+      const savedShader = createSavedShaderRecord(
+        label,
+        currentProject.studio.activeShaderCode,
+        nextUniformValues,
+      );
+
+      return {
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          savedShaders: [...currentProject.studio.savedShaders, savedShader],
+          activeShaderId: savedShader.id,
+          activeShaderName: label,
+        },
+      };
+    });
+    if (activeTimelineDraft) {
+      setEditingTimelineStepId(null);
+    }
+    setStatusMessage(
+      activeTimelineDraft
+        ? `Saved timeline shader "${label}" to the library.`
+        : `Saved shader "${label}" to the library.`,
+    );
   };
 
   const createNewShader = () => {
@@ -1272,17 +1533,10 @@ export function WorkspaceRoute() {
         activeShaderName: nextName,
         activeShaderCode: nextCode,
         shaderChatHistory: [],
-        shaderVersions: [
-          {
-            id: crypto.randomUUID(),
-            prompt: 'New Shader',
-            name: nextName,
-            code: nextCode,
-            createdAt: new Date().toISOString(),
-          },
-        ],
+        shaderVersions: [createShaderVersion('New Shader', nextName, nextCode)],
       },
     }));
+    setEditingTimelineStepId(null);
     setStatusMessage(`Started ${nextName}.`);
   };
 
@@ -1361,7 +1615,11 @@ export function WorkspaceRoute() {
         ...currentProject,
         studio: {
           ...currentProject.studio,
-          activeShaderId: `custom-${currentProject.ai.settings.shaderProvider}`,
+          activeShaderId:
+            currentProject.studio.savedShaders.find(
+              (shader) =>
+                shader.id === currentProject.studio.activeShaderId && shader.isTemporary,
+            )?.id ?? `custom-${currentProject.ai.settings.shaderProvider}`,
           activeShaderName: nextName,
           activeShaderCode: nextCode,
           shaderChatHistory: [
@@ -1371,13 +1629,7 @@ export function WorkspaceRoute() {
           ],
           shaderVersions: [
             ...currentProject.studio.shaderVersions,
-            {
-              id: versionId,
-              prompt,
-              name: nextName,
-              code: nextCode,
-              createdAt: new Date().toISOString(),
-            },
+            createShaderVersion(prompt, nextName, nextCode, versionId),
           ],
         },
       }));
@@ -1471,18 +1723,16 @@ ${compilerError}`;
           ...currentProject,
           studio: {
             ...currentProject.studio,
-            activeShaderId: `custom-${currentProject.ai.settings.shaderProvider}`,
+            activeShaderId:
+              currentProject.studio.savedShaders.find(
+                (shader) =>
+                  shader.id === currentProject.studio.activeShaderId && shader.isTemporary,
+              )?.id ?? `custom-${currentProject.ai.settings.shaderProvider}`,
             activeShaderName: nextName,
             activeShaderCode: nextCode,
             shaderVersions: [
               ...currentProject.studio.shaderVersions,
-              {
-                id: versionId,
-                prompt: 'Auto-fix after GLSL error',
-                name: nextName,
-                code: nextCode,
-                createdAt: new Date().toISOString(),
-              },
+              createShaderVersion('Auto-fix after GLSL error', nextName, nextCode, versionId),
             ],
           },
         }));
@@ -1623,6 +1873,166 @@ ${errorSnapshot}`,
     setMobilePanel(panel);
   };
 
+  const handleTimelineEditStep = useCallback((stepId: string) => {
+    let nextStatusMessage = '';
+
+    updateProject((currentProject) => {
+      const step = currentProject.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
+      if (!step) {
+        return currentProject;
+      }
+
+      const sourceShader = currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId);
+      if (!sourceShader) {
+        return currentProject;
+      }
+
+      const stepIndex = currentProject.timeline.stub.shaderSequence.steps.findIndex(
+        (item) => item.id === stepId,
+      );
+      const isOwnedDraft = sourceShader.isTemporary && sourceShader.ownerTimelineStepId === stepId;
+      const editableShader = isOwnedDraft
+        ? sourceShader
+        : createSavedShaderRecord(
+            sourceShader.name,
+            sourceShader.code,
+            sourceShader.uniformValues,
+            {
+              description: 'Temporary timeline shader draft.',
+              group: 'Timeline Drafts',
+              isTemporary: true,
+              isDirty: false,
+              sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
+              ownerTimelineStepId: stepId,
+            },
+          );
+      const nextSavedShaders = isOwnedDraft
+        ? currentProject.studio.savedShaders
+        : [...currentProject.studio.savedShaders, editableShader];
+      const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
+        item.id === stepId ? { ...item, shaderId: editableShader.id } : item,
+      );
+      const isAlreadyActive = currentProject.studio.activeShaderId === editableShader.id;
+
+      nextStatusMessage = isOwnedDraft
+        ? `Editing timeline step ${stepIndex + 1} draft.`
+        : `Editing timeline step ${stepIndex + 1} as a temporary shader draft.`;
+
+      return pruneTemporaryTimelineShaders(
+        {
+          ...currentProject,
+          studio: {
+            ...currentProject.studio,
+            activeShaderId: editableShader.id,
+            activeShaderName: editableShader.name,
+            activeShaderCode: editableShader.code,
+            shaderChatHistory: isAlreadyActive ? currentProject.studio.shaderChatHistory : [],
+            shaderVersions: isAlreadyActive
+              ? currentProject.studio.shaderVersions
+              : [createShaderVersion('Timeline Draft', editableShader.name, editableShader.code)],
+            uniformValues: getSyncedShaderUniformValues(
+              editableShader.code,
+              editableShader.uniformValues,
+            ),
+            savedShaders: nextSavedShaders,
+          },
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              shaderSequence: {
+                ...currentProject.timeline.stub.shaderSequence,
+                steps: nextSteps,
+              },
+            },
+          },
+        },
+        [editableShader.id],
+      );
+    });
+
+    clearGeneratedShaderRetry();
+    setCompilerError('');
+    setEditingTimelineStepId(stepId);
+
+    if (isMobile) {
+      updateMobileUiMode('full');
+      setMobilePanel('studio');
+      setIsMobileTimelineOpen(false);
+    }
+
+    if (nextStatusMessage) {
+      setStatusMessage(nextStatusMessage);
+    }
+  }, [isMobile, updateProject]);
+
+  const handleDiscardActiveTimelineDraft = useCallback(() => {
+    if (!activeTimelineDraft) {
+      return;
+    }
+
+    let nextStatusMessage = '';
+
+    updateProject((currentProject) => {
+      const draftShader = currentProject.studio.savedShaders.find(
+        (shader) => shader.id === currentProject.studio.activeShaderId && shader.isTemporary,
+      );
+      if (!draftShader) {
+        return currentProject;
+      }
+
+      const fallbackShader =
+        currentProject.studio.savedShaders.find(
+          (shader) => shader.id === draftShader.sourceShaderId && !shader.isTemporary,
+        ) ?? currentProject.studio.savedShaders.find((shader) => !shader.isTemporary) ?? null;
+
+      if (!fallbackShader) {
+        return currentProject;
+      }
+
+      nextStatusMessage = `Discarded timeline draft "${draftShader.name}".`;
+
+      return pruneTemporaryTimelineShaders({
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          activeShaderId: fallbackShader.id,
+          activeShaderName: fallbackShader.name,
+          activeShaderCode: fallbackShader.code,
+          shaderChatHistory: [],
+          shaderVersions: [createShaderVersion('Base Node Source', fallbackShader.name, fallbackShader.code)],
+          uniformValues: getSyncedShaderUniformValues(
+            fallbackShader.code,
+            fallbackShader.uniformValues,
+          ),
+        },
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              steps: currentProject.timeline.stub.shaderSequence.steps.map((step) =>
+                step.shaderId === draftShader.id
+                  ? {
+                      ...step,
+                      shaderId: draftShader.sourceShaderId ?? fallbackShader.id,
+                    }
+                  : step,
+              ),
+            },
+          },
+        },
+      });
+    });
+
+    clearGeneratedShaderRetry();
+    setCompilerError('');
+    setEditingTimelineStepId(null);
+
+    if (nextStatusMessage) {
+      setStatusMessage(nextStatusMessage);
+    }
+  }, [activeTimelineDraft, updateProject]);
+
   if (!project) {
     return (
       <div className="loading-screen">
@@ -1653,6 +2063,7 @@ ${errorSnapshot}`,
           code: project.studio.activeShaderCode,
           description: 'Current shader from the live editor.',
           group: 'Live',
+          uniformValues: project.studio.uniformValues,
         },
         ...project.studio.savedShaders,
       ];
@@ -1691,6 +2102,16 @@ ${errorSnapshot}`,
     : activeAsset?.kind === 'video' && activeAssetDurationSeconds
       ? activeAssetDurationSeconds
       : timelineStub.durationSeconds;
+  const activeTimelineDraftSource =
+    activeTimelineDraft?.sourceShaderId
+      ? project.studio.savedShaders.find((shader) => shader.id === activeTimelineDraft.sourceShaderId) ?? null
+      : null;
+  const timelineDraftTargetLabel =
+    activeTimelineDraft && editingTimelineStepIndex !== null
+      ? `Timeline Step ${editingTimelineStepIndex + 1}`
+      : activeTimelineDraft
+        ? 'Timeline Draft'
+        : null;
 
   const aiPanel = (
     <AiPanel
@@ -1699,6 +2120,8 @@ ${errorSnapshot}`,
       feedbackMessage={aiFeedbackMessage}
       feedbackTone={aiFeedbackTone}
       shaderError={compilerError}
+      targetLabel={timelineDraftTargetLabel}
+      targetStatus={activeTimelineDraft?.isDirty ? 'Unsaved Draft' : 'Temporary Draft'}
       onPromptChange={setAiPrompt}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
@@ -1716,6 +2139,7 @@ ${errorSnapshot}`,
         setMobilePanel(null);
       }}
       onSaveShader={saveCurrentShader}
+      onDiscardDraft={activeTimelineDraft ? handleDiscardActiveTimelineDraft : undefined}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}
@@ -1742,6 +2166,15 @@ ${errorSnapshot}`,
       onReloadShaderCode={reloadShaderCode}
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
+      timelineDraft={
+        activeTimelineDraft
+          ? {
+              label: timelineDraftTargetLabel ?? 'Timeline Draft',
+              sourceName: activeTimelineDraftSource?.name ?? null,
+              isDirty: Boolean(activeTimelineDraft.isDirty),
+            }
+          : undefined
+      }
     />
   );
 
@@ -1775,6 +2208,7 @@ ${errorSnapshot}`,
       activeShaderName={project.studio.activeShaderName}
       isActiveShaderSaved={isActiveShaderSaved}
       savedShaders={timelineSelectableShaders}
+      editingStepId={editingTimelineStepId}
       sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
@@ -1795,6 +2229,7 @@ ${errorSnapshot}`,
       onRemoveSequenceStep={handleTimelineRemoveStep}
       onMoveSequenceStep={handleTimelineMoveStep}
       onResizeSequenceBoundary={handleTimelineResizeBoundary}
+      onEditSequenceStep={handleTimelineEditStep}
       onSaveCurrentShader={saveCurrentShader}
     />
   );
@@ -2050,6 +2485,7 @@ ${errorSnapshot}`,
         activeShaderName={project.studio.activeShaderName}
         isActiveShaderSaved={isActiveShaderSaved}
         savedShaders={timelineSelectableShaders}
+        editingStepId={editingTimelineStepId}
         sequence={timelineStub.shaderSequence}
         transport={project.playback.transport}
         durationSeconds={timelineDurationSeconds}
@@ -2070,6 +2506,7 @@ ${errorSnapshot}`,
         onRemoveSequenceStep={handleTimelineRemoveStep}
         onMoveSequenceStep={handleTimelineMoveStep}
         onResizeSequenceBoundary={handleTimelineResizeBoundary}
+        onEditSequenceStep={handleTimelineEditStep}
         onSaveCurrentShader={saveCurrentShader}
         onClose={() => setIsMobileTimelineOpen(false)}
       />

@@ -83,10 +83,11 @@ export function TimelineStageRenderer({
         code: activeShaderCode,
         description: 'Current shader from the live editor.',
         group: 'Live',
+        uniformValues: activeUniformValues,
       },
       ...savedShaders,
     ];
-  }, [activeShaderCode, activeShaderId, activeShaderName, savedShaders]);
+  }, [activeShaderCode, activeShaderId, activeShaderName, activeUniformValues, savedShaders]);
   const shaderSequence = timeline.shaderSequence ?? {
     enabled: false,
     mode: 'sequence',
@@ -147,7 +148,7 @@ export function TimelineStageRenderer({
       return {
         shaderCode: activeShaderCode,
         isTransitionShader: false,
-        useActiveUniformValues: true,
+        uniformValues: activeUniformValues,
       };
     }
 
@@ -163,20 +164,25 @@ export function TimelineStageRenderer({
           effect: timelineState.transitionEffect,
         }),
         isTransitionShader: true,
-        useActiveUniformValues: false,
+        uniformValues: EMPTY_UNIFORM_VALUES,
       };
     }
 
     return {
       shaderCode: timelineState.currentShader.code,
       isTransitionShader: false,
-      useActiveUniformValues: timelineState.currentShader.id === activeShaderId,
+      uniformValues:
+        timelineState.currentShader.id === activeShaderId
+          ? activeUniformValues
+          : timelineState.currentShader.uniformValues ?? EMPTY_UNIFORM_VALUES,
     };
   }, [
     activeShaderCode,
     activeShaderId,
+    activeUniformValues,
     timelineState?.currentShader.code,
     timelineState?.currentShader.id,
+    timelineState?.currentShader.uniformValues,
     timelineState?.isTransitioning,
     timelineState?.nextShader?.code,
     timelineState?.nextShader?.id,
@@ -191,10 +197,48 @@ export function TimelineStageRenderer({
   const baseUniformValues = useMemo(
     () =>
       syncUniformValues(
-        renderDescriptor.useActiveUniformValues ? activeUniformValues : EMPTY_UNIFORM_VALUES,
+        renderDescriptor.uniformValues,
         renderUniformDefinitions,
       ),
-    [activeUniformValues, renderDescriptor.useActiveUniformValues, renderUniformDefinitions],
+    [renderDescriptor.uniformValues, renderUniformDefinitions],
+  );
+
+  const currentTimelineUniformValues = useMemo(
+    () =>
+      timelineState
+        ? syncUniformValues(
+            timelineState.currentShader.id === activeShaderId
+              ? activeUniformValues
+              : timelineState.currentShader.uniformValues ?? EMPTY_UNIFORM_VALUES,
+            parseUniforms(timelineState.currentShader.code),
+          )
+        : EMPTY_UNIFORM_VALUES,
+    [
+      activeShaderId,
+      activeUniformValues,
+      timelineState?.currentShader.code,
+      timelineState?.currentShader.id,
+      timelineState?.currentShader.uniformValues,
+    ],
+  );
+
+  const nextTimelineUniformValues = useMemo(
+    () =>
+      timelineState?.nextShader
+        ? syncUniformValues(
+            timelineState.nextShader.id === activeShaderId
+              ? activeUniformValues
+              : timelineState.nextShader.uniformValues ?? EMPTY_UNIFORM_VALUES,
+            parseUniforms(timelineState.nextShader.code),
+          )
+        : EMPTY_UNIFORM_VALUES,
+    [
+      activeShaderId,
+      activeUniformValues,
+      timelineState?.nextShader?.code,
+      timelineState?.nextShader?.id,
+      timelineState?.nextShader?.uniformValues,
+    ],
   );
 
   const renderUniformValues = useMemo(() => {
@@ -207,30 +251,24 @@ export function TimelineStageRenderer({
       u_transition_progress: timelineState?.transitionProgress ?? 0,
     };
 
-    if (timelineState?.currentShader.id === activeShaderId) {
-      nextValues = applyNamespacedUniformValues({
-        baseValues: nextValues,
-        sourceValues: activeUniformValues,
-        namespace: 'timeline_from',
-      });
-    }
+    nextValues = applyNamespacedUniformValues({
+      baseValues: nextValues,
+      sourceValues: currentTimelineUniformValues,
+      namespace: 'timeline_from',
+    });
 
-    if (timelineState?.nextShader?.id === activeShaderId) {
-      nextValues = applyNamespacedUniformValues({
-        baseValues: nextValues,
-        sourceValues: activeUniformValues,
-        namespace: 'timeline_to',
-      });
-    }
+    nextValues = applyNamespacedUniformValues({
+      baseValues: nextValues,
+      sourceValues: nextTimelineUniformValues,
+      namespace: 'timeline_to',
+    });
 
     return nextValues;
   }, [
-    activeShaderId,
-    activeUniformValues,
     baseUniformValues,
+    currentTimelineUniformValues,
+    nextTimelineUniformValues,
     renderDescriptor.isTransitionShader,
-    timelineState?.currentShader.id,
-    timelineState?.nextShader?.id,
     timelineState?.transitionProgress,
   ]);
 
