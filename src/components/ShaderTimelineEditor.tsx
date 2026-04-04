@@ -15,11 +15,18 @@ import {
 import type {
   AssetKind,
   SavedShader,
+  ShaderUniformValueMap,
   TimelineEditorViewMode,
   TimelineSequenceMode,
   TimelineStub,
   TimelineTransitionEffect,
 } from '../types';
+
+function getUniformValuesPreviewSignature(uniformValues: ShaderUniformValueMap | undefined): string {
+  return JSON.stringify(
+    Object.entries(uniformValues ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
 
 interface ShaderTimelineEditorProps {
   assetKind: AssetKind | null;
@@ -260,10 +267,15 @@ export function ShaderTimelineEditor({
     const nextPreviewSources: Record<string, string> = {};
 
     for (const shader of sequenceShaders) {
-      const previewKey = `${previewNamespace}\u0000${shader.id}\u0000${shader.code}`;
+      const previewKey = `${previewNamespace}\u0000${shader.id}\u0000${shader.code}\u0000${getUniformValuesPreviewSignature(shader.uniformValues)}`;
       const cachedPreview =
         previewSourceRef.current[previewKey] ??
-        renderShaderPreviewToDataUrl(shader.code, previewImage, previewRendererRef);
+        renderShaderPreviewToDataUrl(
+          shader.code,
+          shader.uniformValues,
+          previewImage,
+          previewRendererRef,
+        );
 
       previewSourceRef.current = {
         ...previewSourceRef.current,
@@ -445,7 +457,9 @@ export function ShaderTimelineEditor({
           const isLast = index === sequence.steps.length - 1;
           const isPlayingStep = step.id === activeStepId;
           const isTransitionStep = step.id === transitionStepId && transitionStepId !== activeStepId;
-          const previewKey = shader ? `${previewNamespace}\u0000${shader.id}\u0000${shader.code}` : '';
+          const previewKey = shader
+            ? `${previewNamespace}\u0000${shader.id}\u0000${shader.code}\u0000${getUniformValuesPreviewSignature(shader.uniformValues)}`
+            : '';
           const previewSrc = shader ? previewSources[previewKey] ?? null : null;
 
           return (
