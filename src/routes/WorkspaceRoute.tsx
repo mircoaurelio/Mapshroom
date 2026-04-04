@@ -1526,6 +1526,7 @@ export function WorkspaceRoute() {
         ? `Editing timeline draft "${shader.name}".`
         : `Shader preset "${shader.name}" loaded.`,
     );
+    closeMobileShaderDialog();
   };
 
   const saveCurrentShader = () => {
@@ -1721,6 +1722,7 @@ export function WorkspaceRoute() {
       setAiFeedbackTone('success');
       setAiFeedbackMessage(`Shader applied to the stage: ${nextName}.`);
       setStatusMessage(`Shader updated: ${nextName}`);
+      closeMobileShaderDialog();
     } catch (error) {
       const message = error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader generation failed.';
       setCompilerError(message);
@@ -1972,6 +1974,19 @@ ${errorSnapshot}`,
       setMoveMode(false);
     }
     setMobilePanel(panel);
+  };
+
+  const closeMobileShaderDialog = () => {
+    if (!isMobile) {
+      return;
+    }
+
+    setIsPresetBrowserOpen(false);
+    setMobilePanel((currentPanel) => (currentPanel === 'studio' ? null : currentPanel));
+
+    if (uiPreferences.mobileUiMode === 'full') {
+      updateMobileUiMode('bar');
+    }
   };
 
   const handleTimelineEditStep = useCallback((stepId: string) => {

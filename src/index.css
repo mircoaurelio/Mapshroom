@@ -2795,12 +2795,21 @@ a {
   }
 
   .stage-mapping-overlay-mobile {
-    inset: 0;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 9;
     width: auto;
     padding: calc(3rem + var(--safe-top)) 0.4rem calc(7rem + var(--safe-bottom)) 0.4rem;
     border: 0;
     background: transparent;
     pointer-events: none;
+  }
+
+  .stage-mapping-overlay-mobile .mapping-pad-overlay {
+    width: 100%;
   }
 
   .stage-mapping-overlay-mobile .mapping-pad-button {
