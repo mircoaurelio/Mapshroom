@@ -769,6 +769,15 @@ a {
   gap: 0.4rem;
 }
 
+.asset-library-count {
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .panel-title {
   margin: 0;
   min-width: 0;
@@ -2515,6 +2524,20 @@ a {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-bright);
+}
+
+.asset-import-dialog {
+  width: min(100%, 460px);
+}
+
+.asset-import-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.asset-import-dialog-card {
+  gap: 0.55rem;
 }
 
 .dialog-body {
