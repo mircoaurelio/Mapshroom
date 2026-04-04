@@ -1,14 +1,19 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
-import { AssetLibraryPanel } from '../components/AssetLibraryPanel';
+import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
-import { StudioPanel } from '../components/StudioPanel';
+import {
+  ShaderCodeSection,
+  ShaderStudioControlsSection,
+  ShaderVersionTrailSection,
+  StudioPanel,
+} from '../components/StudioPanel';
 import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { UniformPanel } from '../components/UniformPanel';
@@ -170,6 +175,15 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
           editorView:
             project.timeline?.stub?.shaderSequence?.editorView ??
             defaultProject.timeline.stub.shaderSequence.editorView,
+          focusedStepId:
+            project.timeline?.stub?.shaderSequence?.focusedStepId ??
+            defaultProject.timeline.stub.shaderSequence.focusedStepId,
+          singleStepLoopEnabled:
+            project.timeline?.stub?.shaderSequence?.singleStepLoopEnabled ??
+            defaultProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
+          randomChoiceEnabled:
+            project.timeline?.stub?.shaderSequence?.randomChoiceEnabled ??
+            defaultProject.timeline.stub.shaderSequence.randomChoiceEnabled,
           sharedTransitionEffect:
             project.timeline?.stub?.shaderSequence?.sharedTransitionEffect ??
             defaultProject.timeline.stub.shaderSequence.sharedTransitionEffect,
@@ -178,21 +192,22 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
             project.timeline?.stub?.shaderSequence?.sharedTransitionDurationSeconds ??
               defaultProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
           ),
-          steps:
+          steps: (
             project.timeline?.stub?.shaderSequence?.steps?.length
-              ? project.timeline.stub.shaderSequence.steps.map((step) => {
-                  const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
-                  return {
-                    ...step,
-                    durationSeconds,
-                    transitionDurationSeconds: clampTransitionDuration(
-                      durationSeconds,
-                      step.transitionDurationSeconds,
-                    ),
-                    transitionEffect: step.transitionEffect ?? 'mix',
-                  };
-                })
-              : defaultProject.timeline.stub.shaderSequence.steps,
+              ? project.timeline.stub.shaderSequence.steps
+              : defaultProject.timeline.stub.shaderSequence.steps
+          ).map((step) => {
+            const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
+            return {
+              ...step,
+              durationSeconds,
+              transitionDurationSeconds: clampTransitionDuration(
+                durationSeconds,
+                step.transitionDurationSeconds,
+              ),
+              transitionEffect: step.transitionEffect ?? 'mix',
+            };
+          }),
         },
       },
     },
@@ -334,6 +349,21 @@ function pruneTemporaryTimelineShaders(
   };
 }
 
+function getPreferredTimelineStepId(
+  steps: ProjectDocument['timeline']['stub']['shaderSequence']['steps'],
+  preferredStepId?: string | null,
+): string | null {
+  if (!steps.length) {
+    return null;
+  }
+
+  if (preferredStepId && steps.some((step) => step.id === preferredStepId)) {
+    return preferredStepId;
+  }
+
+  return steps[0]?.id ?? null;
+}
+
 export function WorkspaceRoute() {
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -355,6 +385,7 @@ export function WorkspaceRoute() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
+  const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
@@ -979,6 +1010,42 @@ export function WorkspaceRoute() {
     }));
   }, [updateProject]);
 
+  const handleTimelineSingleStepLoopToggle = useCallback(() => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            singleStepLoopEnabled: !currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
+            randomChoiceEnabled: currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled
+              ? currentProject.timeline.stub.shaderSequence.randomChoiceEnabled
+              : false,
+          },
+        },
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineRandomChoiceToggle = useCallback(() => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            randomChoiceEnabled: !currentProject.timeline.stub.shaderSequence.randomChoiceEnabled,
+            singleStepLoopEnabled: currentProject.timeline.stub.shaderSequence.randomChoiceEnabled
+              ? currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled
+              : false,
+          },
+        },
+      },
+    }));
+  }, [updateProject]);
+
   const handleTimelineStepChange = useCallback((
     stepId: string,
     patch: Partial<ProjectDocument['timeline']['stub']['shaderSequence']['steps'][number]>,
@@ -995,6 +1062,7 @@ export function WorkspaceRoute() {
             ...currentProject.timeline.stub,
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
+              focusedStepId: stepId,
               steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => {
                 if (step.id !== stepId) {
                   return step;
@@ -1068,6 +1136,7 @@ export function WorkspaceRoute() {
       if (!timelineShader) {
         return currentProject;
       }
+      const nextStep = createTimelineShaderStep(timelineShader.shaderId);
 
       nextStatusMessage = timelineShader.savedLiveSnapshot
         ? `Saved "${timelineShader.shaderName}" and added it to the timeline.`
@@ -1085,9 +1154,10 @@ export function WorkspaceRoute() {
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
               enabled: true,
+              focusedStepId: nextStep.id,
               steps: [
                 ...currentProject.timeline.stub.shaderSequence.steps,
-                createTimelineShaderStep(timelineShader.shaderId),
+                nextStep,
               ],
             },
           },
@@ -1111,6 +1181,7 @@ export function WorkspaceRoute() {
       if (!timelineShader) {
         return currentProject;
       }
+      const nextStep = createTimelineShaderStep(timelineShader.shaderId);
 
       nextStatusMessage = timelineShader.savedLiveSnapshot
         ? `Saved "${timelineShader.shaderName}" and added it to the timeline.`
@@ -1128,9 +1199,10 @@ export function WorkspaceRoute() {
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
               enabled: true,
+              focusedStepId: nextStep.id,
               steps: [
                 ...currentProject.timeline.stub.shaderSequence.steps,
-                createTimelineShaderStep(timelineShader.shaderId),
+                nextStep,
               ],
             },
           },
@@ -1160,6 +1232,12 @@ export function WorkspaceRoute() {
             ...currentProject.timeline.stub,
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
+              focusedStepId: getPreferredTimelineStepId(
+                nextSteps,
+                currentProject.timeline.stub.shaderSequence.focusedStepId === stepId
+                  ? null
+                  : currentProject.timeline.stub.shaderSequence.focusedStepId,
+              ),
               steps: nextSteps,
             },
           },
@@ -1230,6 +1308,7 @@ export function WorkspaceRoute() {
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
               enabled: true,
+              focusedStepId: duplicateStepId,
               steps: nextSteps,
             },
           },
@@ -1261,6 +1340,10 @@ export function WorkspaceRoute() {
             ...currentProject.timeline.stub,
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
+              focusedStepId: getPreferredTimelineStepId(
+                steps,
+                currentProject.timeline.stub.shaderSequence.focusedStepId,
+              ),
               steps,
             },
           },
@@ -1953,10 +2036,11 @@ ${errorSnapshot}`,
             stub: {
               ...currentProject.timeline.stub,
               shaderSequence: {
-                ...currentProject.timeline.stub.shaderSequence,
-                steps: nextSteps,
-              },
+              ...currentProject.timeline.stub.shaderSequence,
+              focusedStepId: stepId,
+              steps: nextSteps,
             },
+          },
           },
         },
         [editableShader.id],
@@ -2023,6 +2107,17 @@ ${errorSnapshot}`,
             ...currentProject.timeline.stub,
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
+              focusedStepId: getPreferredTimelineStepId(
+                currentProject.timeline.stub.shaderSequence.steps.map((step) =>
+                  step.shaderId === draftShader.id
+                    ? {
+                        ...step,
+                        shaderId: draftShader.sourceShaderId ?? fallbackShader.id,
+                      }
+                    : step,
+                ),
+                draftShader.ownerTimelineStepId ?? currentProject.timeline.stub.shaderSequence.focusedStepId,
+              ),
               steps: currentProject.timeline.stub.shaderSequence.steps.map((step) =>
                 step.shaderId === draftShader.id
                   ? {
@@ -2125,6 +2220,26 @@ ${errorSnapshot}`,
       : activeTimelineDraft
         ? 'Timeline Draft'
         : null;
+  const timelineDraftInfo =
+    activeTimelineDraft
+      ? {
+          label: timelineDraftTargetLabel ?? 'Timeline Draft',
+          sourceName: activeTimelineDraftSource?.name ?? null,
+          isDirty: Boolean(activeTimelineDraft.isDirty),
+        }
+      : undefined;
+  const handleActiveShaderCodeChange = (value: string) => {
+    clearGeneratedShaderRetry();
+    setCompilerError('');
+    setShaderCompileNonce((currentValue) => currentValue + 1);
+    updateProject((currentProject) => ({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        activeShaderCode: value,
+      },
+    }));
+  };
 
   const aiPanel = (
     <AiPanel
@@ -2165,18 +2280,7 @@ ${errorSnapshot}`,
         void handleUniformQuickAdd();
       }}
       shaderCode={project.studio.activeShaderCode}
-      onShaderCodeChange={(value) => {
-        clearGeneratedShaderRetry();
-        setCompilerError('');
-        setShaderCompileNonce((currentValue) => currentValue + 1);
-        updateProject((currentProject) => ({
-          ...currentProject,
-          studio: {
-            ...currentProject.studio,
-            activeShaderCode: value,
-          },
-        }));
-      }}
+      onShaderCodeChange={handleActiveShaderCodeChange}
       compilerError={compilerError}
       aiLoading={aiLoading}
       onFixError={handleFixError}
@@ -2185,15 +2289,7 @@ ${errorSnapshot}`,
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
       showUniformPanel={!showDesktopSlidersWindow}
-      timelineDraft={
-        activeTimelineDraft
-          ? {
-              label: timelineDraftTargetLabel ?? 'Timeline Draft',
-              sourceName: activeTimelineDraftSource?.name ?? null,
-              isDirty: Boolean(activeTimelineDraft.isDirty),
-            }
-          : undefined
-      }
+      timelineDraft={timelineDraftInfo}
     />
   );
 
@@ -2216,6 +2312,39 @@ ${errorSnapshot}`,
       {aiPanel}
       {studioPanel}
     </>
+  );
+
+  const desktopShaderToolsPanel = (
+    <ShaderStudioControlsSection
+      savedShaders={project.studio.savedShaders}
+      activeShaderId={project.studio.activeShaderId}
+      onNewShader={() => {
+        createNewShader();
+        setMobilePanel(null);
+      }}
+      onSaveShader={saveCurrentShader}
+      onDiscardDraft={activeTimelineDraft ? handleDiscardActiveTimelineDraft : undefined}
+      onBrowsePresets={() => setIsPresetBrowserOpen(true)}
+      timelineDraft={timelineDraftInfo}
+    />
+  );
+
+  const desktopCodePanel = (
+    <ShaderCodeSection
+      shaderCode={project.studio.activeShaderCode}
+      onShaderCodeChange={handleActiveShaderCodeChange}
+      compilerError={compilerError}
+      aiLoading={aiLoading}
+      onFixError={handleFixError}
+      onReloadShaderCode={reloadShaderCode}
+    />
+  );
+
+  const desktopHistoryPanel = (
+    <ShaderVersionTrailSection
+      versions={project.studio.shaderVersions}
+      onRestoreVersion={restoreShaderVersion}
+    />
   );
 
   const mappingPanel = (
@@ -2250,6 +2379,8 @@ ${errorSnapshot}`,
       onPlayToggle={handlePlayToggle}
       onReset={handleTimelineReset}
       onToggleLoop={handleTimelineLoopToggle}
+      onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
+      onToggleRandomChoice={handleTimelineRandomChoiceToggle}
       onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
       onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceEditorViewChange={handleTimelineEditorViewChange}
@@ -2263,16 +2394,6 @@ ${errorSnapshot}`,
       onResizeSequenceBoundary={handleTimelineResizeBoundary}
       onEditSequenceStep={handleTimelineEditStep}
       onSaveCurrentShader={saveCurrentShader}
-    />
-  );
-
-  const assetLibraryPanel = (
-    <AssetLibraryPanel
-      assets={project.library.assets}
-      activeAssetId={activeAsset?.id ?? null}
-      onLoadAsset={openFilePicker}
-      onSelectAsset={handleAssetSelect}
-      onRemoveAsset={handleAssetRemove}
     />
   );
 
@@ -2395,7 +2516,7 @@ ${errorSnapshot}`,
           workspaceMode={uiPreferences.workspaceMode}
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
-          onLoadAsset={openFilePicker}
+          onOpenAssets={() => setIsAssetLibraryOpen(true)}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
           onPlayToggle={handlePlayToggle}
           onOpenOutput={handleOutputWindowOpen}
@@ -2405,6 +2526,10 @@ ${errorSnapshot}`,
             updateWorkspaceMode(uiPreferences.workspaceMode === 'immersive' ? 'split' : 'immersive')
           }
         />
+      ) : null}
+
+      {!isMobile && uiPreferences.chromeVisible ? (
+        <div className="workspace-top-timeline-shell">{timelineBar}</div>
       ) : null}
 
       <div
@@ -2420,9 +2545,7 @@ ${errorSnapshot}`,
                   style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
                 >
                   <div className="workspace-pane-scroll">
-                    {studioPanel}
                     {slidersPanel}
-                    {aiPanel}
                     {mappingPanel}
                   </div>
                 </aside>
@@ -2453,28 +2576,11 @@ ${errorSnapshot}`,
               className="workspace-pane workspace-pane-right"
               style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
             >
-              <div
-                className="workspace-right-stack"
-                style={{ gridTemplateRows: `minmax(0, 1fr) 10px ${desktopLayout.timelineHeight}px` }}
-              >
-                <section className="workspace-pane-section workspace-pane-assets">
-                  <div className="workspace-pane-scroll">{assetLibraryPanel}</div>
-                </section>
-
-                <div
-                  className="workspace-resize-handle workspace-resize-handle-horizontal"
-                  role="presentation"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    beginDesktopResize('right-split', event.clientX, event.clientY);
-                  }}
-                />
-
-                <section className="workspace-pane-section workspace-pane-timeline">
-                  <div className="workspace-pane-scroll workspace-pane-scroll-timeline">
-                    {timelineBar}
-                  </div>
-                </section>
+              <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
+                {aiPanel}
+                {desktopCodePanel}
+                {desktopShaderToolsPanel}
+                {desktopHistoryPanel}
               </div>
             </aside>
           </>
@@ -2498,6 +2604,18 @@ ${errorSnapshot}`,
       {!isMobile && uiPreferences.chromeVisible && !useDesktopPaneLayout ? (
         <div className="workspace-timeline-shell">{timelineBar}</div>
       ) : null}
+
+      <AssetLibraryDialog
+        open={!isMobile && isAssetLibraryOpen}
+        activeAsset={activeAsset}
+        assetUrl={activeAssetUrl}
+        assets={project.library.assets}
+        activeAssetId={activeAsset?.id ?? null}
+        onLoadAsset={openFilePicker}
+        onSelectAsset={handleAssetSelect}
+        onRemoveAsset={handleAssetRemove}
+        onClose={() => setIsAssetLibraryOpen(false)}
+      />
 
       {isMobile && mobileChromeVisible ? (
         <MobileChrome
@@ -2538,6 +2656,8 @@ ${errorSnapshot}`,
         onPlayToggle={handlePlayToggle}
         onReset={handleTimelineReset}
         onToggleLoop={handleTimelineLoopToggle}
+        onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
+        onToggleRandomChoice={handleTimelineRandomChoiceToggle}
         onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
         onSequenceModeChange={handleTimelineSequenceModeChange}
         onSequenceEditorViewChange={handleTimelineEditorViewChange}

@@ -36,6 +36,8 @@ interface TimelineBarProps {
   onPlayToggle: () => void;
   onReset: () => void;
   onToggleLoop: () => void;
+  onToggleSingleStepLoop: () => void;
+  onToggleRandomChoice: () => void;
   onSequenceEnabledChange: (enabled: boolean) => void;
   onSequenceModeChange: (mode: TimelineSequenceMode) => void;
   onSequenceEditorViewChange: (editorView: TimelineEditorViewMode) => void;
@@ -165,6 +167,14 @@ function getSequenceSummaryCopy(sequence: TimelineStub['shaderSequence'], assetK
     return assetKind === 'video' ? 'Video transport - asset duration' : 'Scene clock - timeline duration';
   }
 
+  if (sequence.singleStepLoopEnabled) {
+    return 'Single shader repeat - looping the focused timeline card';
+  }
+
+  if (sequence.randomChoiceEnabled) {
+    return 'Random choice - playback picks a shuffled shader order each cycle';
+  }
+
   if (sequence.mode === 'randomMix') {
     return 'Random mix - shared transition and compact shader list';
   }
@@ -174,6 +184,30 @@ function getSequenceSummaryCopy(sequence: TimelineStub['shaderSequence'], assetK
   }
 
   return 'Sequenced shader flow with transitions - compact editor';
+}
+
+function RepeatSingleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 4.5h7.5a2 2 0 0 1 0 4H6" />
+      <path d="m4.25 2.75-1.75 1.75 1.75 1.75" />
+      <path d="M8 9.5h5" />
+      <path d="m11.5 7.75 1.75 1.75-1.75 1.75" />
+      <path d="M5.75 12.5V7" />
+    </svg>
+  );
+}
+
+function RandomChoiceIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.75 4h2.2l4.2 8h4.1" />
+      <path d="M2.75 12h2.2l1.35-2.55" />
+      <path d="M10 4h3.3" />
+      <path d="m11.75 2.5 1.75 1.5-1.75 1.5" />
+      <path d="m11.75 10.5 1.75 1.5-1.75 1.5" />
+    </svg>
+  );
 }
 
 export function TimelineBar({
@@ -193,6 +227,8 @@ export function TimelineBar({
   onPlayToggle,
   onReset,
   onToggleLoop,
+  onToggleSingleStepLoop,
+  onToggleRandomChoice,
   onSequenceEnabledChange,
   onSequenceModeChange,
   onSequenceEditorViewChange,
@@ -212,7 +248,7 @@ export function TimelineBar({
   const [scrubValue, setScrubValue] = useState<string | null>(null);
   const dragStateRef = useRef<BoundaryDragState | null>(null);
   const stepTrackRef = useRef<HTMLDivElement | null>(null);
-  const safeDurationSeconds =
+  const baseDurationSeconds =
     Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
 
   useEffect(() => {
@@ -275,15 +311,6 @@ export function TimelineBar({
   }, [onResizeSequenceBoundary]);
 
   const transportTimeSeconds = getTransportTimeSeconds(transport, nowMs);
-  const visibleTimeSeconds = clampTimelineTime(
-    transportTimeSeconds,
-    safeDurationSeconds,
-    transport.loop,
-  );
-  const markerStops = useMemo(
-    () => getMarkerStops(markers, safeDurationSeconds),
-    [markers, safeDurationSeconds],
-  );
   const timelineState = useMemo(() => {
     if (!sequence.enabled || sequence.steps.length === 0) {
       return null;
@@ -292,6 +319,9 @@ export function TimelineBar({
     return resolveShaderTimelineState({
       shaders: savedShaders,
       mode: sequence.mode,
+      focusedStepId: sequence.focusedStepId,
+      singleStepLoopEnabled: sequence.singleStepLoopEnabled,
+      randomChoiceEnabled: sequence.randomChoiceEnabled,
       sharedTransitionEffect: sequence.sharedTransitionEffect,
       sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
       steps: sequence.steps,
@@ -301,13 +331,27 @@ export function TimelineBar({
   }, [
     savedShaders,
     sequence.enabled,
+    sequence.focusedStepId,
     sequence.mode,
+    sequence.randomChoiceEnabled,
+    sequence.singleStepLoopEnabled,
     sequence.sharedTransitionDurationSeconds,
     sequence.sharedTransitionEffect,
     sequence.steps,
     transport.loop,
     transportTimeSeconds,
   ]);
+  const safeDurationSeconds =
+    sequence.enabled && timelineState ? timelineState.totalDurationSeconds : baseDurationSeconds;
+  const visibleTimeSeconds = clampTimelineTime(
+    transportTimeSeconds,
+    safeDurationSeconds,
+    transport.loop,
+  );
+  const markerStops = useMemo(
+    () => getMarkerStops(markers, safeDurationSeconds),
+    [markers, safeDurationSeconds],
+  );
   const stepSegments = useMemo(() => getTimelineStepSegments(sequence.steps), [sequence.steps]);
   const sliderValue = scrubValue ?? String(visibleTimeSeconds);
   const markerThresholdSeconds = Math.max(
@@ -359,6 +403,28 @@ export function TimelineBar({
         </div>
 
         <div className="timeline-bar-actions">
+          <button
+            type="button"
+            className={`icon-button timeline-toggle-icon-button ${
+              sequence.singleStepLoopEnabled ? 'timeline-toggle-icon-button-active' : ''
+            }`}
+            aria-label="Repeat focused shader"
+            title="Repeat focused shader"
+            onClick={onToggleSingleStepLoop}
+          >
+            <RepeatSingleIcon />
+          </button>
+          <button
+            type="button"
+            className={`icon-button timeline-toggle-icon-button ${
+              sequence.randomChoiceEnabled ? 'timeline-toggle-icon-button-active' : ''
+            }`}
+            aria-label="Random timeline choice"
+            title="Random timeline choice"
+            onClick={onToggleRandomChoice}
+          >
+            <RandomChoiceIcon />
+          </button>
           <button type="button" className="secondary-button" onClick={onPlayToggle}>
             {transport.isPlaying ? 'Pause' : 'Play'}
           </button>
@@ -425,6 +491,7 @@ export function TimelineBar({
                   className={`timeline-segment-block ${
                     isCurrent ? 'timeline-segment-block-current' : ''
                   } ${isNext ? 'timeline-segment-block-next' : ''}`}
+                  data-focused={segment.step.id === sequence.focusedStepId ? 'true' : 'false'}
                   role="button"
                   tabIndex={0}
                   style={{
