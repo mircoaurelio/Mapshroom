@@ -1683,6 +1683,24 @@ export function WorkspaceRoute() {
   const createNewShader = () => {
     const nextCode = blankShaderTemplate;
     const nextName = parseShaderName(nextCode);
+    const nextStepId = crypto.randomUUID();
+    const nextShader = createSavedShaderRecord(
+      nextName,
+      nextCode,
+      {},
+      {
+        description: 'Temporary timeline shader draft.',
+        group: 'Timeline Drafts',
+        isTemporary: true,
+        isDirty: false,
+        ownerTimelineStepId: nextStepId,
+      },
+    );
+    const nextStep = {
+      ...createTimelineShaderStep(nextShader.id),
+      id: nextStepId,
+      shaderId: nextShader.id,
+    };
 
     setCompilerError('');
     setAiPrompt('');
@@ -1691,15 +1709,28 @@ export function WorkspaceRoute() {
       ...currentProject,
       studio: {
         ...currentProject.studio,
-        activeShaderId: `new-${Date.now()}`,
+        activeShaderId: nextShader.id,
         activeShaderName: nextName,
         activeShaderCode: nextCode,
         shaderChatHistory: [],
         shaderVersions: [createShaderVersion('New Shader', nextName, nextCode)],
+        uniformValues: getSyncedShaderUniformValues(nextCode, nextShader.uniformValues),
+        savedShaders: [...currentProject.studio.savedShaders, nextShader],
+      },
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            enabled: true,
+            focusedStepId: nextStepId,
+            steps: [...currentProject.timeline.stub.shaderSequence.steps, nextStep],
+          },
+        },
       },
     }));
-    setEditingTimelineStepId(null);
-    setStatusMessage(`Started ${nextName}.`);
+    setEditingTimelineStepId(nextStepId);
+    setStatusMessage(`Started ${nextName} and added it to the timeline.`);
   };
 
   const restoreShaderVersion = (versionId: string) => {
