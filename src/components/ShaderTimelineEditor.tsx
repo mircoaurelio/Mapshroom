@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
+  clampTimelineStepDuration,
+  getShaderTimelineDuration,
   roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
@@ -249,11 +251,23 @@ export function ShaderTimelineEditor({
   const sharedTransitionLocked = sequence.mode === 'randomMix';
   const usesSharedTransition =
     sharedTransitionLocked || sequence.sharedTransitionEnabled;
+  const totalSequenceDurationSeconds = useMemo(() => {
+    const durationFromSteps = getShaderTimelineDuration(sequence.steps);
+
+    if (durationFromSteps > 0) {
+      return durationFromSteps;
+    }
+
+    return Math.max(totalDurationSeconds, sequence.steps.length || 1);
+  }, [sequence.steps, totalDurationSeconds]);
   const flowStripStyle = useMemo(
     () =>
       ({
-        '--timeline-card-width': `${Math.round(220 * cardScale)}px`,
-        '--timeline-card-simple-width': `${Math.round(192 * cardScale)}px`,
+        '--timeline-card-padding-y': `${(0.22 + cardScale * 0.33).toFixed(2)}rem`,
+        '--timeline-card-padding-x': `${(0.24 + cardScale * 0.36).toFixed(2)}rem`,
+        '--timeline-card-gap': `${(0.16 + cardScale * 0.29).toFixed(2)}rem`,
+        '--timeline-card-preview-height': `${Math.round(46 + cardScale * 42)}px`,
+        '--timeline-card-select-height': `${Math.round(22 + cardScale * 4)}px`,
       }) as CSSProperties,
     [cardScale],
   );
@@ -628,6 +642,10 @@ export function ShaderTimelineEditor({
         style={flowStripStyle}
       >
         {sequence.steps.map((step) => {
+          const stepRatio =
+            totalSequenceDurationSeconds > 0
+              ? clampTimelineStepDuration(step.durationSeconds) / totalSequenceDurationSeconds
+              : 1 / Math.max(sequence.steps.length, 1);
           const shader = shaderMap.get(step.shaderId);
           const isPlayingStep = step.id === activeStepId;
           const isTransitionStep = step.id === transitionStepId && transitionStepId !== activeStepId;
@@ -637,7 +655,15 @@ export function ShaderTimelineEditor({
           const previewSrc = shader ? previewSources[previewKey] ?? null : null;
 
           return (
-            <div className="timeline-flow-node" key={step.id} role="listitem">
+            <div
+              className="timeline-flow-node"
+              key={step.id}
+              role="listitem"
+              style={{
+                width: `${stepRatio * 100}%`,
+                flexBasis: `${stepRatio * 100}%`,
+              }}
+            >
               <article
                 className={`timeline-step-card ${
                   step.shaderId === activeShaderId ? 'timeline-step-card-active' : ''
