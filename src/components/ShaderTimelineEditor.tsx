@@ -44,57 +44,55 @@ export function ShaderTimelineEditor({
   onMoveStep,
 }: ShaderTimelineEditorProps) {
   const title = sequence.mode === 'random' ? 'Random Shader Flow' : 'Shader Sequence';
-  const helperCopy =
-    sequence.mode === 'random'
-      ? 'Each loop shuffles these shaders into a new order and keeps their own transitions.'
-      : 'Shaders play in the order shown below, using each card transition to move into the next one.';
 
   return (
     <section className="timeline-sequence-editor">
-      <div className="timeline-sequence-header">
+      <div className="timeline-sequence-toolbar">
         <div className="timeline-sequence-copy">
           <span className="timeline-sequence-label">Timeline Logic</span>
           <strong className="timeline-sequence-title">
-            {title} - {sequence.steps.length} item{sequence.steps.length === 1 ? '' : 's'} -{' '}
+            {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
             {formatStepDuration(totalDurationSeconds)}
           </strong>
-          <p className="timeline-editor-note">{helperCopy}</p>
         </div>
 
-        <button
-          type="button"
-          className={`toggle-chip ${sequence.enabled ? 'toggle-chip-active' : ''}`}
-          onClick={() => onEnabledChange(!sequence.enabled)}
-        >
-          {sequence.enabled ? 'Timeline On' : 'Timeline Off'}
-        </button>
-      </div>
+        <div className="timeline-sequence-toolbar-actions">
+          <button
+            type="button"
+            className={`toggle-chip ${sequence.enabled ? 'toggle-chip-active' : ''}`}
+            onClick={() => onEnabledChange(!sequence.enabled)}
+          >
+            {sequence.enabled ? 'On' : 'Off'}
+          </button>
 
-      <div className="timeline-mode-bar">
-        <span className="timeline-mode-label">Mode</span>
-        <div className="timeline-mode-switch">
-          {TIMELINE_SEQUENCE_MODE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`timeline-mode-button ${
-                sequence.mode === option.value ? 'timeline-mode-button-active' : ''
-              }`}
-              onClick={() => onModeChange(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
+          <div className="timeline-mode-switch">
+            {TIMELINE_SEQUENCE_MODE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`timeline-mode-button ${
+                  sequence.mode === option.value ? 'timeline-mode-button-active' : ''
+                }`}
+                onClick={() => onModeChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <button type="button" className="secondary-button" onClick={onAddStep}>
+            Add Shader
+          </button>
         </div>
       </div>
 
-      <div className="timeline-flow-list">
+      <div className="timeline-flow-strip" role="list" aria-label="Shader timeline flow">
         {sequence.steps.map((step, index) => {
           const shader = savedShaders.find((item) => item.id === step.shaderId);
           const isLast = index === sequence.steps.length - 1;
 
           return (
-            <div className="timeline-flow-item" key={step.id}>
+            <div className="timeline-flow-node" key={step.id} role="listitem">
               <article
                 className={`timeline-step-card ${
                   step.shaderId === activeShaderId ? 'timeline-step-card-active' : ''
@@ -104,6 +102,7 @@ export function ShaderTimelineEditor({
                   <span className="timeline-step-badge">
                     {sequence.mode === 'random' ? `Pool ${index + 1}` : `Step ${index + 1}`}
                   </span>
+
                   <div className="timeline-step-actions">
                     {sequence.mode === 'sequence' ? (
                       <>
@@ -121,22 +120,23 @@ export function ShaderTimelineEditor({
                           disabled={isLast}
                           onClick={() => onMoveStep(step.id, 1)}
                         >
-                          Down
+                          Dn
                         </button>
                       </>
                     ) : null}
+
                     <button
                       type="button"
                       className="ghost-button"
                       disabled={sequence.steps.length === 1}
                       onClick={() => onRemoveStep(step.id)}
                     >
-                      Remove
+                      Del
                     </button>
                   </div>
                 </div>
 
-                <label className="field">
+                <label className="field timeline-compact-field">
                   <span>Shader</span>
                   <select
                     className="select-field"
@@ -152,16 +152,14 @@ export function ShaderTimelineEditor({
                 </label>
 
                 <div className="timeline-step-chip-row">
-                  <span className="timeline-step-chip">
-                    {shader?.name ?? 'Unknown shader'}
-                  </span>
+                  <span className="timeline-step-chip">{shader?.name ?? 'Unknown shader'}</span>
                   {step.shaderId === activeShaderId ? (
                     <span className="timeline-step-chip timeline-step-chip-live">Live</span>
                   ) : null}
                 </div>
 
                 <div className="timeline-step-grid">
-                  <label className="field">
+                  <label className="field timeline-compact-field">
                     <span>Hold</span>
                     <input
                       className="text-field"
@@ -177,8 +175,27 @@ export function ShaderTimelineEditor({
                     />
                   </label>
 
-                  <label className="field">
-                    <span>Transition Time</span>
+                  <label className="field timeline-compact-field">
+                    <span>Fx</span>
+                    <select
+                      className="select-field"
+                      value={step.transitionEffect}
+                      onChange={(event) =>
+                        onStepChange(step.id, {
+                          transitionEffect: event.target.value as TimelineTransitionEffect,
+                        })
+                      }
+                    >
+                      {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="field timeline-compact-field">
+                    <span>Blend</span>
                     <input
                       className="text-field"
                       type="number"
@@ -196,46 +213,21 @@ export function ShaderTimelineEditor({
                     />
                   </label>
                 </div>
-
-                <label className="field">
-                  <span>Transition Style</span>
-                  <select
-                    className="select-field"
-                    value={step.transitionEffect}
-                    onChange={(event) =>
-                      onStepChange(step.id, {
-                        transitionEffect: event.target.value as TimelineTransitionEffect,
-                      })
-                    }
-                  >
-                    {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </article>
 
               {!isLast ? (
                 <div className="timeline-flow-connector" aria-hidden="true">
                   <span className="timeline-flow-arrow">
-                    {sequence.mode === 'random' ? 'Random next' : 'Next'}
+                    {sequence.mode === 'random' ? 'Random' : 'Next'}
                   </span>
                   <span className="timeline-flow-transition">
-                    {step.transitionEffect} - {formatStepDuration(step.transitionDurationSeconds)}
+                    {step.transitionEffect} / {formatStepDuration(step.transitionDurationSeconds)}
                   </span>
                 </div>
               ) : null}
             </div>
           );
         })}
-      </div>
-
-      <div className="timeline-sequence-footer">
-        <button type="button" className="secondary-button" onClick={onAddStep}>
-          Add Shader
-        </button>
       </div>
     </section>
   );

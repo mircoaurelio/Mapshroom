@@ -242,33 +242,35 @@ export function TimelineBar({
         <span className="timeline-timecode">{formatTimelineTime(safeDurationSeconds)}</span>
       </div>
 
-      <div className="timeline-bar-footer">
-        <div className="timeline-chip-row">
-          {markerStops.map((marker) => (
-            <button
-              key={marker.label}
-              type="button"
-              className={`timeline-marker-button ${
-                Math.abs(visibleTimeSeconds - marker.timeSeconds) <= markerThresholdSeconds
-                  ? 'timeline-marker-button-active'
-                  : ''
-              }`}
-              onClick={() => handleMarkerJump(marker.timeSeconds)}
-            >
-              {marker.label}
-            </button>
-          ))}
-        </div>
+      {!sequence.enabled ? (
+        <div className="timeline-bar-footer">
+          <div className="timeline-chip-row">
+            {markerStops.map((marker) => (
+              <button
+                key={marker.label}
+                type="button"
+                className={`timeline-marker-button ${
+                  Math.abs(visibleTimeSeconds - marker.timeSeconds) <= markerThresholdSeconds
+                    ? 'timeline-marker-button-active'
+                    : ''
+                }`}
+                onClick={() => handleMarkerJump(marker.timeSeconds)}
+              >
+                {marker.label}
+              </button>
+            ))}
+          </div>
 
-        <div className="timeline-chip-row timeline-chip-row-secondary">
-          {tracks.map((track) => (
-            <span key={track.id} className="timeline-track-chip">
-              {track.label}
-              <small>{track.type}</small>
-            </span>
-          ))}
+          <div className="timeline-chip-row timeline-chip-row-secondary">
+            {tracks.map((track) => (
+              <span key={track.id} className="timeline-track-chip">
+                {track.label}
+                <small>{track.type}</small>
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <ShaderTimelineEditor
         savedShaders={savedShaders}
