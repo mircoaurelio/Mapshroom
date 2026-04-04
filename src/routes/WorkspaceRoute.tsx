@@ -161,6 +161,15 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     ai: {
       settings: normalizedAiSettings,
     },
+    playback: {
+      ...defaultProject.playback,
+      ...project.playback,
+      transport: {
+        ...defaultProject.playback.transport,
+        ...project.playback?.transport,
+        loop: true,
+      },
+    },
     timeline: {
       stub: {
         ...defaultProject.timeline.stub,
@@ -976,19 +985,6 @@ export function WorkspaceRoute() {
       playback: {
         ...currentProject.playback,
         transport: resetTransport(currentProject.playback.transport),
-      },
-    }));
-  }, [updateProject]);
-
-  const handleTimelineLoopToggle = useCallback(() => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      playback: {
-        ...currentProject.playback,
-        transport: {
-          ...currentProject.playback.transport,
-          loop: !currentProject.playback.transport.loop,
-        },
       },
     }));
   }, [updateProject]);
@@ -2457,7 +2453,6 @@ ${errorSnapshot}`,
       onSeek={handleTimelineSeek}
       onPlayToggle={handlePlayToggle}
       onReset={handleTimelineReset}
-      onToggleLoop={handleTimelineLoopToggle}
       onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
       onToggleRandomChoice={handleTimelineRandomChoiceToggle}
       onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
@@ -2756,7 +2751,6 @@ ${errorSnapshot}`,
         onSeek={handleTimelineSeek}
         onPlayToggle={handlePlayToggle}
         onReset={handleTimelineReset}
-        onToggleLoop={handleTimelineLoopToggle}
         onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
         onToggleRandomChoice={handleTimelineRandomChoiceToggle}
         onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
