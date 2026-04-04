@@ -2973,13 +2973,18 @@ a {
 
 .workspace-shell-mobile .workspace-body {
   grid-template-columns: minmax(0, 1fr);
+  overflow-x: hidden;
 }
 
 .workspace-shell-mobile .workspace-stage-column {
   padding: 0;
+  width: 100vw;
+  min-width: 100vw;
+  max-width: 100vw;
 }
 
 .workspace-shell-mobile .stage-shell {
+  width: 100%;
   min-height: 100vh;
   border: 0;
 }
