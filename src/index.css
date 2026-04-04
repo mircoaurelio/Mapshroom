@@ -2320,6 +2320,21 @@ a {
   text-align: center;
 }
 
+.timeline-flow-connector-editable {
+  min-width: 152px;
+  gap: 0.35rem;
+}
+
+.timeline-flow-controls {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.timeline-flow-field {
+  text-align: left;
+}
+
 .timeline-flow-transition {
   margin: 0;
   color: var(--text-muted);
@@ -2359,6 +2374,10 @@ a {
 
   .timeline-add-toolbar {
     width: 100%;
+  }
+
+  .timeline-flow-connector-editable {
+    min-width: 132px;
   }
 
   .timeline-add-popover {

@@ -749,102 +749,38 @@ export function ShaderTimelineEditor({
                   </select>
                 </label>
 
-                <div className="timeline-step-chip-row">
-                  <span className="timeline-step-chip">{shader?.name ?? 'Unknown shader'}</span>
-                  {shader?.isTemporary ? (
+                {shader?.isTemporary ? (
+                  <div className="timeline-step-chip-row">
                     <span className="timeline-step-chip timeline-step-chip-timeline">Timeline</span>
-                  ) : null}
-                  {usesSharedTransition ? (
-                    <span className="timeline-step-chip">
-                      {sequence.sharedTransitionEffect} /{' '}
-                      {formatStepDuration(sequence.sharedTransitionDurationSeconds)}
-                    </span>
-                  ) : null}
+                  </div>
+                ) : null}
+
+                <div className="timeline-step-simple-row">
+                  <label className="field timeline-compact-field">
+                    <span>Hold</span>
+                    <input
+                      className="text-field"
+                      type="number"
+                      min={0.5}
+                      step={0.01}
+                      value={step.durationSeconds}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) =>
+                        onStepChange(step.id, {
+                          durationSeconds: clampTimelineStepDuration(Number(event.target.value)),
+                        })
+                      }
+                    />
+                  </label>
                 </div>
-
-                {isAdvancedView && !usesSharedTransition ? (
-                  <div className="timeline-step-grid">
-                    <label className="field timeline-compact-field">
-                      <span>Hold</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0.5}
-                        step={0.01}
-                        value={step.durationSeconds}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          onStepChange(step.id, {
-                            durationSeconds: clampTimelineStepDuration(Number(event.target.value)),
-                          })
-                        }
-                      />
-                    </label>
-
-                    <label className="field timeline-compact-field">
-                      <span>Fx</span>
-                      <select
-                        className="select-field"
-                        value={step.transitionEffect}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          onStepChange(step.id, {
-                            transitionEffect: event.target.value as TimelineTransitionEffect,
-                          })
-                        }
-                      >
-                        {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field timeline-compact-field">
-                      <span>Blend</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={step.transitionDurationSeconds}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          onStepChange(step.id, {
-                            transitionDurationSeconds: clampTransitionDuration(
-                              step.durationSeconds,
-                              Number(event.target.value),
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                ) : (
-                  <div className="timeline-step-simple-row">
-                    <label className="field timeline-compact-field">
-                      <span>Hold</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0.5}
-                        step={0.01}
-                        value={step.durationSeconds}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          onStepChange(step.id, {
-                            durationSeconds: clampTimelineStepDuration(Number(event.target.value)),
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                )}
               </article>
 
               {!isLast ? (
-                <div className="timeline-flow-connector" aria-hidden="true">
+                <div
+                  className={`timeline-flow-connector ${
+                    isAdvancedView && !usesSharedTransition ? 'timeline-flow-connector-editable' : ''
+                  }`}
+                >
                   <span className="timeline-flow-arrow">
                     {sequence.mode === 'randomMix'
                       ? 'Mix'
@@ -852,15 +788,57 @@ export function ShaderTimelineEditor({
                         ? 'Random'
                         : 'Next'}
                   </span>
-                  <span className="timeline-flow-transition">
-                    {usesSharedTransition
-                      ? `${sequence.sharedTransitionEffect} / ${formatStepDuration(
-                          sequence.sharedTransitionDurationSeconds,
-                        )}`
-                      : `${step.transitionEffect} / ${formatStepDuration(
-                          step.transitionDurationSeconds,
-                        )}`}
-                  </span>
+                  {isAdvancedView && !usesSharedTransition ? (
+                    <div className="timeline-flow-controls">
+                      <label className="field timeline-compact-field timeline-flow-field">
+                        <span>Fx</span>
+                        <select
+                          className="select-field"
+                          value={step.transitionEffect}
+                          onChange={(event) =>
+                            onStepChange(step.id, {
+                              transitionEffect: event.target.value as TimelineTransitionEffect,
+                            })
+                          }
+                        >
+                          {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="field timeline-compact-field timeline-flow-field">
+                        <span>Blend</span>
+                        <input
+                          className="text-field"
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={step.transitionDurationSeconds}
+                          onChange={(event) =>
+                            onStepChange(step.id, {
+                              transitionDurationSeconds: clampTransitionDuration(
+                                step.durationSeconds,
+                                Number(event.target.value),
+                              ),
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <span className="timeline-flow-transition">
+                      {usesSharedTransition
+                        ? `${sequence.sharedTransitionEffect} / ${formatStepDuration(
+                            sequence.sharedTransitionDurationSeconds,
+                          )}`
+                        : `${step.transitionEffect} / ${formatStepDuration(
+                            step.transitionDurationSeconds,
+                          )}`}
+                    </span>
+                  )}
                 </div>
               ) : null}
             </div>
