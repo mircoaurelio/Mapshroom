@@ -1871,6 +1871,52 @@ a {
   box-shadow: inset 0 0 0 1px rgba(212, 212, 216, 0.08);
 }
 
+.timeline-transition-range-handle {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: -1px;
+  width: 7px;
+  border-right: 1px solid rgba(228, 228, 231, 0.16);
+  background: linear-gradient(
+    90deg,
+    rgba(244, 244, 245, 0.3) 0%,
+    rgba(212, 212, 216, 0.14) 55%,
+    rgba(161, 161, 170, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.timeline-transition-range-drag-handle {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translateX(-50%);
+  cursor: ew-resize;
+  z-index: 4;
+}
+
+.timeline-transition-range-drag-handle::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 50%;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(228, 228, 231, 0.26);
+  transform: translateX(-50%);
+}
+
+.timeline-transition-range-drag-handle:hover::before,
+.timeline-transition-range-drag-handle:focus-visible::before {
+  background: rgba(244, 244, 245, 0.5);
+}
+
 .timeline-transition-pin {
   position: absolute;
   top: 0;
@@ -2256,30 +2302,38 @@ a {
   align-items: stretch;
   width: 100%;
   gap: 0.35rem;
-  overflow: hidden;
-  padding-bottom: 0.2rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.28rem;
+  scrollbar-width: thin;
 }
 
 .timeline-flow-node {
   display: flex;
   align-items: center;
-  min-width: 0;
-  flex: 1 1 0;
+  min-width: min-content;
+  flex: 0 0 auto;
 }
 
 .timeline-step-card {
   display: flex;
   flex-direction: column;
   gap: var(--timeline-card-gap, 0.45rem);
-  width: calc(100% * var(--timeline-card-width-scale, 1));
-  min-width: 0;
-  margin: 0 auto;
+  width: var(--timeline-card-width, 220px);
+  min-width: var(--timeline-card-width, 220px);
+  max-width: var(--timeline-card-width, 220px);
   padding: var(--timeline-card-padding-y, 0.55rem) var(--timeline-card-padding-x, 0.6rem);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
   box-sizing: border-box;
   cursor: pointer;
+}
+
+.timeline-step-card-simple {
+  width: var(--timeline-card-simple-width, 192px);
+  min-width: var(--timeline-card-simple-width, 192px);
+  max-width: var(--timeline-card-simple-width, 192px);
 }
 
 .timeline-step-card-active {

@@ -108,6 +108,18 @@ interface BoundaryDragState {
   handleElement: HTMLButtonElement;
 }
 
+interface TransitionDragState {
+  stepId: string;
+  stepStartRatio: number;
+  stepEndRatio: number;
+  baseDurationSeconds: number;
+  totalDurationSeconds: number;
+  trackWidth: number;
+  trackLeft: number;
+  pointerId: number;
+  handleElement: HTMLButtonElement;
+}
+
 function clampTimelineTime(
   timeSeconds: number,
   durationSeconds: number,
@@ -197,7 +209,7 @@ function getTimelineTransitionSegments({
   const usesSharedTransition =
     sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled;
 
-  return stepSegments.slice(0, -1).flatMap((segment) => {
+  return stepSegments.flatMap((segment, index) => {
     const baseDurationSeconds = clampTimelineStepDuration(segment.step.durationSeconds);
     const effect =
       usesSharedTransition
@@ -215,7 +227,7 @@ function getTimelineTransitionSegments({
     }
 
     const transitionRatio = transitionDurationSeconds / totalDurationSeconds;
-    const endRatio = segment.endRatio;
+    const endRatio = index === stepSegments.length - 1 ? 1 : segment.endRatio;
     const startRatio = Math.max(segment.startRatio, endRatio - transitionRatio);
 
     return [
@@ -265,9 +277,12 @@ export function TimelineBar({
   const [durationInputValue, setDurationInputValue] = useState<string | null>(null);
   const [activeTransitionEditorStepId, setActiveTransitionEditorStepId] = useState<string | null>(null);
   const dragStateRef = useRef<BoundaryDragState | null>(null);
+  const transitionDragStateRef = useRef<TransitionDragState | null>(null);
   const stepTrackRef = useRef<HTMLDivElement | null>(null);
   const baseDurationSeconds =
     Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
+  const usesSharedTransition =
+    sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled;
 
   useEffect(() => {
     if (!transport.isPlaying) {
@@ -309,40 +324,86 @@ export function TimelineBar({
       );
     };
 
+    const handleTransitionPointerMove = (event: PointerEvent) => {
+      const dragState = transitionDragStateRef.current;
+      if (!dragState || event.pointerId !== dragState.pointerId) {
+        return;
+      }
+
+      const cursorRatio =
+        dragState.trackWidth > 0 ? (event.clientX - dragState.trackLeft) / dragState.trackWidth : 0;
+      const clampedStartRatio = Math.max(
+        dragState.stepStartRatio,
+        Math.min(dragState.stepEndRatio, cursorRatio),
+      );
+      const nextDurationSeconds = clampTransitionDuration(
+        dragState.baseDurationSeconds,
+        (dragState.stepEndRatio - clampedStartRatio) * dragState.totalDurationSeconds,
+      );
+
+      if (usesSharedTransition) {
+        onSequenceSharedTransitionChange({
+          sharedTransitionDurationSeconds: nextDurationSeconds,
+        });
+        return;
+      }
+
+      onSequenceStepChange(dragState.stepId, {
+        transitionDurationSeconds: nextDurationSeconds,
+      });
+    };
+
     const handlePointerUp = (event?: PointerEvent | Event) => {
       const dragState = dragStateRef.current;
-      if (!dragState) {
-        return;
+      if (dragState) {
+        if (
+          event instanceof PointerEvent &&
+          event.pointerId !== dragState.pointerId
+        ) {
+          return;
+        }
+
+        if (dragState.handleElement.hasPointerCapture(dragState.pointerId)) {
+          dragState.handleElement.releasePointerCapture(dragState.pointerId);
+        }
+
+        dragStateRef.current = null;
       }
 
-      if (
-        event instanceof PointerEvent &&
-        event.pointerId !== dragState.pointerId
-      ) {
-        return;
+      const transitionDragState = transitionDragStateRef.current;
+      if (transitionDragState) {
+        if (
+          event instanceof PointerEvent &&
+          event.pointerId !== transitionDragState.pointerId
+        ) {
+          return;
+        }
+
+        if (transitionDragState.handleElement.hasPointerCapture(transitionDragState.pointerId)) {
+          transitionDragState.handleElement.releasePointerCapture(transitionDragState.pointerId);
+        }
+
+        transitionDragStateRef.current = null;
       }
 
-      if (dragState.handleElement.hasPointerCapture(dragState.pointerId)) {
-        dragState.handleElement.releasePointerCapture(dragState.pointerId);
-      }
-
-      dragStateRef.current = null;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
 
     window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointermove', handleTransitionPointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerUp);
     window.addEventListener('blur', handlePointerUp);
 
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointermove', handleTransitionPointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
       window.removeEventListener('blur', handlePointerUp);
     };
-  }, [onResizeSequenceBoundary]);
+  }, [onResizeSequenceBoundary, onSequenceSharedTransitionChange, onSequenceStepChange, usesSharedTransition]);
 
   const transportTimeSeconds = getTransportTimeSeconds(transport, nowMs);
   const timelineState = useMemo(() => {
@@ -399,8 +460,6 @@ export function TimelineBar({
     0.75,
     safeDurationSeconds / Math.max(markerStops.length * 10, 24),
   );
-  const usesSharedTransition =
-    sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled;
   const activeTransitionSegment =
     activeTransitionEditorStepId
       ? transitionSegments.find((segment) => segment.stepId === activeTransitionEditorStepId) ?? null
@@ -476,6 +535,35 @@ export function TimelineBar({
     event.currentTarget.setPointerCapture(event.pointerId);
     event.currentTarget.blur();
     document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const beginTransitionDrag = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    segment: TimelineTransitionSegment,
+  ) => {
+    const trackElement = stepTrackRef.current;
+    const trackWidth = trackElement?.clientWidth ?? 0;
+    const trackLeft = trackElement?.getBoundingClientRect().left ?? 0;
+    const stepSegment = stepSegments.find((item) => item.step.id === segment.stepId);
+    if (!trackElement || trackWidth <= 0 || !stepSegment) {
+      return;
+    }
+
+    transitionDragStateRef.current = {
+      stepId: segment.stepId,
+      stepStartRatio: stepSegment.startRatio,
+      stepEndRatio: segment.endRatio,
+      baseDurationSeconds: clampTimelineStepDuration(stepSegment.step.durationSeconds),
+      totalDurationSeconds: getShaderTimelineDuration(sequence.steps),
+      trackWidth,
+      trackLeft,
+      pointerId: event.pointerId,
+      handleElement: event.currentTarget,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.blur();
+    document.body.style.cursor = 'ew-resize';
     document.body.style.userSelect = 'none';
   };
 
@@ -602,9 +690,28 @@ export function TimelineBar({
                       currentValue === segment.stepId ? null : segment.stepId,
                     );
                   }}
-                />
+                >
+                  <span className="timeline-transition-range-handle" aria-hidden="true" />
+                </button>
               );
             })}
+
+            {transitionSegments.map((segment) => (
+              <button
+                key={`transition-range-handle:${segment.stepId}`}
+                type="button"
+                className="timeline-transition-range-drag-handle"
+                style={{
+                  left: `${segment.startRatio * 100}%`,
+                }}
+                aria-label={`Adjust ${segment.effect} length`}
+                title={`Adjust ${segment.effect} length`}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  beginTransitionDrag(event, segment);
+                }}
+              />
+            ))}
 
             {transitionSegments.map((segment) => (
               <button
@@ -614,7 +721,7 @@ export function TimelineBar({
                   activeTransitionEditorStepId === segment.stepId ? 'timeline-transition-pin-active' : ''
                 }`}
                 style={{
-                  left: `${segment.endRatio * 100}%`,
+                  left: `${Math.min(99.8, Math.max(0.2, segment.endRatio * 100))}%`,
                 }}
                 title={`${segment.effect} - ${roundTimelineSeconds(segment.durationSeconds).toFixed(2)}s`}
                 onClick={() => {
@@ -631,8 +738,11 @@ export function TimelineBar({
               </button>
             ))}
 
-            {stepSegments.slice(0, -1).map((segment, index) => {
+            {stepSegments.map((segment, index) => {
               const nextSegment = stepSegments[index + 1];
+              if (!nextSegment) {
+                return null;
+              }
               const leftShaderName =
                 savedShaders.find((shader) => shader.id === segment.step.shaderId)?.name ?? 'Left';
               const rightShaderName =
