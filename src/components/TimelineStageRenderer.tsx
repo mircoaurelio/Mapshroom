@@ -146,6 +146,12 @@ export function TimelineStageRenderer({
   }, [
     availableShaders,
     sequenceEnabled,
+    shaderSequence.focusedStepId,
+    shaderSequence.mode,
+    shaderSequence.randomChoiceEnabled,
+    shaderSequence.sharedTransitionDurationSeconds,
+    shaderSequence.sharedTransitionEffect,
+    shaderSequence.singleStepLoopEnabled,
     shaderSequence.steps,
     timelineNowMs,
     transport,

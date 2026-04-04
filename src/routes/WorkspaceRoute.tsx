@@ -1872,10 +1872,13 @@ ${errorSnapshot}`,
 
     const nextUrl = `${window.location.origin}${window.location.pathname}#/output/${project.sessionId}`;
     const existingWindow = outputWindowRef.current;
+    const publishProjectToOutput = () => {
+      sessionSyncRef.current?.publish(project);
+    };
 
     if (existingWindow && !existingWindow.closed) {
       existingWindow.focus();
-      sessionSyncRef.current?.publish(project);
+      publishProjectToOutput();
       setStatusMessage('Projection window focused.');
       return;
     }
@@ -1887,7 +1890,9 @@ ${errorSnapshot}`,
     }
 
     outputWindowRef.current = popup;
-    sessionSyncRef.current?.publish(project);
+    publishProjectToOutput();
+    window.setTimeout(publishProjectToOutput, 200);
+    window.setTimeout(publishProjectToOutput, 800);
     setStatusMessage('Projection window opened.');
   };
 

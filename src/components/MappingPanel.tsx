@@ -56,9 +56,6 @@ export function MappingPanel({
           >
             {stageTransform.rotationLocked ? 'Rotation Locked' : 'Lock Rotation'}
           </button>
-          <p className="helper-copy">
-            V3 keeps mapping intentionally simple: move and resize now, distort later.
-          </p>
         </div>
       </PanelSection>
 
