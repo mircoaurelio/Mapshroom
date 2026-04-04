@@ -2438,7 +2438,6 @@ ${errorSnapshot}`,
 
   const timelineBar = (
     <TimelineBar
-      assetName={activeAsset?.name ?? 'No asset selected'}
       assetKind={activeAsset?.kind ?? null}
       assetUrl={activeAssetUrl}
       activeShaderId={project.studio.activeShaderId}
@@ -2736,7 +2735,6 @@ ${errorSnapshot}`,
 
       <TimelineDialog
         open={isMobile && isMobileTimelineOpen}
-        assetName={activeAsset?.name ?? 'No asset selected'}
         assetKind={activeAsset?.kind ?? null}
         assetUrl={activeAssetUrl}
         activeShaderId={project.studio.activeShaderId}
