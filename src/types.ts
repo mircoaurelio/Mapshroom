@@ -163,4 +163,5 @@ export interface UiPreferences {
   chromeVisible: boolean;
   sidebarVisible: boolean;
   mobileUiMode: MobileUiMode;
+  desktopSlidersWindowEnabled: boolean;
 }

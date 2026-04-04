@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   clampTimelineStepDuration,
   clampTransitionDuration,
+  roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
@@ -69,7 +70,7 @@ const EDITOR_VIEW_OPTIONS: Array<{
 ];
 
 function formatStepDuration(seconds: number): string {
-  return `${seconds.toFixed(seconds % 1 === 0 ? 0 : 1)}s`;
+  return `${roundTimelineSeconds(seconds).toFixed(2)}s`;
 }
 
 function ViewModeIcon({ mode }: { mode: TimelineEditorViewMode }) {
@@ -90,6 +91,43 @@ function ViewModeIcon({ mode }: { mode: TimelineEditorViewMode }) {
       <circle cx="6" cy="4.5" r="1.2" />
       <circle cx="10" cy="8" r="1.2" />
       <circle cx="7.5" cy="11.5" r="1.2" />
+    </svg>
+  );
+}
+
+function DuplicateIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="6" y="5" width="7" height="8" rx="1.2" />
+      <path d="M4.5 10.5H4A1.5 1.5 0 0 1 2.5 9V4A1.5 1.5 0 0 1 4 2.5h5A1.5 1.5 0 0 1 10.5 4v0.5" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3.5 4.5h9" />
+      <path d="M6 2.75h4" />
+      <path d="M5 4.5v7.25A1.25 1.25 0 0 0 6.25 13h3.5A1.25 1.25 0 0 0 11 11.75V4.5" />
+      <path d="M6.75 6.5v4" />
+      <path d="M9.25 6.5v4" />
+    </svg>
+  );
+}
+
+function MoveBackIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M9.75 3.5 5 8l4.75 4.5" />
+    </svg>
+  );
+}
+
+function MoveForwardIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="m6.25 3.5 4.75 4.5-4.75 4.5" />
     </svg>
   );
 }
@@ -420,67 +458,17 @@ export function ShaderTimelineEditor({
                 } ${step.id === editingStepId ? 'timeline-step-card-editing' : ''} ${
                   !isAdvancedView ? 'timeline-step-card-simple' : ''
                 }`}
+                role="button"
+                tabIndex={0}
+                aria-pressed={step.id === editingStepId}
+                onClick={() => onEditStep(step.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onEditStep(step.id);
+                  }
+                }}
               >
-                <div className="timeline-step-header">
-                  <span className="timeline-step-badge">
-                    {sequence.mode === 'randomMix'
-                      ? `Mix ${index + 1}`
-                      : sequence.mode === 'random'
-                        ? `Pool ${index + 1}`
-                        : `Step ${index + 1}`}
-                  </span>
-
-                  <div className="timeline-step-actions">
-                    <button
-                      type="button"
-                      className={`ghost-button ${
-                        step.id === editingStepId ? 'timeline-step-action-active' : ''
-                      }`}
-                      onClick={() => onEditStep(step.id)}
-                    >
-                      {step.id === editingStepId ? 'Editing' : 'Edit'}
-                    </button>
-
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => onDuplicateStep(step.id)}
-                    >
-                      Dup
-                    </button>
-
-                    {isAdvancedView && sequence.mode === 'sequence' ? (
-                      <>
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          disabled={index === 0}
-                          onClick={() => onMoveStep(step.id, -1)}
-                        >
-                          Up
-                        </button>
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          disabled={isLast}
-                          onClick={() => onMoveStep(step.id, 1)}
-                        >
-                          Dn
-                        </button>
-                      </>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      disabled={sequence.steps.length === 1}
-                      onClick={() => onRemoveStep(step.id)}
-                    >
-                      {isAdvancedView ? 'Del' : 'X'}
-                    </button>
-                  </div>
-                </div>
-
                 <div className="timeline-step-preview-shell">
                   {previewSrc ? (
                     <img
@@ -492,6 +480,66 @@ export function ShaderTimelineEditor({
                   ) : (
                     <div className="timeline-step-preview-placeholder">{previewPlaceholder}</div>
                   )}
+
+                  <div className="timeline-step-preview-actions">
+                    {isAdvancedView && sequence.mode === 'sequence' ? (
+                      <>
+                        <button
+                          type="button"
+                          className="icon-button timeline-step-overlay-button"
+                          aria-label="Move shader earlier"
+                          title="Move earlier"
+                          disabled={index === 0}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onMoveStep(step.id, -1);
+                          }}
+                        >
+                          <MoveBackIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button timeline-step-overlay-button"
+                          aria-label="Move shader later"
+                          title="Move later"
+                          disabled={isLast}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onMoveStep(step.id, 1);
+                          }}
+                        >
+                          <MoveForwardIcon />
+                        </button>
+                      </>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      className="icon-button timeline-step-overlay-button"
+                      aria-label="Duplicate shader step"
+                      title="Duplicate"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDuplicateStep(step.id);
+                      }}
+                    >
+                      <DuplicateIcon />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="icon-button timeline-step-overlay-button timeline-step-overlay-button-danger"
+                      aria-label="Delete shader step"
+                      title="Delete"
+                      disabled={sequence.steps.length === 1}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRemoveStep(step.id);
+                      }}
+                    >
+                      <DeleteIcon />
+                    </button>
+                  </div>
 
                   {(isPlayingStep || isTransitionStep) && (
                     <div className="timeline-step-preview-badges">
@@ -512,6 +560,7 @@ export function ShaderTimelineEditor({
                   <select
                     className="select-field"
                     value={step.shaderId}
+                    onClick={(event) => event.stopPropagation()}
                     onChange={(event) => onStepChange(step.id, { shaderId: event.target.value })}
                   >
                     {savedShaders.map((item) => (
@@ -546,8 +595,9 @@ export function ShaderTimelineEditor({
                         className="text-field"
                         type="number"
                         min={0.5}
-                        step={0.5}
+                        step={0.01}
                         value={step.durationSeconds}
+                        onClick={(event) => event.stopPropagation()}
                         onChange={(event) =>
                           onStepChange(step.id, {
                             durationSeconds: clampTimelineStepDuration(Number(event.target.value)),
@@ -561,6 +611,7 @@ export function ShaderTimelineEditor({
                       <select
                         className="select-field"
                         value={step.transitionEffect}
+                        onClick={(event) => event.stopPropagation()}
                         onChange={(event) =>
                           onStepChange(step.id, {
                             transitionEffect: event.target.value as TimelineTransitionEffect,
@@ -581,8 +632,9 @@ export function ShaderTimelineEditor({
                         className="text-field"
                         type="number"
                         min={0}
-                        step={0.1}
+                        step={0.01}
                         value={step.transitionDurationSeconds}
+                        onClick={(event) => event.stopPropagation()}
                         onChange={(event) =>
                           onStepChange(step.id, {
                             transitionDurationSeconds: clampTransitionDuration(
@@ -602,8 +654,9 @@ export function ShaderTimelineEditor({
                         className="text-field"
                         type="number"
                         min={0.5}
-                        step={0.5}
+                        step={0.01}
                         value={step.durationSeconds}
+                        onClick={(event) => event.stopPropagation()}
                         onChange={(event) =>
                           onStepChange(step.id, {
                             durationSeconds: clampTimelineStepDuration(Number(event.target.value)),

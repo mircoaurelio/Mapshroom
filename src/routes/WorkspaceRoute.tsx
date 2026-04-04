@@ -11,6 +11,7 @@ import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
 import { StudioPanel } from '../components/StudioPanel';
 import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
+import { UniformPanel } from '../components/UniformPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_GOOGLE_SHADER_MODEL,
@@ -224,8 +225,8 @@ type DesktopResizeTarget = 'left' | 'right' | 'right-split';
 
 const DESKTOP_PANE_MIN_WIDTH = 180;
 const DESKTOP_PANE_MAX_WIDTH = 520;
-const DESKTOP_RIGHT_TOP_MIN_HEIGHT = 180;
-const DESKTOP_RIGHT_TOP_MAX_HEIGHT = 520;
+const DESKTOP_TIMELINE_MIN_HEIGHT = 220;
+const DESKTOP_TIMELINE_MAX_HEIGHT = 520;
 
 function createShaderVersion(
   prompt: string,
@@ -361,7 +362,7 @@ export function WorkspaceRoute() {
   const [desktopLayout, setDesktopLayout] = useState({
     leftSidebarWidth: 360,
     rightSidebarWidth: 360,
-    rightTopHeight: 300,
+    timelineHeight: 300,
   });
   const generatedShaderRetryRef = useRef<{
     sourcePrompt: string;
@@ -376,7 +377,7 @@ export function WorkspaceRoute() {
     startY: number;
     leftSidebarWidth: number;
     rightSidebarWidth: number;
-    rightTopHeight: number;
+    timelineHeight: number;
   } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
 
@@ -475,9 +476,9 @@ export function WorkspaceRoute() {
 
         return {
           ...currentValue,
-          rightTopHeight: Math.max(
-            DESKTOP_RIGHT_TOP_MIN_HEIGHT,
-            Math.min(DESKTOP_RIGHT_TOP_MAX_HEIGHT, resizeState.rightTopHeight + deltaY),
+          timelineHeight: Math.max(
+            DESKTOP_TIMELINE_MIN_HEIGHT,
+            Math.min(DESKTOP_TIMELINE_MAX_HEIGHT, resizeState.timelineHeight - deltaY),
           ),
         };
       });
@@ -747,7 +748,7 @@ export function WorkspaceRoute() {
       startY: clientY,
       leftSidebarWidth: desktopLayout.leftSidebarWidth,
       rightSidebarWidth: desktopLayout.rightSidebarWidth,
-      rightTopHeight: desktopLayout.rightTopHeight,
+      timelineHeight: desktopLayout.timelineHeight,
     };
     document.body.style.cursor = target === 'right-split' ? 'row-resize' : 'col-resize';
     document.body.style.userSelect = 'none';
@@ -1840,6 +1841,18 @@ ${errorSnapshot}`,
     }));
   };
 
+  const toggleDesktopSlidersWindow = () => {
+    setUiPreferences((currentValue) => {
+      const nextEnabled = !currentValue.desktopSlidersWindowEnabled;
+
+      return {
+        ...currentValue,
+        desktopSlidersWindowEnabled: nextEnabled,
+        sidebarVisible: nextEnabled ? true : currentValue.sidebarVisible,
+      };
+    });
+  };
+
   const handleMobileToggleMapping = () => {
     updateMobileUiMode('full');
     toggleMoveMode();
@@ -2130,6 +2143,9 @@ ${errorSnapshot}`,
     />
   );
 
+  const showDesktopSlidersWindow =
+    !isMobile && uiPreferences.chromeVisible && uiPreferences.desktopSlidersWindowEnabled;
+
   const studioPanel = (
     <StudioPanel
       savedShaders={project.studio.savedShaders}
@@ -2151,6 +2167,8 @@ ${errorSnapshot}`,
       shaderCode={project.studio.activeShaderCode}
       onShaderCodeChange={(value) => {
         clearGeneratedShaderRetry();
+        setCompilerError('');
+        setShaderCompileNonce((currentValue) => currentValue + 1);
         updateProject((currentProject) => ({
           ...currentProject,
           studio: {
@@ -2166,6 +2184,7 @@ ${errorSnapshot}`,
       onReloadShaderCode={reloadShaderCode}
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
+      showUniformPanel={!showDesktopSlidersWindow}
       timelineDraft={
         activeTimelineDraft
           ? {
@@ -2177,6 +2196,20 @@ ${errorSnapshot}`,
       }
     />
   );
+
+  const slidersPanel = showDesktopSlidersWindow ? (
+    <UniformPanel
+      title="Sliders Window"
+      uniformDefinitions={uniformDefinitions}
+      uniformValues={project.studio.uniformValues}
+      onUniformChange={handleUniformChange}
+      newUniformName={newUniformName}
+      onNewUniformNameChange={setNewUniformName}
+      onQuickAddUniform={() => {
+        void handleUniformQuickAdd();
+      }}
+    />
+  ) : null;
 
   const mobileShaderPanel = (
     <>
@@ -2243,11 +2276,10 @@ ${errorSnapshot}`,
     />
   );
 
-  const useDesktopPaneLayout =
-    !isMobile &&
-    uiPreferences.chromeVisible &&
-    uiPreferences.sidebarVisible &&
-    uiPreferences.workspaceMode !== 'immersive';
+  const useDesktopPaneLayout = !isMobile && uiPreferences.chromeVisible;
+  const desktopGridTemplateColumns = uiPreferences.sidebarVisible
+    ? `${desktopLayout.leftSidebarWidth}px 10px minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`
+    : `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
 
   const stageViewport = (
     <section className="workspace-stage-column" onClick={handleStageReveal}>
@@ -2261,11 +2293,12 @@ ${errorSnapshot}`,
         activeUniformValues={project.studio.uniformValues}
         savedShaders={project.studio.savedShaders}
         timeline={project.timeline.stub}
-        shaderCompileNonce={shaderCompileNonce}
-        stageTransform={project.mapping.stageTransform}
-        transport={project.playback.transport}
-        onCompilerError={setCompilerError}
-      />
+      shaderCompileNonce={shaderCompileNonce}
+      stageTransform={project.mapping.stageTransform}
+      transport={project.playback.transport}
+      forceActiveShaderPreview={editingTimelineStepId !== null}
+      onCompilerError={setCompilerError}
+    />
 
       {aiLoading ? (
         <div className="ai-loading-overlay">
@@ -2360,38 +2393,50 @@ ${errorSnapshot}`,
         <WorkspaceToolbar
           isPlaying={project.playback.transport.isPlaying}
           workspaceMode={uiPreferences.workspaceMode}
+          sidebarVisible={uiPreferences.sidebarVisible}
+          desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           onLoadAsset={openFilePicker}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
           onPlayToggle={handlePlayToggle}
           onOpenOutput={handleOutputWindowOpen}
+          onToggleSidebarVisibility={toggleSidebarVisibility}
+          onToggleDesktopSlidersWindow={toggleDesktopSlidersWindow}
           onToggleWorkspaceMode={() =>
             updateWorkspaceMode(uiPreferences.workspaceMode === 'immersive' ? 'split' : 'immersive')
           }
         />
       ) : null}
 
-      <div className={`workspace-body ${useDesktopPaneLayout ? 'workspace-body-desktop-grid' : ''}`}>
+      <div
+        className={`workspace-body ${useDesktopPaneLayout ? 'workspace-body-desktop-grid' : ''}`}
+        style={useDesktopPaneLayout ? { gridTemplateColumns: desktopGridTemplateColumns } : undefined}
+      >
         {useDesktopPaneLayout ? (
           <>
-            <aside
-              className="workspace-pane workspace-pane-left"
-              style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
-            >
-              <div className="workspace-pane-scroll">
-                {aiPanel}
-                {studioPanel}
-                {mappingPanel}
-              </div>
-            </aside>
+            {uiPreferences.sidebarVisible ? (
+              <>
+                <aside
+                  className="workspace-pane workspace-pane-left"
+                  style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
+                >
+                  <div className="workspace-pane-scroll">
+                    {studioPanel}
+                    {slidersPanel}
+                    {aiPanel}
+                    {mappingPanel}
+                  </div>
+                </aside>
 
-            <div
-              className="workspace-resize-handle workspace-resize-handle-vertical"
-              role="presentation"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                beginDesktopResize('left', event.clientX, event.clientY);
-              }}
-            />
+                <div
+                  className="workspace-resize-handle workspace-resize-handle-vertical"
+                  role="presentation"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    beginDesktopResize('left', event.clientX, event.clientY);
+                  }}
+                />
+              </>
+            ) : null}
 
             {stageViewport}
 
@@ -2410,7 +2455,7 @@ ${errorSnapshot}`,
             >
               <div
                 className="workspace-right-stack"
-                style={{ gridTemplateRows: `${desktopLayout.rightTopHeight}px 10px minmax(0, 1fr)` }}
+                style={{ gridTemplateRows: `minmax(0, 1fr) 10px ${desktopLayout.timelineHeight}px` }}
               >
                 <section className="workspace-pane-section workspace-pane-assets">
                   <div className="workspace-pane-scroll">{assetLibraryPanel}</div>

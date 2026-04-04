@@ -1,13 +1,7 @@
 import { useEffect, useState } from 'react';
-import type {
-  SavedShader,
-  ShaderUniformMap,
-  ShaderUniformValue,
-  ShaderUniformValueMap,
-  ShaderVersion,
-} from '../types';
-import { hexToRgb, rgbToHex } from '../lib/shader';
+import type { SavedShader, ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap, ShaderVersion } from '../types';
 import { PanelSection } from './PanelSection';
+import { UniformPanel } from './UniformPanel';
 
 interface StudioPanelProps {
   savedShaders: SavedShader[];
@@ -30,6 +24,8 @@ interface StudioPanelProps {
   onReloadShaderCode: () => void;
   versions: ShaderVersion[];
   onRestoreVersion: (versionId: string) => void;
+  showUniformPanel?: boolean;
+  uniformPanelTitle?: string;
   timelineDraft?: {
     label: string;
     sourceName: string | null;
@@ -84,6 +80,8 @@ export function StudioPanel({
   onReloadShaderCode,
   versions,
   onRestoreVersion,
+  showUniformPanel = true,
+  uniformPanelTitle,
   timelineDraft,
 }: StudioPanelProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
@@ -166,72 +164,17 @@ export function StudioPanel({
         </div>
       </PanelSection>
 
-      <PanelSection title="Uniform Map">
-        <div className="stack gap-md">
-          {Object.keys(uniformDefinitions).length > 0 ? (
-            Object.entries(uniformDefinitions).map(([name, definition]) => {
-              const value = uniformValues[name];
-              if (value === undefined) {
-                return null;
-              }
-
-              return (
-                <label className="field" key={name}>
-                  <span className="field-inline-label">
-                    <span>{name}</span>
-                    {(definition.type === 'float' || definition.type === 'int') && (
-                      <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
-                    )}
-                  </span>
-                  {definition.type === 'float' || definition.type === 'int' ? (
-                    <input
-                      type="range"
-                      min={definition.min}
-                      max={definition.max}
-                      step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
-                      value={Number(value)}
-                      onChange={(event) => onUniformChange(name, Number(event.target.value))}
-                    />
-                  ) : null}
-                  {definition.type === 'bool' ? (
-                    <button
-                      type="button"
-                      className={`toggle-chip ${value ? 'toggle-chip-active' : ''}`}
-                      onClick={() => onUniformChange(name, !value)}
-                    >
-                      {value ? 'Enabled' : 'Disabled'}
-                    </button>
-                  ) : null}
-                  {definition.type === 'vec3' && Array.isArray(value) ? (
-                    <input
-                      type="color"
-                      value={rgbToHex(value)}
-                      onChange={(event) => onUniformChange(name, hexToRgb(event.target.value))}
-                    />
-                  ) : null}
-                </label>
-              );
-            })
-          ) : null}
-          <div className="inline-form">
-            <input
-              className="text-field"
-              placeholder="New variable..."
-              value={newUniformName}
-              onChange={(event) => onNewUniformNameChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  onQuickAddUniform();
-                }
-              }}
-            />
-            <button type="button" className="secondary-button" onClick={onQuickAddUniform}>
-              Add
-            </button>
-          </div>
-        </div>
-      </PanelSection>
+      {showUniformPanel ? (
+        <UniformPanel
+          title={uniformPanelTitle}
+          uniformDefinitions={uniformDefinitions}
+          uniformValues={uniformValues}
+          onUniformChange={onUniformChange}
+          newUniformName={newUniformName}
+          onNewUniformNameChange={onNewUniformNameChange}
+          onQuickAddUniform={onQuickAddUniform}
+        />
+      ) : null}
 
       <PanelSection title="Version Trail">
         <div className="version-list">

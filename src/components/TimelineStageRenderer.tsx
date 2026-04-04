@@ -50,6 +50,7 @@ interface TimelineStageRendererProps {
   shaderCompileNonce?: number;
   stageTransform: StageTransform;
   transport: PlaybackTransport;
+  forceActiveShaderPreview?: boolean;
   isOutputOnly?: boolean;
   onCompilerError?: (message: string) => void;
 }
@@ -67,6 +68,7 @@ export function TimelineStageRenderer({
   shaderCompileNonce,
   stageTransform,
   transport,
+  forceActiveShaderPreview = false,
   isOutputOnly,
   onCompilerError,
 }: TimelineStageRendererProps) {
@@ -144,6 +146,14 @@ export function TimelineStageRenderer({
   ]);
 
   const renderDescriptor = useMemo(() => {
+    if (forceActiveShaderPreview && !isOutputOnly) {
+      return {
+        shaderCode: activeShaderCode,
+        isTransitionShader: false,
+        uniformValues: activeUniformValues,
+      };
+    }
+
     if (!timelineState) {
       return {
         shaderCode: activeShaderCode,
@@ -180,6 +190,8 @@ export function TimelineStageRenderer({
     activeShaderCode,
     activeShaderId,
     activeUniformValues,
+    forceActiveShaderPreview,
+    isOutputOnly,
     timelineState?.currentShader.code,
     timelineState?.currentShader.id,
     timelineState?.currentShader.uniformValues,
