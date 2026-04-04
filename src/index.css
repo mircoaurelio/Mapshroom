@@ -1776,6 +1776,31 @@ a {
   align-items: end;
 }
 
+.timeline-add-bar {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) auto minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: end;
+}
+
+.timeline-add-field {
+  min-width: 0;
+}
+
+.timeline-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.timeline-add-copy {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
 .timeline-mix-copy {
   margin: 0;
   color: var(--text-muted);
@@ -1948,6 +1973,8 @@ a {
 
 .timeline-sequence-toolbar .secondary-button,
 .timeline-sequence-toolbar .toggle-chip,
+.timeline-add-actions .secondary-button,
+.timeline-add-actions .ghost-button,
 .timeline-step-actions .ghost-button {
   min-height: 24px;
   padding: 0.22rem 0.45rem;
@@ -1964,6 +1991,13 @@ a {
 .timeline-step-card-simple .timeline-step-actions .ghost-button {
   min-width: 24px;
   padding: 0.2rem 0.35rem;
+}
+
+@media (max-width: 900px) {
+  .timeline-add-bar,
+  .timeline-mix-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .mapping-pad {

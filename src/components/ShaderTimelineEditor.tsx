@@ -25,6 +25,8 @@ interface ShaderTimelineEditorProps {
   assetUrl: string | null;
   savedShaders: SavedShader[];
   activeShaderId: string;
+  activeShaderName: string;
+  isActiveShaderSaved: boolean;
   activeStepId: string | null;
   transitionStepId: string | null;
   sequence: TimelineStub['shaderSequence'];
@@ -41,8 +43,11 @@ interface ShaderTimelineEditorProps {
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
   onAddStep: () => void;
+  onAddStepWithShader: (shaderId: string) => void;
+  onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
   onMoveStep: (stepId: string, direction: -1 | 1) => void;
+  onSaveCurrentShader: () => void;
 }
 
 const EDITOR_VIEW_OPTIONS: Array<{
@@ -93,6 +98,8 @@ export function ShaderTimelineEditor({
   assetUrl,
   savedShaders,
   activeShaderId,
+  activeShaderName,
+  isActiveShaderSaved,
   activeStepId,
   transitionStepId,
   sequence,
@@ -103,8 +110,11 @@ export function ShaderTimelineEditor({
   onSharedTransitionChange,
   onStepChange,
   onAddStep,
+  onAddStepWithShader,
+  onDuplicateStep,
   onRemoveStep,
   onMoveStep,
+  onSaveCurrentShader,
 }: ShaderTimelineEditorProps) {
   const title =
     sequence.mode === 'randomMix'
@@ -122,6 +132,7 @@ export function ShaderTimelineEditor({
   const [previewSources, setPreviewSources] = useState<Record<string, string>>({});
   const previewRendererRef = useRef<ShaderPreviewRenderer | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
+  const [addShaderId, setAddShaderId] = useState(activeShaderId);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
@@ -142,6 +153,19 @@ export function ShaderTimelineEditor({
   }, [sequence.steps, shaderMap]);
   const isAdvancedView = sequence.editorView === 'advanced';
   const usesSharedTransition = sequence.mode === 'randomMix';
+
+  useEffect(() => {
+    if (savedShaders.some((shader) => shader.id === addShaderId)) {
+      return;
+    }
+
+    if (savedShaders.some((shader) => shader.id === activeShaderId)) {
+      setAddShaderId(activeShaderId);
+      return;
+    }
+
+    setAddShaderId(savedShaders[0]?.id ?? '');
+  }, [activeShaderId, addShaderId, savedShaders]);
 
   useEffect(
     () => () => {
@@ -220,6 +244,8 @@ export function ShaderTimelineEditor({
         : previewStatus === 'error'
           ? 'No preview'
           : 'Render...';
+  const selectedAddShader = savedShaders.find((shader) => shader.id === addShaderId) ?? null;
+  const liveShaderButtonLabel = isActiveShaderSaved ? 'Add Live' : 'Save + Add Live';
 
   return (
     <section className="timeline-sequence-editor">
@@ -275,10 +301,56 @@ export function ShaderTimelineEditor({
             ))}
           </div>
 
-          <button type="button" className="secondary-button" onClick={onAddStep}>
-            Add Shader
-          </button>
         </div>
+      </div>
+
+      <div className="timeline-add-bar">
+        <label className="field timeline-compact-field timeline-add-field">
+          <span>Add Shader</span>
+          <select
+            className="select-field"
+            value={addShaderId}
+            onChange={(event) => setAddShaderId(event.target.value)}
+          >
+            {savedShaders.map((shader) => (
+              <option key={shader.id} value={shader.id}>
+                {shader.id === activeShaderId && !isActiveShaderSaved
+                  ? `${shader.name} (Live)`
+                  : shader.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="timeline-add-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={!selectedAddShader}
+            onClick={() => {
+              if (selectedAddShader) {
+                onAddStepWithShader(selectedAddShader.id);
+              }
+            }}
+          >
+            Add Selected
+          </button>
+
+          <button type="button" className="secondary-button" onClick={onAddStep}>
+            {liveShaderButtonLabel}
+          </button>
+
+          {!isActiveShaderSaved ? (
+            <button type="button" className="ghost-button" onClick={onSaveCurrentShader}>
+              Save Live
+            </button>
+          ) : null}
+        </div>
+
+        <p className="timeline-add-copy">
+          Pick any saved shader, or add the current live shader "{activeShaderName}". Live shaders
+          are snapshotted before they go into the timeline.
+        </p>
       </div>
 
       {usesSharedTransition ? (
@@ -356,6 +428,14 @@ export function ShaderTimelineEditor({
                   </span>
 
                   <div className="timeline-step-actions">
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => onDuplicateStep(step.id)}
+                    >
+                      Dup
+                    </button>
+
                     {isAdvancedView && sequence.mode === 'sequence' ? (
                       <>
                         <button
