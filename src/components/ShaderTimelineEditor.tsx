@@ -250,6 +250,8 @@ export function ShaderTimelineEditor({
     () =>
       ({
         '--timeline-card-width-scale': `${cardScale.toFixed(2)}`,
+        '--timeline-card-width': `${Math.round(220 * cardScale)}px`,
+        '--timeline-card-simple-width': `${Math.round(192 * cardScale)}px`,
         '--timeline-card-padding-y': `${(0.22 + cardScale * 0.33).toFixed(2)}rem`,
         '--timeline-card-padding-x': `${(0.24 + cardScale * 0.36).toFixed(2)}rem`,
         '--timeline-card-gap': `${(0.16 + cardScale * 0.29).toFixed(2)}rem`,
