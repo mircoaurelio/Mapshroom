@@ -395,10 +395,12 @@ a {
 .workspace-desktop-stage {
   min-width: 0;
   min-height: 0;
+  display: flex;
   overflow: hidden;
 }
 
 .workspace-desktop-stage .workspace-stage-column {
+  width: 100%;
   height: 100%;
 }
 
@@ -456,21 +458,28 @@ a {
 
 .workspace-stage-column {
   position: relative;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
   background: var(--bg-stage);
 }
 
 .stage-shell {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   background: var(--bg-stage);
 }
 
@@ -486,8 +495,9 @@ a {
 .stage-media-surface {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
