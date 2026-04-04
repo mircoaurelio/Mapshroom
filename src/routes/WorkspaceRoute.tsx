@@ -42,10 +42,12 @@ import {
   deleteAssetBlob,
   getOrCreateSessionId,
   loadProjectDocument,
+  loadShaderSliderCache,
   loadUiPreferences,
   persistActiveSessionId,
   putAssetBlob,
   saveProjectDocument,
+  saveShaderSliderCache,
   saveUiPreferences,
 } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
@@ -367,6 +369,55 @@ function applyActiveShaderPatch(
   };
 }
 
+function applyPersistedSliderCache(
+  project: ProjectDocument,
+  sliderCache: Record<string, ShaderUniformValueMap>,
+): ProjectDocument {
+  if (Object.keys(sliderCache).length === 0) {
+    return project;
+  }
+
+  const nextSavedShaders = project.studio.savedShaders.map((shader) => {
+    const cachedValues = sliderCache[shader.id];
+    if (!cachedValues) {
+      return shader;
+    }
+
+    return {
+      ...shader,
+      uniformValues: getSyncedShaderUniformValues(shader.code, cachedValues),
+    };
+  });
+
+  const activeCachedValues = sliderCache[project.studio.activeShaderId];
+
+  return {
+    ...project,
+    studio: {
+      ...project.studio,
+      savedShaders: nextSavedShaders,
+      uniformValues: activeCachedValues
+        ? getSyncedShaderUniformValues(project.studio.activeShaderCode, activeCachedValues)
+        : project.studio.uniformValues,
+    },
+  };
+}
+
+function createSliderCacheSnapshot(
+  project: ProjectDocument,
+): Record<string, ShaderUniformValueMap> {
+  const cache: Record<string, ShaderUniformValueMap> = {};
+
+  for (const shader of project.studio.savedShaders) {
+    if (shader.uniformValues) {
+      cache[shader.id] = shader.uniformValues;
+    }
+  }
+
+  cache[project.studio.activeShaderId] = project.studio.uniformValues;
+  return cache;
+}
+
 function createSavedShaderRecord(
   name: string,
   code: string,
@@ -514,7 +565,8 @@ export function WorkspaceRoute() {
     const sessionId = getOrCreateSessionId();
     persistActiveSessionId(sessionId);
     const loadedProject = loadProjectDocument(sessionId) ?? createDefaultProject(sessionId);
-    setProject(normalizeProject(loadedProject));
+    const sliderCache = loadShaderSliderCache(sessionId);
+    setProject(applyPersistedSliderCache(normalizeProject(loadedProject), sliderCache));
   }, []);
 
   useEffect(() => {
@@ -543,6 +595,7 @@ export function WorkspaceRoute() {
       return;
     }
     saveProjectDocument(project);
+    saveShaderSliderCache(project.sessionId, createSliderCacheSnapshot(project));
     persistActiveSessionId(project.sessionId);
     sessionSyncRef.current?.publish(project);
   }, [project]);

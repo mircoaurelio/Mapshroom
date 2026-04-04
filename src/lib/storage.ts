@@ -8,12 +8,17 @@ import {
   UI_STORAGE_KEY,
 } from '../config';
 import { restoreTransport, snapshotTransport } from './clock';
-import type { ProjectDocument, UiPreferences } from '../types';
+import type { ProjectDocument, ShaderUniformValueMap, UiPreferences } from '../types';
 
 let cachedDbPromise: Promise<IDBDatabase | null> | null = null;
+const SHADER_SLIDER_CACHE_PREFIX = 'mapshroom-v3:shader-sliders:';
 
 function getProjectStorageKey(sessionId: string): string {
   return `${PROJECT_STORAGE_PREFIX}${sessionId}`;
+}
+
+function getShaderSliderCacheKey(sessionId: string): string {
+  return `${SHADER_SLIDER_CACHE_PREFIX}${sessionId}`;
 }
 
 export function getOrCreateSessionId(): string {
@@ -87,6 +92,29 @@ export function saveUiPreferences(preferences: UiPreferences): void {
   localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(preferences));
 }
 
+export function loadShaderSliderCache(
+  sessionId: string,
+): Record<string, ShaderUniformValueMap> {
+  const raw = localStorage.getItem(getShaderSliderCacheKey(sessionId));
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(raw) as Record<string, ShaderUniformValueMap>;
+  } catch (error) {
+    console.warn('Unable to parse shader slider cache.', error);
+    return {};
+  }
+}
+
+export function saveShaderSliderCache(
+  sessionId: string,
+  cache: Record<string, ShaderUniformValueMap>,
+): void {
+  localStorage.setItem(getShaderSliderCacheKey(sessionId), JSON.stringify(cache));
+}
+
 export async function clearPersistedSiteData(): Promise<void> {
   const localStorageKeys = Array.from({ length: localStorage.length }, (_, index) =>
     localStorage.key(index),
@@ -96,7 +124,8 @@ export async function clearPersistedSiteData(): Promise<void> {
     if (
       key === ACTIVE_SESSION_KEY ||
       key === UI_STORAGE_KEY ||
-      key.startsWith(PROJECT_STORAGE_PREFIX)
+      key.startsWith(PROJECT_STORAGE_PREFIX) ||
+      key.startsWith(SHADER_SLIDER_CACHE_PREFIX)
     ) {
       localStorage.removeItem(key);
     }
