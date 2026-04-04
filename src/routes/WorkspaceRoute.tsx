@@ -2490,8 +2490,6 @@ ${errorSnapshot}`,
       feedbackMessage={aiFeedbackMessage}
       feedbackTone={aiFeedbackTone}
       shaderError={compilerError}
-      targetLabel={timelineDraftTargetLabel}
-      targetStatus={editingTimelineStepId ? (aiLoading ? 'AI Running' : 'Autosaved') : null}
       onPromptChange={setAiPrompt}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
@@ -2545,7 +2543,6 @@ ${errorSnapshot}`,
       onQuickAddUniform={() => {
         void handleUniformQuickAdd();
       }}
-      timelineSelection={timelineSelectionInfo}
     />
   ) : null;
   const desktopSlidersPanel =
@@ -2560,7 +2557,6 @@ ${errorSnapshot}`,
         onQuickAddUniform={() => {
           void handleUniformQuickAdd();
         }}
-        timelineSelection={timelineSelectionInfo}
       />
     );
 
@@ -2593,7 +2589,6 @@ ${errorSnapshot}`,
       aiLoading={aiLoading}
       onFixError={handleFixError}
       onReloadShaderCode={reloadShaderCode}
-      timelineSelection={timelineSelectionInfo}
     />
   );
 
