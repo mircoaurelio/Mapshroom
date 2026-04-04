@@ -249,6 +249,7 @@ export function ShaderTimelineEditor({
   const flowStripStyle = useMemo(
     () =>
       ({
+        '--timeline-card-width-scale': `${cardScale.toFixed(2)}`,
         '--timeline-card-padding-y': `${(0.22 + cardScale * 0.33).toFixed(2)}rem`,
         '--timeline-card-padding-x': `${(0.24 + cardScale * 0.36).toFixed(2)}rem`,
         '--timeline-card-gap': `${(0.16 + cardScale * 0.29).toFixed(2)}rem`,
@@ -505,7 +506,7 @@ export function ShaderTimelineEditor({
             <input
               className="timeline-card-size-slider"
               type="range"
-              min={0.55}
+              min={0.35}
               max={1}
               step={0.05}
               value={cardScale}
