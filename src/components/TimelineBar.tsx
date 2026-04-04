@@ -3,6 +3,7 @@ import { getTransportTimeSeconds } from '../lib/clock';
 import {
   clampTimelineStepDuration,
   getShaderTimelineDuration,
+  roundTimelineSeconds,
   resolveShaderTimelineState,
 } from '../lib/timeline';
 import type {
@@ -424,11 +425,20 @@ export function TimelineBar({
                   className={`timeline-segment-block ${
                     isCurrent ? 'timeline-segment-block-current' : ''
                   } ${isNext ? 'timeline-segment-block-next' : ''}`}
+                  role="button"
+                  tabIndex={0}
                   style={{
                     left: `${segment.startRatio * 100}%`,
                     width: `${Math.max(0.8, (segment.endRatio - segment.startRatio) * 100)}%`,
                   }}
-                  title={`${shaderName} - ${segment.step.durationSeconds.toFixed(1)}s`}
+                  title={`${shaderName} - ${roundTimelineSeconds(segment.step.durationSeconds).toFixed(2)}s`}
+                  onClick={() => onEditSequenceStep(segment.step.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onEditSequenceStep(segment.step.id);
+                    }
+                  }}
                 >
                   <span>{shaderName}</span>
                 </div>

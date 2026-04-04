@@ -35,6 +35,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   chromeVisible: true,
   sidebarVisible: true,
   mobileUiMode: 'bar',
+  desktopSlidersWindowEnabled: true,
 };
 
 export function createDefaultProject(sessionId: string): ProjectDocument {

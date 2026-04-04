@@ -25,12 +25,20 @@ export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{
   { value: 'glitch', label: 'Glitch' },
 ];
 
+export function roundTimelineSeconds(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.round(value * 100) / 100;
+}
+
 export function clampTimelineStepDuration(value: number): number {
   if (!Number.isFinite(value)) {
     return 1;
   }
 
-  return Math.max(0.5, Math.min(600, value));
+  return roundTimelineSeconds(Math.max(0.5, Math.min(600, value)));
 }
 
 export function clampTransitionDuration(
@@ -41,7 +49,7 @@ export function clampTransitionDuration(
     return 0;
   }
 
-  return Math.max(0, Math.min(durationSeconds, transitionDurationSeconds));
+  return roundTimelineSeconds(Math.max(0, Math.min(durationSeconds, transitionDurationSeconds)));
 }
 
 export function createTimelineShaderStep(shaderId: string): TimelineStub['shaderSequence']['steps'][number] {
