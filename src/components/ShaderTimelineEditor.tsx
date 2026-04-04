@@ -25,7 +25,6 @@ interface ShaderTimelineEditorProps {
   assetUrl: string | null;
   savedShaders: SavedShader[];
   activeShaderId: string;
-  activeShaderName: string;
   isActiveShaderSaved: boolean;
   editingStepId: string | null;
   activeStepId: string | null;
@@ -100,7 +99,6 @@ export function ShaderTimelineEditor({
   assetUrl,
   savedShaders,
   activeShaderId,
-  activeShaderName,
   isActiveShaderSaved,
   editingStepId,
   activeStepId,
@@ -354,12 +352,6 @@ export function ShaderTimelineEditor({
             </button>
           ) : null}
         </div>
-
-        <p className="timeline-add-copy">
-          Pick any saved shader, or add the current live shader "{activeShaderName}". Live shaders
-          are snapshotted before they go into the timeline, while step drafts stay local until you
-          save them.
-        </p>
       </div>
 
       {usesSharedTransition ? (

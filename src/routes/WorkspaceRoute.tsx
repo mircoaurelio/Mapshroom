@@ -2205,7 +2205,6 @@ ${errorSnapshot}`,
       assetKind={activeAsset?.kind ?? null}
       assetUrl={activeAssetUrl}
       activeShaderId={project.studio.activeShaderId}
-      activeShaderName={project.studio.activeShaderName}
       isActiveShaderSaved={isActiveShaderSaved}
       savedShaders={timelineSelectableShaders}
       editingStepId={editingTimelineStepId}
@@ -2482,7 +2481,6 @@ ${errorSnapshot}`,
         assetKind={activeAsset?.kind ?? null}
         assetUrl={activeAssetUrl}
         activeShaderId={project.studio.activeShaderId}
-        activeShaderName={project.studio.activeShaderName}
         isActiveShaderSaved={isActiveShaderSaved}
         savedShaders={timelineSelectableShaders}
         editingStepId={editingTimelineStepId}

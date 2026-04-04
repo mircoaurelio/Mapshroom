@@ -112,10 +112,12 @@ export function StageRenderer({
   const rafRef = useRef<number | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaAspectRatioRef = useRef<number | null>(null);
   const transportRef = useRef(transport);
   const uniformDefinitionsRef = useRef(uniformDefinitions);
   const uniformValuesRef = useRef(uniformValues);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
+  const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const assetId = asset?.id ?? null;
   const assetKind = asset?.kind ?? null;
   const assetName = asset?.name ?? null;
@@ -216,10 +218,26 @@ export function StageRenderer({
     const resize = () => {
       const rect = surface.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.round(rect.width * dpr));
-      canvas.height = Math.max(1, Math.round(rect.height * dpr));
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      const nextAspectRatio =
+        mediaAspectRatioRef.current && mediaAspectRatioRef.current > 0
+          ? mediaAspectRatioRef.current
+          : rect.width > 0 && rect.height > 0
+            ? rect.width / rect.height
+            : 1;
+      const containerAspectRatio = rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1;
+      const targetWidth =
+        nextAspectRatio > containerAspectRatio
+          ? rect.width
+          : Math.min(rect.width, rect.height * nextAspectRatio);
+      const targetHeight =
+        nextAspectRatio > containerAspectRatio
+          ? Math.min(rect.height, rect.width / nextAspectRatio)
+          : rect.height;
+
+      canvas.width = Math.max(1, Math.round(targetWidth * dpr));
+      canvas.height = Math.max(1, Math.round(targetHeight * dpr));
+      canvas.style.width = `${targetWidth}px`;
+      canvas.style.height = `${targetHeight}px`;
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
@@ -233,7 +251,7 @@ export function StageRenderer({
       resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
-  }, []);
+  }, [mediaAspectRatio]);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -291,6 +309,8 @@ export function StageRenderer({
   useEffect(() => {
     let disposed = false;
     imageRef.current = null;
+    mediaAspectRatioRef.current = null;
+    setMediaAspectRatio(null);
 
     const existingVideo = videoRef.current;
     if (existingVideo) {
@@ -315,6 +335,12 @@ export function StageRenderer({
           return;
         }
         imageRef.current = image;
+        const nextAspectRatio =
+          image.naturalWidth > 0 && image.naturalHeight > 0
+            ? image.naturalWidth / image.naturalHeight
+            : null;
+        mediaAspectRatioRef.current = nextAspectRatio;
+        setMediaAspectRatio(nextAspectRatio);
         setRenderStatus(assetName ?? 'Image asset');
       };
 
@@ -361,6 +387,10 @@ export function StageRenderer({
       if (disposed) {
         return;
       }
+      const nextAspectRatio =
+        video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth / video.videoHeight : null;
+      mediaAspectRatioRef.current = nextAspectRatio;
+      setMediaAspectRatio(nextAspectRatio);
       setRenderStatus(assetName ?? 'Video asset');
       const currentTransport = transportRef.current;
       const targetTime = getTransportTimeSeconds(currentTransport);
