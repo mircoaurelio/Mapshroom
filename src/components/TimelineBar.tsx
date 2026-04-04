@@ -30,7 +30,6 @@ interface TimelineBarProps {
   assetKind: AssetKind | null;
   assetUrl: string | null;
   activeShaderId: string;
-  isActiveShaderSaved: boolean;
   savedShaders: SavedShader[];
   editingStepId: string | null;
   sequence: TimelineStub['shaderSequence'];
@@ -54,8 +53,7 @@ interface TimelineBarProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
-  onAddSequenceStep: () => void;
-  onAddSequenceStepWithShader: (shaderId: string) => void;
+  onAddSequenceStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
   onMoveSequenceStep: (stepId: string, direction: -1 | 1) => void;
@@ -66,7 +64,6 @@ interface TimelineBarProps {
     leftDurationSeconds: number,
     rightDurationSeconds: number,
   ) => void;
-  onSaveCurrentShader: () => void;
   variant?: TimelineBarVariant;
 }
 
@@ -173,7 +170,6 @@ export function TimelineBar({
   assetKind,
   assetUrl,
   activeShaderId,
-  isActiveShaderSaved,
   savedShaders,
   editingStepId,
   sequence,
@@ -191,14 +187,12 @@ export function TimelineBar({
   onSequenceEditorViewChange,
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
-  onAddSequenceStep,
-  onAddSequenceStepWithShader,
+  onAddSequenceStepsWithShaders,
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
   onMoveSequenceStep,
   onEditSequenceStep,
   onResizeSequenceBoundary,
-  onSaveCurrentShader,
   variant = 'desktop',
 }: TimelineBarProps) {
   const [nowMs, setNowMs] = useState(() => performance.now());
@@ -504,7 +498,6 @@ export function TimelineBar({
         assetUrl={assetUrl}
         savedShaders={savedShaders}
         activeShaderId={activeShaderId}
-        isActiveShaderSaved={isActiveShaderSaved}
         editingStepId={editingStepId}
         activeStepId={timelineState?.currentStep.id ?? null}
         transitionStepId={
@@ -522,13 +515,11 @@ export function TimelineBar({
         onToggleRandomChoice={onToggleRandomChoice}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
-        onAddStep={onAddSequenceStep}
-        onAddStepWithShader={onAddSequenceStepWithShader}
+        onAddStepsWithShaders={onAddSequenceStepsWithShaders}
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
         onMoveStep={onMoveSequenceStep}
         onEditStep={onEditSequenceStep}
-        onSaveCurrentShader={onSaveCurrentShader}
       />
     </div>
   );
