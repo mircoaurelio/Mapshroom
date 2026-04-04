@@ -256,6 +256,25 @@ a {
   align-items: center;
 }
 
+.shader-studio-action-row {
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.shader-studio-action-button {
+  flex: 1 1 0;
+  justify-content: center;
+  gap: 0.38rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.shader-studio-action-button svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
 .toolbar-menu-shell {
   position: relative;
 }
@@ -909,6 +928,12 @@ a {
   line-height: 1.6;
   color: rgba(74, 222, 128, 0.88);
   background: #080809;
+}
+
+.code-collapsed-note {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
 }
 
 .code-editor:focus,
@@ -2038,6 +2063,14 @@ a {
   min-width: 88px;
 }
 
+.timeline-card-size-field {
+  min-width: 104px;
+}
+
+.timeline-card-size-slider {
+  width: 92px;
+}
+
 .timeline-add-toolbar {
   position: relative;
   display: inline-flex;
@@ -2096,6 +2129,14 @@ a {
   border-radius: var(--radius-sm);
   background: rgba(9, 9, 11, 0.96);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+@media (min-width: 901px) {
+  .timeline-add-popover {
+    top: auto;
+    bottom: calc(100% + 0.45rem);
+    transform-origin: bottom left;
+  }
 }
 
 .timeline-add-popover-copy {
@@ -2185,7 +2226,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  width: 220px;
+  width: var(--timeline-card-width, 220px);
   padding: 0.55rem 0.6rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -2218,7 +2259,7 @@ a {
 }
 
 .timeline-step-card-simple {
-  width: 192px;
+  width: var(--timeline-card-simple-width, 192px);
 }
 
 .timeline-step-preview-shell {
@@ -2358,6 +2399,14 @@ a {
 }
 
 @media (max-width: 900px) {
+  .shader-studio-action-row {
+    flex-wrap: wrap;
+  }
+
+  .shader-studio-action-button {
+    flex: 1 1 calc(50% - 0.5rem);
+  }
+
   .timeline-add-toolbar {
     width: 100%;
   }
