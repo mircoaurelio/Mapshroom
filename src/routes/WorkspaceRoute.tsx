@@ -34,6 +34,7 @@ import {
   clampTransitionDuration,
   createTimelineShaderStep,
   getShaderTimelineDuration,
+  roundTimelineSeconds,
 } from '../lib/timeline';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
@@ -1457,6 +1458,70 @@ export function WorkspaceRoute() {
     }));
   }, [updateProject]);
 
+  const handleTimelineDurationChange = useCallback((durationSeconds: number) => {
+    updateProject((currentProject) => {
+      const nextDurationSeconds = roundTimelineSeconds(Math.max(0.5, Math.min(36000, durationSeconds)));
+
+      if (
+        !currentProject.timeline.stub.shaderSequence.enabled ||
+        currentProject.timeline.stub.shaderSequence.steps.length === 0
+      ) {
+        return {
+          ...currentProject,
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              durationSeconds: nextDurationSeconds,
+            },
+          },
+        };
+      }
+
+      const steps = currentProject.timeline.stub.shaderSequence.steps;
+      const targetStepId =
+        currentProject.timeline.stub.shaderSequence.focusedStepId ?? steps[steps.length - 1]?.id ?? null;
+      const currentTotalDurationSeconds = getShaderTimelineDuration(steps);
+      const targetStep =
+        steps.find((step) => step.id === targetStepId) ?? steps[steps.length - 1] ?? null;
+
+      if (!targetStep) {
+        return currentProject;
+      }
+
+      const currentTargetDurationSeconds = clampTimelineStepDuration(targetStep.durationSeconds);
+      const minimumTotalDurationSeconds =
+        currentTotalDurationSeconds - currentTargetDurationSeconds + 0.5;
+      const clampedTotalDurationSeconds = Math.max(minimumTotalDurationSeconds, nextDurationSeconds);
+      const nextTargetDurationSeconds = clampTimelineStepDuration(
+        currentTargetDurationSeconds + (clampedTotalDurationSeconds - currentTotalDurationSeconds),
+      );
+
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              steps: steps.map((step) =>
+                step.id === targetStep.id
+                  ? {
+                      ...step,
+                      durationSeconds: nextTargetDurationSeconds,
+                      transitionDurationSeconds: clampTransitionDuration(
+                        nextTargetDurationSeconds,
+                        step.transitionDurationSeconds,
+                      ),
+                    }
+                  : step,
+              ),
+            },
+          },
+        },
+      };
+    });
+  }, [updateProject]);
+
   const handleMappingAction = (action: MappingAction) => {
     updateProject((currentProject) => ({
       ...currentProject,
@@ -2635,6 +2700,7 @@ ${errorSnapshot}`,
       onSequenceEditorViewChange={handleTimelineEditorViewChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceStepChange={handleTimelineStepChange}
+      onSequenceDurationChange={handleTimelineDurationChange}
       onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
       onRemoveSequenceStep={handleTimelineRemoveStep}
@@ -2929,6 +2995,7 @@ ${errorSnapshot}`,
         onSequenceEditorViewChange={handleTimelineEditorViewChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceStepChange={handleTimelineStepChange}
+        onSequenceDurationChange={handleTimelineDurationChange}
         onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}
         onRemoveSequenceStep={handleTimelineRemoveStep}

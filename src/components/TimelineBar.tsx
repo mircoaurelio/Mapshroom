@@ -9,9 +9,11 @@ import {
 import { getTransportTimeSeconds } from '../lib/clock';
 import {
   clampTimelineStepDuration,
+  clampTransitionDuration,
   getShaderTimelineDuration,
   roundTimelineSeconds,
   resolveShaderTimelineState,
+  TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
 import type {
   AssetKind,
@@ -53,6 +55,7 @@ interface TimelineBarProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
+  onSequenceDurationChange: (durationSeconds: number) => void;
   onAddSequenceStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
@@ -82,6 +85,15 @@ interface TimelineStepSegment {
   step: TimelineStub['shaderSequence']['steps'][number];
   startRatio: number;
   endRatio: number;
+}
+
+interface TimelineTransitionSegment {
+  stepId: string;
+  startRatio: number;
+  endRatio: number;
+  centerRatio: number;
+  durationSeconds: number;
+  effect: TimelineTransitionEffect;
 }
 
 interface BoundaryDragState {
@@ -130,6 +142,10 @@ function formatTimelineTime(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function formatTimelineDurationField(totalSeconds: number): string {
+  return roundTimelineSeconds(totalSeconds).toFixed(2);
+}
+
 function getMarkerStops(markers: string[], durationSeconds: number): TimelineMarkerStop[] {
   if (markers.length === 0) {
     return [];
@@ -166,6 +182,52 @@ function getTimelineStepSegments(
   });
 }
 
+function getTimelineTransitionSegments({
+  sequence,
+  stepSegments,
+}: {
+  sequence: TimelineStub['shaderSequence'];
+  stepSegments: TimelineStepSegment[];
+}): TimelineTransitionSegment[] {
+  const totalDurationSeconds = getShaderTimelineDuration(sequence.steps);
+  if (stepSegments.length <= 1 || totalDurationSeconds <= 0) {
+    return [];
+  }
+
+  return stepSegments.slice(0, -1).flatMap((segment) => {
+    const baseDurationSeconds = clampTimelineStepDuration(segment.step.durationSeconds);
+    const effect =
+      sequence.mode === 'randomMix'
+        ? sequence.sharedTransitionEffect
+        : segment.step.transitionEffect;
+    const transitionDurationSeconds = clampTransitionDuration(
+      baseDurationSeconds,
+      sequence.mode === 'randomMix'
+        ? sequence.sharedTransitionDurationSeconds
+        : segment.step.transitionDurationSeconds,
+    );
+
+    if (transitionDurationSeconds <= 0) {
+      return [];
+    }
+
+    const transitionRatio = transitionDurationSeconds / totalDurationSeconds;
+    const endRatio = segment.endRatio;
+    const startRatio = Math.max(segment.startRatio, endRatio - transitionRatio);
+
+    return [
+      {
+        stepId: segment.step.id,
+        startRatio,
+        endRatio,
+        centerRatio: (startRatio + endRatio) / 2,
+        durationSeconds: transitionDurationSeconds,
+        effect,
+      },
+    ];
+  });
+}
+
 export function TimelineBar({
   assetKind,
   assetUrl,
@@ -187,6 +249,7 @@ export function TimelineBar({
   onSequenceEditorViewChange,
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
+  onSequenceDurationChange,
   onAddSequenceStepsWithShaders,
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
@@ -197,6 +260,8 @@ export function TimelineBar({
 }: TimelineBarProps) {
   const [nowMs, setNowMs] = useState(() => performance.now());
   const [scrubValue, setScrubValue] = useState<string | null>(null);
+  const [durationInputValue, setDurationInputValue] = useState<string | null>(null);
+  const [activeTransitionEditorStepId, setActiveTransitionEditorStepId] = useState<string | null>(null);
   const dragStateRef = useRef<BoundaryDragState | null>(null);
   const stepTrackRef = useRef<HTMLDivElement | null>(null);
   const baseDurationSeconds =
@@ -320,11 +385,34 @@ export function TimelineBar({
     [markers, safeDurationSeconds],
   );
   const stepSegments = useMemo(() => getTimelineStepSegments(sequence.steps), [sequence.steps]);
+  const transitionSegments = useMemo(
+    () => getTimelineTransitionSegments({ sequence, stepSegments }),
+    [sequence, stepSegments],
+  );
   const sliderValue = scrubValue ?? String(visibleTimeSeconds);
+  const durationFieldValue = durationInputValue ?? formatTimelineDurationField(safeDurationSeconds);
   const markerThresholdSeconds = Math.max(
     0.75,
     safeDurationSeconds / Math.max(markerStops.length * 10, 24),
   );
+  const activeTransitionSegment =
+    activeTransitionEditorStepId
+      ? transitionSegments.find((segment) => segment.stepId === activeTransitionEditorStepId) ?? null
+      : null;
+
+  useEffect(() => {
+    if (!activeTransitionEditorStepId) {
+      return;
+    }
+
+    const hasActiveSegment = transitionSegments.some(
+      (segment) => segment.stepId === activeTransitionEditorStepId,
+    );
+
+    if (!hasActiveSegment) {
+      setActiveTransitionEditorStepId(null);
+    }
+  }, [activeTransitionEditorStepId, transitionSegments]);
 
   const handleScrubChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextTimeSeconds = Number(event.target.value);
@@ -335,6 +423,21 @@ export function TimelineBar({
   const handleMarkerJump = (timeSeconds: number) => {
     setScrubValue(null);
     onSeek(timeSeconds);
+  };
+
+  const commitDurationInput = () => {
+    if (durationInputValue === null) {
+      return;
+    }
+
+    const nextDurationSeconds = Number(durationInputValue);
+    setDurationInputValue(null);
+
+    if (!Number.isFinite(nextDurationSeconds) || nextDurationSeconds <= 0) {
+      return;
+    }
+
+    onSequenceDurationChange(nextDurationSeconds);
   };
 
   const beginBoundaryDrag = (
@@ -397,11 +500,37 @@ export function TimelineBar({
           ) : null}
         </div>
 
-        <span className="timeline-timecode">{formatTimelineTime(safeDurationSeconds)}</span>
+        <div className="timeline-duration-shell">
+          <span className="timeline-timecode">{formatTimelineTime(safeDurationSeconds)}</span>
+          <label className="timeline-duration-field">
+            <span>Length</span>
+            <input
+              className="text-field"
+              type="number"
+              min={0.5}
+              step={0.01}
+              value={durationFieldValue}
+              onChange={(event) => setDurationInputValue(event.target.value)}
+              onBlur={commitDurationInput}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  commitDurationInput();
+                } else if (event.key === 'Escape') {
+                  setDurationInputValue(null);
+                }
+              }}
+            />
+          </label>
+        </div>
       </div>
 
       {sequence.enabled && stepSegments.length > 0 ? (
-        <div className="timeline-segment-track-shell">
+        <div
+          className={`timeline-segment-track-shell ${
+            activeTransitionSegment ? 'timeline-segment-track-shell-editing' : ''
+          }`}
+        >
           <div className="timeline-segment-track" ref={stepTrackRef}>
             {stepSegments.map((segment) => {
               const shaderName =
@@ -432,10 +561,35 @@ export function TimelineBar({
                     }
                   }}
                 >
-                  <span>{shaderName}</span>
+                  <span className="timeline-segment-block-name">{shaderName}</span>
+                  <small className="timeline-segment-block-duration">
+                    {roundTimelineSeconds(segment.step.durationSeconds).toFixed(2)}s
+                  </small>
                 </div>
               );
             })}
+
+            {transitionSegments.map((segment) => (
+              <button
+                key={`transition:${segment.stepId}`}
+                type="button"
+                className={`timeline-transition-block ${
+                  activeTransitionEditorStepId === segment.stepId ? 'timeline-transition-block-active' : ''
+                }`}
+                style={{
+                  left: `${segment.startRatio * 100}%`,
+                  width: `${Math.max(1.5, (segment.endRatio - segment.startRatio) * 100)}%`,
+                }}
+                title={`${segment.effect} - ${roundTimelineSeconds(segment.durationSeconds).toFixed(2)}s`}
+                onClick={() =>
+                  setActiveTransitionEditorStepId((currentValue) =>
+                    currentValue === segment.stepId ? null : segment.stepId,
+                  )
+                }
+              >
+                <span>{segment.effect}</span>
+              </button>
+            ))}
 
             {stepSegments.slice(0, -1).map((segment, index) => {
               const nextSegment = stepSegments[index + 1];
@@ -460,6 +614,73 @@ export function TimelineBar({
               );
             })}
           </div>
+
+          {activeTransitionSegment ? (
+            <div
+              className="timeline-transition-editor"
+              style={{ left: `${Math.min(82, Math.max(18, activeTransitionSegment.centerRatio * 100))}%` }}
+            >
+              <label className="field timeline-compact-field timeline-transition-editor-field">
+                <span>Fx</span>
+                <select
+                  className="select-field"
+                  value={
+                    sequence.mode === 'randomMix'
+                      ? sequence.sharedTransitionEffect
+                      : sequence.steps.find((step) => step.id === activeTransitionSegment.stepId)
+                          ?.transitionEffect ?? 'mix'
+                  }
+                  onChange={(event) => {
+                    if (sequence.mode === 'randomMix') {
+                      onSequenceSharedTransitionChange({
+                        sharedTransitionEffect: event.target.value as TimelineTransitionEffect,
+                      });
+                      return;
+                    }
+
+                    onSequenceStepChange(activeTransitionSegment.stepId, {
+                      transitionEffect: event.target.value as TimelineTransitionEffect,
+                    });
+                  }}
+                >
+                  {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field timeline-compact-field timeline-transition-editor-field">
+                <span>Mix</span>
+                <input
+                  className="text-field"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={
+                    sequence.mode === 'randomMix'
+                      ? sequence.sharedTransitionDurationSeconds
+                      : sequence.steps.find((step) => step.id === activeTransitionSegment.stepId)
+                          ?.transitionDurationSeconds ?? 0
+                  }
+                  onChange={(event) => {
+                    const nextDurationSeconds = Number(event.target.value);
+                    if (sequence.mode === 'randomMix') {
+                      onSequenceSharedTransitionChange({
+                        sharedTransitionDurationSeconds: nextDurationSeconds,
+                      });
+                      return;
+                    }
+
+                    onSequenceStepChange(activeTransitionSegment.stepId, {
+                      transitionDurationSeconds: nextDurationSeconds,
+                    });
+                  }}
+                />
+              </label>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -513,7 +734,6 @@ export function TimelineBar({
         onReset={onReset}
         onToggleSingleStepLoop={onToggleSingleStepLoop}
         onToggleRandomChoice={onToggleRandomChoice}
-        onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
         onAddStepsWithShaders={onAddSequenceStepsWithShaders}
         onDuplicateStep={onDuplicateSequenceStep}
