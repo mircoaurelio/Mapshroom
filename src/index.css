@@ -1823,13 +1823,9 @@ a {
   position: absolute;
   top: 6px;
   bottom: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-width: 1.5%;
-  padding: 0 0.3rem;
   border: 1px solid rgba(161, 161, 170, 0.18);
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(161, 161, 170, 0.16);
   color: rgba(228, 228, 231, 0.86);
   z-index: 2;
@@ -1873,14 +1869,6 @@ a {
 .timeline-transition-range-active {
   border-color: rgba(212, 212, 216, 0.28);
   box-shadow: inset 0 0 0 1px rgba(212, 212, 216, 0.08);
-}
-
-.timeline-transition-range-time {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.45rem;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-  opacity: 0.9;
 }
 
 .timeline-transition-pin {
@@ -2128,11 +2116,12 @@ a {
 }
 
 .timeline-card-size-field {
-  min-width: 104px;
+  min-width: 70px;
 }
 
 .timeline-card-size-slider {
-  width: 92px;
+  width: 52px;
+  height: 18px;
 }
 
 .timeline-add-toolbar {
@@ -2184,7 +2173,7 @@ a {
   position: absolute;
   top: calc(100% + 0.45rem);
   left: 0;
-  z-index: 6;
+  z-index: 12;
   display: grid;
   gap: 0.5rem;
   width: min(280px, calc(100vw - 2rem));
@@ -2193,14 +2182,6 @@ a {
   border-radius: var(--radius-sm);
   background: rgba(9, 9, 11, 0.96);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-}
-
-@media (min-width: 901px) {
-  .timeline-add-popover {
-    top: auto;
-    bottom: calc(100% + 0.45rem);
-    transform-origin: bottom left;
-  }
 }
 
 .timeline-add-popover-copy {
@@ -2290,12 +2271,14 @@ a {
   display: flex;
   flex-direction: column;
   gap: var(--timeline-card-gap, 0.45rem);
-  width: 100%;
+  width: calc(100% * var(--timeline-card-width-scale, 1));
   min-width: 0;
+  margin: 0 auto;
   padding: var(--timeline-card-padding-y, 0.55rem) var(--timeline-card-padding-x, 0.6rem);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
+  box-sizing: border-box;
   cursor: pointer;
 }
 

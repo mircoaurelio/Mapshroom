@@ -602,11 +602,7 @@ export function TimelineBar({
                       currentValue === segment.stepId ? null : segment.stepId,
                     );
                   }}
-                >
-                  <span className="timeline-transition-range-time">
-                    {roundTimelineSeconds(segment.durationSeconds).toFixed(2)}s
-                  </span>
-                </button>
+                />
               );
             })}
 
