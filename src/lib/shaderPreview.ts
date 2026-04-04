@@ -1,5 +1,5 @@
 import { buildFragmentShaderSource, parseUniforms, VERTEX_SHADER_SOURCE } from './shader';
-import type { AssetKind } from '../types';
+import type { AssetKind, ShaderUniformValueMap } from '../types';
 
 const PREVIEW_WIDTH = 160;
 const PREVIEW_HEIGHT = 96;
@@ -216,6 +216,7 @@ function getShaderPreviewRenderer(rendererRef: { current: ShaderPreviewRenderer 
 
 export function renderShaderPreviewToDataUrl(
   shaderCode: string,
+  uniformValues: ShaderUniformValueMap | undefined,
   image: HTMLCanvasElement,
   rendererRef: { current: ShaderPreviewRenderer | null },
 ) {
@@ -294,12 +295,14 @@ export function renderShaderPreviewToDataUrl(
       continue;
     }
 
+    const value = uniformValues?.[name] ?? definition.default;
+
     if (definition.type === 'float' || definition.type === 'int') {
-      gl.uniform1f(location, Number(definition.default));
+      gl.uniform1f(location, Number(value));
     } else if (definition.type === 'bool') {
-      gl.uniform1i(location, definition.default ? 1 : 0);
-    } else if (definition.type === 'vec3' && Array.isArray(definition.default)) {
-      gl.uniform3fv(location, definition.default);
+      gl.uniform1i(location, value ? 1 : 0);
+    } else if (definition.type === 'vec3' && Array.isArray(value)) {
+      gl.uniform3fv(location, value);
     }
   }
 

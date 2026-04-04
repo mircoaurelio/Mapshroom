@@ -2226,21 +2226,22 @@ ${errorSnapshot}`,
     ? mobileUiMode === 'full' && stageTransform.moveMode
     : uiPreferences.chromeVisible && stageTransform.moveMode;
   const timelineStub = project.timeline.stub;
+  const liveShaderEntry = {
+    ...project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId),
+    id: project.studio.activeShaderId,
+    name: project.studio.activeShaderName,
+    code: project.studio.activeShaderCode,
+    description: 'Current shader from the live editor.',
+    group: 'Live',
+    uniformValues: project.studio.uniformValues,
+  };
   const timelineSelectableShaders = project.studio.savedShaders.some(
     (shader) => shader.id === project.studio.activeShaderId,
   )
-    ? project.studio.savedShaders
-    : [
-        {
-          id: project.studio.activeShaderId,
-          name: project.studio.activeShaderName,
-          code: project.studio.activeShaderCode,
-          description: 'Current shader from the live editor.',
-          group: 'Live',
-          uniformValues: project.studio.uniformValues,
-        },
-        ...project.studio.savedShaders,
-      ];
+    ? project.studio.savedShaders.map((shader) =>
+        shader.id === project.studio.activeShaderId ? liveShaderEntry : shader,
+      )
+    : [liveShaderEntry, ...project.studio.savedShaders];
   const isActiveShaderSaved = project.studio.savedShaders.some(
     (shader) => shader.id === project.studio.activeShaderId,
   );
@@ -2783,7 +2784,7 @@ ${errorSnapshot}`,
 
       <PresetBrowserDialog
         open={isPresetBrowserOpen}
-        presets={project.studio.savedShaders}
+        presets={timelineSelectableShaders}
         activeShaderId={project.studio.activeShaderId}
         assetUrl={activeAssetUrl}
         onSelect={selectShader}

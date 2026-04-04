@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useRef, useState, type MutableRefObject } from 'react';
-import type { SavedShader } from '../types';
+import type { SavedShader, ShaderUniformValueMap } from '../types';
 import {
   buildFragmentShaderSource,
   VERTEX_SHADER_SOURCE,
@@ -28,6 +28,12 @@ interface PresetBrowserDialogProps {
   assetUrl: string | null;
   onSelect: (shaderId: string) => void;
   onClose: () => void;
+}
+
+function getUniformValuesPreviewSignature(uniformValues: ShaderUniformValueMap | undefined): string {
+  return JSON.stringify(
+    Object.entries(uniformValues ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+  );
 }
 
 function getPresetGroup(preset: SavedShader): string {
@@ -185,6 +191,7 @@ function getPreviewRenderer(rendererRef: MutableRefObject<PreviewRenderer | null
 
 function renderPreviewToCanvas(
   shaderCode: string,
+  uniformValues: ShaderUniformValueMap | undefined,
   image: HTMLCanvasElement,
   rendererRef: MutableRefObject<PreviewRenderer | null>,
 ) {
@@ -254,12 +261,13 @@ function renderPreviewToCanvas(
   for (const [name, def] of Object.entries(uniforms)) {
     const loc = gl.getUniformLocation(program, name);
     if (loc === null) continue;
+    const value = uniformValues?.[name] ?? def.default;
     if (def.type === 'float' || def.type === 'int') {
-      gl.uniform1f(loc, Number(def.default));
+      gl.uniform1f(loc, Number(value));
     } else if (def.type === 'bool') {
-      gl.uniform1i(loc, def.default ? 1 : 0);
-    } else if (def.type === 'vec3' && Array.isArray(def.default)) {
-      gl.uniform3fv(loc, def.default);
+      gl.uniform1i(loc, value ? 1 : 0);
+    } else if (def.type === 'vec3' && Array.isArray(value)) {
+      gl.uniform3fv(loc, value);
     }
   }
 
@@ -431,13 +439,18 @@ export function PresetBrowserDialog({
       return;
     }
 
-    const previewKey = `${previewNamespace}\u0000${preset.id}\u0000${preset.code}`;
+    const previewKey = `${previewNamespace}\u0000${preset.id}\u0000${preset.code}\u0000${getUniformValuesPreviewSignature(preset.uniformValues)}`;
     if (previewSourceRef.current[previewKey] || previewRequestsRef.current.has(previewKey)) {
       return;
     }
 
     previewRequestsRef.current.add(previewKey);
-    const previewSrc = renderPreviewToCanvas(preset.code, image, previewRendererRef);
+    const previewSrc = renderPreviewToCanvas(
+      preset.code,
+      preset.uniformValues,
+      image,
+      previewRendererRef,
+    );
     previewRequestsRef.current.delete(previewKey);
 
     previewSourceRef.current = {
@@ -594,7 +607,7 @@ export function PresetBrowserDialog({
                             image={image}
                             previewSrc={
                               previewSources[
-                                `${previewNamespace}\u0000${preset.id}\u0000${preset.code}`
+                                `${previewNamespace}\u0000${preset.id}\u0000${preset.code}\u0000${getUniformValuesPreviewSignature(preset.uniformValues)}`
                               ] ?? null
                             }
                             onRequestPreview={() => requestPreview(preset)}

@@ -74,21 +74,21 @@ export function TimelineStageRenderer({
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
   const availableShaders = useMemo(() => {
+    const liveShader = {
+      ...savedShaders.find((shader) => shader.id === activeShaderId),
+      id: activeShaderId,
+      name: activeShaderName,
+      code: activeShaderCode,
+      description: 'Current shader from the live editor.',
+      group: 'Live',
+      uniformValues: activeUniformValues,
+    };
+
     if (savedShaders.some((shader) => shader.id === activeShaderId)) {
-      return savedShaders;
+      return savedShaders.map((shader) => (shader.id === activeShaderId ? liveShader : shader));
     }
 
-    return [
-      {
-        id: activeShaderId,
-        name: activeShaderName,
-        code: activeShaderCode,
-        description: 'Current shader from the live editor.',
-        group: 'Live',
-        uniformValues: activeUniformValues,
-      },
-      ...savedShaders,
-    ];
+    return [liveShader, ...savedShaders];
   }, [activeShaderCode, activeShaderId, activeShaderName, activeUniformValues, savedShaders]);
   const shaderSequence = timeline.shaderSequence ?? {
     enabled: false,
