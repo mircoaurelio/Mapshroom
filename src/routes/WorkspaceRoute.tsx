@@ -19,6 +19,7 @@ import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { UniformPanel } from '../components/UniformPanel';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
+  DEFAULT_STAGE_TRANSFORM,
   DEFAULT_GOOGLE_SHADER_MODEL,
   DEFAULT_SHADERS,
   DEFAULT_UI_PREFERENCES,
@@ -2174,6 +2175,7 @@ ${errorSnapshot}`,
   }
 
   const stageTransform = project.mapping.stageTransform;
+  const workspacePreviewStageTransform = isMobile ? stageTransform : DEFAULT_STAGE_TRANSFORM;
   const mobileUiMode = uiPreferences.mobileUiMode;
   const mobileChromeVisible = mobileUiMode !== 'hidden';
   const stageControlsVisible = isMobile
@@ -2447,10 +2449,10 @@ ${errorSnapshot}`,
         activeShaderName={project.studio.activeShaderName}
         activeShaderCode={project.studio.activeShaderCode}
         activeUniformValues={project.studio.uniformValues}
-        savedShaders={project.studio.savedShaders}
-        timeline={project.timeline.stub}
+      savedShaders={project.studio.savedShaders}
+      timeline={project.timeline.stub}
       shaderCompileNonce={shaderCompileNonce}
-      stageTransform={project.mapping.stageTransform}
+      stageTransform={workspacePreviewStageTransform}
       transport={project.playback.transport}
       forceActiveShaderPreview={editingTimelineStepId !== null}
       onCompilerError={setCompilerError}
