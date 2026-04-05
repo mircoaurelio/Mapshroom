@@ -8,6 +8,7 @@ export type MobileUiMode = 'full' | 'bar' | 'hidden';
 export type TimelineTransitionEffect = 'cut' | 'mix' | 'wipe' | 'radial' | 'glitch';
 export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix';
 export type TimelineEditorViewMode = 'simple' | 'advanced';
+export type TimelineStagePreviewMode = 'timeline' | 'focused';
 
 export interface AssetRecord {
   id: string;
@@ -85,6 +86,7 @@ export interface TimelineStub {
     enabled: boolean;
     mode: TimelineSequenceMode;
     editorView: TimelineEditorViewMode;
+    stagePreviewMode: TimelineStagePreviewMode;
     focusedStepId: string | null;
     singleStepLoopEnabled: boolean;
     randomChoiceEnabled: boolean;

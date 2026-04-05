@@ -15,6 +15,7 @@ const FALLBACK_TIMELINE_STUB = {
     enabled: false,
     mode: 'sequence',
     editorView: 'simple',
+    stagePreviewMode: 'timeline',
     focusedStepId: null,
     singleStepLoopEnabled: false,
     randomChoiceEnabled: false,

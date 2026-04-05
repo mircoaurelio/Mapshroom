@@ -21,6 +21,7 @@ import type {
   SavedShader,
   TimelineEditorViewMode,
   TimelineSequenceMode,
+  TimelineStagePreviewMode,
   TimelineStub,
   TimelineTransitionEffect,
 } from '../types';
@@ -44,9 +45,9 @@ interface TimelineBarProps {
   onReset: () => void;
   onToggleSingleStepLoop: () => void;
   onToggleRandomChoice: () => void;
-  onSequenceEnabledChange: (enabled: boolean) => void;
   onSequenceModeChange: (mode: TimelineSequenceMode) => void;
   onSequenceEditorViewChange: (editorView: TimelineEditorViewMode) => void;
+  onSequenceStagePreviewModeChange: (stagePreviewMode: TimelineStagePreviewMode) => void;
   onSequenceSharedTransitionChange: (patch: {
     sharedTransitionEnabled?: boolean;
     sharedTransitionEffect?: TimelineTransitionEffect;
@@ -259,9 +260,9 @@ export function TimelineBar({
   onReset,
   onToggleSingleStepLoop,
   onToggleRandomChoice,
-  onSequenceEnabledChange,
   onSequenceModeChange,
   onSequenceEditorViewChange,
+  onSequenceStagePreviewModeChange,
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
   onSequenceDurationChange,
@@ -407,7 +408,7 @@ export function TimelineBar({
 
   const transportTimeSeconds = getTransportTimeSeconds(transport, nowMs);
   const timelineState = useMemo(() => {
-    if (!sequence.enabled || sequence.steps.length === 0) {
+    if (sequence.steps.length === 0) {
       return null;
     }
 
@@ -426,7 +427,6 @@ export function TimelineBar({
     });
   }, [
     savedShaders,
-    sequence.enabled,
     sequence.focusedStepId,
     sequence.mode,
     sequence.randomChoiceEnabled,
@@ -438,8 +438,7 @@ export function TimelineBar({
     transport.loop,
     transportTimeSeconds,
   ]);
-  const safeDurationSeconds =
-    sequence.enabled && timelineState ? timelineState.totalDurationSeconds : baseDurationSeconds;
+  const safeDurationSeconds = timelineState ? timelineState.totalDurationSeconds : baseDurationSeconds;
   const visibleTimeSeconds = clampTimelineTime(
     transportTimeSeconds,
     safeDurationSeconds,
@@ -625,7 +624,7 @@ export function TimelineBar({
         </div>
       </div>
 
-      {sequence.enabled && stepSegments.length > 0 ? (
+      {stepSegments.length > 0 ? (
         <div className="timeline-segment-track-shell">
           <div className="timeline-segment-track" ref={stepTrackRef}>
             {stepSegments.map((segment) => {
@@ -834,7 +833,7 @@ export function TimelineBar({
         </div>
       ) : null}
 
-      {!sequence.enabled ? (
+      {!stepSegments.length ? (
         <div className="timeline-bar-footer">
           <div className="timeline-chip-row">
             {markerStops.map((marker) => (
@@ -876,9 +875,10 @@ export function TimelineBar({
         }
         sequence={sequence}
         totalDurationSeconds={durationSeconds}
-        onEnabledChange={onSequenceEnabledChange}
         onModeChange={onSequenceModeChange}
         onEditorViewChange={onSequenceEditorViewChange}
+        previewMode={sequence.stagePreviewMode}
+        onPreviewModeChange={onSequenceStagePreviewModeChange}
         isPlaying={transport.isPlaying}
         onPlayToggle={onPlayToggle}
         onReset={onReset}
