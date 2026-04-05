@@ -64,6 +64,7 @@ import type {
   MobileUiMode,
   ProjectDocument,
   SavedShader,
+  ShaderVersion,
   ShaderUniformValue,
   ShaderUniformValueMap,
   StageTransform,
@@ -145,6 +146,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     ...project.studio.savedShaders,
   ].reduce<SavedShader[]>((collection, shader) => {
     const shaderUniformValues = 'uniformValues' in shader ? shader.uniformValues : undefined;
+    const shaderVersions = 'versions' in shader ? shader.versions : undefined;
     const shaderLastValidCode = 'lastValidCode' in shader ? shader.lastValidCode : undefined;
     const shaderLastValidUniformValues =
       'lastValidUniformValues' in shader ? shader.lastValidUniformValues : undefined;
@@ -158,6 +160,20 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     const normalizedShader: SavedShader = {
       ...shader,
       code: normalizedCode,
+      versions: getShaderVersionTrail(
+        {
+          name: shader.name,
+          code: normalizedCode,
+          versions: shaderVersions,
+          isTemporary: 'isTemporary' in shader ? shader.isTemporary : undefined,
+        },
+        {
+          fallbackVersions:
+            shader.id === project.studio.activeShaderId ? project.studio.shaderVersions : undefined,
+          fallbackName: shader.name,
+          fallbackCode: normalizedCode,
+        },
+      ),
       uniformValues: normalizedUniformValues,
       lastValidCode: normalizedLastValidCode,
       lastValidUniformValues: getSyncedShaderUniformValues(
@@ -193,6 +209,13 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
       legacySettings.googleShaderModel ?? DEFAULT_GOOGLE_SHADER_MODEL,
     videoGenProvider: 'runway',
   };
+  const normalizedActiveShader =
+    mergedSavedShaders.find((shader) => shader.id === project.studio.activeShaderId) ?? null;
+  const normalizedStudioShaderVersions = getShaderVersionTrail(normalizedActiveShader, {
+    fallbackVersions: project.studio.shaderVersions,
+    fallbackName: parseShaderName(project.studio.activeShaderCode),
+    fallbackCode: project.studio.activeShaderCode,
+  });
 
   return {
     ...project,
@@ -275,6 +298,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
       ...project.studio,
       shaderChatHistory: project.studio.shaderChatHistory ?? [],
       activeShaderName: parseShaderName(project.studio.activeShaderCode),
+      shaderVersions: normalizedStudioShaderVersions,
       savedShaders: mergedSavedShaders,
       uniformValues: syncUniformValues(project.studio.uniformValues, uniformDefinitions),
     },
@@ -310,6 +334,43 @@ function createShaderVersion(
     code,
     createdAt: new Date().toISOString(),
   };
+}
+
+function getDefaultShaderVersionPrompt(
+  shader: Pick<SavedShader, 'isTemporary'> | null | undefined,
+): string {
+  return shader?.isTemporary ? 'Timeline Shader' : 'Base Node Source';
+}
+
+function getShaderVersionTrail(
+  shader:
+    | (Pick<SavedShader, 'name' | 'code'> & Partial<Pick<SavedShader, 'versions' | 'isTemporary'>>)
+    | null
+    | undefined,
+  options?: {
+    fallbackVersions?: ShaderVersion[];
+    fallbackPrompt?: string;
+    fallbackName?: string;
+    fallbackCode?: string;
+  },
+): ShaderVersion[] {
+  if (shader?.versions?.length) {
+    return [...shader.versions];
+  }
+
+  if (options?.fallbackVersions?.length) {
+    return [...options.fallbackVersions];
+  }
+
+  const nextName = options?.fallbackName ?? shader?.name ?? 'Mapshroom Shader';
+  const nextCode = options?.fallbackCode ?? shader?.code ?? '';
+  return [
+    createShaderVersion(
+      options?.fallbackPrompt ?? getDefaultShaderVersionPrompt(shader),
+      nextName,
+      nextCode,
+    ),
+  ];
 }
 
 function areUniformValuesEqual(
@@ -373,6 +434,14 @@ function applyActiveShaderPatch(
   );
   const activeSavedShader =
     currentProject.studio.savedShaders.find((shader) => shader.id === nextActiveShaderId) ?? null;
+  const nextShaderVersions = patch.shaderVersions
+    ? [...patch.shaderVersions]
+    : nextActiveShaderId === currentProject.studio.activeShaderId
+      ? currentProject.studio.shaderVersions
+      : getShaderVersionTrail(activeSavedShader, {
+          fallbackName: nextActiveShaderName,
+          fallbackCode: nextActiveShaderCode,
+        });
 
   return {
     ...currentProject,
@@ -382,6 +451,7 @@ function applyActiveShaderPatch(
       activeShaderId: nextActiveShaderId,
       activeShaderName: nextActiveShaderName,
       activeShaderCode: nextActiveShaderCode,
+      shaderVersions: nextShaderVersions,
       uniformValues: nextUniformValues,
       savedShaders: activeSavedShader
         ? currentProject.studio.savedShaders.map((shader) =>
@@ -390,6 +460,7 @@ function applyActiveShaderPatch(
                   ...shader,
                   name: nextActiveShaderName,
                   code: nextActiveShaderCode,
+                  versions: nextShaderVersions,
                   uniformValues: nextUniformValues,
                   isDirty: true,
                 }
@@ -464,6 +535,7 @@ function createSavedShaderRecord(
       | 'lastValidCode'
       | 'lastValidUniformValues'
       | 'sourceShaderId'
+      | 'versions'
       | 'ownerTimelineStepId'
     >
   > = {},
@@ -476,6 +548,18 @@ function createSavedShaderRecord(
     id: `${options.isTemporary ? 'timeline' : 'saved'}-${crypto.randomUUID()}`,
     name: label,
     code,
+    versions: getShaderVersionTrail(
+      {
+        name: label,
+        code,
+        versions: options.versions,
+        isTemporary: options.isTemporary,
+      },
+      {
+        fallbackName: label,
+        fallbackCode: code,
+      },
+    ),
     description: options.description ?? 'Saved from the current workspace state.',
     group: options.group ?? 'Saved',
     uniformValues: syncedUniformValues,
@@ -1443,6 +1527,7 @@ export function WorkspaceRoute() {
             isDirty: stepShader.isDirty,
             sourceShaderId: stepShader.sourceShaderId ?? stepShader.id,
             ownerTimelineStepId: duplicateStepId,
+            versions: stepShader.versions,
             lastValidCode: stepShader.lastValidCode,
             lastValidUniformValues: stepShader.lastValidUniformValues,
             compileError: stepShader.compileError,
@@ -1711,7 +1796,7 @@ export function WorkspaceRoute() {
         activeShaderName: shader.name,
         activeShaderCode: shader.code,
         shaderChatHistory: [],
-        shaderVersions: [createShaderVersion('Base Node Source', shader.name, shader.code)],
+        shaderVersions: getShaderVersionTrail(shader),
         uniformValues: getSyncedShaderUniformValues(shader.code, shader.uniformValues),
         savedShaders: currentProject.studio.savedShaders.map((item) =>
           item.id === shader.id
@@ -1769,6 +1854,7 @@ export function WorkspaceRoute() {
                     ...shader,
                     name: label,
                     code: currentProject.studio.activeShaderCode,
+                    versions: currentProject.studio.shaderVersions,
                     uniformValues: nextUniformValues,
                     description: 'Saved from the timeline editor.',
                     group: 'Saved',
@@ -1791,6 +1877,9 @@ export function WorkspaceRoute() {
         label,
         currentProject.studio.activeShaderCode,
         nextUniformValues,
+        {
+          versions: currentProject.studio.shaderVersions,
+        },
       );
 
       return {
@@ -1800,6 +1889,7 @@ export function WorkspaceRoute() {
           savedShaders: [...currentProject.studio.savedShaders, savedShader],
           activeShaderId: savedShader.id,
           activeShaderName: label,
+          shaderVersions: currentProject.studio.shaderVersions,
         },
       };
     });
@@ -1814,6 +1904,7 @@ export function WorkspaceRoute() {
     const nextCode = blankShaderTemplate;
     const nextName = parseShaderName(nextCode);
     const nextStepId = crypto.randomUUID();
+    const nextShaderVersions = [createShaderVersion('New Shader', nextName, nextCode)];
     const nextShader = createSavedShaderRecord(
       nextName,
       nextCode,
@@ -1824,6 +1915,7 @@ export function WorkspaceRoute() {
         isTemporary: true,
         isDirty: false,
         ownerTimelineStepId: nextStepId,
+        versions: nextShaderVersions,
       },
     );
     const nextStep = {
@@ -1844,7 +1936,7 @@ export function WorkspaceRoute() {
         activeShaderName: nextName,
         activeShaderCode: nextCode,
         shaderChatHistory: [],
-        shaderVersions: [createShaderVersion('New Shader', nextName, nextCode)],
+        shaderVersions: nextShaderVersions,
         uniformValues: getSyncedShaderUniformValues(nextCode, nextShader.uniformValues),
         savedShaders: [...currentProject.studio.savedShaders, nextShader],
       },
@@ -1929,6 +2021,7 @@ export function WorkspaceRoute() {
           {
             description: 'Autosaved shader from the workspace editor.',
             group: 'Autosaved',
+            versions: project.studio.shaderVersions,
           },
         );
     const targetShaderId = nextAutosavedShader?.id ?? requestedShaderId;
@@ -2016,6 +2109,13 @@ export function WorkspaceRoute() {
         }
 
         appliedToActiveShader = currentProject.studio.activeShaderId === targetShaderId;
+        const nextShaderVersion = createShaderVersion(historyPrompt, nextName, nextCode, versionId);
+        const nextShaderVersions = [
+          ...(appliedToActiveShader
+            ? currentProject.studio.shaderVersions
+            : getShaderVersionTrail(targetShader)),
+          nextShaderVersion,
+        ];
         const nextUniformValues = getSyncedShaderUniformValues(
           nextCode,
           appliedToActiveShader ? currentProject.studio.uniformValues : targetShader.uniformValues,
@@ -2044,10 +2144,7 @@ export function WorkspaceRoute() {
                 ]
               : currentProject.studio.shaderChatHistory,
             shaderVersions: appliedToActiveShader
-              ? [
-                  ...currentProject.studio.shaderVersions,
-                  createShaderVersion(historyPrompt, nextName, nextCode, versionId),
-                ]
+              ? nextShaderVersions
               : currentProject.studio.shaderVersions,
             savedShaders: currentProject.studio.savedShaders.map((shader) =>
               shader.id === targetShaderId
@@ -2055,6 +2152,7 @@ export function WorkspaceRoute() {
                     ...shader,
                     name: nextName,
                     code: nextCode,
+                    versions: nextShaderVersions,
                     uniformValues: nextUniformValues,
                     lastValidCode: nextLastValidCode,
                     lastValidUniformValues: nextLastValidUniformValues,
@@ -2213,6 +2311,10 @@ ${compilerError}`;
           );
           const activeShader =
             currentProject.studio.savedShaders.find((shader) => shader.id === activeShaderId) ?? null;
+          const nextShaderVersions = [
+            ...currentProject.studio.shaderVersions,
+            createShaderVersion('Auto-fix after GLSL error', nextName, nextCode, versionId),
+          ];
           const nextLastValidCode = validationError
             ? activeShader?.lastValidCode ?? activeShader?.code ?? currentProject.studio.activeShaderCode
             : nextCode;
@@ -2227,16 +2329,14 @@ ${compilerError}`;
               activeShaderName: nextName,
               activeShaderCode: nextCode,
               uniformValues: nextUniformValues,
-              shaderVersions: [
-                ...currentProject.studio.shaderVersions,
-                createShaderVersion('Auto-fix after GLSL error', nextName, nextCode, versionId),
-              ],
+              shaderVersions: nextShaderVersions,
               savedShaders: currentProject.studio.savedShaders.map((shader) =>
                 shader.id === activeShaderId
                   ? {
                       ...shader,
                       name: nextName,
                       code: nextCode,
+                      versions: nextShaderVersions,
                       uniformValues: nextUniformValues,
                       lastValidCode: nextLastValidCode,
                       lastValidUniformValues: nextLastValidUniformValues,
@@ -2504,6 +2604,7 @@ ${errorSnapshot}`,
               isDirty: false,
               sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
               ownerTimelineStepId: stepId,
+              versions: sourceShader.versions,
               lastValidCode: sourceShader.lastValidCode,
               lastValidUniformValues: sourceShader.lastValidUniformValues,
               compileError: sourceShader.compileError,
@@ -2533,7 +2634,7 @@ ${errorSnapshot}`,
             shaderChatHistory: isAlreadyActive ? currentProject.studio.shaderChatHistory : [],
             shaderVersions: isAlreadyActive
               ? currentProject.studio.shaderVersions
-              : [createShaderVersion('Timeline Shader', editableShader.name, editableShader.code)],
+              : getShaderVersionTrail(editableShader),
             uniformValues: getSyncedShaderUniformValues(
               editableShader.code,
               editableShader.uniformValues,
@@ -2586,10 +2687,25 @@ ${errorSnapshot}`,
       stepId,
     );
     void selectTimelineStepForEditing(stepId);
+    if (
+      project &&
+      (project.timeline.stub.shaderSequence.mode !== 'sequence' ||
+        project.timeline.stub.shaderSequence.randomChoiceEnabled)
+    ) {
+      handleTimelineStagePreviewModeChange('focused');
+    }
     if (nextTimeSeconds !== null) {
       handleTimelineSeek(nextTimeSeconds);
     }
-  }, [handleTimelineSeek, project?.timeline.stub.shaderSequence.steps, selectTimelineStepForEditing]);
+  }, [
+    handleTimelineSeek,
+    handleTimelineStagePreviewModeChange,
+    project,
+    project?.timeline.stub.shaderSequence.randomChoiceEnabled,
+    project?.timeline.stub.shaderSequence.steps,
+    project?.timeline.stub.shaderSequence.mode,
+    selectTimelineStepForEditing,
+  ]);
 
   if (!project) {
     return (

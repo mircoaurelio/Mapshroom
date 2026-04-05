@@ -41,6 +41,15 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
 export function createDefaultProject(sessionId: string): ProjectDocument {
   const defaultShader = DEFAULT_SHADERS.default_psych;
   const firstTimelineStepId = crypto.randomUUID();
+  const defaultShaderVersions = [
+    {
+      id: crypto.randomUUID(),
+      prompt: 'Base Node Source',
+      name: defaultShader.name,
+      code: defaultShader.code,
+      createdAt: new Date().toISOString(),
+    },
+  ];
 
   return {
     version: APP_VERSION,
@@ -53,17 +62,21 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
       activeShaderId: defaultShader.id,
       activeShaderName: defaultShader.name,
       activeShaderCode: defaultShader.code,
-      shaderVersions: [
-        {
-          id: crypto.randomUUID(),
-          prompt: 'Base Node Source',
-          name: defaultShader.name,
-          code: defaultShader.code,
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      shaderVersions: defaultShaderVersions,
       savedShaders: Object.values(DEFAULT_SHADERS).map((shader) => ({
         ...shader,
+        versions:
+          shader.id === defaultShader.id
+            ? defaultShaderVersions
+            : [
+                {
+                  id: crypto.randomUUID(),
+                  prompt: 'Base Node Source',
+                  name: shader.name,
+                  code: shader.code,
+                  createdAt: new Date().toISOString(),
+                },
+              ],
       })),
       shaderChatHistory: [],
       uniformValues: {},
