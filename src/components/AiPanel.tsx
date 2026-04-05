@@ -33,6 +33,14 @@ export function AiPanel({
           placeholder="Describe the shader you want to create or transform..."
           value={prompt}
           onChange={(event) => onPromptChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+              event.preventDefault();
+              if (!aiLoading) {
+                onSubmit();
+              }
+            }
+          }}
         />
 
         {shaderError ? (
