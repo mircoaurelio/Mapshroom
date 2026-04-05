@@ -7,7 +7,6 @@ import {
 } from './shader';
 
 const EMPTY_UNIFORM_VALUES: ShaderUniformValueMap = {};
-let validationContext: WebGLRenderingContext | null | undefined;
 
 function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
@@ -25,26 +24,6 @@ function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: strin
   }
 
   return shader;
-}
-
-function getValidationContext(): WebGLRenderingContext | null {
-  if (validationContext !== undefined) {
-    return validationContext;
-  }
-
-  try {
-    const canvas = document.createElement('canvas');
-    validationContext = canvas.getContext('webgl', {
-      alpha: false,
-      antialias: false,
-      preserveDrawingBuffer: false,
-    });
-  } catch (error) {
-    console.warn('Unable to create a WebGL validation context.', error);
-    validationContext = null;
-  }
-
-  return validationContext;
 }
 
 export function hasShaderCompileError(shader: SavedShader | null | undefined): boolean {
@@ -82,7 +61,20 @@ export function getRenderableShaderUniformValues(
 }
 
 export function validateShaderCodeCompilation(code: string): string | null {
-  const gl = getValidationContext();
+  let gl: WebGLRenderingContext | null = null;
+
+  try {
+    const canvas = document.createElement('canvas');
+    gl = canvas.getContext('webgl', {
+      alpha: false,
+      antialias: false,
+      preserveDrawingBuffer: false,
+    });
+  } catch (error) {
+    console.warn('Unable to create a WebGL validation context.', error);
+    return null;
+  }
+
   if (!gl) {
     return null;
   }
@@ -116,5 +108,8 @@ export function validateShaderCodeCompilation(code: string): string | null {
     return null;
   } catch (error) {
     return error instanceof Error ? `GLSL Error: ${error.message}` : 'GLSL Error: Unknown error.';
+  } finally {
+    const loseContextExtension = gl.getExtension('WEBGL_lose_context');
+    loseContextExtension?.loseContext();
   }
 }

@@ -969,30 +969,8 @@ export function WorkspaceRoute() {
     }
 
     lastMissingAssetIdRef.current = activeAsset.id;
-
-    updateProject((currentProject) => ({
-      ...currentProject,
-      library: {
-        ...currentProject.library,
-        activeAssetId:
-          currentProject.library.activeAssetId === activeAsset.id
-            ? null
-            : currentProject.library.activeAssetId,
-      },
-      playback: {
-        ...currentProject.playback,
-        activeAssetId:
-          currentProject.playback.activeAssetId === activeAsset.id
-            ? null
-            : currentProject.playback.activeAssetId,
-        transport:
-          currentProject.playback.activeAssetId === activeAsset.id
-            ? pauseTransport(currentProject.playback.transport)
-            : currentProject.playback.transport,
-      },
-    }));
     setStatusMessage(`Stored asset "${activeAsset.name}" could not be restored. Load it again.`);
-  }, [activeAsset, activeAssetResolution.status, updateProject]);
+  }, [activeAsset, activeAssetResolution.status]);
 
   const openFilePicker = () => fileInputRef.current?.click();
 

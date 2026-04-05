@@ -3,6 +3,8 @@ import type { AssetRecord } from '../types';
 import { getAssetBlob } from './storage';
 
 const assetObjectUrlCache = new Map<string, string>();
+const ASSET_LOAD_RETRY_COUNT = 4;
+const ASSET_LOAD_RETRY_DELAY_MS = 250;
 
 export type AssetObjectUrlStatus = 'idle' | 'loading' | 'ready' | 'missing';
 
@@ -25,30 +27,49 @@ export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResu
 
   useEffect(() => {
     let disposed = false;
+    let retryTimeoutId: number | null = null;
 
     if (!assetId || !assetKind || cachedUrl) {
-      return;
+      return undefined;
     }
 
-    getAssetBlob(assetId).then((blob) => {
-      if (disposed || !blob) {
+    const resolveAssetBlob = async (attempt: number): Promise<void> => {
+      const blob = await getAssetBlob(assetId);
+      if (disposed) {
+        return;
+      }
+
+      if (blob) {
+        const localObjectUrl = URL.createObjectURL(blob);
+        assetObjectUrlCache.set(assetId, localObjectUrl);
         setResolvedAsset({
           assetId,
-          url: null,
+          url: localObjectUrl,
         });
         return;
       }
 
-      const localObjectUrl = URL.createObjectURL(blob);
-      assetObjectUrlCache.set(assetId, localObjectUrl);
+      if (attempt < ASSET_LOAD_RETRY_COUNT) {
+        retryTimeoutId = window.setTimeout(() => {
+          retryTimeoutId = null;
+          void resolveAssetBlob(attempt + 1);
+        }, ASSET_LOAD_RETRY_DELAY_MS);
+        return;
+      }
+
       setResolvedAsset({
         assetId,
-        url: localObjectUrl,
+        url: null,
       });
-    });
+    };
+
+    void resolveAssetBlob(0);
 
     return () => {
       disposed = true;
+      if (retryTimeoutId !== null) {
+        window.clearTimeout(retryTimeoutId);
+      }
     };
   }, [assetId, assetKind, cachedUrl]);
 
