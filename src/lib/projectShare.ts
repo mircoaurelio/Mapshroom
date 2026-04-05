@@ -151,8 +151,23 @@ function stripShareParamsFromUrl(): void {
   nextUrl.searchParams.delete('share');
   nextUrl.searchParams.delete('sha');
   nextUrl.searchParams.delete('cmp');
-  const nextHash = nextUrl.hash || '#/';
+  const [hashPath] = (nextUrl.hash || '#/').split('?');
+  const nextHash = hashPath || '#/';
   window.history.replaceState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextHash}`);
+}
+
+function getShareParamsFromLocation(url: URL): URLSearchParams {
+  if (url.searchParams.has('share')) {
+    return url.searchParams;
+  }
+
+  const hash = url.hash || '';
+  const queryIndex = hash.indexOf('?');
+  if (queryIndex < 0) {
+    return new URLSearchParams();
+  }
+
+  return new URLSearchParams(hash.slice(queryIndex + 1));
 }
 
 function getSharedProjectShaderIds(project: ProjectDocument): string[] {
@@ -399,10 +414,11 @@ export async function createProjectShareLink(
   const isCompressed = compressedBytes.length < payloadBytes.length;
   const encodedPayload = bytesToBase64Url(isCompressed ? compressedBytes : payloadBytes);
   const url = new URL(window.location.origin + window.location.pathname);
-  url.searchParams.set('share', encodedPayload);
-  url.searchParams.set('sha', sha256);
-  url.searchParams.set('cmp', isCompressed ? 'gzip' : 'raw');
-  url.hash = '#/';
+  const hashParams = new URLSearchParams();
+  hashParams.set('share', encodedPayload);
+  hashParams.set('sha', sha256);
+  hashParams.set('cmp', isCompressed ? 'gzip' : 'raw');
+  url.hash = `#/?${hashParams.toString()}`;
 
   return {
     url: url.toString(),
@@ -414,14 +430,15 @@ export async function createProjectShareLink(
 
 export async function importProjectFromSharedUrl(): Promise<ImportedSharedProjectResult | null> {
   const url = new URL(window.location.href);
-  const sharedPayload = url.searchParams.get('share');
+  const shareParams = getShareParamsFromLocation(url);
+  const sharedPayload = shareParams.get('share');
 
   if (!sharedPayload) {
     return null;
   }
 
-  const compressionMode = url.searchParams.get('cmp') === 'gzip';
-  const expectedSha256 = url.searchParams.get('sha');
+  const compressionMode = shareParams.get('cmp') === 'gzip';
+  const expectedSha256 = shareParams.get('sha');
   const encodedBytes = base64UrlToBytes(sharedPayload);
   const payloadBytes = await decompressBytes(encodedBytes, compressionMode);
   const actualSha256 = await createSha256Hex(payloadBytes);
