@@ -3,6 +3,7 @@ import { shaderPresets } from './shaders/presets';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
+export const PROJECT_LIBRARY_STORAGE_KEY = 'mapshroom-v3:projects';
 export const UI_STORAGE_KEY = 'mapshroom-v3:ui';
 export const ACTIVE_SESSION_KEY = 'mapshroom-v3:active-session';
 export const ASSET_DB_NAME = 'mapshroom-v3';
@@ -54,6 +55,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
   return {
     version: APP_VERSION,
     sessionId,
+    name: 'Untitled Project',
     library: {
       assets: [],
       activeAssetId: null,
