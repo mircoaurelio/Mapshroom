@@ -3440,7 +3440,7 @@ ${errorSnapshot}`,
         shareUrl={shareLinkState?.url ?? ''}
         shareHash={shareLinkState?.sha256 ?? ''}
         payloadBytes={shareLinkState?.payloadBytes ?? 0}
-        assetCount={shareLinkState?.assetCount ?? project.library.assets.length}
+        shaderCount={shareLinkState?.shaderCount ?? project.studio.savedShaders.length}
         isGenerating={isGeneratingShareLink}
         errorMessage={shareLinkError}
         onClose={() => setIsShareDialogOpen(false)}

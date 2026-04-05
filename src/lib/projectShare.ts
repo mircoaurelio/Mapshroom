@@ -1,23 +1,11 @@
 import { APP_VERSION } from '../config';
 import { snapshotTransport } from './clock';
-import {
-  getAssetBlob,
-  persistActiveSessionId,
-  putAssetBlob,
-  saveProjectDocument,
-} from './storage';
-import type { AssetRecord, ProjectDocument } from '../types';
-
-interface SharedAssetPayload {
-  id: string;
-  mimeType: string;
-  data: string;
-}
+import { persistActiveSessionId, saveProjectDocument } from './storage';
+import type { ProjectDocument } from '../types';
 
 interface SharedProjectPayload {
   version: number;
   project: ProjectDocument;
-  assets: SharedAssetPayload[];
   createdAt: string;
 }
 
@@ -25,7 +13,7 @@ export interface ProjectShareLinkResult {
   url: string;
   sha256: string;
   payloadBytes: number;
-  assetCount: number;
+  shaderCount: number;
 }
 
 export interface ImportedSharedProjectResult {
@@ -35,8 +23,14 @@ export interface ImportedSharedProjectResult {
 function createProjectSnapshot(project: ProjectDocument): ProjectDocument {
   return {
     ...project,
+    library: {
+      ...project.library,
+      assets: [],
+      activeAssetId: null,
+    },
     playback: {
       ...project.playback,
+      activeAssetId: null,
       transport: snapshotTransport(project.playback.transport),
     },
   };
@@ -90,11 +84,6 @@ function base64UrlToBytes(value: string): Uint8Array {
   return base64ToBytes(`${padded}${'='.repeat(paddingLength)}`);
 }
 
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  return bytesToBase64(new Uint8Array(buffer));
-}
-
 async function compressBytes(bytes: Uint8Array): Promise<Uint8Array> {
   if (typeof CompressionStream === 'undefined') {
     return bytes;
@@ -121,53 +110,6 @@ async function decompressBytes(bytes: Uint8Array, compressed: boolean): Promise<
   return new Uint8Array(await response.arrayBuffer());
 }
 
-function createSharedAssetBlob(payload: SharedAssetPayload): Blob {
-  return new Blob([toArrayBuffer(base64ToBytes(payload.data))], {
-    type: payload.mimeType || 'application/octet-stream',
-  });
-}
-
-function remapImportedProjectAssetIds(
-  project: ProjectDocument,
-  assets: SharedAssetPayload[],
-): {
-  project: ProjectDocument;
-  assets: SharedAssetPayload[];
-} {
-  const idMap = new Map<string, string>();
-  const remappedAssets = assets.map((asset) => {
-    const nextId = crypto.randomUUID();
-    idMap.set(asset.id, nextId);
-    return {
-      ...asset,
-      id: nextId,
-    };
-  });
-
-  return {
-    project: {
-      ...project,
-      library: {
-        ...project.library,
-        assets: project.library.assets.map((asset) => ({
-          ...asset,
-          id: idMap.get(asset.id) ?? asset.id,
-        })),
-        activeAssetId: project.library.activeAssetId
-          ? idMap.get(project.library.activeAssetId) ?? project.library.activeAssetId
-          : null,
-      },
-      playback: {
-        ...project.playback,
-        activeAssetId: project.playback.activeAssetId
-          ? idMap.get(project.playback.activeAssetId) ?? project.playback.activeAssetId
-          : null,
-      },
-    },
-    assets: remappedAssets,
-  };
-}
-
 function stripShareParamsFromUrl(): void {
   const nextUrl = new URL(window.location.href);
   nextUrl.searchParams.delete('share');
@@ -181,35 +123,10 @@ export async function createProjectShareLink(
   project: ProjectDocument,
 ): Promise<ProjectShareLinkResult> {
   const snapshot = createProjectSnapshot(project);
-  const missingAssets: string[] = [];
-  const sharedAssets = await Promise.all(
-    snapshot.library.assets.map(async (asset) => {
-      const blob = await getAssetBlob(asset.id);
-      if (!blob) {
-        missingAssets.push(asset.name);
-        return null;
-      }
-
-      return {
-        id: asset.id,
-        mimeType: blob.type || asset.mimeType,
-        data: await blobToBase64(blob),
-      } satisfies SharedAssetPayload;
-    }),
-  );
-
-  if (missingAssets.length > 0) {
-    throw new Error(
-      `Unable to create a lossless share link because ${missingAssets.length} asset${
-        missingAssets.length === 1 ? ' is' : 's are'
-      } missing from local storage.`,
-    );
-  }
 
   const payload: SharedProjectPayload = {
     version: APP_VERSION,
     project: snapshot,
-    assets: sharedAssets.filter((asset): asset is SharedAssetPayload => asset !== null),
     createdAt: new Date().toISOString(),
   };
   const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
@@ -227,7 +144,7 @@ export async function createProjectShareLink(
     url: url.toString(),
     sha256,
     payloadBytes: payloadBytes.byteLength,
-    assetCount: sharedAssets.length,
+    shaderCount: snapshot.studio.savedShaders.length,
   };
 }
 
@@ -250,21 +167,25 @@ export async function importProjectFromSharedUrl(): Promise<ImportedSharedProjec
   }
 
   const payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as SharedProjectPayload;
-  if (!payload?.project || !Array.isArray(payload.assets)) {
+  if (!payload?.project) {
     throw new Error('Shared project link is invalid.');
   }
-
-  const remapped = remapImportedProjectAssetIds(payload.project, payload.assets);
   const importedProject: ProjectDocument = {
-    ...remapped.project,
+    ...payload.project,
     version: payload.project.version ?? APP_VERSION,
     sessionId: crypto.randomUUID(),
     name: payload.project.name?.trim() || 'Shared Project',
+    library: {
+      ...payload.project.library,
+      assets: [],
+      activeAssetId: null,
+    },
+    playback: {
+      ...payload.project.playback,
+      activeAssetId: null,
+      transport: payload.project.playback.transport,
+    },
   };
-
-  await Promise.all(
-    remapped.assets.map((asset) => putAssetBlob(asset.id, createSharedAssetBlob(asset))),
-  );
 
   saveProjectDocument(importedProject);
   persistActiveSessionId(importedProject.sessionId);
@@ -275,10 +196,10 @@ export async function importProjectFromSharedUrl(): Promise<ImportedSharedProjec
   };
 }
 
-export function estimateSharedProjectAssetCount(project: ProjectDocument): number {
-  return project.library.assets.length;
+export function estimateSharedProjectAssetCount(): number {
+  return 0;
 }
 
-export function getProjectShareAssetNames(project: ProjectDocument): string[] {
-  return project.library.assets.map((asset: AssetRecord) => asset.name);
+export function getProjectShareAssetNames(): string[] {
+  return [];
 }
