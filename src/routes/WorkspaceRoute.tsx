@@ -39,6 +39,7 @@ import {
   createTimelineShaderStep,
   getShaderTimelineDuration,
   roundTimelineSeconds,
+  scaleTimelineStepDurations,
 } from '../lib/timeline';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
@@ -1637,22 +1638,21 @@ export function WorkspaceRoute() {
       }
 
       const steps = currentProject.timeline.stub.shaderSequence.steps;
-      const targetStepId =
-        currentProject.timeline.stub.shaderSequence.focusedStepId ?? steps[steps.length - 1]?.id ?? null;
       const currentTotalDurationSeconds = getShaderTimelineDuration(steps);
-      const targetStep =
-        steps.find((step) => step.id === targetStepId) ?? steps[steps.length - 1] ?? null;
-
-      if (!targetStep) {
-        return currentProject;
-      }
-
-      const currentTargetDurationSeconds = clampTimelineStepDuration(targetStep.durationSeconds);
-      const minimumTotalDurationSeconds =
-        currentTotalDurationSeconds - currentTargetDurationSeconds + 0.5;
-      const clampedTotalDurationSeconds = Math.max(minimumTotalDurationSeconds, nextDurationSeconds);
-      const nextTargetDurationSeconds = clampTimelineStepDuration(
-        currentTargetDurationSeconds + (clampedTotalDurationSeconds - currentTotalDurationSeconds),
+      const minimumTotalDurationSeconds = steps.length * 0.5;
+      const clampedTotalDurationSeconds = Math.max(
+        minimumTotalDurationSeconds,
+        nextDurationSeconds,
+      );
+      const scaledSteps = scaleTimelineStepDurations(steps, clampedTotalDurationSeconds);
+      const scaleRatio =
+        currentTotalDurationSeconds > 0
+          ? clampedTotalDurationSeconds / currentTotalDurationSeconds
+          : 1;
+      const smallestStepDurationSeconds = scaledSteps.reduce(
+        (shortestDuration, step) =>
+          Math.min(shortestDuration, clampTimelineStepDuration(step.durationSeconds)),
+        Number.POSITIVE_INFINITY,
       );
 
       return {
@@ -1660,20 +1660,16 @@ export function WorkspaceRoute() {
         timeline: {
           stub: {
             ...currentProject.timeline.stub,
+            durationSeconds: clampedTotalDurationSeconds,
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
-              steps: steps.map((step) =>
-                step.id === targetStep.id
-                  ? {
-                      ...step,
-                      durationSeconds: nextTargetDurationSeconds,
-                      transitionDurationSeconds: clampTransitionDuration(
-                        nextTargetDurationSeconds,
-                        step.transitionDurationSeconds,
-                      ),
-                    }
-                  : step,
+              sharedTransitionDurationSeconds: clampTransitionDuration(
+                Number.isFinite(smallestStepDurationSeconds)
+                  ? smallestStepDurationSeconds
+                  : clampedTotalDurationSeconds,
+                currentProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds * scaleRatio,
               ),
+              steps: scaledSteps,
             },
           },
         },

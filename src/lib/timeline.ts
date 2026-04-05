@@ -68,6 +68,108 @@ export function getShaderTimelineDuration(
   return steps.reduce((total, step) => total + clampTimelineStepDuration(step.durationSeconds), 0);
 }
 
+export function scaleTimelineStepDurations(
+  steps: TimelineStub['shaderSequence']['steps'],
+  targetTotalSeconds: number,
+): TimelineStub['shaderSequence']['steps'] {
+  if (steps.length === 0) {
+    return steps;
+  }
+
+  const minimumStepDurationSeconds = 0.5;
+  const totalUnits = Math.max(
+    steps.length * 50,
+    Math.round(roundTimelineSeconds(targetTotalSeconds) * 100),
+  );
+  const clampedSourceDurations = steps.map((step) => clampTimelineStepDuration(step.durationSeconds));
+  const totalSourceDuration = clampedSourceDurations.reduce(
+    (sum, durationSeconds) => sum + durationSeconds,
+    0,
+  );
+
+  if (totalSourceDuration <= 0) {
+    return steps.map((step) => ({
+      ...step,
+      durationSeconds: minimumStepDurationSeconds,
+      transitionDurationSeconds: clampTransitionDuration(
+        minimumStepDurationSeconds,
+        step.transitionDurationSeconds,
+      ),
+    }));
+  }
+
+  const scaledDurations = new Array<number>(steps.length).fill(minimumStepDurationSeconds);
+  let remainingTargetDuration = totalUnits / 100;
+  let remainingSourceDuration = totalSourceDuration;
+  let unresolvedIndices = steps.map((_, index) => index);
+
+  while (unresolvedIndices.length > 0) {
+    if (remainingSourceDuration <= 0) {
+      const evenDuration = remainingTargetDuration / unresolvedIndices.length;
+      unresolvedIndices.forEach((index) => {
+        scaledDurations[index] = Math.max(minimumStepDurationSeconds, evenDuration);
+      });
+      break;
+    }
+
+    const scaleRatio = remainingTargetDuration / remainingSourceDuration;
+    const belowMinimumIndices = unresolvedIndices.filter(
+      (index) => clampedSourceDurations[index] * scaleRatio <= minimumStepDurationSeconds + 0.000001,
+    );
+
+    if (belowMinimumIndices.length === 0) {
+      unresolvedIndices.forEach((index) => {
+        scaledDurations[index] = clampedSourceDurations[index] * scaleRatio;
+      });
+      break;
+    }
+
+    belowMinimumIndices.forEach((index) => {
+      scaledDurations[index] = minimumStepDurationSeconds;
+      remainingTargetDuration -= minimumStepDurationSeconds;
+      remainingSourceDuration -= clampedSourceDurations[index];
+    });
+    unresolvedIndices = unresolvedIndices.filter((index) => !belowMinimumIndices.includes(index));
+  }
+
+  const baseUnits = scaledDurations.map((durationSeconds) =>
+    Math.max(50, Math.floor(durationSeconds * 100)),
+  );
+  let remainingUnits = totalUnits - baseUnits.reduce((sum, units) => sum + units, 0);
+  const remainders = scaledDurations
+    .map((durationSeconds, index) => ({
+      index,
+      remainder: durationSeconds * 100 - baseUnits[index],
+    }))
+    .sort((left, right) => right.remainder - left.remainder);
+
+  for (let index = 0; index < remainders.length && remainingUnits > 0; index += 1) {
+    baseUnits[remainders[index].index] += 1;
+    remainingUnits -= 1;
+  }
+
+  return steps.map((step, index) => {
+    const nextDurationSeconds = baseUnits[index] / 100;
+    const previousDurationSeconds = clampedSourceDurations[index];
+    const previousTransitionDurationSeconds = clampTransitionDuration(
+      previousDurationSeconds,
+      step.transitionDurationSeconds,
+    );
+    const nextTransitionDurationSeconds = clampTransitionDuration(
+      nextDurationSeconds,
+      previousDurationSeconds > 0
+        ? previousTransitionDurationSeconds * (nextDurationSeconds / previousDurationSeconds)
+        : previousTransitionDurationSeconds,
+    );
+
+    return {
+      ...step,
+      durationSeconds: nextDurationSeconds,
+      transitionDurationSeconds: nextTransitionDurationSeconds,
+    };
+  });
+}
+
 function getFocusedTimelineStep(
   steps: TimelineStub['shaderSequence']['steps'],
   focusedStepId: string | null | undefined,
