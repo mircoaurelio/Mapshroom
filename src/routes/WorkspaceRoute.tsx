@@ -500,6 +500,23 @@ function getPreferredTimelineStepId(
   return steps[0]?.id ?? null;
 }
 
+function getTimelineStepStartSeconds(
+  steps: ProjectDocument['timeline']['stub']['shaderSequence']['steps'],
+  targetStepId: string,
+): number | null {
+  let cursorSeconds = 0;
+
+  for (const step of steps) {
+    if (step.id === targetStepId) {
+      return cursorSeconds;
+    }
+
+    cursorSeconds += clampTimelineStepDuration(step.durationSeconds);
+  }
+
+  return null;
+}
+
 export function WorkspaceRoute() {
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1046,6 +1063,21 @@ export function WorkspaceRoute() {
       playback: {
         ...currentProject.playback,
         transport: resetTransport(currentProject.playback.transport),
+      },
+    }));
+  }, [updateProject]);
+
+  const handleTimelineStop = useCallback(() => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      playback: {
+        ...currentProject.playback,
+        transport: {
+          ...currentProject.playback.transport,
+          isPlaying: false,
+          currentTimeSeconds: 0,
+          anchorTimestampMs: null,
+        },
       },
     }));
   }, [updateProject]);
@@ -2433,8 +2465,15 @@ ${errorSnapshot}`,
   }
 
   const handleTimelineEditStep = useCallback((stepId: string) => {
+    const nextTimeSeconds = getTimelineStepStartSeconds(
+      project?.timeline.stub.shaderSequence.steps ?? [],
+      stepId,
+    );
     void selectTimelineStepForEditing(stepId);
-  }, [selectTimelineStepForEditing]);
+    if (nextTimeSeconds !== null) {
+      handleTimelineSeek(nextTimeSeconds);
+    }
+  }, [handleTimelineSeek, project?.timeline.stub.shaderSequence.steps, selectTimelineStepForEditing]);
 
   if (!project) {
     return (
@@ -2675,6 +2714,7 @@ ${errorSnapshot}`,
       tracks={timelineTracks}
       onSeek={handleTimelineSeek}
       onPlayToggle={handlePlayToggle}
+      onStop={handleTimelineStop}
       onReset={handleTimelineReset}
       onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
       onToggleRandomChoice={handleTimelineRandomChoiceToggle}
@@ -2971,6 +3011,7 @@ ${errorSnapshot}`,
         tracks={timelineTracks}
         onSeek={handleTimelineSeek}
         onPlayToggle={handlePlayToggle}
+        onStop={handleTimelineStop}
         onReset={handleTimelineReset}
         onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
         onToggleRandomChoice={handleTimelineRandomChoiceToggle}

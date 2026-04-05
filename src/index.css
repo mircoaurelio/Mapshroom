@@ -1579,6 +1579,17 @@ a {
   gap: 0.65rem;
 }
 
+.timeline-transport-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.timeline-transport-button {
+  width: 30px;
+  height: 30px;
+}
+
 .timeline-duration-shell {
   display: inline-flex;
   align-items: center;
