@@ -42,6 +42,7 @@ interface TimelineBarProps {
   tracks: TimelineStub['tracks'];
   onSeek: (seconds: number) => void;
   onPlayToggle: () => void;
+  onStop: () => void;
   onReset: () => void;
   onToggleSingleStepLoop: () => void;
   onToggleRandomChoice: () => void;
@@ -159,6 +160,31 @@ function formatTimelineDurationField(totalSeconds: number): string {
   return roundTimelineSeconds(totalSeconds).toFixed(2);
 }
 
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5 3.25 12 8l-7 4.75Z" />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="4" y="4" width="8" height="8" rx="1.2" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5.25 3.5v9" />
+      <path d="M10.75 3.5v9" />
+    </svg>
+  );
+}
+
 function getMarkerStops(markers: string[], durationSeconds: number): TimelineMarkerStop[] {
   if (markers.length === 0) {
     return [];
@@ -257,6 +283,7 @@ export function TimelineBar({
   tracks,
   onSeek,
   onPlayToggle,
+  onStop,
   onReset,
   onToggleSingleStepLoop,
   onToggleRandomChoice,
@@ -570,6 +597,28 @@ export function TimelineBar({
     <div className={`timeline-bar timeline-bar-${variant}`}>
       <div className="timeline-bar-scrub">
         <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
+
+        <div className="timeline-transport-controls" role="group" aria-label="Timeline transport">
+          <button
+            type="button"
+            className="icon-button timeline-transport-button"
+            aria-label={transport.isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+            title={transport.isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+            onClick={onPlayToggle}
+          >
+            {transport.isPlaying ? <PauseIcon /> : <PlayIcon />}
+          </button>
+
+          <button
+            type="button"
+            className="icon-button timeline-transport-button"
+            aria-label="Stop timeline playback"
+            title="Stop timeline playback"
+            onClick={onStop}
+          >
+            <StopIcon />
+          </button>
+        </div>
 
         <div className="timeline-range-shell">
           <input
