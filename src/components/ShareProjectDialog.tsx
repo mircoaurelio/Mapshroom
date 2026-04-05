@@ -70,9 +70,9 @@ export function ShareProjectDialog({
 
         <div className="dialog-body">
           <p className="dialog-note">
-            The share link contains project settings, timeline state, and shaders only. Imported
-            assets are excluded, and the payload is compressed for the URL with SHA-256 integrity
-            metadata.
+            The share link contains project settings, timeline state, and only the shaders used in
+            the timeline. Imported assets are excluded, and the payload is compressed for the URL
+            with SHA-256 integrity metadata.
           </p>
 
           <div className="project-share-stats">

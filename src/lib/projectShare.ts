@@ -20,9 +20,50 @@ export interface ImportedSharedProjectResult {
   project: ProjectDocument;
 }
 
+function getSharedProjectShaderIds(project: ProjectDocument): string[] {
+  const uniqueIds = new Set(
+    project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
+  );
+
+  if (uniqueIds.size === 0) {
+    uniqueIds.add(project.studio.activeShaderId);
+  }
+
+  return [...uniqueIds];
+}
+
 function createProjectSnapshot(project: ProjectDocument): ProjectDocument {
+  const sharedShaderIds = getSharedProjectShaderIds(project);
+  const sharedSavedShaders = project.studio.savedShaders.filter((shader) =>
+    sharedShaderIds.includes(shader.id),
+  );
+  const focusedStepShaderId =
+    project.timeline.stub.shaderSequence.steps.find(
+      (step) => step.id === project.timeline.stub.shaderSequence.focusedStepId,
+    )?.shaderId ?? null;
+  const sharedActiveShader =
+    sharedSavedShaders.find((shader) => shader.id === project.studio.activeShaderId) ??
+    (focusedStepShaderId
+      ? sharedSavedShaders.find((shader) => shader.id === focusedStepShaderId) ?? null
+      : null) ??
+    sharedSavedShaders[0] ??
+    null;
+
   return {
     ...project,
+    studio: {
+      ...project.studio,
+      activeShaderId: sharedActiveShader?.id ?? project.studio.activeShaderId,
+      activeShaderName: sharedActiveShader?.name ?? project.studio.activeShaderName,
+      activeShaderCode: sharedActiveShader?.code ?? project.studio.activeShaderCode,
+      shaderVersions: sharedActiveShader?.versions ?? project.studio.shaderVersions,
+      shaderChatHistory:
+        sharedActiveShader?.id === project.studio.activeShaderId
+          ? project.studio.shaderChatHistory
+          : [],
+      uniformValues: sharedActiveShader?.uniformValues ?? project.studio.uniformValues,
+      savedShaders: sharedSavedShaders,
+    },
     library: {
       ...project.library,
       assets: [],
