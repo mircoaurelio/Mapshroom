@@ -549,7 +549,7 @@ export function ShaderTimelineEditor({
                     className="text-field"
                     type="number"
                     min={0}
-                    step={0.01}
+                    step={1}
                     value={sequence.sharedTransitionDurationSeconds}
                     onChange={(event) =>
                       onSharedTransitionChange({

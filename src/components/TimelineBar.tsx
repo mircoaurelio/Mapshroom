@@ -656,7 +656,7 @@ export function TimelineBar({
               className="text-field"
               type="number"
               min={0.5}
-              step={0.01}
+              step={1}
               value={durationFieldValue}
               onChange={(event) => setDurationInputValue(event.target.value)}
               onBlur={commitDurationInput}
@@ -855,7 +855,7 @@ export function TimelineBar({
                   className="text-field"
                   type="number"
                   min={0}
-                  step={0.01}
+                  step={1}
                   value={
                     usesSharedTransition
                       ? sequence.sharedTransitionDurationSeconds
