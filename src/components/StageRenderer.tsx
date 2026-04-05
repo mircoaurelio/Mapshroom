@@ -114,6 +114,8 @@ export function StageRenderer({
   const rafRef = useRef<number | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const textureUploadPendingRef = useRef(true);
+  const lastVideoTextureTimeRef = useRef<number | null>(null);
   const mediaAspectRatioRef = useRef<number | null>(null);
   const transportRef = useRef(transport);
   const uniformDefinitionsRef = useRef(uniformDefinitions);
@@ -195,6 +197,8 @@ export function StageRenderer({
 
     positionBufferRef.current = buffer;
     textureRef.current = texture;
+    textureUploadPendingRef.current = true;
+    lastVideoTextureTimeRef.current = null;
 
     return () => {
       if (rafRef.current !== null) {
@@ -316,6 +320,8 @@ export function StageRenderer({
     let disposed = false;
     imageRef.current = null;
     mediaAspectRatioRef.current = null;
+    textureUploadPendingRef.current = true;
+    lastVideoTextureTimeRef.current = null;
     setMediaAspectRatio(null);
 
     const existingVideo = videoRef.current;
@@ -346,6 +352,7 @@ export function StageRenderer({
             ? image.naturalWidth / image.naturalHeight
             : null;
         mediaAspectRatioRef.current = nextAspectRatio;
+        textureUploadPendingRef.current = true;
         setMediaAspectRatio(nextAspectRatio);
         setRenderStatus(assetName ?? 'Image asset');
       };
@@ -396,6 +403,8 @@ export function StageRenderer({
       const nextAspectRatio =
         video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth / video.videoHeight : null;
       mediaAspectRatioRef.current = nextAspectRatio;
+      textureUploadPendingRef.current = true;
+      lastVideoTextureTimeRef.current = null;
       setMediaAspectRatio(nextAspectRatio);
       setRenderStatus(assetName ?? 'Video asset');
       const currentTransport = transportRef.current;
@@ -486,9 +495,19 @@ export function StageRenderer({
               video.currentTime = targetTime;
             }
           }
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-        } else if (assetKind === 'image' && image) {
+          const shouldUploadVideoFrame =
+            textureUploadPendingRef.current ||
+            lastVideoTextureTimeRef.current === null ||
+            Math.abs(video.currentTime - lastVideoTextureTimeRef.current) > 0.001;
+
+          if (shouldUploadVideoFrame) {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+            textureUploadPendingRef.current = false;
+            lastVideoTextureTimeRef.current = video.currentTime;
+          }
+        } else if (assetKind === 'image' && image && textureUploadPendingRef.current) {
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+          textureUploadPendingRef.current = false;
         }
 
         if (locationsRef.current.image) {
