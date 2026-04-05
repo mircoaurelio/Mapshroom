@@ -10,6 +10,11 @@ import {
   renderShaderPreviewToDataUrl,
   type ShaderPreviewRenderer,
 } from '../lib/shaderPreview';
+import {
+  getRenderableShaderCode,
+  getRenderableShaderUniformValues,
+  hasShaderCompileError,
+} from '../lib/shaderState';
 import type {
   AssetKind,
   SavedShader,
@@ -85,6 +90,12 @@ function getPendingAiJobCount(shader: SavedShader | null | undefined): number {
   return Math.max(0, shader?.pendingAiJobCount ?? 0);
 }
 
+function getTimelineShaderPreviewKey(previewNamespace: string, shader: SavedShader): string {
+  const renderCode = getRenderableShaderCode(shader);
+  const renderUniformValues = getRenderableShaderUniformValues(shader);
+  return `${previewNamespace}\u0000${shader.id}\u0000${renderCode}\u0000${getUniformValuesPreviewSignature(renderUniformValues)}`;
+}
+
 function ViewModeIcon({ mode }: { mode: TimelineEditorViewMode }) {
   if (mode === 'simple') {
     return (
@@ -124,6 +135,16 @@ function DeleteIcon() {
       <path d="M5 4.5v7.25A1.25 1.25 0 0 0 6.25 13h3.5A1.25 1.25 0 0 0 11 11.75V4.5" />
       <path d="M6.75 6.5v4" />
       <path d="M9.25 6.5v4" />
+    </svg>
+  );
+}
+
+function ErrorIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 2.3 14 13H2Z" />
+      <path d="M8 5.5v3.6" />
+      <path d="M8 11.15h0.01" />
     </svg>
   );
 }
@@ -259,7 +280,7 @@ export function ShaderTimelineEditor({
         continue;
       }
 
-      nextShaders.set(`${shader.id}\u0000${shader.code}`, shader);
+      nextShaders.set(`${shader.id}\u0000${getRenderableShaderCode(shader)}`, shader);
     }
 
     return Array.from(nextShaders.values());
@@ -365,12 +386,14 @@ export function ShaderTimelineEditor({
     const nextPreviewSources: Record<string, string> = {};
 
     for (const shader of sequenceShaders) {
-      const previewKey = `${previewNamespace}\u0000${shader.id}\u0000${shader.code}\u0000${getUniformValuesPreviewSignature(shader.uniformValues)}`;
+      const renderCode = getRenderableShaderCode(shader);
+      const renderUniformValues = getRenderableShaderUniformValues(shader);
+      const previewKey = getTimelineShaderPreviewKey(previewNamespace, shader);
       const cachedPreview =
         previewSourceRef.current[previewKey] ??
         renderShaderPreviewToDataUrl(
-          shader.code,
-          shader.uniformValues,
+          renderCode,
+          renderUniformValues,
           previewImage,
           previewRendererRef,
         );
@@ -670,10 +693,9 @@ export function ShaderTimelineEditor({
           const shader = shaderMap.get(step.shaderId);
           const isPlayingStep = step.id === activeStepId;
           const isTransitionStep = step.id === transitionStepId && transitionStepId !== activeStepId;
-          const previewKey = shader
-            ? `${previewNamespace}\u0000${shader.id}\u0000${shader.code}\u0000${getUniformValuesPreviewSignature(shader.uniformValues)}`
-            : '';
+          const previewKey = shader ? getTimelineShaderPreviewKey(previewNamespace, shader) : '';
           const previewSrc = shader ? previewSources[previewKey] ?? null : null;
+          const hasCompileError = hasShaderCompileError(shader);
 
           return (
             <div
@@ -754,10 +776,27 @@ export function ShaderTimelineEditor({
                     </div>
                   )}
 
-                  {getPendingAiJobCount(shader) > 0 || shader?.hasUnreadAiResult ? (
+                  {hasCompileError || getPendingAiJobCount(shader) > 0 || shader?.hasUnreadAiResult ? (
                     <div className="timeline-step-preview-badges timeline-step-preview-badges-bottom">
+                      {hasCompileError ? (
+                        <span
+                          className="timeline-step-preview-badge timeline-step-preview-badge-error"
+                          title={shader?.compileError ?? 'Shader compile error'}
+                        >
+                          <ErrorIcon />
+                        </span>
+                      ) : null}
                       {getPendingAiJobCount(shader) > 0 ? (
-                        <span className="timeline-step-preview-badge">AI...</span>
+                        <span
+                          className="timeline-step-preview-badge timeline-step-preview-badge-loading"
+                          aria-label="Shader update in progress"
+                          title="Shader update in progress"
+                        >
+                          <span className="timeline-step-preview-dots" aria-hidden="true">
+                            <span />
+                            <span />
+                          </span>
+                        </span>
                       ) : null}
                       {shader?.hasUnreadAiResult ? (
                         <span className="timeline-step-preview-badge timeline-step-preview-badge-active">

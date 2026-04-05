@@ -2452,6 +2452,7 @@ a {
 .timeline-step-preview-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   padding: 0.18rem 0.34rem;
   border: 1px solid rgba(244, 244, 245, 0.18);
   border-radius: 999px;
@@ -2461,9 +2462,61 @@ a {
   letter-spacing: 0.12em;
 }
 
+.timeline-step-preview-badge svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .timeline-step-preview-badge-active {
   border-color: rgba(52, 211, 153, 0.28);
   color: #d1fae5;
+}
+
+.timeline-step-preview-badge-error {
+  border-color: rgba(248, 113, 113, 0.34);
+  color: #fecaca;
+}
+
+.timeline-step-preview-badge-loading {
+  min-width: 1.7rem;
+  padding-inline: 0.3rem;
+}
+
+.timeline-step-preview-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+}
+
+.timeline-step-preview-dots span {
+  width: 0.22rem;
+  height: 0.22rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.32;
+  animation: timeline-step-dot-pulse 0.9s ease-in-out infinite;
+}
+
+.timeline-step-preview-dots span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+@keyframes timeline-step-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
 }
 
 .timeline-compact-field {

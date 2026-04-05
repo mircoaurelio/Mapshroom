@@ -33,15 +33,18 @@ export interface SavedShader {
   id: string;
   name: string;
   code: string;
+  lastValidCode?: string;
   description?: string;
   group?: string;
   uniformValues?: ShaderUniformValueMap;
+  lastValidUniformValues?: ShaderUniformValueMap;
   isTemporary?: boolean;
   isDirty?: boolean;
   sourceShaderId?: string;
   ownerTimelineStepId?: string;
   pendingAiJobCount?: number;
   hasUnreadAiResult?: boolean;
+  compileError?: string;
 }
 
 export interface StageTransform {

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import { parseUniforms, syncUniformValues } from '../lib/shader';
+import {
+  getRenderableShaderCode,
+  getRenderableShaderUniformValues,
+  hasShaderCompileError,
+} from '../lib/shaderState';
 import { resolveShaderTimelineState } from '../lib/timeline';
 import { buildTimelineTransitionShaderCode } from '../lib/timelineShader';
 import type {
@@ -51,6 +56,7 @@ interface TimelineStageRendererProps {
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   forceActiveShaderPreview?: boolean;
+  preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
   onCompilerError?: (message: string) => void;
 }
@@ -69,6 +75,7 @@ export function TimelineStageRenderer({
   stageTransform,
   transport,
   forceActiveShaderPreview = false,
+  preferActiveShaderCompilePreview = false,
   isOutputOnly,
   onCompilerError,
 }: TimelineStageRendererProps) {
@@ -104,6 +111,10 @@ export function TimelineStageRenderer({
     steps: [],
   };
   const sequenceEnabled = shaderSequence.steps.length > 0;
+  const activeSavedShader = useMemo(
+    () => availableShaders.find((shader) => shader.id === activeShaderId) ?? null,
+    [activeShaderId, availableShaders],
+  );
 
   useEffect(() => {
     if (!sequenceEnabled || !transport.isPlaying) {
@@ -162,19 +173,34 @@ export function TimelineStageRenderer({
   ]);
 
   const renderDescriptor = useMemo(() => {
+    const renderableActiveShaderCode = activeSavedShader
+      ? getRenderableShaderCode(activeSavedShader)
+      : activeShaderCode;
+    const renderableActiveUniformValues = activeSavedShader
+      ? getRenderableShaderUniformValues(activeSavedShader)
+      : activeUniformValues;
+    const previewActiveShaderCode = preferActiveShaderCompilePreview
+      ? activeShaderCode
+      : renderableActiveShaderCode;
+    const previewActiveUniformValues = preferActiveShaderCompilePreview
+      ? syncUniformValues(activeUniformValues, parseUniforms(activeShaderCode))
+      : renderableActiveUniformValues;
+
     if (forceActiveShaderPreview && !isOutputOnly) {
       return {
-        shaderCode: activeShaderCode,
+        shaderCode: previewActiveShaderCode,
         isTransitionShader: false,
-        uniformValues: activeUniformValues,
+        uniformValues: previewActiveUniformValues,
+        usedFallback: !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
       };
     }
 
     if (!timelineState) {
       return {
-        shaderCode: activeShaderCode,
+        shaderCode: previewActiveShaderCode,
         isTransitionShader: false,
-        uniformValues: activeUniformValues,
+        uniformValues: previewActiveUniformValues,
+        usedFallback: !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
       };
     }
 
@@ -183,31 +209,56 @@ export function TimelineStageRenderer({
       timelineState.nextShader &&
       timelineState.transitionEffect !== 'cut'
     ) {
+      const currentShaderCode =
+        preferActiveShaderCompilePreview && timelineState.currentShader.id === activeShaderId
+          ? activeShaderCode
+          : getRenderableShaderCode(timelineState.currentShader);
+      const nextShaderCode =
+        preferActiveShaderCompilePreview && timelineState.nextShader.id === activeShaderId
+          ? activeShaderCode
+          : getRenderableShaderCode(timelineState.nextShader);
+      const currentUsesFallback =
+        !(preferActiveShaderCompilePreview && timelineState.currentShader.id === activeShaderId) &&
+        hasShaderCompileError(timelineState.currentShader);
+      const nextUsesFallback =
+        !(preferActiveShaderCompilePreview && timelineState.nextShader.id === activeShaderId) &&
+        hasShaderCompileError(timelineState.nextShader);
+
       return {
         shaderCode: buildTimelineTransitionShaderCode({
-          fromCode: timelineState.currentShader.code,
-          toCode: timelineState.nextShader.code,
+          fromCode: currentShaderCode,
+          toCode: nextShaderCode,
           effect: timelineState.transitionEffect,
         }),
         isTransitionShader: true,
         uniformValues: EMPTY_UNIFORM_VALUES,
+        usedFallback: currentUsesFallback || nextUsesFallback,
       };
     }
 
     return {
-      shaderCode: timelineState.currentShader.code,
+      shaderCode:
+        preferActiveShaderCompilePreview && timelineState.currentShader.id === activeShaderId
+          ? activeShaderCode
+          : getRenderableShaderCode(timelineState.currentShader),
       isTransitionShader: false,
       uniformValues:
         timelineState.currentShader.id === activeShaderId
-          ? activeUniformValues
-          : timelineState.currentShader.uniformValues ?? EMPTY_UNIFORM_VALUES,
+          ? previewActiveUniformValues
+          : getRenderableShaderUniformValues(timelineState.currentShader),
+      usedFallback:
+        timelineState.currentShader.id === activeShaderId
+          ? !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader)
+          : hasShaderCompileError(timelineState.currentShader),
     };
   }, [
     activeShaderCode,
     activeShaderId,
     activeUniformValues,
+    activeSavedShader,
     forceActiveShaderPreview,
     isOutputOnly,
+    preferActiveShaderCompilePreview,
     timelineState?.currentShader.code,
     timelineState?.currentShader.id,
     timelineState?.currentShader.uniformValues,
@@ -236,14 +287,23 @@ export function TimelineStageRenderer({
       timelineState
         ? syncUniformValues(
             timelineState.currentShader.id === activeShaderId
-              ? activeUniformValues
-              : timelineState.currentShader.uniformValues ?? EMPTY_UNIFORM_VALUES,
-            parseUniforms(timelineState.currentShader.code),
+              ? preferActiveShaderCompilePreview
+                ? activeUniformValues
+                : getRenderableShaderUniformValues(activeSavedShader)
+              : getRenderableShaderUniformValues(timelineState.currentShader),
+            parseUniforms(
+              preferActiveShaderCompilePreview && timelineState.currentShader.id === activeShaderId
+                ? activeShaderCode
+                : getRenderableShaderCode(timelineState.currentShader),
+            ),
           )
         : EMPTY_UNIFORM_VALUES,
     [
+      activeSavedShader,
+      activeShaderCode,
       activeShaderId,
       activeUniformValues,
+      preferActiveShaderCompilePreview,
       timelineState?.currentShader.code,
       timelineState?.currentShader.id,
       timelineState?.currentShader.uniformValues,
@@ -255,14 +315,23 @@ export function TimelineStageRenderer({
       timelineState?.nextShader
         ? syncUniformValues(
             timelineState.nextShader.id === activeShaderId
-              ? activeUniformValues
-              : timelineState.nextShader.uniformValues ?? EMPTY_UNIFORM_VALUES,
-            parseUniforms(timelineState.nextShader.code),
+              ? preferActiveShaderCompilePreview
+                ? activeUniformValues
+                : getRenderableShaderUniformValues(activeSavedShader)
+              : getRenderableShaderUniformValues(timelineState.nextShader),
+            parseUniforms(
+              preferActiveShaderCompilePreview && timelineState.nextShader.id === activeShaderId
+                ? activeShaderCode
+                : getRenderableShaderCode(timelineState.nextShader),
+            ),
           )
         : EMPTY_UNIFORM_VALUES,
     [
+      activeSavedShader,
+      activeShaderCode,
       activeShaderId,
       activeUniformValues,
+      preferActiveShaderCompilePreview,
       timelineState?.nextShader?.code,
       timelineState?.nextShader?.id,
       timelineState?.nextShader?.uniformValues,
@@ -312,7 +381,17 @@ export function TimelineStageRenderer({
       stageTransform={stageTransform}
       transport={transport}
       isOutputOnly={isOutputOnly}
-      onCompilerError={onCompilerError}
+      onCompilerError={(message) => {
+        if (!onCompilerError) {
+          return;
+        }
+
+        if (!message && renderDescriptor.usedFallback) {
+          return;
+        }
+
+        onCompilerError(message);
+      }}
     />
   );
 }

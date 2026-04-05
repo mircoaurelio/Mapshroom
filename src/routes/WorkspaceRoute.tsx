@@ -30,6 +30,10 @@ import { pauseTransport, playTransport, resetTransport, seekTransport } from '..
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import {
+  getRenderableShaderUniformValues,
+  validateShaderCodeCompilation,
+} from '../lib/shaderState';
+import {
   clampTimelineStepDuration,
   clampTransitionDuration,
   createTimelineShaderStep,
@@ -140,10 +144,29 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     ...Object.values(DEFAULT_SHADERS),
     ...project.studio.savedShaders,
   ].reduce<SavedShader[]>((collection, shader) => {
+    const shaderUniformValues = 'uniformValues' in shader ? shader.uniformValues : undefined;
+    const shaderLastValidCode = 'lastValidCode' in shader ? shader.lastValidCode : undefined;
+    const shaderLastValidUniformValues =
+      'lastValidUniformValues' in shader ? shader.lastValidUniformValues : undefined;
+    const shaderCompileError = 'compileError' in shader ? shader.compileError : undefined;
+    const normalizedCode = shader.code;
+    const normalizedUniformValues = getSyncedShaderUniformValues(
+      normalizedCode,
+      shaderUniformValues,
+    );
+    const normalizedLastValidCode = shaderLastValidCode ?? normalizedCode;
     const normalizedShader: SavedShader = {
       ...shader,
+      code: normalizedCode,
+      uniformValues: normalizedUniformValues,
+      lastValidCode: normalizedLastValidCode,
+      lastValidUniformValues: getSyncedShaderUniformValues(
+        normalizedLastValidCode,
+        shaderLastValidUniformValues ?? normalizedUniformValues,
+      ),
       pendingAiJobCount: 0,
       hasUnreadAiResult: 'hasUnreadAiResult' in shader ? Boolean(shader.hasUnreadAiResult) : false,
+      compileError: shaderCompileError?.trim() ? shaderCompileError : undefined,
     };
     const existingIndex = collection.findIndex((item) => item.id === normalizedShader.id);
     if (existingIndex >= 0) {
@@ -433,11 +456,21 @@ function createSavedShaderRecord(
   options: Partial<
     Pick<
       SavedShader,
-      'description' | 'group' | 'isTemporary' | 'isDirty' | 'sourceShaderId' | 'ownerTimelineStepId'
+      | 'compileError'
+      | 'description'
+      | 'group'
+      | 'isTemporary'
+      | 'isDirty'
+      | 'lastValidCode'
+      | 'lastValidUniformValues'
+      | 'sourceShaderId'
+      | 'ownerTimelineStepId'
     >
   > = {},
 ): SavedShader {
   const label = name.trim() || 'Mapshroom Shader';
+  const syncedUniformValues = getSyncedShaderUniformValues(code, uniformValues);
+  const lastValidCode = options.lastValidCode ?? code;
 
   return {
     id: `${options.isTemporary ? 'timeline' : 'saved'}-${crypto.randomUUID()}`,
@@ -445,13 +478,19 @@ function createSavedShaderRecord(
     code,
     description: options.description ?? 'Saved from the current workspace state.',
     group: options.group ?? 'Saved',
-    uniformValues: getSyncedShaderUniformValues(code, uniformValues),
+    uniformValues: syncedUniformValues,
+    lastValidCode,
+    lastValidUniformValues: getSyncedShaderUniformValues(
+      lastValidCode,
+      options.lastValidUniformValues ?? syncedUniformValues,
+    ),
     isTemporary: options.isTemporary,
     isDirty: options.isDirty,
     sourceShaderId: options.sourceShaderId,
     ownerTimelineStepId: options.ownerTimelineStepId,
     pendingAiJobCount: 0,
     hasUnreadAiResult: false,
+    compileError: options.compileError?.trim() ? options.compileError : undefined,
   };
 }
 
@@ -528,12 +567,14 @@ export function WorkspaceRoute() {
   );
   const [aiPrompt, setAiPrompt] = useState('');
   const [compilerError, setCompilerError] = useState('');
+  const [compileFeedbackVersion, setCompileFeedbackVersion] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const [aiFeedbackMessage, setAiFeedbackMessage] = useState('');
   const [aiFeedbackTone, setAiFeedbackTone] = useState<'idle' | 'loading' | 'success' | 'error'>(
     'idle',
   );
   const [shaderCompileNonce, setShaderCompileNonce] = useState(0);
+  const [preferLiveShaderCompilePreview, setPreferLiveShaderCompilePreview] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
@@ -574,17 +615,11 @@ export function WorkspaceRoute() {
     });
   }, []);
 
-  const removeShaderVersion = useCallback((versionId: string) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
-        shaderVersions: currentProject.studio.shaderVersions.filter(
-          (version) => version.id !== versionId,
-        ),
-      },
-    }));
-  }, [updateProject]);
+  const applyCompilerFeedback = useCallback((message: string) => {
+    setCompilerError(message);
+    setPreferLiveShaderCompilePreview(false);
+    setCompileFeedbackVersion((currentValue) => currentValue + 1);
+  }, []);
 
   useEffect(() => {
     const sessionId = getOrCreateSessionId();
@@ -758,6 +793,55 @@ export function WorkspaceRoute() {
       ) ?? null
     );
   }, [project]);
+
+  useEffect(() => {
+    if (!project) {
+      return;
+    }
+
+    const activeShader = project.studio.savedShaders.find(
+      (shader) => shader.id === project.studio.activeShaderId,
+    );
+    if (!activeShader) {
+      return;
+    }
+
+    const nextCompileError = compilerError.trim() ? compilerError : undefined;
+    const nextLastValidCode = nextCompileError
+      ? activeShader.lastValidCode ?? activeShader.code
+      : project.studio.activeShaderCode;
+    const nextLastValidUniformValues = nextCompileError
+      ? getRenderableShaderUniformValues(activeShader)
+      : getSyncedShaderUniformValues(
+          project.studio.activeShaderCode,
+          project.studio.uniformValues,
+        );
+
+    if (
+      (activeShader.compileError ?? undefined) === nextCompileError &&
+      (activeShader.lastValidCode ?? activeShader.code) === nextLastValidCode &&
+      areUniformValuesEqual(activeShader.lastValidUniformValues, nextLastValidUniformValues)
+    ) {
+      return;
+    }
+
+    updateProject((currentProject) => ({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        savedShaders: currentProject.studio.savedShaders.map((shader) =>
+          shader.id === currentProject.studio.activeShaderId
+            ? {
+                ...shader,
+                compileError: nextCompileError,
+                lastValidCode: nextLastValidCode,
+                lastValidUniformValues: nextLastValidUniformValues,
+              }
+            : shader,
+        ),
+      },
+    }));
+  }, [compileFeedbackVersion, compilerError, project, updateProject]);
 
   const editingTimelineStepIndex = useMemo(() => {
     if (!project || !editingTimelineStepId) {
@@ -1381,6 +1465,9 @@ export function WorkspaceRoute() {
             isDirty: stepShader.isDirty,
             sourceShaderId: stepShader.sourceShaderId ?? stepShader.id,
             ownerTimelineStepId: duplicateStepId,
+            lastValidCode: stepShader.lastValidCode,
+            lastValidUniformValues: stepShader.lastValidUniformValues,
+            compileError: stepShader.compileError,
           },
         );
         nextSavedShaders = [...currentProject.studio.savedShaders, duplicateShader];
@@ -1665,6 +1752,8 @@ export function WorkspaceRoute() {
         ? `Editing linked timeline shader "${shader.name}".`
         : `Shader preset "${shader.name}" loaded.`,
     );
+    setPreferLiveShaderCompilePreview(false);
+    setCompilerError(shader.compileError ?? '');
     closeMobileShaderDialog();
   };
 
@@ -1710,6 +1799,9 @@ export function WorkspaceRoute() {
                     sourceShaderId: undefined,
                     ownerTimelineStepId: undefined,
                     hasUnreadAiResult: false,
+                    lastValidCode: shader.lastValidCode,
+                    lastValidUniformValues: shader.lastValidUniformValues,
+                    compileError: shader.compileError,
                   }
                 : shader,
             ),
@@ -1763,6 +1855,7 @@ export function WorkspaceRoute() {
     };
 
     setCompilerError('');
+    setPreferLiveShaderCompilePreview(false);
     setAiPrompt('');
     clearGeneratedShaderRetry();
     updateProject((currentProject) => ({
@@ -1804,6 +1897,7 @@ export function WorkspaceRoute() {
     }
 
     clearGeneratedShaderRetry();
+    setPreferLiveShaderCompilePreview(true);
     updateProject((currentProject) =>
       applyActiveShaderPatch(currentProject, {
         activeShaderCode: version.code,
@@ -1820,6 +1914,7 @@ export function WorkspaceRoute() {
 
     clearGeneratedShaderRetry();
     setCompilerError('');
+    setPreferLiveShaderCompilePreview(true);
     setShaderCompileNonce((currentValue) => currentValue + 1);
     setStatusMessage('Recompiling current code...');
   };
@@ -1923,6 +2018,7 @@ export function WorkspaceRoute() {
         chatHistory: chatHistorySnapshot,
       });
       const nextName = parseShaderName(nextCode);
+      const validationError = validateShaderCodeCompilation(nextCode);
       const versionId = crypto.randomUUID();
       generatedShaderRetryRef.current[targetShaderId] = {
         sourcePrompt: trimmedPrompt,
@@ -1946,6 +2042,12 @@ export function WorkspaceRoute() {
           nextCode,
           appliedToActiveShader ? currentProject.studio.uniformValues : targetShader.uniformValues,
         );
+        const nextLastValidCode = validationError
+          ? targetShader.lastValidCode ?? targetShader.code
+          : nextCode;
+        const nextLastValidUniformValues = validationError
+          ? getRenderableShaderUniformValues(targetShader)
+          : nextUniformValues;
 
         return {
           ...currentProject,
@@ -1976,6 +2078,9 @@ export function WorkspaceRoute() {
                     name: nextName,
                     code: nextCode,
                     uniformValues: nextUniformValues,
+                    lastValidCode: nextLastValidCode,
+                    lastValidUniformValues: nextLastValidUniformValues,
+                    compileError: validationError ?? undefined,
                     isDirty: true,
                     pendingAiJobCount: Math.max(0, getPendingAiJobCount(shader) - 1),
                     hasUnreadAiResult: appliedToActiveShader ? false : true,
@@ -1988,11 +2093,23 @@ export function WorkspaceRoute() {
       setAiPrompt((currentPrompt) =>
         currentPrompt.trim() === trimmedPrompt ? '' : currentPrompt,
       );
-      if (appliedToActiveShader) {
+      if (validationError && appliedToActiveShader) {
+        setPreferLiveShaderCompilePreview(true);
+        applyCompilerFeedback(validationError);
+        setStatusMessage(
+          `Shader returned with GLSL errors. Keeping the previous valid render for ${nextName}.`,
+        );
+      } else if (appliedToActiveShader) {
+        setPreferLiveShaderCompilePreview(true);
         setAiFeedbackTone('success');
         setAiFeedbackMessage(`Shader applied to the stage: ${nextName}.`);
         setStatusMessage(`Shader updated: ${nextName}`);
         closeMobileShaderDialog();
+      } else if (validationError) {
+        clearGeneratedShaderRetry(targetShaderId);
+        setStatusMessage(
+          `AI updated "${nextName}" but it has GLSL errors, so the previous valid render is still in use.`,
+        );
       } else {
         setStatusMessage(`AI finished and updated "${nextName}" in the timeline.`);
       }
@@ -2054,12 +2171,6 @@ export function WorkspaceRoute() {
       return;
     }
 
-    if (generatedShaderState.versionId) {
-      const failedVersionId = generatedShaderState.versionId;
-      generatedShaderState.versionId = null;
-      removeShaderVersion(failedVersionId);
-    }
-
     if (generatedShaderState.autoRepairUsed) {
       setAiFeedbackTone('error');
       setAiFeedbackMessage(compilerError);
@@ -2107,6 +2218,7 @@ ${compilerError}`;
     })
       .then((nextCode) => {
         const nextName = parseShaderName(nextCode);
+        const validationError = validateShaderCodeCompilation(nextCode);
         const versionId = crypto.randomUUID();
         generatedShaderRetryRef.current[activeShaderId] = {
           sourcePrompt: originalPrompt,
@@ -2121,6 +2233,14 @@ ${compilerError}`;
             nextCode,
             currentProject.studio.uniformValues,
           );
+          const activeShader =
+            currentProject.studio.savedShaders.find((shader) => shader.id === activeShaderId) ?? null;
+          const nextLastValidCode = validationError
+            ? activeShader?.lastValidCode ?? activeShader?.code ?? currentProject.studio.activeShaderCode
+            : nextCode;
+          const nextLastValidUniformValues = validationError && activeShader
+            ? getRenderableShaderUniformValues(activeShader)
+            : nextUniformValues;
 
           return {
             ...currentProject,
@@ -2140,6 +2260,9 @@ ${compilerError}`;
                       name: nextName,
                       code: nextCode,
                       uniformValues: nextUniformValues,
+                      lastValidCode: nextLastValidCode,
+                      lastValidUniformValues: nextLastValidUniformValues,
+                      compileError: validationError ?? undefined,
                       isDirty: true,
                       pendingAiJobCount: Math.max(0, getPendingAiJobCount(shader) - 1),
                       hasUnreadAiResult: false,
@@ -2149,9 +2272,18 @@ ${compilerError}`;
             },
           };
         });
-        setAiFeedbackTone('success');
-        setAiFeedbackMessage(`Shader auto-fixed and applied: ${nextName}.`);
-        setStatusMessage(`Shader auto-fixed: ${nextName}`);
+        if (validationError) {
+          setPreferLiveShaderCompilePreview(true);
+          applyCompilerFeedback(validationError);
+          setStatusMessage(
+            `Auto-fix still has GLSL errors. Keeping the previous valid render for ${nextName}.`,
+          );
+        } else {
+          setPreferLiveShaderCompilePreview(true);
+          setAiFeedbackTone('success');
+          setAiFeedbackMessage(`Shader auto-fixed and applied: ${nextName}.`);
+          setStatusMessage(`Shader auto-fixed: ${nextName}`);
+        }
       })
       .catch((error) => {
         const message =
@@ -2177,7 +2309,7 @@ ${compilerError}`;
         }));
       })
       .finally(() => {});
-  }, [compilerError, project, removeShaderVersion, updateProject]);
+  }, [compilerError, project, updateProject]);
 
   const handleFixError = () => {
     if (!project || !compilerError.trim()) return;
@@ -2361,6 +2493,7 @@ ${errorSnapshot}`,
     },
   ) {
     let nextStatusMessage = '';
+    let nextCompilerError = '';
     let didSelectStep = false;
 
     updateProject((currentProject) => {
@@ -2393,6 +2526,9 @@ ${errorSnapshot}`,
               isDirty: false,
               sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
               ownerTimelineStepId: stepId,
+              lastValidCode: sourceShader.lastValidCode,
+              lastValidUniformValues: sourceShader.lastValidUniformValues,
+              compileError: sourceShader.compileError,
             },
           );
       const nextSavedShaders = isOwnedDraft
@@ -2406,6 +2542,7 @@ ${errorSnapshot}`,
       nextStatusMessage = isOwnedDraft
         ? `Editing linked shader for timeline step ${stepIndex + 1}.`
         : `Linked timeline step ${stepIndex + 1} to its own editable shader.`;
+      nextCompilerError = editableShader.compileError ?? '';
 
       return pruneTemporaryTimelineShaders(
         {
@@ -2448,7 +2585,8 @@ ${errorSnapshot}`,
     });
 
     clearGeneratedShaderRetry();
-    setCompilerError('');
+    setCompilerError(nextCompilerError);
+    setPreferLiveShaderCompilePreview(false);
     setEditingTimelineStepId(stepId);
 
     if (isMobile && options?.focusStudioOnMobile !== false) {
@@ -2562,6 +2700,7 @@ ${errorSnapshot}`,
   const handleActiveShaderCodeChange = (value: string) => {
     clearGeneratedShaderRetry();
     setCompilerError('');
+    setPreferLiveShaderCompilePreview(true);
     setShaderCompileNonce((currentValue) => currentValue + 1);
     updateProject((currentProject) =>
       applyActiveShaderPatch(currentProject, {
@@ -2756,7 +2895,8 @@ ${errorSnapshot}`,
       forceActiveShaderPreview={
         timelineStub.shaderSequence.stagePreviewMode === 'focused' && editingTimelineStepId !== null
       }
-      onCompilerError={setCompilerError}
+      preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
+      onCompilerError={applyCompilerFeedback}
     />
 
       {aiLoading ? (
