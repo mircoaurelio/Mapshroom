@@ -5,6 +5,10 @@ import {
   VERTEX_SHADER_SOURCE,
   parseUniforms,
 } from '../lib/shader';
+import {
+  getRenderableShaderCode,
+  getRenderableShaderUniformValues,
+} from '../lib/shaderState';
 
 const GROUP_ORDER = ['Glow', 'Color', 'Graphic', 'Geometry', 'Motion', 'Default', 'Saved'];
 const PREVIEW_WIDTH = 128;
@@ -439,15 +443,17 @@ export function PresetBrowserDialog({
       return;
     }
 
-    const previewKey = `${previewNamespace}\u0000${preset.id}\u0000${preset.code}\u0000${getUniformValuesPreviewSignature(preset.uniformValues)}`;
+    const renderCode = getRenderableShaderCode(preset);
+    const renderUniformValues = getRenderableShaderUniformValues(preset);
+    const previewKey = `${previewNamespace}\u0000${preset.id}\u0000${renderCode}\u0000${getUniformValuesPreviewSignature(renderUniformValues)}`;
     if (previewSourceRef.current[previewKey] || previewRequestsRef.current.has(previewKey)) {
       return;
     }
 
     previewRequestsRef.current.add(previewKey);
     const previewSrc = renderPreviewToCanvas(
-      preset.code,
-      preset.uniformValues,
+      renderCode,
+      renderUniformValues,
       image,
       previewRendererRef,
     );
@@ -607,7 +613,7 @@ export function PresetBrowserDialog({
                             image={image}
                             previewSrc={
                               previewSources[
-                                `${previewNamespace}\u0000${preset.id}\u0000${preset.code}\u0000${getUniformValuesPreviewSignature(preset.uniformValues)}`
+                                `${previewNamespace}\u0000${preset.id}\u0000${getRenderableShaderCode(preset)}\u0000${getUniformValuesPreviewSignature(getRenderableShaderUniformValues(preset))}`
                               ] ?? null
                             }
                             onRequestPreview={() => requestPreview(preset)}
