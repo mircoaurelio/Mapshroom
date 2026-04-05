@@ -110,6 +110,7 @@ export function StageRenderer({
   const textureRef = useRef<WebGLTexture | null>(null);
   const positionBufferRef = useRef<WebGLBuffer | null>(null);
   const locationsRef = useRef<ProgramLocations>(DEFAULT_LOCATIONS);
+  const renderWarningRef = useRef<string | null>(null);
   const rafRef = useRef<number | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -470,62 +471,73 @@ export function StageRenderer({
         return;
       }
 
-      const currentTransport = transportRef.current;
-      const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
-      const shaderTime = transportTime;
-      gl.useProgram(program);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, texture);
+      try {
+        const currentTransport = transportRef.current;
+        const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
+        const shaderTime = transportTime;
+        gl.useProgram(program);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
 
-      if (assetKind === 'video' && video && video.readyState >= 2) {
-        if (currentTransport.isPlaying && video.duration > 0) {
-          const targetTime = currentTransport.loop ? transportTime % video.duration : transportTime;
-          if (Math.abs(video.currentTime - targetTime) > 0.25) {
-            video.currentTime = targetTime;
+        if (assetKind === 'video' && video && video.readyState >= 2) {
+          if (currentTransport.isPlaying && video.duration > 0) {
+            const targetTime = currentTransport.loop ? transportTime % video.duration : transportTime;
+            if (Math.abs(video.currentTime - targetTime) > 0.25) {
+              video.currentTime = targetTime;
+            }
+          }
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+        } else if (assetKind === 'image' && image) {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        }
+
+        if (locationsRef.current.image) {
+          gl.uniform1i(locationsRef.current.image, 0);
+        }
+        if (locationsRef.current.time) {
+          gl.uniform1f(locationsRef.current.time, shaderTime);
+        }
+        if (locationsRef.current.resolution) {
+          gl.uniform2f(locationsRef.current.resolution, canvas.width, canvas.height);
+        }
+
+        const currentUniformDefinitions = uniformDefinitionsRef.current;
+        const currentUniformValues = uniformValuesRef.current;
+
+        for (const [name, definition] of Object.entries(currentUniformDefinitions)) {
+          const location = locationsRef.current.custom[name];
+          const value = currentUniformValues[name];
+
+          if (!location || value === undefined) {
+            continue;
+          }
+
+          if (definition.type === 'float' || definition.type === 'int') {
+            gl.uniform1f(location, Number(value));
+          } else if (definition.type === 'bool') {
+            gl.uniform1i(location, value ? 1 : 0);
+          } else if (definition.type === 'vec3' && Array.isArray(value)) {
+            gl.uniform3fv(location, value);
           }
         }
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-      } else if (assetKind === 'image' && image) {
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-      }
 
-      if (locationsRef.current.image) {
-        gl.uniform1i(locationsRef.current.image, 0);
-      }
-      if (locationsRef.current.time) {
-        gl.uniform1f(locationsRef.current.time, shaderTime);
-      }
-      if (locationsRef.current.resolution) {
-        gl.uniform2f(locationsRef.current.resolution, canvas.width, canvas.height);
-      }
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.enableVertexAttribArray(locationsRef.current.position);
+        gl.vertexAttribPointer(locationsRef.current.position, 2, gl.FLOAT, false, 0, 0);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-      const currentUniformDefinitions = uniformDefinitionsRef.current;
-      const currentUniformValues = uniformValuesRef.current;
-
-      for (const [name, definition] of Object.entries(currentUniformDefinitions)) {
-        const location = locationsRef.current.custom[name];
-        const value = currentUniformValues[name];
-
-        if (!location || value === undefined) {
-          continue;
+        renderWarningRef.current = null;
+      } catch (error) {
+        const nextWarning =
+          error instanceof Error ? error.message : 'Stage render frame failed.';
+        if (renderWarningRef.current !== nextWarning) {
+          console.warn('Stage render frame failed.', error);
+          renderWarningRef.current = nextWarning;
         }
-
-        if (definition.type === 'float' || definition.type === 'int') {
-          gl.uniform1f(location, Number(value));
-        } else if (definition.type === 'bool') {
-          gl.uniform1i(location, value ? 1 : 0);
-        } else if (definition.type === 'vec3' && Array.isArray(value)) {
-          gl.uniform3fv(location, value);
-        }
+      } finally {
+        rafRef.current = requestAnimationFrame(render);
       }
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.enableVertexAttribArray(locationsRef.current.position);
-      gl.vertexAttribPointer(locationsRef.current.position, 2, gl.FLOAT, false, 0, 0);
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-      rafRef.current = requestAnimationFrame(render);
     };
 
     rafRef.current = requestAnimationFrame(render);
