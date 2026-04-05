@@ -3111,17 +3111,13 @@ ${errorSnapshot}`,
     />
   );
 
-  const sharedTimelineShaderCount = useMemo(() => {
-    const shaderIds = new Set(
-      project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
-    );
-
-    if (shaderIds.size === 0 && project.studio.activeShaderId) {
-      shaderIds.add(project.studio.activeShaderId);
-    }
-
-    return shaderIds.size;
-  }, [project.timeline.stub.shaderSequence.steps, project.studio.activeShaderId]);
+  const sharedTimelineShaderIds = new Set(
+    project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
+  );
+  if (sharedTimelineShaderIds.size === 0 && project.studio.activeShaderId) {
+    sharedTimelineShaderIds.add(project.studio.activeShaderId);
+  }
+  const sharedTimelineShaderCount = sharedTimelineShaderIds.size;
 
   const useDesktopPaneLayout = !isMobile && uiPreferences.chromeVisible;
   const desktopGridTemplateColumns = `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
