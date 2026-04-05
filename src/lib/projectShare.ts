@@ -121,25 +121,29 @@ async function compressBytes(bytes: Uint8Array): Promise<Uint8Array> {
     return bytes;
   }
 
-  const stream = new CompressionStream('gzip');
-  const writer = stream.writable.getWriter();
-  await writer.write(toArrayBuffer(bytes));
-  await writer.close();
-  const response = new Response(stream.readable);
-  return new Uint8Array(await response.arrayBuffer());
+  try {
+    const compressedStream = new Blob([toArrayBuffer(bytes)])
+      .stream()
+      .pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(compressedStream).arrayBuffer());
+  } catch {
+    return bytes;
+  }
 }
 
 async function decompressBytes(bytes: Uint8Array, compressed: boolean): Promise<Uint8Array> {
-  if (!compressed || typeof DecompressionStream === 'undefined') {
+  if (!compressed) {
     return bytes;
   }
 
-  const stream = new DecompressionStream('gzip');
-  const writer = stream.writable.getWriter();
-  await writer.write(toArrayBuffer(bytes));
-  await writer.close();
-  const response = new Response(stream.readable);
-  return new Uint8Array(await response.arrayBuffer());
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('This browser cannot open compressed share links.');
+  }
+
+  const decompressedStream = new Blob([toArrayBuffer(bytes)])
+    .stream()
+    .pipeThrough(new DecompressionStream('gzip'));
+  return new Uint8Array(await new Response(decompressedStream).arrayBuffer());
 }
 
 function stripShareParamsFromUrl(): void {
