@@ -64,6 +64,7 @@ import type {
   ShaderUniformValueMap,
   StageTransform,
   TimelineEditorViewMode,
+  TimelineStagePreviewMode,
   TimelineTransitionEffect,
   UiPreferences,
   WorkspaceMode,
@@ -199,6 +200,9 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
           editorView:
             project.timeline?.stub?.shaderSequence?.editorView ??
             defaultProject.timeline.stub.shaderSequence.editorView,
+          stagePreviewMode:
+            project.timeline?.stub?.shaderSequence?.stagePreviewMode ??
+            defaultProject.timeline.stub.shaderSequence.stagePreviewMode,
           focusedStepId:
             project.timeline?.stub?.shaderSequence?.focusedStepId ??
             defaultProject.timeline.stub.shaderSequence.focusedStepId,
@@ -1046,21 +1050,6 @@ export function WorkspaceRoute() {
     }));
   }, [updateProject]);
 
-  const handleTimelineSequenceEnabledChange = useCallback((enabled: boolean) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            enabled,
-          },
-        },
-      },
-    }));
-  }, [updateProject]);
-
   const handleTimelineSequenceModeChange = useCallback((mode: ProjectDocument['timeline']['stub']['shaderSequence']['mode']) => {
     updateProject((currentProject) => ({
       ...currentProject,
@@ -1090,6 +1079,24 @@ export function WorkspaceRoute() {
       },
     }));
   }, [updateProject]);
+
+  const handleTimelineStagePreviewModeChange = useCallback(
+    (stagePreviewMode: TimelineStagePreviewMode) => {
+      updateProject((currentProject) => ({
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              stagePreviewMode,
+            },
+          },
+        },
+      }));
+    },
+    [updateProject],
+  );
 
   const handleTimelineSharedTransitionChange = useCallback((
     patch: {
@@ -1435,10 +1442,7 @@ export function WorkspaceRoute() {
     updateProject((currentProject) => {
       const nextDurationSeconds = roundTimelineSeconds(Math.max(0.5, Math.min(36000, durationSeconds)));
 
-      if (
-        !currentProject.timeline.stub.shaderSequence.enabled ||
-        currentProject.timeline.stub.shaderSequence.steps.length === 0
-      ) {
+      if (currentProject.timeline.stub.shaderSequence.steps.length === 0) {
         return {
           ...currentProject,
           timeline: {
@@ -2466,8 +2470,7 @@ ${errorSnapshot}`,
   )
     ? project.studio.savedShaders
     : [liveShaderEntry, ...project.studio.savedShaders];
-  const timelineSequenceEnabled =
-    timelineStub.shaderSequence.enabled && timelineStub.shaderSequence.steps.length > 0;
+  const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
   const timelineMarkers = timelineSequenceEnabled
     ? timelineStub.shaderSequence.mode === 'random'
       ? timelineStub.shaderSequence.steps.map((_, index) => `Pick ${index + 1}`)
@@ -2675,9 +2678,9 @@ ${errorSnapshot}`,
       onReset={handleTimelineReset}
       onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
       onToggleRandomChoice={handleTimelineRandomChoiceToggle}
-      onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
       onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceEditorViewChange={handleTimelineEditorViewChange}
+      onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceStepChange={handleTimelineStepChange}
       onSequenceDurationChange={handleTimelineDurationChange}
@@ -2710,7 +2713,9 @@ ${errorSnapshot}`,
       shaderCompileNonce={shaderCompileNonce}
       stageTransform={workspacePreviewStageTransform}
       transport={project.playback.transport}
-      forceActiveShaderPreview={editingTimelineStepId !== null}
+      forceActiveShaderPreview={
+        timelineStub.shaderSequence.stagePreviewMode === 'focused' && editingTimelineStepId !== null
+      }
       onCompilerError={setCompilerError}
     />
 
@@ -2969,9 +2974,9 @@ ${errorSnapshot}`,
         onReset={handleTimelineReset}
         onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
         onToggleRandomChoice={handleTimelineRandomChoiceToggle}
-        onSequenceEnabledChange={handleTimelineSequenceEnabledChange}
         onSequenceModeChange={handleTimelineSequenceModeChange}
         onSequenceEditorViewChange={handleTimelineEditorViewChange}
+        onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceStepChange={handleTimelineStepChange}
         onSequenceDurationChange={handleTimelineDurationChange}

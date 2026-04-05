@@ -106,6 +106,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           enabled: false,
           mode: 'sequence',
           editorView: 'simple',
+          stagePreviewMode: 'timeline',
           focusedStepId: firstTimelineStepId,
           singleStepLoopEnabled: false,
           randomChoiceEnabled: false,

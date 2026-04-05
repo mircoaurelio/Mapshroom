@@ -94,6 +94,7 @@ export function TimelineStageRenderer({
     enabled: false,
     mode: 'sequence',
     editorView: 'simple',
+    stagePreviewMode: 'timeline',
     focusedStepId: null,
     singleStepLoopEnabled: false,
     randomChoiceEnabled: false,
@@ -102,7 +103,7 @@ export function TimelineStageRenderer({
     sharedTransitionDurationSeconds: 0.75,
     steps: [],
   };
-  const sequenceEnabled = shaderSequence.enabled && shaderSequence.steps.length > 0;
+  const sequenceEnabled = shaderSequence.steps.length > 0;
 
   useEffect(() => {
     if (!sequenceEnabled || !transport.isPlaying) {

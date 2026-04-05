@@ -16,6 +16,7 @@ import type {
   ShaderUniformValueMap,
   TimelineEditorViewMode,
   TimelineSequenceMode,
+  TimelineStagePreviewMode,
   TimelineStub,
 } from '../types';
 
@@ -35,9 +36,10 @@ interface ShaderTimelineEditorProps {
   transitionStepId: string | null;
   sequence: TimelineStub['shaderSequence'];
   totalDurationSeconds: number;
-  onEnabledChange: (enabled: boolean) => void;
   onModeChange: (mode: TimelineSequenceMode) => void;
   onEditorViewChange: (editorView: TimelineEditorViewMode) => void;
+  previewMode: TimelineStagePreviewMode;
+  onPreviewModeChange: (previewMode: TimelineStagePreviewMode) => void;
   isPlaying: boolean;
   onPlayToggle: () => void;
   onReset: () => void;
@@ -147,6 +149,25 @@ function RandomChoiceIcon() {
   );
 }
 
+function SinglePreviewIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2.25" y="3.25" width="11.5" height="9.5" rx="1.6" />
+      <path d="M4.25 10.5 6.25 8.5l1.8 1.8 2.4-3 1.3 1.6" />
+    </svg>
+  );
+}
+
+function TimelinePreviewIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2.25" y="4.25" width="4.75" height="7.5" rx="1.1" />
+      <rect x="9" y="4.25" width="4.75" height="7.5" rx="1.1" />
+      <path d="M7.75 8h.5" />
+    </svg>
+  );
+}
+
 function SharedMixIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -185,9 +206,10 @@ export function ShaderTimelineEditor({
   transitionStepId,
   sequence,
   totalDurationSeconds,
-  onEnabledChange,
   onModeChange,
   onEditorViewChange,
+  previewMode,
+  onPreviewModeChange,
   isPlaying,
   onPlayToggle,
   onReset,
@@ -412,15 +434,29 @@ export function ShaderTimelineEditor({
               >
                 <ViewModeIcon mode={option.value} />
               </button>
-            ))}
+              ))}
           </div>
 
           <button
             type="button"
-            className={`toggle-chip ${sequence.enabled ? 'toggle-chip-active' : ''}`}
-            onClick={() => onEnabledChange(!sequence.enabled)}
+            className={`icon-button timeline-toggle-icon-button ${
+              previewMode === 'focused' ? 'timeline-toggle-icon-button-active' : ''
+            }`}
+            aria-label={
+              previewMode === 'focused'
+                ? 'Show full timeline preview in stage'
+                : 'Show focused shader preview in stage'
+            }
+            title={
+              previewMode === 'focused'
+                ? 'Show full timeline preview in stage'
+                : 'Show focused shader preview in stage'
+            }
+            onClick={() =>
+              onPreviewModeChange(previewMode === 'focused' ? 'timeline' : 'focused')
+            }
           >
-            {sequence.enabled ? 'On' : 'Off'}
+            {previewMode === 'focused' ? <SinglePreviewIcon /> : <TimelinePreviewIcon />}
           </button>
 
           <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
