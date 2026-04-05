@@ -9,6 +9,8 @@ interface MobileChromeProps {
   isTimelineOpen: boolean;
   uiMode: Exclude<MobileUiMode, 'hidden'>;
   activePanel: MobilePanelKey;
+  onOpenProjects: () => void;
+  onOpenShare: () => void;
   onLoadAsset: () => void;
   onOpenSettings: () => void;
   onOpenTimeline: () => void;
@@ -34,6 +36,8 @@ export function MobileChrome({
   isTimelineOpen,
   uiMode,
   activePanel,
+  onOpenProjects,
+  onOpenShare,
   onLoadAsset,
   onOpenSettings,
   onOpenTimeline,
@@ -54,6 +58,12 @@ export function MobileChrome({
           <span className="mobile-header-meta">{activeAssetName}</span>
         </button>
         <div className="button-row">
+          <button type="button" className="secondary-button" onClick={onOpenProjects}>
+            Project
+          </button>
+          <button type="button" className="secondary-button" onClick={onOpenShare}>
+            Share
+          </button>
           <button type="button" className="secondary-button" onClick={onLoadAsset}>
             Load
           </button>

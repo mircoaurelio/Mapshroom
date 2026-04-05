@@ -3035,6 +3035,96 @@ a {
   background: rgba(127, 29, 29, 0.08);
 }
 
+.project-dialog,
+.share-dialog {
+  width: min(100%, 720px);
+}
+
+.project-dialog-actions,
+.project-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.project-library-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.project-library-card,
+.project-library-empty,
+.project-share-error,
+.project-share-stats {
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(17, 17, 20, 0.52);
+}
+
+.project-library-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.project-library-card-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.project-library-card-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.project-library-card-title-row strong {
+  color: var(--text-bright);
+}
+
+.project-library-card-badge {
+  padding: 0.16rem 0.38rem;
+  border: 1px solid rgba(45, 212, 191, 0.32);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.project-library-card-meta,
+.project-library-empty,
+.project-share-stats {
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+
+.project-share-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.project-share-url {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.project-share-error {
+  margin-bottom: 1rem;
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(127, 29, 29, 0.16);
+  color: #fecaca;
+}
+
 .workspace-shell-mobile .workspace-body {
   grid-template-columns: minmax(0, 1fr);
   overflow-x: hidden;

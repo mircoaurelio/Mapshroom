@@ -8,6 +8,8 @@ import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
+import { ProjectLibraryDialog } from '../components/ProjectLibraryDialog';
+import { ShareProjectDialog } from '../components/ShareProjectDialog';
 import {
   ShaderCodeSection,
   ShaderStudioControlsSection,
@@ -44,14 +46,22 @@ import {
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import {
+  createProjectShareLink,
+  importProjectFromSharedUrl,
+  type ProjectShareLinkResult,
+} from '../lib/projectShare';
+import {
   clearPersistedSiteData,
+  loadProjectLibrary,
   deleteAssetBlob,
-  getOrCreateSessionId,
   loadProjectDocument,
+  getOrCreateSessionId,
   loadShaderSliderCache,
   loadUiPreferences,
   persistActiveSessionId,
   putAssetBlob,
+  removeProjectFromLibrary,
+  saveProjectToLibrary,
   saveProjectDocument,
   saveShaderSliderCache,
   saveUiPreferences,
@@ -64,6 +74,7 @@ import type {
   AssetRecord,
   MobileUiMode,
   ProjectDocument,
+  ProjectLibraryEntry,
   SavedShader,
   ShaderVersion,
   ShaderUniformValue,
@@ -220,6 +231,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
 
   return {
     ...project,
+    name: project.name?.trim() || defaultProject.name,
     ai: {
       settings: normalizedAiSettings,
     },
@@ -665,15 +677,22 @@ export function WorkspaceRoute() {
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
+  const [savedProjects, setSavedProjects] = useState<ProjectLibraryEntry[]>(() => loadProjectLibrary());
+  const [shareLinkState, setShareLinkState] = useState<ProjectShareLinkResult | null>(null);
+  const [isGeneratingShareLink, setIsGeneratingShareLink] = useState(false);
+  const [shareLinkError, setShareLinkError] = useState('');
   const [desktopLayout, setDesktopLayout] = useState({
     leftSidebarWidth: 360,
     rightSidebarWidth: 360,
     timelineHeight: 300,
   });
+  const hasLoadedInitialProjectRef = useRef(false);
   const generatedShaderRetryRef = useRef<Record<string, {
     sourcePrompt: string;
     code: string;
@@ -707,11 +726,47 @@ export function WorkspaceRoute() {
   }, []);
 
   useEffect(() => {
-    const sessionId = getOrCreateSessionId();
-    persistActiveSessionId(sessionId);
-    const loadedProject = loadProjectDocument(sessionId) ?? createDefaultProject(sessionId);
-    const sliderCache = loadShaderSliderCache(sessionId);
-    setProject(applyPersistedSliderCache(normalizeProject(loadedProject), sliderCache));
+    if (hasLoadedInitialProjectRef.current) {
+      return;
+    }
+
+    hasLoadedInitialProjectRef.current = true;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const importedSharedProject = await importProjectFromSharedUrl();
+        if (cancelled) {
+          return;
+        }
+
+        if (importedSharedProject) {
+          setProject(normalizeProject(importedSharedProject.project));
+          setStatusMessage(`Loaded shared project "${importedSharedProject.project.name}".`);
+          return;
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStatusMessage(
+            error instanceof Error ? error.message : 'Unable to load the shared project link.',
+          );
+        }
+      }
+
+      if (cancelled) {
+        return;
+      }
+
+      const sessionId = getOrCreateSessionId();
+      persistActiveSessionId(sessionId);
+      const loadedProject = loadProjectDocument(sessionId) ?? createDefaultProject(sessionId);
+      const sliderCache = loadShaderSliderCache(sessionId);
+      setProject(applyPersistedSliderCache(normalizeProject(loadedProject), sliderCache));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -748,6 +803,101 @@ export function WorkspaceRoute() {
   useEffect(() => {
     saveUiPreferences(uiPreferences);
   }, [uiPreferences]);
+
+  useEffect(() => {
+    if (!isProjectDialogOpen) {
+      return;
+    }
+
+    setSavedProjects(loadProjectLibrary());
+  }, [isProjectDialogOpen]);
+
+  const handleSaveProject = useCallback((name: string) => {
+    if (!project) {
+      return;
+    }
+
+    const trimmedName = name.trim() || 'Untitled Project';
+    const nextProject = {
+      ...project,
+      name: trimmedName,
+    };
+
+    setProject(nextProject);
+    saveProjectDocument(nextProject);
+    setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
+    persistActiveSessionId(nextProject.sessionId);
+    setStatusMessage(`Saved project "${trimmedName}".`);
+    setIsProjectDialogOpen(false);
+  }, [project]);
+
+  const handleOpenSavedProject = useCallback((sessionId: string) => {
+    const loadedProject = loadProjectDocument(sessionId);
+    if (!loadedProject) {
+      setStatusMessage('That saved project is no longer available on this device.');
+      setSavedProjects(removeProjectFromLibrary(sessionId));
+      return;
+    }
+
+    const sliderCache = loadShaderSliderCache(sessionId);
+    const normalizedProject = applyPersistedSliderCache(
+      normalizeProject(loadedProject),
+      sliderCache,
+    );
+    setProject(normalizedProject);
+    persistActiveSessionId(sessionId);
+    setIsProjectDialogOpen(false);
+    setStatusMessage(`Opened project "${normalizedProject.name}".`);
+  }, []);
+
+  const handleGenerateShareLink = useCallback(async () => {
+    if (!project) {
+      return;
+    }
+
+    setIsGeneratingShareLink(true);
+    setShareLinkError('');
+
+    try {
+      const nextShareLink = await createProjectShareLink(project);
+      setShareLinkState(nextShareLink);
+      setStatusMessage(`Share link ready for "${project.name}".`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to generate the project share link.';
+      setShareLinkError(message);
+      setStatusMessage(message);
+    } finally {
+      setIsGeneratingShareLink(false);
+    }
+  }, [project]);
+
+  const handleCopyShareLink = useCallback(async () => {
+    if (!shareLinkState) {
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareLinkState.url);
+      } else {
+        window.prompt('Copy the share link below.', shareLinkState.url);
+      }
+      setStatusMessage('Share link copied.');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to copy the share link.';
+      setShareLinkError(message);
+      setStatusMessage(message);
+    }
+  }, [shareLinkState]);
+
+  const handleOpenShareDialog = useCallback(() => {
+    setIsShareDialogOpen(true);
+    setShareLinkState(null);
+    setShareLinkError('');
+    void handleGenerateShareLink();
+  }, [handleGenerateShareLink]);
 
   useEffect(() => {
     const handlePointerMove = (event: MouseEvent) => {
@@ -3084,6 +3234,8 @@ ${errorSnapshot}`,
           workspaceMode={uiPreferences.workspaceMode}
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
+          onOpenProjects={() => setIsProjectDialogOpen(true)}
+          onOpenShare={handleOpenShareDialog}
           onOpenAssets={() => setIsAssetLibraryOpen(true)}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
           onPlayToggle={handlePlayToggle}
@@ -3213,6 +3365,8 @@ ${errorSnapshot}`,
           isTimelineOpen={isMobileTimelineOpen}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
+          onOpenProjects={() => setIsProjectDialogOpen(true)}
+          onOpenShare={handleOpenShareDialog}
           onLoadAsset={openFilePicker}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
           onOpenTimeline={handleOpenMobileTimeline}
@@ -3267,6 +3421,34 @@ ${errorSnapshot}`,
         onChange={updateAiSetting}
         onClearLocalData={() => {
           void handleClearLocalData();
+        }}
+      />
+
+      <ProjectLibraryDialog
+        open={isProjectDialogOpen}
+        currentProjectName={project.name}
+        activeSessionId={project.sessionId}
+        savedProjects={savedProjects}
+        onClose={() => setIsProjectDialogOpen(false)}
+        onSaveProject={handleSaveProject}
+        onOpenProject={handleOpenSavedProject}
+      />
+
+      <ShareProjectDialog
+        open={isShareDialogOpen}
+        projectName={project.name}
+        shareUrl={shareLinkState?.url ?? ''}
+        shareHash={shareLinkState?.sha256 ?? ''}
+        payloadBytes={shareLinkState?.payloadBytes ?? 0}
+        assetCount={shareLinkState?.assetCount ?? project.library.assets.length}
+        isGenerating={isGeneratingShareLink}
+        errorMessage={shareLinkError}
+        onClose={() => setIsShareDialogOpen(false)}
+        onGenerate={() => {
+          void handleGenerateShareLink();
+        }}
+        onCopy={() => {
+          void handleCopyShareLink();
         }}
       />
 

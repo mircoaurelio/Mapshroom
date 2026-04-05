@@ -4,11 +4,17 @@ import {
   ASSET_DB_NAME,
   ASSET_DB_VERSION,
   ASSET_STORE_NAME,
+  PROJECT_LIBRARY_STORAGE_KEY,
   PROJECT_STORAGE_PREFIX,
   UI_STORAGE_KEY,
 } from '../config';
 import { restoreTransport, snapshotTransport } from './clock';
-import type { ProjectDocument, ShaderUniformValueMap, UiPreferences } from '../types';
+import type {
+  ProjectDocument,
+  ProjectLibraryEntry,
+  ShaderUniformValueMap,
+  UiPreferences,
+} from '../types';
 
 let cachedDbPromise: Promise<IDBDatabase | null> | null = null;
 const SHADER_SLIDER_CACHE_PREFIX = 'mapshroom-v3:shader-sliders:';
@@ -71,6 +77,74 @@ export function saveProjectDocument(project: ProjectDocument): void {
   localStorage.setItem(getProjectStorageKey(project.sessionId), JSON.stringify(snapshot));
 }
 
+export function loadProjectLibrary(): ProjectLibraryEntry[] {
+  const raw = localStorage.getItem(PROJECT_LIBRARY_STORAGE_KEY);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as ProjectLibraryEntry[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter(
+        (entry): entry is ProjectLibraryEntry =>
+          Boolean(
+            entry &&
+              typeof entry.sessionId === 'string' &&
+              typeof entry.name === 'string' &&
+              typeof entry.createdAt === 'string' &&
+              typeof entry.updatedAt === 'string',
+          ),
+      )
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  } catch (error) {
+    console.warn('Unable to parse project library.', error);
+    return [];
+  }
+}
+
+function saveProjectLibrary(entries: ProjectLibraryEntry[]): void {
+  localStorage.setItem(PROJECT_LIBRARY_STORAGE_KEY, JSON.stringify(entries));
+}
+
+export function saveProjectToLibrary(
+  project: ProjectDocument,
+  name: string,
+): ProjectLibraryEntry[] {
+  const trimmedName = name.trim() || 'Untitled Project';
+  const now = new Date().toISOString();
+  const currentEntries = loadProjectLibrary();
+  const existingEntry = currentEntries.find((entry) => entry.sessionId === project.sessionId);
+  const nextEntry: ProjectLibraryEntry = {
+    sessionId: project.sessionId,
+    name: trimmedName,
+    createdAt: existingEntry?.createdAt ?? now,
+    updatedAt: now,
+  };
+  const nextEntries = [
+    nextEntry,
+    ...currentEntries.filter((entry) => entry.sessionId !== project.sessionId),
+  ];
+  saveProjectLibrary(nextEntries);
+  return nextEntries;
+}
+
+export function removeProjectFromLibrary(sessionId: string): ProjectLibraryEntry[] {
+  const nextEntries = loadProjectLibrary().filter((entry) => entry.sessionId !== sessionId);
+  saveProjectLibrary(nextEntries);
+  return nextEntries;
+}
+
+export function deletePersistedProject(sessionId: string): ProjectLibraryEntry[] {
+  localStorage.removeItem(getProjectStorageKey(sessionId));
+  localStorage.removeItem(getShaderSliderCacheKey(sessionId));
+  return removeProjectFromLibrary(sessionId);
+}
+
 export function loadUiPreferences<T extends UiPreferences>(fallback: T): T {
   const raw = localStorage.getItem(UI_STORAGE_KEY);
   if (!raw) {
@@ -123,6 +197,7 @@ export async function clearPersistedSiteData(): Promise<void> {
   for (const key of localStorageKeys) {
     if (
       key === ACTIVE_SESSION_KEY ||
+      key === PROJECT_LIBRARY_STORAGE_KEY ||
       key === UI_STORAGE_KEY ||
       key.startsWith(PROJECT_STORAGE_PREFIX) ||
       key.startsWith(SHADER_SLIDER_CACHE_PREFIX)

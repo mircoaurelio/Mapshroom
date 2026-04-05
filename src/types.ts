@@ -136,9 +136,17 @@ export interface ShaderChatTurn {
   text: string;
 }
 
+export interface ProjectLibraryEntry {
+  sessionId: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProjectDocument {
   version: number;
   sessionId: string;
+  name: string;
   library: {
     assets: AssetRecord[];
     activeAssetId: string | null;
