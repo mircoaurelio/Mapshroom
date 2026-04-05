@@ -1,4 +1,5 @@
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
@@ -654,6 +655,7 @@ function getTimelineStepStartSeconds(
 }
 
 export function WorkspaceRoute() {
+  const location = useLocation();
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
@@ -734,23 +736,8 @@ export function WorkspaceRoute() {
     let cancelled = false;
 
     void (async () => {
-      try {
-        const importedSharedProject = await importProjectFromSharedUrl();
-        if (cancelled) {
-          return;
-        }
-
-        if (importedSharedProject) {
-          setProject(normalizeProject(importedSharedProject.project));
-          setStatusMessage(`Loaded shared project "${importedSharedProject.project.name}".`);
-          return;
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setStatusMessage(
-            error instanceof Error ? error.message : 'Unable to load the shared project link.',
-          );
-        }
+      if (window.location.href.includes('share=')) {
+        return;
       }
 
       if (cancelled) {
@@ -768,6 +755,39 @@ export function WorkspaceRoute() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const importedSharedProject = await importProjectFromSharedUrl();
+        if (cancelled || !importedSharedProject) {
+          return;
+        }
+
+        const normalizedImportedProject = normalizeProject(importedSharedProject.project);
+        setProject(normalizedImportedProject);
+        setSavedProjects(
+          saveProjectToLibrary(normalizedImportedProject, normalizedImportedProject.name),
+        );
+        persistActiveSessionId(normalizedImportedProject.sessionId);
+        setStatusMessage(
+          `Imported shared project "${normalizedImportedProject.name}" as a new local project.`,
+        );
+      } catch (error) {
+        if (!cancelled) {
+          setStatusMessage(
+            error instanceof Error ? error.message : 'Unable to load the shared project link.',
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.hash, location.key, location.pathname, location.search]);
 
   useEffect(() => {
     if (!activeSessionId) {
