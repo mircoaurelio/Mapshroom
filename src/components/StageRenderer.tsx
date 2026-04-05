@@ -106,6 +106,7 @@ export function StageRenderer({
   const mediaSurfaceRef = useRef<HTMLDivElement | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programRef = useRef<WebGLProgram | null>(null);
+  const onCompilerErrorRef = useRef(onCompilerError);
   const textureRef = useRef<WebGLTexture | null>(null);
   const positionBufferRef = useRef<WebGLBuffer | null>(null);
   const locationsRef = useRef<ProgramLocations>(DEFAULT_LOCATIONS);
@@ -135,6 +136,10 @@ export function StageRenderer({
   }, [transport]);
 
   useEffect(() => {
+    onCompilerErrorRef.current = onCompilerError;
+  }, [onCompilerError]);
+
+  useEffect(() => {
     uniformDefinitionsRef.current = uniformDefinitions;
   }, [uniformDefinitions]);
 
@@ -150,7 +155,7 @@ export function StageRenderer({
 
     const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
     if (!gl) {
-      onCompilerError?.('WebGL is not available in this browser.');
+      onCompilerErrorRef.current?.('WebGL is not available in this browser.');
       return;
     }
 
@@ -159,7 +164,7 @@ export function StageRenderer({
     const buffer = gl.createBuffer();
     const texture = gl.createTexture();
     if (!buffer || !texture) {
-      onCompilerError?.('Unable to allocate the WebGL buffers.');
+      onCompilerErrorRef.current?.('Unable to allocate the WebGL buffers.');
       return;
     }
 
@@ -205,7 +210,7 @@ export function StageRenderer({
       }
       glRef.current = null;
     };
-  }, [onCompilerError]);
+  }, []);
 
   useEffect(() => {
     const surface = mediaSurfaceRef.current;
@@ -299,12 +304,12 @@ export function StageRenderer({
 
       gl.deleteShader(vertexShader);
       gl.deleteShader(fragmentShader);
-      onCompilerError?.('');
+      onCompilerErrorRef.current?.('');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
-      onCompilerError?.(`GLSL Error: ${message}`);
+      onCompilerErrorRef.current?.(`GLSL Error: ${message}`);
     }
-  }, [shaderCode, shaderCompileNonce, uniformDefinitions, onCompilerError]);
+  }, [shaderCode, shaderCompileNonce, uniformDefinitions]);
 
   useEffect(() => {
     let disposed = false;
