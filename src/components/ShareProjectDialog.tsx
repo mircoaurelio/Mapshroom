@@ -4,7 +4,7 @@ interface ShareProjectDialogProps {
   shareUrl: string;
   shareHash: string;
   payloadBytes: number;
-  assetCount: number;
+  shaderCount: number;
   isGenerating: boolean;
   errorMessage: string;
   onClose: () => void;
@@ -34,7 +34,7 @@ export function ShareProjectDialog({
   shareUrl,
   shareHash,
   payloadBytes,
-  assetCount,
+  shaderCount,
   isGenerating,
   errorMessage,
   onClose,
@@ -70,12 +70,13 @@ export function ShareProjectDialog({
 
         <div className="dialog-body">
           <p className="dialog-note">
-            The share link contains the full project plus imported asset data, compressed for the URL
-            and signed with SHA-256 integrity metadata.
+            The share link contains project settings, timeline state, and shaders only. Imported
+            assets are excluded, and the payload is compressed for the URL with SHA-256 integrity
+            metadata.
           </p>
 
           <div className="project-share-stats">
-            <span>{assetCount} asset{assetCount === 1 ? '' : 's'}</span>
+            <span>{shaderCount} shader{shaderCount === 1 ? '' : 's'}</span>
             <span>{formatPayloadBytes(payloadBytes)}</span>
           </div>
 
