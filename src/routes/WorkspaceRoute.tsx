@@ -3111,6 +3111,18 @@ ${errorSnapshot}`,
     />
   );
 
+  const sharedTimelineShaderCount = useMemo(() => {
+    const shaderIds = new Set(
+      project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
+    );
+
+    if (shaderIds.size === 0 && project.studio.activeShaderId) {
+      shaderIds.add(project.studio.activeShaderId);
+    }
+
+    return shaderIds.size;
+  }, [project.timeline.stub.shaderSequence.steps, project.studio.activeShaderId]);
+
   const useDesktopPaneLayout = !isMobile && uiPreferences.chromeVisible;
   const desktopGridTemplateColumns = `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
   const desktopMainTopGridTemplateColumns = uiPreferences.sidebarVisible
@@ -3440,7 +3452,7 @@ ${errorSnapshot}`,
         shareUrl={shareLinkState?.url ?? ''}
         shareHash={shareLinkState?.sha256 ?? ''}
         payloadBytes={shareLinkState?.payloadBytes ?? 0}
-        shaderCount={shareLinkState?.shaderCount ?? project.studio.savedShaders.length}
+        shaderCount={shareLinkState?.shaderCount ?? sharedTimelineShaderCount}
         isGenerating={isGeneratingShareLink}
         errorMessage={shareLinkError}
         onClose={() => setIsShareDialogOpen(false)}
