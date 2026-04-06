@@ -229,7 +229,7 @@ function getTimelineTransitionSegments({
   stepSegments: TimelineStepSegment[];
 }): TimelineTransitionSegment[] {
   const totalDurationSeconds = getShaderTimelineDuration(sequence.steps);
-  if (stepSegments.length <= 1 || totalDurationSeconds <= 0) {
+  if (sequence.mode === 'double' || stepSegments.length <= 1 || totalDurationSeconds <= 0) {
     return [];
   }
 
@@ -309,8 +309,9 @@ export function TimelineBar({
   const stepTrackRef = useRef<HTMLDivElement | null>(null);
   const baseDurationSeconds =
     Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
+  const transitionsEnabled = sequence.mode !== 'double';
   const usesSharedTransition =
-    sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled;
+    transitionsEnabled && (sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled);
 
   useEffect(() => {
     if (!transport.isPlaying) {

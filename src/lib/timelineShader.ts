@@ -115,3 +115,28 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     return mixTimelineTransition(fromColor, toColor, uv, progress);
 }`;
 }
+
+export function buildTimelineDoubleShaderCode({
+  primaryCode,
+  secondaryCode,
+}: {
+  primaryCode: string;
+  secondaryCode: string;
+}): string {
+  const leftCode = namespaceShaderCode(primaryCode, 'timeline_primary');
+  const rightCode = namespaceShaderCode(secondaryCode, 'timeline_secondary');
+
+  return `// NAME: Timeline Double
+${leftCode}
+
+${rightCode}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec4 primaryColor = timeline_primary_processColor(tex, uv, time, resolution);
+    vec4 secondaryColor = timeline_secondary_processColor(tex, uv, time, resolution);
+    return vec4(
+        mix(primaryColor.rgb, secondaryColor.rgb, 0.5),
+        mix(primaryColor.a, secondaryColor.a, 0.5)
+    );
+}`;
+}

@@ -12,6 +12,7 @@ export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
   { value: 'sequence', label: 'Sequence' },
   { value: 'random', label: 'Random' },
   { value: 'randomMix', label: 'Random Mix' },
+  { value: 'double', label: 'Double' },
 ];
 
 export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{

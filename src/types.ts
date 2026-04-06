@@ -6,7 +6,7 @@ export type WorkspaceMode = 'split' | 'immersive';
 export type ShaderProvider = 'openai' | 'google';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
 export type TimelineTransitionEffect = 'cut' | 'mix' | 'wipe' | 'radial' | 'glitch';
-export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix';
+export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix' | 'double';
 export type TimelineEditorViewMode = 'simple' | 'advanced';
 export type TimelineStagePreviewMode = 'timeline' | 'focused';
 
