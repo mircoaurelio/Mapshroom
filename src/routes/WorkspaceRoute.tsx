@@ -2930,6 +2930,8 @@ ${errorSnapshot}`,
               ? 'Random Flow'
               : timelineStub.shaderSequence.mode === 'randomMix'
                 ? 'Random Mix'
+                : timelineStub.shaderSequence.mode === 'double'
+                  ? 'Double Flow'
                 : 'Shader Flow',
           type: timelineStub.shaderSequence.mode,
         },

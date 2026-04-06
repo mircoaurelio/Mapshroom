@@ -7,7 +7,10 @@ import {
   hasShaderCompileError,
 } from '../lib/shaderState';
 import { resolveShaderTimelineState } from '../lib/timeline';
-import { buildTimelineTransitionShaderCode } from '../lib/timelineShader';
+import {
+  buildTimelineDoubleShaderCode,
+  buildTimelineTransitionShaderCode,
+} from '../lib/timelineShader';
 import type {
   PlaybackTransport,
   SavedShader,
@@ -20,6 +23,8 @@ import { StageRenderer } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 
 const EMPTY_UNIFORM_VALUES: ShaderUniformValueMap = {};
+
+type TimelineRenderDescriptorKind = 'single' | 'transition' | 'double';
 
 function applyNamespacedUniformValues({
   baseValues,
@@ -216,7 +221,7 @@ export function TimelineStageRenderer({
 
       return {
         shaderCode: focusedShaderCode,
-        isTransitionShader: false,
+        kind: 'single' as TimelineRenderDescriptorKind,
         uniformValues: focusedUniformValues,
         usedFallback:
           !preferActiveShaderCompilePreview &&
@@ -227,9 +232,36 @@ export function TimelineStageRenderer({
     if (!timelineState) {
       return {
         shaderCode: previewActiveShaderCode,
-        isTransitionShader: false,
+        kind: 'single' as TimelineRenderDescriptorKind,
         uniformValues: previewActiveUniformValues,
         usedFallback: !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
+      };
+    }
+
+    if (shaderSequence.mode === 'double' && timelineState.nextShader) {
+      const currentShaderCode =
+        preferActiveShaderCompilePreview && timelineState.currentShader.id === activeShaderId
+          ? activeShaderCode
+          : getRenderableShaderCode(timelineState.currentShader);
+      const nextShaderCode =
+        preferActiveShaderCompilePreview && timelineState.nextShader.id === activeShaderId
+          ? activeShaderCode
+          : getRenderableShaderCode(timelineState.nextShader);
+      const currentUsesFallback =
+        !(preferActiveShaderCompilePreview && timelineState.currentShader.id === activeShaderId) &&
+        hasShaderCompileError(timelineState.currentShader);
+      const nextUsesFallback =
+        !(preferActiveShaderCompilePreview && timelineState.nextShader.id === activeShaderId) &&
+        hasShaderCompileError(timelineState.nextShader);
+
+      return {
+        shaderCode: buildTimelineDoubleShaderCode({
+          primaryCode: currentShaderCode,
+          secondaryCode: nextShaderCode,
+        }),
+        kind: 'double' as TimelineRenderDescriptorKind,
+        uniformValues: EMPTY_UNIFORM_VALUES,
+        usedFallback: currentUsesFallback || nextUsesFallback,
       };
     }
 
@@ -259,7 +291,7 @@ export function TimelineStageRenderer({
           toCode: nextShaderCode,
           effect: timelineState.transitionEffect,
         }),
-        isTransitionShader: true,
+        kind: 'transition' as TimelineRenderDescriptorKind,
         uniformValues: EMPTY_UNIFORM_VALUES,
         usedFallback: currentUsesFallback || nextUsesFallback,
       };
@@ -270,7 +302,7 @@ export function TimelineStageRenderer({
         preferActiveShaderCompilePreview && timelineState.currentShader.id === activeShaderId
           ? activeShaderCode
           : getRenderableShaderCode(timelineState.currentShader),
-      isTransitionShader: false,
+      kind: 'single' as TimelineRenderDescriptorKind,
       uniformValues:
         timelineState.currentShader.id === activeShaderId
           ? previewActiveUniformValues
@@ -288,6 +320,7 @@ export function TimelineStageRenderer({
     focusedSequenceShader,
     isOutputOnly,
     preferActiveShaderCompilePreview,
+    shaderSequence.mode,
     workspaceFocusedPreviewEnabled,
     timelineState?.currentShader.code,
     timelineState?.currentShader.id,
@@ -369,25 +402,26 @@ export function TimelineStageRenderer({
   );
 
   const renderUniformValues = useMemo(() => {
-    if (!renderDescriptor.isTransitionShader) {
+    if (renderDescriptor.kind === 'single') {
       return baseUniformValues;
     }
 
-    let nextValues: ShaderUniformValueMap = {
-      ...baseUniformValues,
-      u_transition_progress: timelineState?.transitionProgress ?? 0,
-    };
+    let nextValues: ShaderUniformValueMap = { ...baseUniformValues };
+
+    if (renderDescriptor.kind === 'transition') {
+      nextValues.u_transition_progress = timelineState?.transitionProgress ?? 0;
+    }
 
     nextValues = applyNamespacedUniformValues({
       baseValues: nextValues,
       sourceValues: currentTimelineUniformValues,
-      namespace: 'timeline_from',
+      namespace: renderDescriptor.kind === 'double' ? 'timeline_primary' : 'timeline_from',
     });
 
     nextValues = applyNamespacedUniformValues({
       baseValues: nextValues,
       sourceValues: nextTimelineUniformValues,
-      namespace: 'timeline_to',
+      namespace: renderDescriptor.kind === 'double' ? 'timeline_secondary' : 'timeline_to',
     });
 
     return nextValues;
@@ -395,7 +429,7 @@ export function TimelineStageRenderer({
     baseUniformValues,
     currentTimelineUniformValues,
     nextTimelineUniformValues,
-    renderDescriptor.isTransitionShader,
+    renderDescriptor.kind,
     timelineState?.transitionProgress,
   ]);
 
