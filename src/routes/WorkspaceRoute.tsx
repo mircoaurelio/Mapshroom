@@ -2734,6 +2734,8 @@ ${errorSnapshot}`,
     options?: {
       suppressStatus?: boolean;
       focusStudioOnMobile?: boolean;
+      stagePreviewMode?: TimelineStagePreviewMode;
+      seekTimeSeconds?: number | null;
     },
   ) {
     let nextStatusMessage = '';
@@ -2818,12 +2820,25 @@ ${errorSnapshot}`,
             stub: {
               ...currentProject.timeline.stub,
               shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              focusedStepId: stepId,
-              steps: nextSteps,
+                ...currentProject.timeline.stub.shaderSequence,
+                stagePreviewMode:
+                  options?.stagePreviewMode ??
+                  currentProject.timeline.stub.shaderSequence.stagePreviewMode,
+                focusedStepId: stepId,
+                steps: nextSteps,
+              },
             },
           },
-          },
+          playback:
+            options?.seekTimeSeconds !== undefined && options.seekTimeSeconds !== null
+              ? {
+                  ...currentProject.playback,
+                  transport: seekTransport(
+                    currentProject.playback.transport,
+                    options.seekTimeSeconds,
+                  ),
+                }
+              : currentProject.playback,
         },
         [editableShader.id],
       );
@@ -2852,24 +2867,12 @@ ${errorSnapshot}`,
       project?.timeline.stub.shaderSequence.steps ?? [],
       stepId,
     );
-    void selectTimelineStepForEditing(stepId);
-    if (
-      project &&
-      (project.timeline.stub.shaderSequence.mode !== 'sequence' ||
-        project.timeline.stub.shaderSequence.randomChoiceEnabled)
-    ) {
-      handleTimelineStagePreviewModeChange('focused');
-    }
-    if (nextTimeSeconds !== null) {
-      handleTimelineSeek(nextTimeSeconds);
-    }
+    void selectTimelineStepForEditing(stepId, {
+      stagePreviewMode: 'focused',
+      seekTimeSeconds: nextTimeSeconds,
+    });
   }, [
-    handleTimelineSeek,
-    handleTimelineStagePreviewModeChange,
-    project,
-    project?.timeline.stub.shaderSequence.randomChoiceEnabled,
     project?.timeline.stub.shaderSequence.steps,
-    project?.timeline.stub.shaderSequence.mode,
     selectTimelineStepForEditing,
   ]);
 
