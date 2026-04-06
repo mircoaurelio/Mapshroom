@@ -80,6 +80,7 @@ export function TimelineStageRenderer({
   onCompilerError,
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
+  const workspaceFocusedPreviewEnabled = forceActiveShaderPreview && !isOutputOnly;
   const availableShaders = useMemo(() => {
     const liveShader = {
       ...savedShaders.find((shader) => shader.id === activeShaderId),
@@ -111,13 +112,28 @@ export function TimelineStageRenderer({
     steps: [],
   };
   const sequenceEnabled = shaderSequence.steps.length > 0;
+  const shouldResolveLiveTimelineState = sequenceEnabled && !workspaceFocusedPreviewEnabled;
   const activeSavedShader = useMemo(
     () => availableShaders.find((shader) => shader.id === activeShaderId) ?? null,
     [activeShaderId, availableShaders],
   );
+  const focusedSequenceShader = useMemo(() => {
+    const focusedStepId = shaderSequence.focusedStepId ?? null;
+    if (!focusedStepId) {
+      return null;
+    }
+
+    const focusedStep =
+      shaderSequence.steps.find((step) => step.id === focusedStepId) ?? null;
+    if (!focusedStep) {
+      return null;
+    }
+
+    return availableShaders.find((shader) => shader.id === focusedStep.shaderId) ?? null;
+  }, [availableShaders, shaderSequence.focusedStepId, shaderSequence.steps]);
 
   useEffect(() => {
-    if (!sequenceEnabled || !transport.isPlaying) {
+    if (!shouldResolveLiveTimelineState || !transport.isPlaying) {
       setTimelineNowMs(performance.now());
       return;
     }
@@ -131,7 +147,7 @@ export function TimelineStageRenderer({
     frameId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frameId);
   }, [
-    sequenceEnabled,
+    shouldResolveLiveTimelineState,
     transport.anchorTimestampMs,
     transport.currentTimeSeconds,
     transport.isPlaying,
@@ -140,7 +156,7 @@ export function TimelineStageRenderer({
   ]);
 
   const timelineState = useMemo(() => {
-    if (!sequenceEnabled) {
+    if (!shouldResolveLiveTimelineState) {
       return null;
     }
 
@@ -159,7 +175,7 @@ export function TimelineStageRenderer({
     });
   }, [
     availableShaders,
-    sequenceEnabled,
+    shouldResolveLiveTimelineState,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
     shaderSequence.randomChoiceEnabled,
@@ -186,12 +202,25 @@ export function TimelineStageRenderer({
       ? syncUniformValues(activeUniformValues, parseUniforms(activeShaderCode))
       : renderableActiveUniformValues;
 
-    if (forceActiveShaderPreview && !isOutputOnly) {
+    if (workspaceFocusedPreviewEnabled) {
+      const focusedShader = focusedSequenceShader ?? activeSavedShader;
+      const focusedShaderIsActive = focusedShader?.id === activeShaderId;
+      const focusedShaderCode =
+        focusedShader && !(preferActiveShaderCompilePreview && focusedShaderIsActive)
+          ? getRenderableShaderCode(focusedShader)
+          : previewActiveShaderCode;
+      const focusedUniformValues =
+        focusedShader && !(preferActiveShaderCompilePreview && focusedShaderIsActive)
+          ? getRenderableShaderUniformValues(focusedShader)
+          : previewActiveUniformValues;
+
       return {
-        shaderCode: previewActiveShaderCode,
+        shaderCode: focusedShaderCode,
         isTransitionShader: false,
-        uniformValues: previewActiveUniformValues,
-        usedFallback: !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
+        uniformValues: focusedUniformValues,
+        usedFallback:
+          !preferActiveShaderCompilePreview &&
+          hasShaderCompileError(focusedShader ?? activeSavedShader),
       };
     }
 
@@ -256,9 +285,10 @@ export function TimelineStageRenderer({
     activeShaderId,
     activeUniformValues,
     activeSavedShader,
-    forceActiveShaderPreview,
+    focusedSequenceShader,
     isOutputOnly,
     preferActiveShaderCompilePreview,
+    workspaceFocusedPreviewEnabled,
     timelineState?.currentShader.code,
     timelineState?.currentShader.id,
     timelineState?.currentShader.uniformValues,
