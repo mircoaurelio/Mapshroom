@@ -22,6 +22,7 @@ import { StageRenderer, type StageRenderLayer } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 
 const DOUBLE_SECONDARY_SPEED = 1.35;
+const PRELOAD_TRANSITION_PROGRESS = 0.001;
 
 type TimelineRenderLayerKind = 'single' | 'transition';
 
@@ -45,6 +46,11 @@ function prefixUniformValueKeys({
   }
 
   return nextValues;
+}
+
+function easeTransitionProgress(progress: number): number {
+  const clamped = Math.max(0, Math.min(1, progress));
+  return clamped * clamped * (3 - 2 * clamped);
 }
 
 interface TimelineStageRendererProps {
@@ -305,7 +311,7 @@ export function TimelineStageRenderer({
           effect: state.transitionEffect,
         }),
         uniformValues: {
-          u_transition_progress: state.transitionProgress,
+          u_transition_progress: easeTransitionProgress(state.transitionProgress),
           ...prefixUniformValueKeys({
             sourceValues: currentLayer.uniformValues,
             namespace: 'timeline_from',
@@ -320,6 +326,55 @@ export function TimelineStageRenderer({
     }
 
     return currentLayer;
+  };
+
+  const buildTransitionPreloadLayer = (
+    state: NonNullable<typeof timelineState>,
+  ): StageRenderLayer | null => {
+    if (!state.nextShader || state.transitionEffect === 'cut') {
+      return null;
+    }
+
+    const currentLayer = resolveSingleShaderLayer(state.currentShader);
+    const nextLayer = resolveSingleShaderLayer(state.nextShader);
+    const shaderCode = buildTimelineTransitionShaderCode({
+      fromCode: currentLayer.shaderCode,
+      toCode: nextLayer.shaderCode,
+      effect: state.transitionEffect,
+    });
+
+    return {
+      shaderCode,
+      uniformDefinitions: parseUniforms(shaderCode),
+      uniformValues: {
+        u_transition_progress: PRELOAD_TRANSITION_PROGRESS,
+        ...prefixUniformValueKeys({
+          sourceValues: currentLayer.uniformValues,
+          namespace: 'timeline_from',
+        }),
+        ...prefixUniformValueKeys({
+          sourceValues: nextLayer.uniformValues,
+          namespace: 'timeline_to',
+        }),
+      },
+      opacity: 1,
+    };
+  };
+
+  const buildNextSinglePreloadLayer = (
+    state: NonNullable<typeof timelineState>,
+  ): StageRenderLayer | null => {
+    if (!state.nextShader) {
+      return null;
+    }
+
+    const nextLayer = resolveSingleShaderLayer(state.nextShader);
+    return {
+      shaderCode: nextLayer.shaderCode,
+      uniformDefinitions: parseUniforms(nextLayer.shaderCode),
+      uniformValues: nextLayer.uniformValues,
+      opacity: 1,
+    };
   };
 
   const stageRenderLayers = useMemo<StageRenderLayer[]>(() => {
@@ -397,6 +452,41 @@ export function TimelineStageRenderer({
     opacity: 1,
   };
 
+  const preloadStageLayers = useMemo<StageRenderLayer[]>(() => {
+    if (workspaceFocusedPreviewEnabled || !timelineState) {
+      return [];
+    }
+
+    const preloadCandidates: Array<StageRenderLayer | null> = [
+      buildTransitionPreloadLayer(timelineState),
+      buildNextSinglePreloadLayer(timelineState),
+    ];
+
+    if (shaderSequence.mode === 'double' && secondaryTimelineState) {
+      preloadCandidates.push(
+        buildTransitionPreloadLayer(secondaryTimelineState),
+        buildNextSinglePreloadLayer(secondaryTimelineState),
+      );
+    }
+
+    const visibleShaderCodes = new Set(stageRenderLayers.map((layer) => layer.shaderCode));
+    const dedupedPreloads = new Map<string, StageRenderLayer>();
+    for (const candidate of preloadCandidates) {
+      if (!candidate || visibleShaderCodes.has(candidate.shaderCode)) {
+        continue;
+      }
+      dedupedPreloads.set(candidate.shaderCode, candidate);
+    }
+
+    return Array.from(dedupedPreloads.values());
+  }, [
+    secondaryTimelineState,
+    shaderSequence.mode,
+    stageRenderLayers,
+    timelineState,
+    workspaceFocusedPreviewEnabled,
+  ]);
+
   const usedFallback = useMemo(
     () => {
       if (workspaceFocusedPreviewEnabled) {
@@ -431,6 +521,7 @@ export function TimelineStageRenderer({
       assetUrl={assetUrl}
       assetUrlStatus={assetUrlStatus}
       renderLayers={stageRenderLayers}
+      preloadLayers={preloadStageLayers}
       shaderCode={renderDescriptor.shaderCode}
       shaderCompileNonce={shaderCompileNonce}
       uniformDefinitions={renderDescriptor.uniformDefinitions}
