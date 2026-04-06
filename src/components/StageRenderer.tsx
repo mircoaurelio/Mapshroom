@@ -28,6 +28,7 @@ interface StageRendererProps {
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   renderLayers?: StageRenderLayer[];
+  preloadLayers?: StageRenderLayer[];
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
@@ -165,6 +166,7 @@ export function StageRenderer({
   uniformDefinitions,
   uniformValues,
   renderLayers,
+  preloadLayers,
   stageTransform,
   transport,
   isOutputOnly = false,
@@ -188,6 +190,8 @@ export function StageRenderer({
   const lastVideoTextureTimeRef = useRef<number | null>(null);
   const mediaAspectRatioRef = useRef<number | null>(null);
   const transportRef = useRef(transport);
+  const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
+  const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
@@ -225,12 +229,20 @@ export function StageRenderer({
           ],
     [renderLayers, shaderCode, uniformDefinitions, uniformValues],
   );
+  const resolvedPreloadLayers = useMemo<StageRenderLayer[]>(
+    () => preloadLayers ?? [],
+    [preloadLayers],
+  );
   const renderLayerShaderSignature = useMemo(
-    () => resolvedRenderLayers.map((layer) => layer.shaderCode).join('\u0001'),
-    [resolvedRenderLayers],
+    () =>
+      [...resolvedRenderLayers, ...resolvedPreloadLayers]
+        .map((layer) => layer.shaderCode)
+        .join('\u0001'),
+    [resolvedPreloadLayers, resolvedRenderLayers],
   );
 
   useEffect(() => {
+    resolvedRenderLayersRef.current = resolvedRenderLayers;
     const compiledByKey = new Map(
       compiledLayersRef.current.map((layer) => [layer.key, layer] as const),
     );
@@ -252,6 +264,10 @@ export function StageRenderer({
       ];
     });
   }, [resolvedRenderLayers]);
+
+  useEffect(() => {
+    resolvedPreloadLayersRef.current = resolvedPreloadLayers;
+  }, [resolvedPreloadLayers]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -374,11 +390,25 @@ export function StageRenderer({
       return;
     }
 
+    const requiredLayers = [
+      ...resolvedRenderLayersRef.current,
+      ...resolvedPreloadLayersRef.current,
+    ];
+    const requiredShaderCodes = new Set(requiredLayers.map((layer) => layer.shaderCode));
+    for (const [key, cachedProgram] of programCacheRef.current.entries()) {
+      if (requiredShaderCodes.has(key)) {
+        continue;
+      }
+
+      gl.deleteProgram(cachedProgram.program);
+      programCacheRef.current.delete(key);
+    }
+
     const nextCompiledLayers: CompiledRenderLayer[] = [];
     let firstError = '';
 
     try {
-      for (const [index, layer] of resolvedRenderLayers.entries()) {
+      for (const [index, layer] of requiredLayers.entries()) {
         const key = layer.shaderCode;
         let cachedProgram = programCacheRef.current.get(key);
 
@@ -387,13 +417,15 @@ export function StageRenderer({
           programCacheRef.current.set(key, cachedProgram);
         }
 
-        nextCompiledLayers.push({
-          ...layer,
-          opacity: Number.isFinite(layer.opacity) ? Number(layer.opacity) : 1,
-          key: `${key}:${index}`,
-          program: cachedProgram.program,
-          locations: cachedProgram.locations,
-        });
+        if (index < resolvedRenderLayersRef.current.length) {
+          nextCompiledLayers.push({
+            ...layer,
+            opacity: Number.isFinite(layer.opacity) ? Number(layer.opacity) : 1,
+            key: `${key}:${index}`,
+            program: cachedProgram.program,
+            locations: cachedProgram.locations,
+          });
+        }
       }
     } catch (error) {
       firstError = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
