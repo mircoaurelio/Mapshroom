@@ -64,6 +64,16 @@ function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: strin
   return shader;
 }
 
+function disposeVideoElement(video: HTMLVideoElement | null | undefined) {
+  if (!video) {
+    return;
+  }
+
+  video.pause();
+  video.src = '';
+  video.load();
+}
+
 function syncVideoToTransport(
   video: HTMLVideoElement,
   transport: PlaybackTransport,
@@ -122,6 +132,7 @@ export function StageRenderer({
   const uniformValuesRef = useRef(uniformValues);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
+  const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
   const assetId = asset?.id ?? null;
   const assetKind = asset?.kind ?? null;
   const assetName = asset?.name ?? null;
@@ -318,22 +329,20 @@ export function StageRenderer({
 
   useEffect(() => {
     let disposed = false;
-    imageRef.current = null;
-    mediaAspectRatioRef.current = null;
-    textureUploadPendingRef.current = true;
-    lastVideoTextureTimeRef.current = null;
-    setMediaAspectRatio(null);
-
-    const existingVideo = videoRef.current;
-    if (existingVideo) {
-      existingVideo.pause();
-      existingVideo.src = '';
-      existingVideo.load();
-      videoRef.current = null;
-    }
+    const previouslyBufferedMedia =
+      hasBufferedMedia || Boolean(imageRef.current) || Boolean(videoRef.current);
 
     if (!assetId || !assetKind || !assetUrl) {
+      const existingVideo = videoRef.current;
+      imageRef.current = null;
+      videoRef.current = null;
+      mediaAspectRatioRef.current = null;
+      textureUploadPendingRef.current = true;
+      lastVideoTextureTimeRef.current = null;
+      setMediaAspectRatio(null);
+      setHasBufferedMedia(false);
       setRenderStatus('No asset loaded');
+      disposeVideoElement(existingVideo);
       return undefined;
     }
 
@@ -346,15 +355,20 @@ export function StageRenderer({
         if (disposed) {
           return;
         }
+        const existingVideo = videoRef.current;
         imageRef.current = image;
+        videoRef.current = null;
         const nextAspectRatio =
           image.naturalWidth > 0 && image.naturalHeight > 0
             ? image.naturalWidth / image.naturalHeight
             : null;
         mediaAspectRatioRef.current = nextAspectRatio;
         textureUploadPendingRef.current = true;
+        lastVideoTextureTimeRef.current = null;
         setMediaAspectRatio(nextAspectRatio);
+        setHasBufferedMedia(true);
         setRenderStatus(assetName ?? 'Image asset');
+        disposeVideoElement(existingVideo);
       };
 
       image.onload = handleImageReady;
@@ -362,7 +376,10 @@ export function StageRenderer({
         if (disposed) {
           return;
         }
-        imageRef.current = null;
+        if (!previouslyBufferedMedia) {
+          imageRef.current = null;
+          setHasBufferedMedia(false);
+        }
         setRenderStatus('Unable to load image asset');
       };
 
@@ -385,9 +402,6 @@ export function StageRenderer({
         disposed = true;
         image.onload = null;
         image.onerror = null;
-        if (imageRef.current === image) {
-          imageRef.current = null;
-        }
       };
     }
 
@@ -400,12 +414,16 @@ export function StageRenderer({
       if (disposed) {
         return;
       }
+      imageRef.current = null;
+      const existingVideo = videoRef.current;
+      videoRef.current = video;
       const nextAspectRatio =
         video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth / video.videoHeight : null;
       mediaAspectRatioRef.current = nextAspectRatio;
       textureUploadPendingRef.current = true;
       lastVideoTextureTimeRef.current = null;
       setMediaAspectRatio(nextAspectRatio);
+      setHasBufferedMedia(true);
       setRenderStatus(assetName ?? 'Video asset');
       const currentTransport = transportRef.current;
       const targetTime = getTransportTimeSeconds(currentTransport);
@@ -415,23 +433,26 @@ export function StageRenderer({
       if (currentTransport.isPlaying) {
         void video.play().catch(() => {});
       }
+      if (existingVideo && existingVideo !== video) {
+        disposeVideoElement(existingVideo);
+      }
     };
     video.onerror = () => {
       if (disposed) {
         return;
       }
+      if (!previouslyBufferedMedia) {
+        videoRef.current = null;
+        setHasBufferedMedia(false);
+      }
       setRenderStatus('Unable to load video asset');
     };
-    videoRef.current = video;
     return () => {
       disposed = true;
       video.onloadeddata = null;
       video.onerror = null;
-      video.pause();
-      video.src = '';
-      video.load();
-      if (videoRef.current === video) {
-        videoRef.current = null;
+      if (videoRef.current !== video) {
+        disposeVideoElement(video);
       }
     };
   }, [assetId, assetKind, assetName, assetUrl]);
@@ -578,7 +599,8 @@ export function StageRenderer({
     [stageTransform],
   );
 
-  const showEmptyState = !asset || assetUrlStatus === 'loading' || assetUrlStatus === 'missing';
+  const showEmptyState =
+    !asset || assetUrlStatus === 'missing' || (assetUrlStatus === 'loading' && !hasBufferedMedia);
   const emptyStateCopy = !asset
     ? 'Load an image or video to drive the stage.'
     : assetUrlStatus === 'loading'
