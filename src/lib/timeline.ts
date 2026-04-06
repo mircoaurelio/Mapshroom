@@ -210,17 +210,21 @@ export function getTimelineCycleSteps({
   mode,
   steps,
   cycleIndex,
+  randomSeedSalt = '',
 }: {
   mode: TimelineSequenceMode;
   steps: TimelineStub['shaderSequence']['steps'];
   cycleIndex: number;
+  randomSeedSalt?: string;
 }): TimelineStub['shaderSequence']['steps'] {
-  if ((mode !== 'random' && mode !== 'randomMix') || steps.length <= 1) {
+  if ((mode !== 'random' && mode !== 'randomMix' && mode !== 'double') || steps.length <= 1) {
     return steps;
   }
 
   const nextSteps = [...steps];
-  const seed = hashTimelineSeed(`${cycleIndex}:${steps.map((step) => step.id).join('|')}`);
+  const seed = hashTimelineSeed(
+    `${mode}:${randomSeedSalt}:${cycleIndex}:${steps.map((step) => step.id).join('|')}`,
+  );
   const random = createDeterministicRandom(seed);
 
   for (let index = nextSteps.length - 1; index > 0; index -= 1) {
@@ -257,6 +261,7 @@ export function resolveShaderTimelineState({
   steps,
   timeSeconds,
   loop,
+  randomSeedSalt = '',
 }: {
   shaders: SavedShader[];
   mode: TimelineSequenceMode;
@@ -269,6 +274,7 @@ export function resolveShaderTimelineState({
   steps: TimelineStub['shaderSequence']['steps'];
   timeSeconds: number;
   loop: boolean;
+  randomSeedSalt?: string;
 }): TimelineResolution | null {
   if (!steps.length || !shaders.length) {
     return null;
@@ -283,7 +289,8 @@ export function resolveShaderTimelineState({
   const focusedStep = getFocusedTimelineStep(validSteps, focusedStepId);
   const playbackSteps =
     singleStepLoopEnabled && focusedStep ? [focusedStep] : validSteps;
-  const effectiveMode = randomChoiceEnabled ? 'random' : mode;
+  const effectiveMode =
+    mode === 'double' ? 'randomMix' : randomChoiceEnabled ? 'random' : mode;
   const usesSharedTransition =
     effectiveMode === 'randomMix' || sharedTransitionEnabled;
 
@@ -300,6 +307,7 @@ export function resolveShaderTimelineState({
     mode: effectiveMode,
     steps: playbackSteps,
     cycleIndex,
+    randomSeedSalt,
   });
   let resolvedTime = loop
     ? absoluteTimeSeconds % totalDurationSeconds

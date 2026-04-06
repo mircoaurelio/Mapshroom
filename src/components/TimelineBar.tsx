@@ -309,9 +309,10 @@ export function TimelineBar({
   const stepTrackRef = useRef<HTMLDivElement | null>(null);
   const baseDurationSeconds =
     Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
-  const transitionsEnabled = sequence.mode !== 'double';
   const usesSharedTransition =
-    transitionsEnabled && (sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled);
+    sequence.mode === 'randomMix' ||
+    sequence.mode === 'double' ||
+    sequence.sharedTransitionEnabled;
 
   useEffect(() => {
     if (!transport.isPlaying) {

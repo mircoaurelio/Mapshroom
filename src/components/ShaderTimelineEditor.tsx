@@ -247,7 +247,7 @@ export function ShaderTimelineEditor({
     sequence.mode === 'randomMix'
       ? 'Random Mix'
       : sequence.mode === 'double'
-        ? 'Double Shader Flow'
+        ? 'Double Mix'
       : sequence.mode === 'random'
         ? 'Random Shader Flow'
         : 'Shader Sequence';
@@ -288,10 +288,10 @@ export function ShaderTimelineEditor({
     return Array.from(nextShaders.values());
   }, [sequence.steps, shaderMap]);
   const isAdvancedView = sequence.editorView === 'advanced';
-  const transitionsEnabled = sequence.mode !== 'double';
-  const sharedTransitionLocked = sequence.mode === 'randomMix';
+  const sharedTransitionLocked =
+    sequence.mode === 'randomMix' || sequence.mode === 'double';
   const usesSharedTransition =
-    transitionsEnabled && (sharedTransitionLocked || sequence.sharedTransitionEnabled);
+    sharedTransitionLocked || sequence.sharedTransitionEnabled;
   const flowStripStyle = useMemo(
     () =>
       ({
@@ -502,70 +502,70 @@ export function ShaderTimelineEditor({
             ))}
           </div>
 
-          {transitionsEnabled ? (
-            <div className="timeline-shared-transition-toolbar">
-              <button
-                type="button"
-                className={`toggle-chip timeline-shared-transition-toggle ${
-                  usesSharedTransition ? 'toggle-chip-active' : ''
-                }`}
-                disabled={sharedTransitionLocked}
-                title={
-                  sharedTransitionLocked
+          <div className="timeline-shared-transition-toolbar">
+            <button
+              type="button"
+              className={`toggle-chip timeline-shared-transition-toggle ${
+                usesSharedTransition ? 'toggle-chip-active' : ''
+              }`}
+              disabled={sharedTransitionLocked}
+              title={
+                sequence.mode === 'double'
+                  ? 'Double Mix keeps one shared transition while two random shader streams move at different speeds.'
+                  : sharedTransitionLocked
                     ? 'Random Mix uses one shared transition for the whole sequence.'
                     : 'Use the same mix effect and time for every transition.'
-                }
-                onClick={() =>
-                  onSharedTransitionChange({
-                    sharedTransitionEnabled: !sequence.sharedTransitionEnabled,
-                  })
-                }
-              >
-                <SharedMixIcon />
-                <span>Shared Mix</span>
-              </button>
+              }
+              onClick={() =>
+                onSharedTransitionChange({
+                  sharedTransitionEnabled: !sequence.sharedTransitionEnabled,
+                })
+              }
+            >
+              <SharedMixIcon />
+              <span>Shared Mix</span>
+            </button>
 
-              {usesSharedTransition ? (
-                <>
-                  <label className="field timeline-compact-field timeline-shared-transition-field">
-                    <span>Fx</span>
-                    <select
-                      className="select-field"
-                      value={sequence.sharedTransitionEffect}
-                      onChange={(event) =>
-                        onSharedTransitionChange({
-                          sharedTransitionEffect:
-                            event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
-                        })
-                      }
-                    >
-                      {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+            {usesSharedTransition ? (
+              <>
+                <label className="field timeline-compact-field timeline-shared-transition-field">
+                  <span>Fx</span>
+                  <select
+                    className="select-field"
+                    value={sequence.sharedTransitionEffect}
+                    onChange={(event) =>
+                      onSharedTransitionChange({
+                        sharedTransitionEffect:
+                          event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
+                      })
+                    }
+                  >
+                    {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                  <label className="field timeline-compact-field timeline-shared-transition-field">
-                    <span>Time</span>
-                    <input
-                      className="text-field"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={sequence.sharedTransitionDurationSeconds}
-                      onChange={(event) =>
-                        onSharedTransitionChange({
-                          sharedTransitionDurationSeconds: Number(event.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                </>
-              ) : null}
-            </div>
-          ) : null}
+                <label className="field timeline-compact-field timeline-shared-transition-field">
+                  <span>Time</span>
+                  <input
+                    className="text-field"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={sequence.sharedTransitionDurationSeconds}
+                    onChange={(event) =>
+                      onSharedTransitionChange({
+                        sharedTransitionDurationSeconds: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
+          </div>
 
           <label className="field timeline-compact-field timeline-card-size-field">
             <span>Cards</span>
