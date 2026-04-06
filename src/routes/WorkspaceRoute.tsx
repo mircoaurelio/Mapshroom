@@ -1,4 +1,13 @@
-import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
@@ -114,6 +123,23 @@ function detectAssetKind(file: File): AssetKind | null {
 
 function clampDimension(value: number): number {
   return Math.max(-900, Math.min(1600, value));
+}
+
+function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
+  const element = target instanceof HTMLElement ? target : null;
+  if (!element) {
+    return false;
+  }
+
+  if (element.isContentEditable) {
+    return true;
+  }
+
+  return Boolean(
+    element.closest(
+      'input, textarea, select, button, a, [role="button"], [role="menuitem"], [contenteditable="true"]',
+    ),
+  );
 }
 
 function applyMappingTransform(transform: StageTransform, action: MappingAction): StageTransform {
@@ -1986,6 +2012,74 @@ export function WorkspaceRoute() {
     closeMobileShaderDialog();
   };
 
+  const hasDesktopDialogOpen =
+    !isMobile &&
+    (isApiSettingsOpen ||
+      isAssetLibraryOpen ||
+      isProjectDialogOpen ||
+      isShareDialogOpen ||
+      isPresetBrowserOpen);
+
+  const cyclePreviewShader = (direction: 1 | -1) => {
+    if (!project) {
+      return;
+    }
+
+    const availableShaders = project.studio.savedShaders;
+    if (availableShaders.length < 2) {
+      return;
+    }
+
+    const activeIndex = availableShaders.findIndex(
+      (shader) => shader.id === project.studio.activeShaderId,
+    );
+    const nextIndex =
+      activeIndex === -1
+        ? direction > 0
+          ? 0
+          : availableShaders.length - 1
+        : (activeIndex + direction + availableShaders.length) % availableShaders.length;
+    const nextShader = availableShaders[nextIndex];
+
+    if (!nextShader || nextShader.id === project.studio.activeShaderId) {
+      return;
+    }
+
+    selectShader(nextShader.id);
+  };
+
+  const handleStageViewportPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (isMobile || hasDesktopDialogOpen || isInteractiveKeyboardTarget(event.target)) {
+      return;
+    }
+
+    event.currentTarget.focus();
+  };
+
+  const handleStageViewportKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (
+      isMobile ||
+      hasDesktopDialogOpen ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      isInteractiveKeyboardTarget(event.target)
+    ) {
+      return;
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      cyclePreviewShader(1);
+      return;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      cyclePreviewShader(-1);
+    }
+  };
+
   const saveCurrentShader = () => {
     if (!project) {
       return;
@@ -3151,7 +3245,15 @@ ${errorSnapshot}`,
     : 'minmax(0, 1fr)';
 
   const stageViewport = (
-    <section className="workspace-stage-column" onClick={handleStageReveal}>
+    <section
+      className="workspace-stage-column"
+      tabIndex={isMobile ? -1 : 0}
+      aria-label={isMobile ? undefined : 'Stage preview. Use left and right arrow keys to switch shaders.'}
+      aria-keyshortcuts={isMobile ? undefined : 'ArrowLeft ArrowRight'}
+      onClick={handleStageReveal}
+      onPointerDown={handleStageViewportPointerDown}
+      onKeyDown={handleStageViewportKeyDown}
+    >
       <TimelineStageRenderer
         asset={activeAsset}
         assetUrl={activeAssetUrl}
@@ -3160,17 +3262,18 @@ ${errorSnapshot}`,
         activeShaderName={project.studio.activeShaderName}
         activeShaderCode={project.studio.activeShaderCode}
         activeUniformValues={project.studio.uniformValues}
-      savedShaders={project.studio.savedShaders}
-      timeline={project.timeline.stub}
-      shaderCompileNonce={shaderCompileNonce}
-      stageTransform={workspacePreviewStageTransform}
-      transport={project.playback.transport}
-      forceActiveShaderPreview={
-        timelineStub.shaderSequence.stagePreviewMode === 'focused' && editingTimelineStepId !== null
-      }
-      preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
-      onCompilerError={applyCompilerFeedback}
-    />
+        savedShaders={project.studio.savedShaders}
+        timeline={project.timeline.stub}
+        shaderCompileNonce={shaderCompileNonce}
+        stageTransform={workspacePreviewStageTransform}
+        transport={project.playback.transport}
+        forceActiveShaderPreview={
+          timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
+          editingTimelineStepId !== null
+        }
+        preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
+        onCompilerError={applyCompilerFeedback}
+      />
 
       {aiLoading ? (
         <div className="ai-loading-overlay">
