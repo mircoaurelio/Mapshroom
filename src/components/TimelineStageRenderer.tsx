@@ -8,7 +8,6 @@ import {
 } from '../lib/shaderState';
 import { resolveShaderTimelineState } from '../lib/timeline';
 import {
-  buildTimelineDoubleShaderCode,
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
 import type {
@@ -19,10 +18,9 @@ import type {
   TimelineStub,
   AssetRecord,
 } from '../types';
-import { StageRenderer } from './StageRenderer';
+import { StageRenderer, type StageRenderLayer } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 
-const EMPTY_UNIFORM_VALUES: ShaderUniformValueMap = {};
 const DOUBLE_SECONDARY_SPEED = 1.35;
 
 type TimelineRenderLayerKind = 'single' | 'transition';
@@ -33,17 +31,6 @@ interface TimelineRenderLayer {
   uniformValues: ShaderUniformValueMap;
   usedFallback: boolean;
 }
-
-type TimelineRenderDescriptor =
-  | TimelineRenderLayer
-  | {
-      kind: 'double';
-      shaderCode: string;
-      uniformValues: ShaderUniformValueMap;
-      primaryUniformValues: ShaderUniformValueMap;
-      secondaryUniformValues: ShaderUniformValueMap;
-      usedFallback: boolean;
-    };
 
 function prefixUniformValueKeys({
   sourceValues,
@@ -335,13 +322,29 @@ export function TimelineStageRenderer({
     return currentLayer;
   };
 
-  const renderDescriptor = useMemo<TimelineRenderDescriptor>(() => {
+  const stageRenderLayers = useMemo<StageRenderLayer[]>(() => {
     if (workspaceFocusedPreviewEnabled) {
-      return resolveSingleShaderLayer(focusedSequenceShader ?? activeSavedShader);
+      const focusedLayer = resolveSingleShaderLayer(focusedSequenceShader ?? activeSavedShader);
+      return [
+        {
+          shaderCode: focusedLayer.shaderCode,
+          uniformDefinitions: parseUniforms(focusedLayer.shaderCode),
+          uniformValues: focusedLayer.uniformValues,
+          opacity: 1,
+        },
+      ];
     }
 
     if (!timelineState) {
-      return resolveSingleShaderLayer(activeSavedShader);
+      const fallbackLayer = resolveSingleShaderLayer(activeSavedShader);
+      return [
+        {
+          shaderCode: fallbackLayer.shaderCode,
+          uniformDefinitions: parseUniforms(fallbackLayer.shaderCode),
+          uniformValues: fallbackLayer.uniformValues,
+          opacity: 1,
+        },
+      ];
     }
 
     if (shaderSequence.mode === 'double') {
@@ -350,20 +353,31 @@ export function TimelineStageRenderer({
         secondaryTimelineState ?? timelineState,
       );
 
-      return {
-        kind: 'double',
-        shaderCode: buildTimelineDoubleShaderCode({
-          primaryCode: primaryLayer.shaderCode,
-          secondaryCode: secondaryLayer.shaderCode,
-        }),
-        uniformValues: EMPTY_UNIFORM_VALUES,
-        primaryUniformValues: primaryLayer.uniformValues,
-        secondaryUniformValues: secondaryLayer.uniformValues,
-        usedFallback: primaryLayer.usedFallback || secondaryLayer.usedFallback,
-      };
+      return [
+        {
+          shaderCode: primaryLayer.shaderCode,
+          uniformDefinitions: parseUniforms(primaryLayer.shaderCode),
+          uniformValues: primaryLayer.uniformValues,
+          opacity: 0.5,
+        },
+        {
+          shaderCode: secondaryLayer.shaderCode,
+          uniformDefinitions: parseUniforms(secondaryLayer.shaderCode),
+          uniformValues: secondaryLayer.uniformValues,
+          opacity: 0.5,
+        },
+      ];
     }
 
-    return buildTimelineRenderLayer(timelineState);
+    const activeLayer = buildTimelineRenderLayer(timelineState);
+    return [
+      {
+        shaderCode: activeLayer.shaderCode,
+        uniformDefinitions: parseUniforms(activeLayer.shaderCode),
+        uniformValues: activeLayer.uniformValues,
+        opacity: 1,
+      },
+    ];
   }, [
     activeSavedShader,
     focusedSequenceShader,
@@ -376,50 +390,51 @@ export function TimelineStageRenderer({
     workspaceFocusedPreviewEnabled,
   ]);
 
-  const renderUniformDefinitions = useMemo(
-    () => parseUniforms(renderDescriptor.shaderCode),
-    [renderDescriptor.shaderCode],
+  const renderDescriptor = stageRenderLayers[0] ?? {
+    shaderCode: previewActiveShaderCode,
+    uniformDefinitions: parseUniforms(previewActiveShaderCode),
+    uniformValues: previewActiveUniformValues,
+    opacity: 1,
+  };
+
+  const usedFallback = useMemo(
+    () => {
+      if (workspaceFocusedPreviewEnabled) {
+        return resolveSingleShaderLayer(focusedSequenceShader ?? activeSavedShader).usedFallback;
+      }
+
+      if (!timelineState) {
+        return resolveSingleShaderLayer(activeSavedShader).usedFallback;
+      }
+
+      if (shaderSequence.mode === 'double') {
+        const primaryLayer = buildTimelineRenderLayer(timelineState);
+        const secondaryLayer = buildTimelineRenderLayer(secondaryTimelineState ?? timelineState);
+        return primaryLayer.usedFallback || secondaryLayer.usedFallback;
+      }
+
+      return buildTimelineRenderLayer(timelineState).usedFallback;
+    },
+    [
+      activeSavedShader,
+      focusedSequenceShader,
+      secondaryTimelineState,
+      shaderSequence.mode,
+      timelineState,
+      workspaceFocusedPreviewEnabled,
+    ],
   );
-
-  const baseUniformValues = useMemo(
-    () => syncUniformValues(renderDescriptor.uniformValues, renderUniformDefinitions),
-    [renderDescriptor.uniformValues, renderUniformDefinitions],
-  );
-
-  const renderUniformValues = useMemo(() => {
-    if (renderDescriptor.kind !== 'double') {
-      return baseUniformValues;
-    }
-
-    return syncUniformValues(
-      {
-        ...baseUniformValues,
-        ...prefixUniformValueKeys({
-          sourceValues: renderDescriptor.primaryUniformValues,
-          namespace: 'timeline_primary',
-        }),
-        ...prefixUniformValueKeys({
-          sourceValues: renderDescriptor.secondaryUniformValues,
-          namespace: 'timeline_secondary',
-        }),
-      },
-      renderUniformDefinitions,
-    );
-  }, [
-    baseUniformValues,
-    renderDescriptor,
-    renderUniformDefinitions,
-  ]);
 
   return (
     <StageRenderer
       asset={asset}
       assetUrl={assetUrl}
       assetUrlStatus={assetUrlStatus}
+      renderLayers={stageRenderLayers}
       shaderCode={renderDescriptor.shaderCode}
       shaderCompileNonce={shaderCompileNonce}
-      uniformDefinitions={renderUniformDefinitions}
-      uniformValues={renderUniformValues}
+      uniformDefinitions={renderDescriptor.uniformDefinitions}
+      uniformValues={renderDescriptor.uniformValues}
       stageTransform={stageTransform}
       transport={transport}
       isOutputOnly={isOutputOnly}
@@ -428,7 +443,7 @@ export function TimelineStageRenderer({
           return;
         }
 
-        if (!message && renderDescriptor.usedFallback) {
+        if (!message && usedFallback) {
           return;
         }
 

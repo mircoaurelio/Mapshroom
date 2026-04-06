@@ -27,10 +27,18 @@ interface StageRendererProps {
   shaderCompileNonce?: number;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  renderLayers?: StageRenderLayer[];
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
   onCompilerError?: (message: string) => void;
+}
+
+export interface StageRenderLayer {
+  shaderCode: string;
+  uniformDefinitions: ShaderUniformMap;
+  uniformValues: ShaderUniformValueMap;
+  opacity?: number;
 }
 
 interface ProgramLocations {
@@ -41,13 +49,12 @@ interface ProgramLocations {
   custom: Record<string, WebGLUniformLocation | null>;
 }
 
-const DEFAULT_LOCATIONS: ProgramLocations = {
-  position: -1,
-  time: null,
-  image: null,
-  resolution: null,
-  custom: {},
-};
+interface CompiledRenderLayer extends StageRenderLayer {
+  opacity: number;
+  key: string;
+  program: WebGLProgram;
+  locations: ProgramLocations;
+}
 
 function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
@@ -62,6 +69,56 @@ function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: strin
     throw new Error(error);
   }
   return shader;
+}
+
+function createProgramBundle(
+  gl: WebGLRenderingContext,
+  shaderCode: string,
+  uniformDefinitions: ShaderUniformMap,
+) {
+  const vertexShader = compileShaderRaw(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+  const fragmentShader = compileShaderRaw(
+    gl,
+    gl.FRAGMENT_SHADER,
+    buildFragmentShaderSource(shaderCode),
+  );
+
+  const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    throw new Error('Unable to create the WebGL program.');
+  }
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const error = gl.getProgramInfoLog(program) || 'GLSL link error.';
+    gl.deleteProgram(program);
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    throw new Error(error);
+  }
+
+  const bundle = {
+    program,
+    locations: {
+      position: gl.getAttribLocation(program, 'a_position'),
+      time: gl.getUniformLocation(program, 'u_time'),
+      image: gl.getUniformLocation(program, 'u_image'),
+      resolution: gl.getUniformLocation(program, 'u_resolution'),
+      custom: Object.fromEntries(
+        Object.keys(uniformDefinitions).map((name) => [name, gl.getUniformLocation(program, name)]),
+      ),
+    },
+  };
+
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+
+  return bundle;
 }
 
 function disposeVideoElement(video: HTMLVideoElement | null | undefined) {
@@ -107,6 +164,7 @@ export function StageRenderer({
   shaderCompileNonce = 0,
   uniformDefinitions,
   uniformValues,
+  renderLayers,
   stageTransform,
   transport,
   isOutputOnly = false,
@@ -115,11 +173,13 @@ export function StageRenderer({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaSurfaceRef = useRef<HTMLDivElement | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
-  const programRef = useRef<WebGLProgram | null>(null);
+  const programCacheRef = useRef<
+    Map<string, { program: WebGLProgram; locations: ProgramLocations }>
+  >(new Map());
+  const compiledLayersRef = useRef<CompiledRenderLayer[]>([]);
   const onCompilerErrorRef = useRef(onCompilerError);
   const textureRef = useRef<WebGLTexture | null>(null);
   const positionBufferRef = useRef<WebGLBuffer | null>(null);
-  const locationsRef = useRef<ProgramLocations>(DEFAULT_LOCATIONS);
   const renderWarningRef = useRef<string | null>(null);
   const rafRef = useRef<number | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -128,8 +188,6 @@ export function StageRenderer({
   const lastVideoTextureTimeRef = useRef<number | null>(null);
   const mediaAspectRatioRef = useRef<number | null>(null);
   const transportRef = useRef(transport);
-  const uniformDefinitionsRef = useRef(uniformDefinitions);
-  const uniformValuesRef = useRef(uniformValues);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
@@ -153,13 +211,47 @@ export function StageRenderer({
     onCompilerErrorRef.current = onCompilerError;
   }, [onCompilerError]);
 
-  useEffect(() => {
-    uniformDefinitionsRef.current = uniformDefinitions;
-  }, [uniformDefinitions]);
+  const resolvedRenderLayers = useMemo<StageRenderLayer[]>(
+    () =>
+      renderLayers && renderLayers.length > 0
+        ? renderLayers
+        : [
+            {
+              shaderCode,
+              uniformDefinitions,
+              uniformValues,
+              opacity: 1,
+            },
+          ],
+    [renderLayers, shaderCode, uniformDefinitions, uniformValues],
+  );
+  const renderLayerShaderSignature = useMemo(
+    () => resolvedRenderLayers.map((layer) => layer.shaderCode).join('\u0001'),
+    [resolvedRenderLayers],
+  );
 
   useEffect(() => {
-    uniformValuesRef.current = uniformValues;
-  }, [uniformValues]);
+    const compiledByKey = new Map(
+      compiledLayersRef.current.map((layer) => [layer.key, layer] as const),
+    );
+
+    compiledLayersRef.current = resolvedRenderLayers.flatMap((layer, index) => {
+      const key = `${layer.shaderCode}:${index}`;
+      const existingLayer = compiledByKey.get(key);
+      if (!existingLayer) {
+        return [];
+      }
+
+      return [
+        {
+          ...existingLayer,
+          ...layer,
+          opacity: Number.isFinite(layer.opacity) ? Number(layer.opacity) : 1,
+          key,
+        },
+      ];
+    });
+  }, [resolvedRenderLayers]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -215,9 +307,11 @@ export function StageRenderer({
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
-      if (programRef.current) {
-        gl.deleteProgram(programRef.current);
-      }
+      programCacheRef.current.forEach(({ program }) => {
+        gl.deleteProgram(program);
+      });
+      programCacheRef.current.clear();
+      compiledLayersRef.current = [];
       if (textureRef.current) {
         gl.deleteTexture(textureRef.current);
       }
@@ -280,52 +374,34 @@ export function StageRenderer({
       return;
     }
 
+    const nextCompiledLayers: CompiledRenderLayer[] = [];
+    let firstError = '';
+
     try {
-      const vertexShader = compileShaderRaw(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
-      const fragmentShader = compileShaderRaw(
-        gl,
-        gl.FRAGMENT_SHADER,
-        buildFragmentShaderSource(shaderCode),
-      );
+      for (const [index, layer] of resolvedRenderLayers.entries()) {
+        const key = layer.shaderCode;
+        let cachedProgram = programCacheRef.current.get(key);
 
-      const nextProgram = gl.createProgram();
-      if (!nextProgram) {
-        throw new Error('Unable to create the WebGL program.');
+        if (!cachedProgram) {
+          cachedProgram = createProgramBundle(gl, layer.shaderCode, layer.uniformDefinitions);
+          programCacheRef.current.set(key, cachedProgram);
+        }
+
+        nextCompiledLayers.push({
+          ...layer,
+          opacity: Number.isFinite(layer.opacity) ? Number(layer.opacity) : 1,
+          key: `${key}:${index}`,
+          program: cachedProgram.program,
+          locations: cachedProgram.locations,
+        });
       }
-      gl.attachShader(nextProgram, vertexShader);
-      gl.attachShader(nextProgram, fragmentShader);
-      gl.linkProgram(nextProgram);
-
-      if (!gl.getProgramParameter(nextProgram, gl.LINK_STATUS)) {
-        throw new Error(gl.getProgramInfoLog(nextProgram) || 'GLSL link error.');
-      }
-
-      if (programRef.current) {
-        gl.deleteProgram(programRef.current);
-      }
-
-      programRef.current = nextProgram;
-      locationsRef.current = {
-        position: gl.getAttribLocation(nextProgram, 'a_position'),
-        time: gl.getUniformLocation(nextProgram, 'u_time'),
-        image: gl.getUniformLocation(nextProgram, 'u_image'),
-        resolution: gl.getUniformLocation(nextProgram, 'u_resolution'),
-        custom: Object.fromEntries(
-          Object.keys(uniformDefinitions).map((name) => [
-            name,
-            gl.getUniformLocation(nextProgram, name),
-          ]),
-        ),
-      };
-
-      gl.deleteShader(vertexShader);
-      gl.deleteShader(fragmentShader);
-      onCompilerErrorRef.current?.('');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
-      onCompilerErrorRef.current?.(`GLSL Error: ${message}`);
+      firstError = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
     }
-  }, [shaderCode, shaderCompileNonce, uniformDefinitions]);
+
+    compiledLayersRef.current = nextCompiledLayers;
+    onCompilerErrorRef.current?.(firstError ? `GLSL Error: ${firstError}` : '');
+  }, [renderLayerShaderSignature, shaderCompileNonce]);
 
   useEffect(() => {
     let disposed = false;
@@ -489,14 +565,14 @@ export function StageRenderer({
   useEffect(() => {
     const render = (timestamp: number) => {
       const gl = glRef.current;
-      const program = programRef.current;
       const canvas = canvasRef.current;
       const texture = textureRef.current;
       const buffer = positionBufferRef.current;
+      const compiledLayers = compiledLayersRef.current;
       const video = videoRef.current;
       const image = imageRef.current;
 
-      if (!gl || !program || !canvas || !texture || !buffer) {
+      if (!gl || !canvas || !texture || !buffer || compiledLayers.length === 0) {
         rafRef.current = requestAnimationFrame(render);
         return;
       }
@@ -505,7 +581,6 @@ export function StageRenderer({
         const currentTransport = transportRef.current;
         const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
         const shaderTime = transportTime;
-        gl.useProgram(program);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture);
 
@@ -531,41 +606,56 @@ export function StageRenderer({
           textureUploadPendingRef.current = false;
         }
 
-        if (locationsRef.current.image) {
-          gl.uniform1i(locationsRef.current.image, 0);
-        }
-        if (locationsRef.current.time) {
-          gl.uniform1f(locationsRef.current.time, shaderTime);
-        }
-        if (locationsRef.current.resolution) {
-          gl.uniform2f(locationsRef.current.resolution, canvas.width, canvas.height);
-        }
-
-        const currentUniformDefinitions = uniformDefinitionsRef.current;
-        const currentUniformValues = uniformValuesRef.current;
-
-        for (const [name, definition] of Object.entries(currentUniformDefinitions)) {
-          const location = locationsRef.current.custom[name];
-          const value = currentUniformValues[name];
-
-          if (!location || value === undefined) {
-            continue;
-          }
-
-          if (definition.type === 'float' || definition.type === 'int') {
-            gl.uniform1f(location, Number(value));
-          } else if (definition.type === 'bool') {
-            gl.uniform1i(location, value ? 1 : 0);
-          } else if (definition.type === 'vec3' && Array.isArray(value)) {
-            gl.uniform3fv(location, value);
-          }
-        }
-
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.enableVertexAttribArray(locationsRef.current.position);
-        gl.vertexAttribPointer(locationsRef.current.position, 2, gl.FLOAT, false, 0, 0);
         gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        for (const layer of compiledLayers) {
+          gl.useProgram(layer.program);
+          if (layer.locations.image) {
+            gl.uniform1i(layer.locations.image, 0);
+          }
+          if (layer.locations.time) {
+            gl.uniform1f(layer.locations.time, shaderTime);
+          }
+          if (layer.locations.resolution) {
+            gl.uniform2f(layer.locations.resolution, canvas.width, canvas.height);
+          }
+
+          for (const [name, definition] of Object.entries(layer.uniformDefinitions)) {
+            const location = layer.locations.custom[name];
+            const value = layer.uniformValues[name];
+
+            if (!location || value === undefined) {
+              continue;
+            }
+
+            if (definition.type === 'float' || definition.type === 'int') {
+              gl.uniform1f(location, Number(value));
+            } else if (definition.type === 'bool') {
+              gl.uniform1i(location, value ? 1 : 0);
+            } else if (definition.type === 'vec3' && Array.isArray(value)) {
+              gl.uniform3fv(location, value);
+            }
+          }
+
+          gl.enableVertexAttribArray(layer.locations.position);
+          gl.vertexAttribPointer(layer.locations.position, 2, gl.FLOAT, false, 0, 0);
+
+          if (compiledLayers.length > 1 || layer.opacity < 0.999) {
+            gl.enable(gl.BLEND);
+            gl.blendEquation(gl.FUNC_ADD);
+            gl.blendColor(layer.opacity, layer.opacity, layer.opacity, layer.opacity);
+            gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE);
+          } else {
+            gl.disable(gl.BLEND);
+          }
+
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+
+        gl.disable(gl.BLEND);
 
         renderWarningRef.current = null;
       } catch (error) {
