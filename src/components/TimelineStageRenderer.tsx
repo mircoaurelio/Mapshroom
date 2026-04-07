@@ -43,6 +43,14 @@ interface TimelineRenderLayer {
   usedFallback: boolean;
 }
 
+interface PinLayerTransitionState {
+  fromKey: string | null;
+  toKey: string | null;
+  fromLayer: TimelineRenderLayer | null;
+  toLayer: TimelineRenderLayer | null;
+  startedAtMs: number;
+}
+
 function prefixUniformValueKeys({
   sourceValues,
   namespace,
@@ -191,17 +199,23 @@ export function TimelineStageRenderer({
   onCompilerError,
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
-  const [pinFadeNowMs, setPinFadeNowMs] = useState(() => performance.now());
-  const [pinFadeState, setPinFadeState] = useState<{
-    stepId: string;
-    startedAtMs: number;
-  } | null>(null);
+  const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
+  const [pinLayerTransition, setPinLayerTransition] = useState<PinLayerTransitionState | null>(
+    null,
+  );
   const [doubleModeRandomSeedToken, setDoubleModeRandomSeedToken] = useState(() =>
     createTimelineRandomSeedToken(),
   );
   const previousDoubleModeRef = useRef(false);
-  const hasMountedPinnedStepRef = useRef(false);
-  const previousPinnedStepIdRef = useRef<string | null>(null);
+  const hasMountedPinLayerRef = useRef(false);
+  const previousPinnedLayerKeyRef = useRef<string | null>(null);
+  const latestPinnedLayerSnapshotRef = useRef<{
+    key: string | null;
+    layer: TimelineRenderLayer | null;
+  }>({
+    key: null,
+    layer: null,
+  });
   const previousTransportSnapshotRef = useRef({
     isPlaying: transport.isPlaying,
     currentTimeSeconds: transport.currentTimeSeconds,
@@ -230,6 +244,7 @@ export function TimelineStageRenderer({
     editorView: 'simple',
     stagePreviewMode: 'timeline',
     focusedStepId: null,
+    pinnedStepId: null,
     singleStepLoopEnabled: false,
     randomChoiceEnabled: false,
     sharedTransitionEnabled: false,
@@ -275,54 +290,6 @@ export function TimelineStageRenderer({
 
     return availableShaders.find((shader) => shader.id === pinnedSequenceStep.shaderId) ?? null;
   }, [availableShaders, pinnedSequenceStep]);
-  const pinnedSequenceStepId = pinnedSequenceStep?.id ?? null;
-
-  useEffect(() => {
-    if (!hasMountedPinnedStepRef.current) {
-      hasMountedPinnedStepRef.current = true;
-      previousPinnedStepIdRef.current = pinnedSequenceStepId;
-      return;
-    }
-
-    if (pinnedSequenceStepId === previousPinnedStepIdRef.current) {
-      return;
-    }
-
-    previousPinnedStepIdRef.current = pinnedSequenceStepId;
-
-    if (!pinnedSequenceStepId) {
-      setPinFadeState(null);
-      return;
-    }
-
-    const now = performance.now();
-    setPinFadeNowMs(now);
-    setPinFadeState({
-      stepId: pinnedSequenceStepId,
-      startedAtMs: now,
-    });
-  }, [pinnedSequenceStepId]);
-
-  useEffect(() => {
-    if (
-      !pinnedSequenceStepId ||
-      !pinFadeState ||
-      pinFadeState.stepId !== pinnedSequenceStepId
-    ) {
-      return;
-    }
-
-    let frameId = 0;
-    const tick = (timestamp: number) => {
-      setPinFadeNowMs(timestamp);
-      if (timestamp - pinFadeState.startedAtMs < PIN_LAYER_FADE_DURATION_MS) {
-        frameId = requestAnimationFrame(tick);
-      }
-    };
-
-    frameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameId);
-  }, [pinFadeState, pinnedSequenceStepId]);
 
   useEffect(() => {
     if (!shouldResolveLiveTimelineState || !transport.isPlaying) {
@@ -692,6 +659,7 @@ export function TimelineStageRenderer({
     return {
       baseLayers,
       pinnedLayer,
+      pinnedLayerKey: pinnedLayer ? pinnedSequenceStep?.id ?? null : null,
     };
   }, [
     activeSavedShader,
@@ -709,40 +677,79 @@ export function TimelineStageRenderer({
   ]);
   const visibleTimelineRenderLayers = visibleTimelineRenderState.baseLayers;
   const pinnedTimelineRenderLayer = visibleTimelineRenderState.pinnedLayer;
-  const shouldStartPinFadeThisRender =
-    hasMountedPinnedStepRef.current &&
-    Boolean(
-      pinnedSequenceStepId &&
-        pinnedSequenceStepId !== previousPinnedStepIdRef.current &&
-        pinnedTimelineRenderLayer,
+  const pinnedTimelineRenderLayerKey = visibleTimelineRenderState.pinnedLayerKey;
+
+  useEffect(() => {
+    if (!hasMountedPinLayerRef.current) {
+      hasMountedPinLayerRef.current = true;
+      previousPinnedLayerKeyRef.current = pinnedTimelineRenderLayerKey;
+      return;
+    }
+
+    if (pinnedTimelineRenderLayerKey === previousPinnedLayerKeyRef.current) {
+      return;
+    }
+
+    const previousPinnedLayerSnapshot =
+      latestPinnedLayerSnapshotRef.current.key === previousPinnedLayerKeyRef.current
+        ? latestPinnedLayerSnapshotRef.current.layer
+        : null;
+    const now = performance.now();
+
+    setPinTransitionNowMs(now);
+    setPinLayerTransition(
+      previousPinnedLayerSnapshot || pinnedTimelineRenderLayer
+        ? {
+            fromKey: previousPinnedLayerKeyRef.current,
+            toKey: pinnedTimelineRenderLayerKey,
+            fromLayer: previousPinnedLayerSnapshot,
+            toLayer: pinnedTimelineRenderLayer,
+            startedAtMs: now,
+          }
+        : null,
     );
-  const pinFadeProgress = useMemo(() => {
-    if (!pinnedTimelineRenderLayer || !pinnedSequenceStepId) {
-      return 1;
+    previousPinnedLayerKeyRef.current = pinnedTimelineRenderLayerKey;
+  }, [pinnedTimelineRenderLayer, pinnedTimelineRenderLayerKey]);
+
+  useEffect(() => {
+    if (pinnedTimelineRenderLayerKey && pinnedTimelineRenderLayer) {
+      latestPinnedLayerSnapshotRef.current = {
+        key: pinnedTimelineRenderLayerKey,
+        layer: pinnedTimelineRenderLayer,
+      };
+      return;
     }
 
-    if (shouldStartPinFadeThisRender) {
-      return 0;
+    if (!pinLayerTransition) {
+      latestPinnedLayerSnapshotRef.current = {
+        key: null,
+        layer: null,
+      };
+    }
+  }, [pinLayerTransition, pinnedTimelineRenderLayer, pinnedTimelineRenderLayerKey]);
+
+  useEffect(() => {
+    if (!pinLayerTransition) {
+      return;
     }
 
-    if (!pinFadeState || pinFadeState.stepId !== pinnedSequenceStepId) {
-      return 1;
-    }
+    let frameId = 0;
+    const tick = (timestamp: number) => {
+      setPinTransitionNowMs(timestamp);
+      if (timestamp - pinLayerTransition.startedAtMs < PIN_LAYER_FADE_DURATION_MS) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
 
-    return Math.max(
-      0,
-      Math.min(1, (pinFadeNowMs - pinFadeState.startedAtMs) / PIN_LAYER_FADE_DURATION_MS),
-    );
-  }, [
-    pinFadeNowMs,
-    pinFadeState,
-    pinnedSequenceStepId,
-    pinnedTimelineRenderLayer,
-    shouldStartPinFadeThisRender,
-  ]);
+      setPinLayerTransition(null);
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [pinLayerTransition]);
 
   const stageRenderLayers = useMemo<StageRenderLayer[]>(() => {
-    if (!pinnedTimelineRenderLayer) {
+    if (!pinLayerTransition && !pinnedTimelineRenderLayer) {
       const normalizedOpacity =
         visibleTimelineRenderLayers.length > 1 ? 1 / visibleTimelineRenderLayers.length : 1;
 
@@ -752,21 +759,68 @@ export function TimelineStageRenderer({
     }
 
     const baseLayerCount = visibleTimelineRenderLayers.length;
-    if (baseLayerCount === 0) {
-      return [createStageRenderLayer(pinnedTimelineRenderLayer, 1)];
+    const pinTargetOpacity = baseLayerCount > 0 ? 1 / (baseLayerCount + 1) : 1;
+
+    let transitionFromOpacity = 0;
+    let transitionToOpacity = 0;
+    let transitionFromLayer: TimelineRenderLayer | null = null;
+    let transitionToLayer: TimelineRenderLayer | null = null;
+
+    if (pinLayerTransition) {
+      const easedProgress = easeTransitionProgress(
+        Math.max(
+          0,
+          Math.min(
+            1,
+            (pinTransitionNowMs - pinLayerTransition.startedAtMs) / PIN_LAYER_FADE_DURATION_MS,
+          ),
+        ),
+      );
+      transitionFromLayer = pinLayerTransition.fromLayer;
+      transitionToLayer = pinLayerTransition.toLayer;
+      transitionFromOpacity = transitionFromLayer ? pinTargetOpacity * (1 - easedProgress) : 0;
+      transitionToOpacity = transitionToLayer ? pinTargetOpacity * easedProgress : 0;
+    } else if (pinnedTimelineRenderLayer) {
+      transitionToLayer = pinnedTimelineRenderLayer;
+      transitionToOpacity = pinTargetOpacity;
     }
 
-    const targetPinnedOpacity = 1 / (baseLayerCount + 1);
-    const currentPinnedOpacity = targetPinnedOpacity * easeTransitionProgress(pinFadeProgress);
-    const currentBaseOpacity = (1 - currentPinnedOpacity) / baseLayerCount;
+    const totalPinnedOpacity = transitionFromOpacity + transitionToOpacity;
 
-    return [
+    if (baseLayerCount === 0) {
+      return [
+        ...(transitionFromLayer && transitionFromOpacity > 0.001
+          ? [createStageRenderLayer(transitionFromLayer, transitionFromOpacity)]
+          : []),
+        ...(transitionToLayer && transitionToOpacity > 0.001
+          ? [createStageRenderLayer(transitionToLayer, transitionToOpacity)]
+          : []),
+      ];
+    }
+
+    const currentBaseOpacity = (1 - totalPinnedOpacity) / baseLayerCount;
+
+    const composedLayers: StageRenderLayer[] = [
       ...visibleTimelineRenderLayers.map((layer) =>
         createStageRenderLayer(layer, currentBaseOpacity),
       ),
-      createStageRenderLayer(pinnedTimelineRenderLayer, currentPinnedOpacity),
     ];
-  }, [pinFadeProgress, pinnedTimelineRenderLayer, visibleTimelineRenderLayers]);
+
+    if (transitionFromLayer && transitionFromOpacity > 0.001) {
+      composedLayers.push(createStageRenderLayer(transitionFromLayer, transitionFromOpacity));
+    }
+
+    if (transitionToLayer && transitionToOpacity > 0.001) {
+      composedLayers.push(createStageRenderLayer(transitionToLayer, transitionToOpacity));
+    }
+
+    return composedLayers;
+  }, [
+    pinLayerTransition,
+    pinTransitionNowMs,
+    pinnedTimelineRenderLayer,
+    visibleTimelineRenderLayers,
+  ]);
 
   const renderDescriptor = stageRenderLayers[0] ?? {
     shaderCode: previewActiveShaderCode,
@@ -902,8 +956,10 @@ export function TimelineStageRenderer({
   const usedFallback = useMemo(
     () =>
       visibleTimelineRenderLayers.some((layer) => layer.usedFallback) ||
-      Boolean(pinnedTimelineRenderLayer?.usedFallback),
-    [pinnedTimelineRenderLayer, visibleTimelineRenderLayers],
+      Boolean(pinnedTimelineRenderLayer?.usedFallback) ||
+      Boolean(pinLayerTransition?.fromLayer?.usedFallback) ||
+      Boolean(pinLayerTransition?.toLayer?.usedFallback),
+    [pinLayerTransition, pinnedTimelineRenderLayer, visibleTimelineRenderLayers],
   );
 
   return (

@@ -33,6 +33,7 @@ interface CompactSharedTimelinePayload {
   ev?: TimelineEditorViewMode;
   pv?: TimelineStagePreviewMode;
   f?: string | null;
+  p?: string | null;
   l?: 1;
   r?: 1;
   z?: 1;
@@ -264,6 +265,7 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
       ev: project.timeline.stub.shaderSequence.editorView,
       pv: project.timeline.stub.shaderSequence.stagePreviewMode,
       f: project.timeline.stub.shaderSequence.focusedStepId,
+      p: project.timeline.stub.shaderSequence.pinnedStepId,
       l: project.timeline.stub.shaderSequence.singleStepLoopEnabled ? 1 : undefined,
       r: project.timeline.stub.shaderSequence.randomChoiceEnabled ? 1 : undefined,
       z: project.timeline.stub.shaderSequence.sharedTransitionEnabled ? 1 : undefined,
@@ -342,6 +344,10 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
     payload.t.f && timelineSteps.some((step) => step.id === payload.t.f)
       ? payload.t.f
       : timelineSteps[0]?.id ?? null;
+  const pinnedStepId =
+    payload.t.p && timelineSteps.some((step) => step.id === payload.t.p && !step.disabled)
+      ? payload.t.p
+      : null;
 
   return {
     ...baseProject,
@@ -393,6 +399,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
           editorView: payload.t.ev ?? baseProject.timeline.stub.shaderSequence.editorView,
           stagePreviewMode: payload.t.pv ?? baseProject.timeline.stub.shaderSequence.stagePreviewMode,
           focusedStepId,
+          pinnedStepId,
           singleStepLoopEnabled: Boolean(payload.t.l),
           randomChoiceEnabled: Boolean(payload.t.r),
           sharedTransitionEnabled: Boolean(payload.t.z),

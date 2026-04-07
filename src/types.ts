@@ -92,6 +92,7 @@ export interface TimelineStub {
     editorView: TimelineEditorViewMode;
     stagePreviewMode: TimelineStagePreviewMode;
     focusedStepId: string | null;
+    pinnedStepId: string | null;
     singleStepLoopEnabled: boolean;
     randomChoiceEnabled: boolean;
     sharedTransitionEnabled: boolean;
