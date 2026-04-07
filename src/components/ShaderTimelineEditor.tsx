@@ -139,6 +139,15 @@ function DeleteIcon() {
   );
 }
 
+function BlockIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.25" />
+      <path d="M4.7 11.3 11.3 4.7" />
+    </svg>
+  );
+}
+
 function ErrorIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -296,8 +305,8 @@ export function ShaderTimelineEditor({
     () =>
       ({
         '--timeline-card-width-scale': `${cardScale.toFixed(2)}`,
-        '--timeline-card-width': `${Math.round(220 * cardScale)}px`,
-        '--timeline-card-simple-width': `${Math.round(192 * cardScale)}px`,
+        '--timeline-card-width': `${Math.round(110 * cardScale)}px`,
+        '--timeline-card-simple-width': `${Math.round(96 * cardScale)}px`,
         '--timeline-card-padding-y': `${(0.22 + cardScale * 0.33).toFixed(2)}rem`,
         '--timeline-card-padding-x': `${(0.24 + cardScale * 0.36).toFixed(2)}rem`,
         '--timeline-card-gap': `${(0.16 + cardScale * 0.29).toFixed(2)}rem`,
@@ -425,6 +434,7 @@ export function ShaderTimelineEditor({
           ? 'No preview'
           : 'Render...';
   const selectedAddShaderCount = selectedAddShaderIds.length;
+  const enabledStepCount = sequence.steps.filter((step) => !step.disabled).length;
 
   const toggleAddShaderSelection = (shaderId: string) => {
     setSelectedAddShaderIds((currentIds) =>
@@ -701,6 +711,8 @@ export function ShaderTimelineEditor({
           const previewKey = shader ? getTimelineShaderPreviewKey(previewNamespace, shader) : '';
           const previewSrc = shader ? previewSources[previewKey] ?? null : null;
           const hasCompileError = hasShaderCompileError(shader);
+          const isDisabledStep = Boolean(step.disabled);
+          const disableToggleBlocked = !isDisabledStep && enabledStepCount <= 1;
 
           return (
             <div
@@ -715,7 +727,7 @@ export function ShaderTimelineEditor({
                   isTransitionStep ? 'timeline-step-card-transition' : ''
                 } ${step.id === editingStepId ? 'timeline-step-card-editing' : ''} ${
                   !isAdvancedView ? 'timeline-step-card-simple' : ''
-                }`}
+                } ${isDisabledStep ? 'timeline-step-card-disabled' : ''}`}
                 role="button"
                 tabIndex={0}
                 aria-pressed={step.id === editingStepId}
@@ -742,6 +754,23 @@ export function ShaderTimelineEditor({
                   <div className="timeline-step-preview-actions">
                     <button
                       type="button"
+                      className={`icon-button timeline-step-overlay-button timeline-step-overlay-button-disable ${
+                        isDisabledStep ? 'timeline-step-overlay-button-disable-active' : ''
+                      }`}
+                      aria-label={isDisabledStep ? 'Enable shader step' : 'Disable shader step'}
+                      aria-pressed={isDisabledStep}
+                      title={isDisabledStep ? 'Enable step' : 'Disable step'}
+                      disabled={disableToggleBlocked}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onStepChange(step.id, { disabled: !isDisabledStep });
+                      }}
+                    >
+                      <BlockIcon />
+                    </button>
+
+                    <button
+                      type="button"
                       className="icon-button timeline-step-overlay-button"
                       aria-label="Duplicate shader step"
                       title="Duplicate"
@@ -758,7 +787,7 @@ export function ShaderTimelineEditor({
                       className="icon-button timeline-step-overlay-button timeline-step-overlay-button-danger"
                       aria-label="Delete shader step"
                       title="Delete"
-                      disabled={sequence.steps.length === 1}
+                      disabled={sequence.steps.length === 1 || (!isDisabledStep && enabledStepCount <= 1)}
                       onClick={(event) => {
                         event.stopPropagation();
                         onRemoveStep(step.id);
@@ -781,8 +810,16 @@ export function ShaderTimelineEditor({
                     </div>
                   )}
 
-                  {hasCompileError || getPendingAiJobCount(shader) > 0 || shader?.hasUnreadAiResult ? (
+                  {isDisabledStep ||
+                  hasCompileError ||
+                  getPendingAiJobCount(shader) > 0 ||
+                  shader?.hasUnreadAiResult ? (
                     <div className="timeline-step-preview-badges timeline-step-preview-badges-bottom">
+                      {isDisabledStep ? (
+                        <span className="timeline-step-preview-badge timeline-step-preview-badge-disabled">
+                          Off
+                        </span>
+                      ) : null}
                       {hasCompileError ? (
                         <span
                           className="timeline-step-preview-badge timeline-step-preview-badge-error"

@@ -20,6 +20,7 @@ interface CompactSharedShaderPayload {
 interface CompactSharedTimelineStepPayload {
   i: string;
   s: string;
+  o?: 1;
   d: number;
   x: number;
   e: TimelineTransitionEffect;
@@ -273,6 +274,7 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
         .map((step) => ({
           i: step.id,
           s: step.shaderId,
+          o: step.disabled ? 1 : undefined,
           d: step.durationSeconds,
           x: step.transitionDurationSeconds,
           e: step.transitionEffect,
@@ -325,6 +327,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
         .map((step) => ({
           id: step.i,
           shaderId: step.s,
+          disabled: Boolean(step.o),
           durationSeconds: step.d,
           transitionDurationSeconds: step.x,
           transitionEffect: step.e,

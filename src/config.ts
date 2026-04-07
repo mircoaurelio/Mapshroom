@@ -132,6 +132,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
             {
               id: firstTimelineStepId,
               shaderId: defaultShader.id,
+              disabled: false,
               durationSeconds: 8,
               transitionDurationSeconds: 0.75,
               transitionEffect: 'mix',

@@ -11,6 +11,7 @@ import {
   clampTimelineStepDuration,
   clampTransitionDuration,
   getShaderTimelineDuration,
+  isTimelineStepEnabled,
   roundTimelineSeconds,
   resolveShaderTimelineState,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
@@ -203,13 +204,14 @@ function getMarkerStops(markers: string[], durationSeconds: number): TimelineMar
 function getTimelineStepSegments(
   steps: TimelineStub['shaderSequence']['steps'],
 ): TimelineStepSegment[] {
-  const totalDurationSeconds = getShaderTimelineDuration(steps);
-  if (steps.length === 0 || totalDurationSeconds <= 0) {
+  const enabledSteps = steps.filter(isTimelineStepEnabled);
+  const totalDurationSeconds = getShaderTimelineDuration(enabledSteps);
+  if (enabledSteps.length === 0 || totalDurationSeconds <= 0) {
     return [];
   }
 
   let cursor = 0;
-  return steps.map((step) => {
+  return enabledSteps.map((step) => {
     const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
     const startRatio = cursor / totalDurationSeconds;
     cursor += durationSeconds;
