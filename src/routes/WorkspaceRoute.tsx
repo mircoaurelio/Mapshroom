@@ -238,6 +238,33 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     fallbackName: parseShaderName(project.studio.activeShaderCode),
     fallbackCode: project.studio.activeShaderCode,
   });
+  const normalizedTimelineSteps = (
+    project.timeline?.stub?.shaderSequence?.steps?.length
+      ? project.timeline.stub.shaderSequence.steps
+      : defaultProject.timeline.stub.shaderSequence.steps
+  ).map((step) => {
+    const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
+    return {
+      ...step,
+      disabled: Boolean(step.disabled),
+      durationSeconds,
+      transitionDurationSeconds: clampTransitionDuration(
+        durationSeconds,
+        step.transitionDurationSeconds,
+      ),
+      transitionEffect: step.transitionEffect ?? 'mix',
+    };
+  });
+  const requestedPinnedStepId =
+    project.timeline?.stub?.shaderSequence?.pinnedStepId ??
+    defaultProject.timeline.stub.shaderSequence.pinnedStepId;
+  const normalizedPinnedStepId =
+    requestedPinnedStepId &&
+    normalizedTimelineSteps.some(
+      (step) => step.id === requestedPinnedStepId && !step.disabled,
+    )
+      ? requestedPinnedStepId
+      : null;
 
   return {
     ...project,
@@ -275,6 +302,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
           focusedStepId:
             project.timeline?.stub?.shaderSequence?.focusedStepId ??
             defaultProject.timeline.stub.shaderSequence.focusedStepId,
+          pinnedStepId: normalizedPinnedStepId,
           singleStepLoopEnabled:
             project.timeline?.stub?.shaderSequence?.singleStepLoopEnabled ??
             defaultProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
@@ -292,23 +320,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
             project.timeline?.stub?.shaderSequence?.sharedTransitionDurationSeconds ??
               defaultProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
           ),
-          steps: (
-            project.timeline?.stub?.shaderSequence?.steps?.length
-              ? project.timeline.stub.shaderSequence.steps
-              : defaultProject.timeline.stub.shaderSequence.steps
-          ).map((step) => {
-            const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
-            return {
-              ...step,
-              disabled: Boolean(step.disabled),
-              durationSeconds,
-              transitionDurationSeconds: clampTransitionDuration(
-                durationSeconds,
-                step.transitionDurationSeconds,
-              ),
-              transitionEffect: step.transitionEffect ?? 'mix',
-            };
-          }),
+          steps: normalizedTimelineSteps,
         },
       },
     },
@@ -732,7 +744,6 @@ export function WorkspaceRoute() {
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [desktopStageKeyboardArmed, setDesktopStageKeyboardArmed] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
-  const [pinnedTimelineStepId, setPinnedTimelineStepId] = useState<string | null>(null);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
   const [savedProjects, setSavedProjects] = useState<ProjectLibraryEntry[]>(() => loadProjectLibrary());
   const [shareLinkState, setShareLinkState] = useState<ProjectShareLinkResult | null>(null);
@@ -760,6 +771,7 @@ export function WorkspaceRoute() {
     timelineHeight: number;
   } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
+  const pinnedTimelineStepId = project?.timeline.stub.shaderSequence.pinnedStepId ?? null;
 
   const updateProject = useCallback((updater: (currentProject: ProjectDocument) => ProjectDocument) => {
     setProject((currentProject) => {
@@ -1157,23 +1169,6 @@ export function WorkspaceRoute() {
     );
     return stepIndex >= 0 ? stepIndex : null;
   }, [editingTimelineStepId, project]);
-
-  useEffect(() => {
-    setPinnedTimelineStepId(null);
-  }, [project?.sessionId]);
-
-  useEffect(() => {
-    if (!project || !pinnedTimelineStepId) {
-      return;
-    }
-
-    const pinnedStep = project.timeline.stub.shaderSequence.steps.find(
-      (step) => step.id === pinnedTimelineStepId,
-    );
-    if (!pinnedStep || pinnedStep.disabled) {
-      setPinnedTimelineStepId(null);
-    }
-  }, [pinnedTimelineStepId, project]);
 
   useEffect(() => {
     if (!project || !activeTimelineDraft) {
@@ -1590,6 +1585,11 @@ export function WorkspaceRoute() {
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
               focusedStepId: stepId,
+              pinnedStepId:
+                patch.disabled &&
+                currentProject.timeline.stub.shaderSequence.pinnedStepId === stepId
+                  ? null
+                  : currentProject.timeline.stub.shaderSequence.pinnedStepId,
               steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => {
                 if (step.id !== stepId) {
                   return step;
@@ -1614,9 +1614,6 @@ export function WorkspaceRoute() {
         },
       }),
     );
-    if (patch.disabled && pinnedTimelineStepId === stepId) {
-      setPinnedTimelineStepId(null);
-    }
     if (shouldRelinkSelection) {
       window.setTimeout(() => {
         void selectTimelineStepForEditing(stepId, {
@@ -1625,7 +1622,7 @@ export function WorkspaceRoute() {
         });
       }, 0);
     }
-  }, [editingTimelineStepId, pinnedTimelineStepId, selectTimelineStepForEditing, updateProject]);
+  }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
   const handleTimelinePinnedStepToggle = useCallback((stepId: string) => {
     if (!project) {
@@ -1642,11 +1639,22 @@ export function WorkspaceRoute() {
       project.studio.savedShaders.find((shader) => shader.id === step.shaderId)?.name ??
       `Step ${project.timeline.stub.shaderSequence.steps.findIndex((item) => item.id === stepId) + 1}`;
 
-    setPinnedTimelineStepId(nextPinnedStepId);
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            pinnedStepId: nextPinnedStepId,
+          },
+        },
+      },
+    }));
     setStatusMessage(
       nextPinnedStepId ? `Pinned "${shaderName}" beside the live stage.` : 'Cleared the pinned compare shader.',
     );
-  }, [pinnedTimelineStepId, project]);
+  }, [pinnedTimelineStepId, project, updateProject]);
 
   const handleTimelineAddStepsWithShaders = useCallback((shaderIds: string[]) => {
     const requestedShaderIds = Array.from(
@@ -1749,6 +1757,10 @@ export function WorkspaceRoute() {
                   ? nextSelectedStepId
                   : currentProject.timeline.stub.shaderSequence.focusedStepId,
               ),
+              pinnedStepId:
+                currentProject.timeline.stub.shaderSequence.pinnedStepId === stepId
+                  ? null
+                  : currentProject.timeline.stub.shaderSequence.pinnedStepId,
               steps: nextSteps,
             },
           },
@@ -1765,14 +1777,10 @@ export function WorkspaceRoute() {
       setEditingTimelineStepId(null);
     }
 
-    if (pinnedTimelineStepId === stepId) {
-      setPinnedTimelineStepId(null);
-    }
-
     if (nextStatusMessage) {
       setStatusMessage(nextStatusMessage);
     }
-  }, [editingTimelineStepId, pinnedTimelineStepId, project, selectTimelineStepForEditing, updateProject]);
+  }, [editingTimelineStepId, project, selectTimelineStepForEditing, updateProject]);
 
   const handleTimelineDuplicateStep = useCallback((stepId: string) => {
     let nextStatusMessage = '';

@@ -123,6 +123,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           editorView: 'simple',
           stagePreviewMode: 'timeline',
           focusedStepId: firstTimelineStepId,
+          pinnedStepId: null,
           singleStepLoopEnabled: false,
           randomChoiceEnabled: false,
           sharedTransitionEnabled: false,
