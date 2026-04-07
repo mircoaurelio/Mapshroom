@@ -602,6 +602,42 @@ function createSavedShaderRecord(
   };
 }
 
+function createDuplicateShaderName(
+  savedShaders: SavedShader[],
+  sourceName: string,
+): string {
+  const normalizedSourceName = sourceName.trim() || 'Mapshroom Shader';
+  const baseName =
+    normalizedSourceName.replace(/\s+Copy(?:\s+\d+)?$/i, '').trim() || normalizedSourceName;
+  const existingNames = new Set(
+    savedShaders.map((shader) => shader.name.trim().toLowerCase()).filter(Boolean),
+  );
+
+  let suffix = 1;
+  while (true) {
+    const candidateName = suffix === 1 ? `${baseName} Copy` : `${baseName} Copy ${suffix}`;
+    if (!existingNames.has(candidateName.toLowerCase())) {
+      return candidateName;
+    }
+    suffix += 1;
+  }
+}
+
+function cloneShaderVersionsWithName(
+  versions: ShaderVersion[] | undefined,
+  name: string,
+): ShaderVersion[] | undefined {
+  if (!versions?.length) {
+    return undefined;
+  }
+
+  return versions.map((version) => ({
+    ...version,
+    id: crypto.randomUUID(),
+    name,
+  }));
+}
+
 function getPendingAiJobCount(shader: SavedShader | null | undefined): number {
   return Math.max(0, shader?.pendingAiJobCount ?? 0);
 }
@@ -1661,6 +1697,17 @@ export function WorkspaceRoute() {
   }, [updateProject]);
 
   const handleTimelineRemoveStep = useCallback((stepId: string) => {
+    const targetStep = project?.timeline.stub.shaderSequence.steps.find((step) => step.id === stepId);
+    const targetShaderName =
+      targetStep
+        ? project?.studio.savedShaders.find((shader) => shader.id === targetStep.shaderId)?.name ??
+          'this shader'
+        : 'this shader';
+    const confirmed = window.confirm(`Remove "${targetShaderName}" from the timeline?`);
+    if (!confirmed) {
+      return;
+    }
+
     let nextSelectedStepId: string | null = null;
     let nextStatusMessage = '';
 
@@ -1725,7 +1772,7 @@ export function WorkspaceRoute() {
     if (nextStatusMessage) {
       setStatusMessage(nextStatusMessage);
     }
-  }, [editingTimelineStepId, pinnedTimelineStepId, selectTimelineStepForEditing, updateProject]);
+  }, [editingTimelineStepId, pinnedTimelineStepId, project, selectTimelineStepForEditing, updateProject]);
 
   const handleTimelineDuplicateStep = useCallback((stepId: string) => {
     let nextStatusMessage = '';
@@ -1743,10 +1790,14 @@ export function WorkspaceRoute() {
       const duplicateStepId = crypto.randomUUID();
       let nextSavedShaders = currentProject.studio.savedShaders;
       let duplicateShaderId = step.shaderId;
+      const duplicateShaderName = createDuplicateShaderName(
+        currentProject.studio.savedShaders,
+        stepShader?.name ?? currentProject.studio.activeShaderName,
+      );
 
-      if (stepShader?.isTemporary) {
+      if (stepShader) {
         const duplicateShader = createSavedShaderRecord(
-          stepShader.name,
+          duplicateShaderName,
           stepShader.code,
           stepShader.uniformValues,
           {
@@ -1756,7 +1807,7 @@ export function WorkspaceRoute() {
             isDirty: stepShader.isDirty,
             sourceShaderId: stepShader.sourceShaderId ?? stepShader.id,
             ownerTimelineStepId: duplicateStepId,
-            versions: stepShader.versions,
+            versions: cloneShaderVersionsWithName(stepShader.versions, duplicateShaderName),
             lastValidCode: stepShader.lastValidCode,
             lastValidUniformValues: stepShader.lastValidUniformValues,
             compileError: stepShader.compileError,
@@ -1776,7 +1827,7 @@ export function WorkspaceRoute() {
       const shaderName =
         currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId)?.name ??
         currentProject.studio.activeShaderName;
-      nextStatusMessage = `Duplicated "${shaderName}" in the timeline.`;
+      nextStatusMessage = `Duplicated "${shaderName}" as "${duplicateShaderName}" in the timeline.`;
 
       return pruneTemporaryTimelineShaders({
         ...currentProject,
@@ -3040,15 +3091,19 @@ ${errorSnapshot}`,
   }
 
   const handleTimelineEditStep = useCallback((stepId: string) => {
-    const nextTimeSeconds = getTimelineStepStartSeconds(
-      project?.timeline.stub.shaderSequence.steps ?? [],
-      stepId,
-    );
+    const isPinnedStep = pinnedTimelineStepId === stepId;
+    const nextTimeSeconds = isPinnedStep
+      ? null
+      : getTimelineStepStartSeconds(
+          project?.timeline.stub.shaderSequence.steps ?? [],
+          stepId,
+        );
     void selectTimelineStepForEditing(stepId, {
-      stagePreviewMode: 'focused',
+      stagePreviewMode: isPinnedStep ? 'timeline' : 'focused',
       seekTimeSeconds: nextTimeSeconds,
     });
   }, [
+    pinnedTimelineStepId,
     project?.timeline.stub.shaderSequence.steps,
     selectTimelineStepForEditing,
   ]);
