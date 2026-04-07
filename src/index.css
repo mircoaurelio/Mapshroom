@@ -38,11 +38,13 @@ body,
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
+  overscroll-behavior-x: none;
 }
 
 body {
   min-height: 100vh;
   overflow: hidden;
+  overscroll-behavior-y: none;
   font-size: 13px;
   line-height: 1.45;
 }
