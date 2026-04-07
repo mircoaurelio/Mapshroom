@@ -696,6 +696,7 @@ export function WorkspaceRoute() {
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [desktopStageKeyboardArmed, setDesktopStageKeyboardArmed] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
+  const [pinnedTimelineStepId, setPinnedTimelineStepId] = useState<string | null>(null);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
   const [savedProjects, setSavedProjects] = useState<ProjectLibraryEntry[]>(() => loadProjectLibrary());
   const [shareLinkState, setShareLinkState] = useState<ProjectShareLinkResult | null>(null);
@@ -1120,6 +1121,23 @@ export function WorkspaceRoute() {
     );
     return stepIndex >= 0 ? stepIndex : null;
   }, [editingTimelineStepId, project]);
+
+  useEffect(() => {
+    setPinnedTimelineStepId(null);
+  }, [project?.sessionId]);
+
+  useEffect(() => {
+    if (!project || !pinnedTimelineStepId) {
+      return;
+    }
+
+    const pinnedStep = project.timeline.stub.shaderSequence.steps.find(
+      (step) => step.id === pinnedTimelineStepId,
+    );
+    if (!pinnedStep || pinnedStep.disabled) {
+      setPinnedTimelineStepId(null);
+    }
+  }, [pinnedTimelineStepId, project]);
 
   useEffect(() => {
     if (!project || !activeTimelineDraft) {
@@ -1560,6 +1578,9 @@ export function WorkspaceRoute() {
         },
       }),
     );
+    if (patch.disabled && pinnedTimelineStepId === stepId) {
+      setPinnedTimelineStepId(null);
+    }
     if (shouldRelinkSelection) {
       window.setTimeout(() => {
         void selectTimelineStepForEditing(stepId, {
@@ -1568,7 +1589,28 @@ export function WorkspaceRoute() {
         });
       }, 0);
     }
-  }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
+  }, [editingTimelineStepId, pinnedTimelineStepId, selectTimelineStepForEditing, updateProject]);
+
+  const handleTimelinePinnedStepToggle = useCallback((stepId: string) => {
+    if (!project) {
+      return;
+    }
+
+    const nextPinnedStepId = pinnedTimelineStepId === stepId ? null : stepId;
+    const step = project.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
+    if (!step || step.disabled) {
+      return;
+    }
+
+    const shaderName =
+      project.studio.savedShaders.find((shader) => shader.id === step.shaderId)?.name ??
+      `Step ${project.timeline.stub.shaderSequence.steps.findIndex((item) => item.id === stepId) + 1}`;
+
+    setPinnedTimelineStepId(nextPinnedStepId);
+    setStatusMessage(
+      nextPinnedStepId ? `Pinned "${shaderName}" beside the live stage.` : 'Cleared the pinned compare shader.',
+    );
+  }, [pinnedTimelineStepId, project]);
 
   const handleTimelineAddStepsWithShaders = useCallback((shaderIds: string[]) => {
     const requestedShaderIds = Array.from(
@@ -1676,10 +1718,14 @@ export function WorkspaceRoute() {
       setEditingTimelineStepId(null);
     }
 
+    if (pinnedTimelineStepId === stepId) {
+      setPinnedTimelineStepId(null);
+    }
+
     if (nextStatusMessage) {
       setStatusMessage(nextStatusMessage);
     }
-  }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
+  }, [editingTimelineStepId, pinnedTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
   const handleTimelineDuplicateStep = useCallback((stepId: string) => {
     let nextStatusMessage = '';
@@ -3243,6 +3289,7 @@ ${errorSnapshot}`,
       activeShaderId={project.studio.activeShaderId}
       savedShaders={timelineSelectableShaders}
       editingStepId={editingTimelineStepId}
+      pinnedStepId={pinnedTimelineStepId}
       sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
@@ -3259,6 +3306,7 @@ ${errorSnapshot}`,
       onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceStepChange={handleTimelineStepChange}
+      onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onSequenceDurationChange={handleTimelineDurationChange}
       onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
@@ -3304,6 +3352,7 @@ ${errorSnapshot}`,
         activeUniformValues={project.studio.uniformValues}
         savedShaders={project.studio.savedShaders}
         timeline={project.timeline.stub}
+        pinnedStepId={pinnedTimelineStepId}
         shaderCompileNonce={shaderCompileNonce}
         stageTransform={workspacePreviewStageTransform}
         transport={project.playback.transport}
@@ -3564,6 +3613,7 @@ ${errorSnapshot}`,
         activeShaderId={project.studio.activeShaderId}
         savedShaders={timelineSelectableShaders}
         editingStepId={editingTimelineStepId}
+        pinnedStepId={pinnedTimelineStepId}
         sequence={timelineStub.shaderSequence}
         transport={project.playback.transport}
         durationSeconds={timelineDurationSeconds}
@@ -3580,6 +3630,7 @@ ${errorSnapshot}`,
         onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceStepChange={handleTimelineStepChange}
+        onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onSequenceDurationChange={handleTimelineDurationChange}
         onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}

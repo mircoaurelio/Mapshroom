@@ -39,6 +39,7 @@ interface ShaderTimelineEditorProps {
   editingStepId: string | null;
   activeStepId: string | null;
   transitionStepId: string | null;
+  pinnedStepId: string | null;
   sequence: TimelineStub['shaderSequence'];
   totalDurationSeconds: number;
   onModeChange: (mode: TimelineSequenceMode) => void;
@@ -59,6 +60,7 @@ interface ShaderTimelineEditorProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
+  onPinnedStepToggle: (stepId: string) => void;
   onAddStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
@@ -144,6 +146,17 @@ function BlockIcon() {
     <svg viewBox="0 0 16 16" aria-hidden="true">
       <circle cx="8" cy="8" r="5.25" />
       <path d="M4.7 11.3 11.3 4.7" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5.1 3.1h5.8" />
+      <path d="m10.4 3.3-.9 3.1 2 1.9H4.5l2-1.9-.9-3.1" />
+      <path d="M8 8.3v4.6" />
+      <path d="M6.8 12.9h2.4" />
     </svg>
   );
 }
@@ -234,6 +247,7 @@ export function ShaderTimelineEditor({
   editingStepId,
   activeStepId,
   transitionStepId,
+  pinnedStepId,
   sequence,
   totalDurationSeconds,
   onModeChange,
@@ -247,6 +261,7 @@ export function ShaderTimelineEditor({
   onToggleRandomChoice,
   onSharedTransitionChange,
   onStepChange,
+  onPinnedStepToggle,
   onAddStepsWithShaders,
   onDuplicateStep,
   onRemoveStep,
@@ -305,8 +320,8 @@ export function ShaderTimelineEditor({
     () =>
       ({
         '--timeline-card-width-scale': `${cardScale.toFixed(2)}`,
-        '--timeline-card-width': `${Math.round(110 * cardScale)}px`,
-        '--timeline-card-simple-width': `${Math.round(96 * cardScale)}px`,
+        '--timeline-card-width': `${Math.round(220 * cardScale)}px`,
+        '--timeline-card-simple-width': `${Math.round(192 * cardScale)}px`,
         '--timeline-card-padding-y': `${(0.22 + cardScale * 0.33).toFixed(2)}rem`,
         '--timeline-card-padding-x': `${(0.24 + cardScale * 0.36).toFixed(2)}rem`,
         '--timeline-card-gap': `${(0.16 + cardScale * 0.29).toFixed(2)}rem`,
@@ -712,6 +727,7 @@ export function ShaderTimelineEditor({
           const previewSrc = shader ? previewSources[previewKey] ?? null : null;
           const hasCompileError = hasShaderCompileError(shader);
           const isDisabledStep = Boolean(step.disabled);
+          const isPinnedStep = pinnedStepId === step.id;
           const disableToggleBlocked = !isDisabledStep && enabledStepCount <= 1;
 
           return (
@@ -727,7 +743,9 @@ export function ShaderTimelineEditor({
                   isTransitionStep ? 'timeline-step-card-transition' : ''
                 } ${step.id === editingStepId ? 'timeline-step-card-editing' : ''} ${
                   !isAdvancedView ? 'timeline-step-card-simple' : ''
-                } ${isDisabledStep ? 'timeline-step-card-disabled' : ''}`}
+                } ${isDisabledStep ? 'timeline-step-card-disabled' : ''} ${
+                  isPinnedStep ? 'timeline-step-card-pinned' : ''
+                }`}
                 role="button"
                 tabIndex={0}
                 aria-pressed={step.id === editingStepId}
@@ -752,6 +770,24 @@ export function ShaderTimelineEditor({
                   )}
 
                   <div className="timeline-step-preview-actions">
+                    {!isDisabledStep ? (
+                      <button
+                        type="button"
+                        className={`icon-button timeline-step-overlay-button ${
+                          isPinnedStep ? 'timeline-step-overlay-button-pin-active' : ''
+                        }`}
+                        aria-label={isPinnedStep ? 'Unpin shader step' : 'Pin shader step'}
+                        aria-pressed={isPinnedStep}
+                        title={isPinnedStep ? 'Unpin compare layer' : 'Pin compare layer'}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onPinnedStepToggle(step.id);
+                        }}
+                      >
+                        <PinIcon />
+                      </button>
+                    ) : null}
+
                     <button
                       type="button"
                       className={`icon-button timeline-step-overlay-button timeline-step-overlay-button-disable ${
@@ -811,10 +847,16 @@ export function ShaderTimelineEditor({
                   )}
 
                   {isDisabledStep ||
+                  isPinnedStep ||
                   hasCompileError ||
                   getPendingAiJobCount(shader) > 0 ||
                   shader?.hasUnreadAiResult ? (
                     <div className="timeline-step-preview-badges timeline-step-preview-badges-bottom">
+                      {isPinnedStep ? (
+                        <span className="timeline-step-preview-badge timeline-step-preview-badge-pinned">
+                          Pin
+                        </span>
+                      ) : null}
                       {isDisabledStep ? (
                         <span className="timeline-step-preview-badge timeline-step-preview-badge-disabled">
                           Off
