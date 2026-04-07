@@ -160,6 +160,7 @@ interface TimelineStageRendererProps {
   activeUniformValues: ShaderUniformValueMap;
   savedShaders: SavedShader[];
   timeline: TimelineStub;
+  pinnedStepId?: string | null;
   shaderCompileNonce?: number;
   stageTransform: StageTransform;
   transport: PlaybackTransport;
@@ -179,6 +180,7 @@ export function TimelineStageRenderer({
   activeUniformValues,
   savedShaders,
   timeline,
+  pinnedStepId = null,
   shaderCompileNonce,
   stageTransform,
   transport,
@@ -251,6 +253,20 @@ export function TimelineStageRenderer({
 
     return availableShaders.find((shader) => shader.id === focusedStep.shaderId) ?? null;
   }, [availableShaders, shaderSequence.focusedStepId, shaderSequence.steps]);
+  const pinnedSequenceStep = useMemo(() => {
+    if (!pinnedStepId) {
+      return null;
+    }
+
+    return shaderSequence.steps.find((step) => step.id === pinnedStepId && !step.disabled) ?? null;
+  }, [pinnedStepId, shaderSequence.steps]);
+  const pinnedSequenceShader = useMemo(() => {
+    if (!pinnedSequenceStep) {
+      return null;
+    }
+
+    return availableShaders.find((shader) => shader.id === pinnedSequenceStep.shaderId) ?? null;
+  }, [availableShaders, pinnedSequenceStep]);
 
   useEffect(() => {
     if (!shouldResolveLiveTimelineState || !transport.isPlaying) {
@@ -548,73 +564,98 @@ export function TimelineStageRenderer({
     };
   };
 
-  const stageRenderLayers = useMemo<StageRenderLayer[]>(() => {
+  const createStageRenderLayer = (
+    layer: TimelineRenderLayer,
+    opacity: number,
+  ): StageRenderLayer => ({
+    shaderCode: layer.shaderCode,
+    uniformDefinitions: parseUniforms(layer.shaderCode),
+    uniformValues: layer.uniformValues,
+    opacity,
+  });
+
+  const visibleTimelineRenderLayers = useMemo<TimelineRenderLayer[]>(() => {
+    const visibleLayers: TimelineRenderLayer[] = [];
+    const visibleStepIds = new Set<string>();
+    const visibleShaderIds = new Set<string>();
+    const markStateVisible = (state: ResolvedTimelineState | null) => {
+      if (!state) {
+        return;
+      }
+
+      visibleStepIds.add(state.currentStep.id);
+      visibleShaderIds.add(state.currentShader.id);
+      if (state.nextStep) {
+        visibleStepIds.add(state.nextStep.id);
+      }
+      if (state.nextShader) {
+        visibleShaderIds.add(state.nextShader.id);
+      }
+    };
+
     if (workspaceFocusedPreviewEnabled) {
-      const focusedLayer = resolveSingleShaderLayer(focusedSequenceShader ?? activeSavedShader);
-      return [
-        {
-          shaderCode: focusedLayer.shaderCode,
-          uniformDefinitions: parseUniforms(focusedLayer.shaderCode),
-          uniformValues: focusedLayer.uniformValues,
-          opacity: 1,
-        },
-      ];
-    }
-
-    if (!timelineState) {
+      const focusedTargetShader = focusedSequenceShader ?? activeSavedShader;
+      const focusedLayer = resolveSingleShaderLayer(focusedTargetShader);
+      visibleLayers.push(focusedLayer);
+      if (shaderSequence.focusedStepId) {
+        visibleStepIds.add(shaderSequence.focusedStepId);
+      }
+      if (focusedTargetShader) {
+        visibleShaderIds.add(focusedTargetShader.id);
+      }
+    } else if (!timelineState) {
       const fallbackLayer = resolveSingleShaderLayer(activeSavedShader);
-      return [
-        {
-          shaderCode: fallbackLayer.shaderCode,
-          uniformDefinitions: parseUniforms(fallbackLayer.shaderCode),
-          uniformValues: fallbackLayer.uniformValues,
-          opacity: 1,
-        },
-      ];
-    }
-
-    if (shaderSequence.mode === 'double') {
+      visibleLayers.push(fallbackLayer);
+      if (activeSavedShader) {
+        visibleShaderIds.add(activeSavedShader.id);
+      }
+    } else if (shaderSequence.mode === 'double') {
       const primaryLayer = buildTimelineRenderLayer(timelineState);
-      const secondaryLayer = buildTimelineRenderLayer(
-        secondaryTimelineState ?? timelineState,
-      );
+      const resolvedSecondaryState = secondaryTimelineState ?? timelineState;
+      const secondaryLayer = buildTimelineRenderLayer(resolvedSecondaryState);
 
-      return [
-        {
-          shaderCode: primaryLayer.shaderCode,
-          uniformDefinitions: parseUniforms(primaryLayer.shaderCode),
-          uniformValues: primaryLayer.uniformValues,
-          opacity: 0.5,
-        },
-        {
-          shaderCode: secondaryLayer.shaderCode,
-          uniformDefinitions: parseUniforms(secondaryLayer.shaderCode),
-          uniformValues: secondaryLayer.uniformValues,
-          opacity: 0.5,
-        },
-      ];
+      visibleLayers.push(primaryLayer, secondaryLayer);
+      markStateVisible(timelineState);
+      markStateVisible(resolvedSecondaryState);
+    } else {
+      const activeLayer = buildTimelineRenderLayer(timelineState);
+      visibleLayers.push(activeLayer);
+      markStateVisible(timelineState);
     }
 
-    const activeLayer = buildTimelineRenderLayer(timelineState);
-    return [
-      {
-        shaderCode: activeLayer.shaderCode,
-        uniformDefinitions: parseUniforms(activeLayer.shaderCode),
-        uniformValues: activeLayer.uniformValues,
-        opacity: 1,
-      },
-    ];
+    if (
+      pinnedSequenceStep &&
+      pinnedSequenceShader &&
+      !visibleStepIds.has(pinnedSequenceStep.id) &&
+      !visibleShaderIds.has(pinnedSequenceShader.id)
+    ) {
+      visibleLayers.push(resolveSingleShaderLayer(pinnedSequenceShader));
+    }
+
+    return visibleLayers;
   }, [
     activeSavedShader,
     focusedSequenceShader,
+    pinnedSequenceShader,
+    pinnedSequenceStep,
     previewActiveShaderCode,
     previewActiveUniformValues,
     preferActiveShaderCompilePreview,
     secondaryTimelineState,
+    shaderSequence.focusedStepId,
     shaderSequence.mode,
     timelineState,
     workspaceFocusedPreviewEnabled,
   ]);
+
+  const stageRenderLayers = useMemo<StageRenderLayer[]>(() => {
+    const normalizedOpacity =
+      visibleTimelineRenderLayers.length > 1 ? 1 / visibleTimelineRenderLayers.length : 1;
+
+    return visibleTimelineRenderLayers.map((layer) =>
+      createStageRenderLayer(layer, normalizedOpacity),
+    );
+  }, [visibleTimelineRenderLayers]);
 
   const renderDescriptor = stageRenderLayers[0] ?? {
     shaderCode: previewActiveShaderCode,
@@ -748,31 +789,8 @@ export function TimelineStageRenderer({
   ]);
 
   const usedFallback = useMemo(
-    () => {
-      if (workspaceFocusedPreviewEnabled) {
-        return resolveSingleShaderLayer(focusedSequenceShader ?? activeSavedShader).usedFallback;
-      }
-
-      if (!timelineState) {
-        return resolveSingleShaderLayer(activeSavedShader).usedFallback;
-      }
-
-      if (shaderSequence.mode === 'double') {
-        const primaryLayer = buildTimelineRenderLayer(timelineState);
-        const secondaryLayer = buildTimelineRenderLayer(secondaryTimelineState ?? timelineState);
-        return primaryLayer.usedFallback || secondaryLayer.usedFallback;
-      }
-
-      return buildTimelineRenderLayer(timelineState).usedFallback;
-    },
-    [
-      activeSavedShader,
-      focusedSequenceShader,
-      secondaryTimelineState,
-      shaderSequence.mode,
-      timelineState,
-      workspaceFocusedPreviewEnabled,
-    ],
+    () => visibleTimelineRenderLayers.some((layer) => layer.usedFallback),
+    [visibleTimelineRenderLayers],
   );
 
   return (

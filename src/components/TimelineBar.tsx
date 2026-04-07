@@ -36,6 +36,7 @@ interface TimelineBarProps {
   activeShaderId: string;
   savedShaders: SavedShader[];
   editingStepId: string | null;
+  pinnedStepId: string | null;
   sequence: TimelineStub['shaderSequence'];
   transport: PlaybackTransport;
   durationSeconds: number;
@@ -59,6 +60,7 @@ interface TimelineBarProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
+  onSequencePinnedStepToggle: (stepId: string) => void;
   onSequenceDurationChange: (durationSeconds: number) => void;
   onAddSequenceStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
@@ -278,6 +280,7 @@ export function TimelineBar({
   activeShaderId,
   savedShaders,
   editingStepId,
+  pinnedStepId,
   sequence,
   transport,
   durationSeconds,
@@ -294,6 +297,7 @@ export function TimelineBar({
   onSequenceStagePreviewModeChange,
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
+  onSequencePinnedStepToggle,
   onSequenceDurationChange,
   onAddSequenceStepsWithShaders,
   onDuplicateSequenceStep,
@@ -926,6 +930,7 @@ export function TimelineBar({
         transitionStepId={
           timelineState?.isTransitioning ? timelineState.nextStep?.id ?? null : null
         }
+        pinnedStepId={pinnedStepId}
         sequence={sequence}
         totalDurationSeconds={durationSeconds}
         onModeChange={onSequenceModeChange}
@@ -939,6 +944,7 @@ export function TimelineBar({
         onToggleRandomChoice={onToggleRandomChoice}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
+        onPinnedStepToggle={onSequencePinnedStepToggle}
         onAddStepsWithShaders={onAddSequenceStepsWithShaders}
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
