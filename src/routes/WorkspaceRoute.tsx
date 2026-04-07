@@ -49,6 +49,7 @@ import {
   clampTransitionDuration,
   createTimelineShaderStep,
   getShaderTimelineDuration,
+  isTimelineStepEnabled,
   roundTimelineSeconds,
   scaleTimelineStepDurations,
 } from '../lib/timeline';
@@ -299,6 +300,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
             const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
             return {
               ...step,
+              disabled: Boolean(step.disabled),
               durationSeconds,
               transitionDurationSeconds: clampTransitionDuration(
                 durationSeconds,
@@ -3040,10 +3042,11 @@ ${errorSnapshot}`,
     ? project.studio.savedShaders
     : [liveShaderEntry, ...project.studio.savedShaders];
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
+  const playableTimelineSteps = timelineStub.shaderSequence.steps.filter(isTimelineStepEnabled);
   const timelineMarkers = timelineSequenceEnabled
     ? timelineStub.shaderSequence.mode === 'random'
-      ? timelineStub.shaderSequence.steps.map((_, index) => `Pick ${index + 1}`)
-      : timelineStub.shaderSequence.steps.map((step, index) => {
+      ? playableTimelineSteps.map((_, index) => `Pick ${index + 1}`)
+      : playableTimelineSteps.map((step, index) => {
           const shaderName =
             timelineSelectableShaders.find((shader) => shader.id === step.shaderId)?.name ??
             `Step ${index + 1}`;

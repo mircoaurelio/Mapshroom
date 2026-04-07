@@ -100,6 +100,7 @@ export interface TimelineStub {
     steps: Array<{
       id: string;
       shaderId: string;
+      disabled: boolean;
       durationSeconds: number;
       transitionDurationSeconds: number;
       transitionEffect: TimelineTransitionEffect;

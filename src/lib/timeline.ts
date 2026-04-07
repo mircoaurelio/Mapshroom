@@ -57,52 +57,70 @@ export function createTimelineShaderStep(shaderId: string): TimelineStub['shader
   return {
     id: crypto.randomUUID(),
     shaderId,
+    disabled: false,
     durationSeconds: 8,
     transitionDurationSeconds: 0.75,
     transitionEffect: 'mix',
   };
 }
 
+export function isTimelineStepEnabled(
+  step: TimelineStub['shaderSequence']['steps'][number],
+): boolean {
+  return !step.disabled;
+}
+
 export function getShaderTimelineDuration(
   steps: TimelineStub['shaderSequence']['steps'],
 ): number {
-  return steps.reduce((total, step) => total + clampTimelineStepDuration(step.durationSeconds), 0);
+  return steps.reduce(
+    (total, step) =>
+      isTimelineStepEnabled(step) ? total + clampTimelineStepDuration(step.durationSeconds) : total,
+    0,
+  );
 }
 
 export function scaleTimelineStepDurations(
   steps: TimelineStub['shaderSequence']['steps'],
   targetTotalSeconds: number,
 ): TimelineStub['shaderSequence']['steps'] {
-  if (steps.length === 0) {
+  const enabledSteps = steps.filter(isTimelineStepEnabled);
+  if (enabledSteps.length === 0) {
     return steps;
   }
 
   const minimumStepDurationSeconds = 0.5;
   const totalUnits = Math.max(
-    steps.length * 50,
+    enabledSteps.length * 50,
     Math.round(roundTimelineSeconds(targetTotalSeconds) * 100),
   );
-  const clampedSourceDurations = steps.map((step) => clampTimelineStepDuration(step.durationSeconds));
+  const clampedSourceDurations = enabledSteps.map((step) =>
+    clampTimelineStepDuration(step.durationSeconds),
+  );
   const totalSourceDuration = clampedSourceDurations.reduce(
     (sum, durationSeconds) => sum + durationSeconds,
     0,
   );
 
   if (totalSourceDuration <= 0) {
-    return steps.map((step) => ({
-      ...step,
-      durationSeconds: minimumStepDurationSeconds,
-      transitionDurationSeconds: clampTransitionDuration(
-        minimumStepDurationSeconds,
-        step.transitionDurationSeconds,
-      ),
-    }));
+    return steps.map((step) =>
+      !isTimelineStepEnabled(step)
+        ? step
+        : {
+            ...step,
+            durationSeconds: minimumStepDurationSeconds,
+            transitionDurationSeconds: clampTransitionDuration(
+              minimumStepDurationSeconds,
+              step.transitionDurationSeconds,
+            ),
+          },
+    );
   }
 
-  const scaledDurations = new Array<number>(steps.length).fill(minimumStepDurationSeconds);
+  const scaledDurations = new Array<number>(enabledSteps.length).fill(minimumStepDurationSeconds);
   let remainingTargetDuration = totalUnits / 100;
   let remainingSourceDuration = totalSourceDuration;
-  let unresolvedIndices = steps.map((_, index) => index);
+  let unresolvedIndices = enabledSteps.map((_, index) => index);
 
   while (unresolvedIndices.length > 0) {
     if (remainingSourceDuration <= 0) {
@@ -149,9 +167,14 @@ export function scaleTimelineStepDurations(
     remainingUnits -= 1;
   }
 
-  return steps.map((step, index) => {
-    const nextDurationSeconds = baseUnits[index] / 100;
-    const previousDurationSeconds = clampedSourceDurations[index];
+  let enabledStepIndex = 0;
+  return steps.map((step) => {
+    if (!isTimelineStepEnabled(step)) {
+      return step;
+    }
+
+    const nextDurationSeconds = baseUnits[enabledStepIndex] / 100;
+    const previousDurationSeconds = clampedSourceDurations[enabledStepIndex];
     const previousTransitionDurationSeconds = clampTransitionDuration(
       previousDurationSeconds,
       step.transitionDurationSeconds,
@@ -162,6 +185,7 @@ export function scaleTimelineStepDurations(
         ? previousTransitionDurationSeconds * (nextDurationSeconds / previousDurationSeconds)
         : previousTransitionDurationSeconds,
     );
+    enabledStepIndex += 1;
 
     return {
       ...step,
@@ -281,7 +305,9 @@ export function resolveShaderTimelineState({
   }
 
   const shaderMap = new Map(shaders.map((shader) => [shader.id, shader]));
-  const validSteps = steps.filter((step) => shaderMap.has(step.shaderId));
+  const validSteps = steps.filter(
+    (step) => shaderMap.has(step.shaderId) && isTimelineStepEnabled(step),
+  );
   if (!validSteps.length) {
     return null;
   }
