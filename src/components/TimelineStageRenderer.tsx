@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import { parseUniforms, syncUniformValues } from '../lib/shader';
 import {
@@ -6,7 +6,10 @@ import {
   getRenderableShaderUniformValues,
   hasShaderCompileError,
 } from '../lib/shaderState';
-import { resolveShaderTimelineState } from '../lib/timeline';
+import {
+  clampTimelineStepDuration,
+  resolveShaderTimelineState,
+} from '../lib/timeline';
 import {
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
@@ -23,8 +26,14 @@ import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 
 const DOUBLE_SECONDARY_SPEED = 1.35;
 const PRELOAD_TRANSITION_PROGRESS = 0.001;
+const PRELOAD_LOOKAHEAD_EPSILON_SECONDS = 0.01;
+const STANDARD_PRELOAD_LOOKAHEAD_DEPTH = 1;
+const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
+const DOUBLE_SECONDARY_VARIANT_COUNT = 5;
+const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 
 type TimelineRenderLayerKind = 'single' | 'transition';
+type ResolvedTimelineState = NonNullable<ReturnType<typeof resolveShaderTimelineState>>;
 
 interface TimelineRenderLayer {
   kind: TimelineRenderLayerKind;
@@ -51,6 +60,94 @@ function prefixUniformValueKeys({
 function easeTransitionProgress(progress: number): number {
   const clamped = Math.max(0, Math.min(1, progress));
   return clamped * clamped * (3 - 2 * clamped);
+}
+
+function createTimelineRandomSeedToken(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getTimelineStateLookaheadKey(state: ResolvedTimelineState): string {
+  return [
+    state.currentStep.id,
+    state.nextStep?.id ?? 'none',
+    state.transitionEffect,
+    state.isTransitioning ? 'transition' : 'single',
+  ].join(':');
+}
+
+function collectTimelineLookaheadStates({
+  currentState,
+  currentTimeSeconds,
+  resolveStateAt,
+  depth,
+}: {
+  currentState: ResolvedTimelineState | null;
+  currentTimeSeconds: number;
+  resolveStateAt: (timeSeconds: number) => ResolvedTimelineState | null;
+  depth: number;
+}): ResolvedTimelineState[] {
+  if (!currentState || depth <= 0) {
+    return [];
+  }
+
+  const collectedStates: ResolvedTimelineState[] = [];
+  const seenStateKeys = new Set([getTimelineStateLookaheadKey(currentState)]);
+  let nextSourceState = currentState;
+  let nextTimeSeconds = currentTimeSeconds;
+
+  for (let index = 0; index < depth; index += 1) {
+    const remainingStepSeconds = Math.max(
+      0,
+      clampTimelineStepDuration(nextSourceState.currentStep.durationSeconds) -
+        nextSourceState.localTimeSeconds,
+    );
+    nextTimeSeconds += remainingStepSeconds + PRELOAD_LOOKAHEAD_EPSILON_SECONDS;
+
+    const resolvedState = resolveStateAt(nextTimeSeconds);
+    if (!resolvedState) {
+      break;
+    }
+
+    const stateKey = getTimelineStateLookaheadKey(resolvedState);
+    if (seenStateKeys.has(stateKey)) {
+      break;
+    }
+
+    seenStateKeys.add(stateKey);
+    collectedStates.push(resolvedState);
+    nextSourceState = resolvedState;
+  }
+
+  return collectedStates;
+}
+
+function getDoubleSecondaryCandidateScore(
+  candidate: ResolvedTimelineState,
+  primaryState: ResolvedTimelineState | null,
+): number {
+  if (!primaryState) {
+    return 0;
+  }
+
+  let score = 0;
+  if (candidate.currentShader.id !== primaryState.currentShader.id) {
+    score += 4;
+  }
+  if ((candidate.nextShader?.id ?? null) !== (primaryState.nextShader?.id ?? null)) {
+    score += 2;
+  }
+  if (candidate.currentStep.id !== primaryState.currentStep.id) {
+    score += 1;
+  }
+  if ((candidate.nextStep?.id ?? null) !== (primaryState.nextStep?.id ?? null)) {
+    score += 1;
+  }
+
+  return score;
 }
 
 interface TimelineStageRendererProps {
@@ -91,6 +188,14 @@ export function TimelineStageRenderer({
   onCompilerError,
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
+  const [doubleModeRandomSeedToken, setDoubleModeRandomSeedToken] = useState(() =>
+    createTimelineRandomSeedToken(),
+  );
+  const previousDoubleModeRef = useRef(false);
+  const previousTransportSnapshotRef = useRef({
+    isPlaying: transport.isPlaying,
+    currentTimeSeconds: transport.currentTimeSeconds,
+  });
   const workspaceFocusedPreviewEnabled = forceActiveShaderPreview && !isOutputOnly;
   const availableShaders = useMemo(() => {
     const liveShader = {
@@ -122,6 +227,10 @@ export function TimelineStageRenderer({
     sharedTransitionDurationSeconds: 0.75,
     steps: [],
   };
+  const doublePrimaryRandomSeedSalt =
+    shaderSequence.mode === 'double' ? `double-primary:${doubleModeRandomSeedToken}` : '';
+  const doubleSecondaryRandomSeedBase =
+    shaderSequence.mode === 'double' ? `double-secondary:${doubleModeRandomSeedToken}` : '';
   const sequenceEnabled = shaderSequence.steps.length > 0;
   const shouldResolveLiveTimelineState = sequenceEnabled && !workspaceFocusedPreviewEnabled;
   const activeSavedShader = useMemo(
@@ -170,6 +279,34 @@ export function TimelineStageRenderer({
     () => getTransportTimeSeconds(transport, timelineNowMs),
     [timelineNowMs, transport],
   );
+  const secondaryTimelineTimeSeconds = transportTimeSeconds * DOUBLE_SECONDARY_SPEED;
+
+  useEffect(() => {
+    const isDoubleMode = shaderSequence.mode === 'double';
+    const wasDoubleMode = previousDoubleModeRef.current;
+    const previousTransportSnapshot = previousTransportSnapshotRef.current;
+    const rewoundToStart =
+      isDoubleMode &&
+      !transport.isPlaying &&
+      previousTransportSnapshot.currentTimeSeconds > DOUBLE_RANDOM_RESEED_EPSILON_SECONDS &&
+      transport.currentTimeSeconds <= DOUBLE_RANDOM_RESEED_EPSILON_SECONDS;
+    const restartedPlaybackFromStart =
+      isDoubleMode &&
+      transport.isPlaying &&
+      transport.currentTimeSeconds <= DOUBLE_RANDOM_RESEED_EPSILON_SECONDS &&
+      (!previousTransportSnapshot.isPlaying ||
+        previousTransportSnapshot.currentTimeSeconds > DOUBLE_RANDOM_RESEED_EPSILON_SECONDS);
+
+    if (isDoubleMode && (!wasDoubleMode || rewoundToStart || restartedPlaybackFromStart)) {
+      setDoubleModeRandomSeedToken(createTimelineRandomSeedToken());
+    }
+
+    previousDoubleModeRef.current = isDoubleMode;
+    previousTransportSnapshotRef.current = {
+      isPlaying: transport.isPlaying,
+      currentTimeSeconds: transport.currentTimeSeconds,
+    };
+  }, [shaderSequence.mode, transport.currentTimeSeconds, transport.isPlaying]);
 
   const timelineState = useMemo(() => {
     if (!shouldResolveLiveTimelineState) {
@@ -188,9 +325,11 @@ export function TimelineStageRenderer({
       steps: shaderSequence.steps,
       timeSeconds: transportTimeSeconds,
       loop: transport.loop,
+      randomSeedSalt: doublePrimaryRandomSeedSalt,
     });
   }, [
     availableShaders,
+    doublePrimaryRandomSeedSalt,
     shouldResolveLiveTimelineState,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
@@ -204,37 +343,69 @@ export function TimelineStageRenderer({
     transportTimeSeconds,
   ]);
 
-  const secondaryTimelineState = useMemo(() => {
+  const secondaryTimelineResolution = useMemo(() => {
     if (!shouldResolveLiveTimelineState || shaderSequence.mode !== 'double') {
-      return null;
+      return {
+        state: null as ResolvedTimelineState | null,
+        randomSeedSalt: '',
+      };
     }
 
-    return resolveShaderTimelineState({
-      shaders: availableShaders,
-      mode: 'randomMix',
-      focusedStepId: shaderSequence.focusedStepId ?? null,
-      singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
-      randomChoiceEnabled: false,
-      sharedTransitionEnabled: true,
-      sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
-      sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
-      steps: shaderSequence.steps,
-      timeSeconds: transportTimeSeconds * DOUBLE_SECONDARY_SPEED,
-      loop: transport.loop,
-      randomSeedSalt: 'double-secondary',
-    });
+    let bestState: ResolvedTimelineState | null = null;
+    let bestSeedSalt = `${doubleSecondaryRandomSeedBase}:0`;
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    for (let index = 0; index < DOUBLE_SECONDARY_VARIANT_COUNT; index += 1) {
+      const nextSeedSalt = `${doubleSecondaryRandomSeedBase}:${index}`;
+      const nextState = resolveShaderTimelineState({
+        shaders: availableShaders,
+        mode: 'randomMix',
+        focusedStepId: shaderSequence.focusedStepId ?? null,
+        singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
+        randomChoiceEnabled: false,
+        sharedTransitionEnabled: true,
+        sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+        sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+        steps: shaderSequence.steps,
+        timeSeconds: secondaryTimelineTimeSeconds,
+        loop: transport.loop,
+        randomSeedSalt: nextSeedSalt,
+      });
+      if (!nextState) {
+        continue;
+      }
+
+      const nextScore = getDoubleSecondaryCandidateScore(nextState, timelineState);
+      if (!bestState || nextScore > bestScore) {
+        bestState = nextState;
+        bestSeedSalt = nextSeedSalt;
+        bestScore = nextScore;
+      }
+
+      if (nextScore >= 6) {
+        break;
+      }
+    }
+
+    return {
+      state: bestState,
+      randomSeedSalt: bestSeedSalt,
+    };
   }, [
     availableShaders,
+    doubleSecondaryRandomSeedBase,
     shouldResolveLiveTimelineState,
+    secondaryTimelineTimeSeconds,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
     shaderSequence.sharedTransitionDurationSeconds,
     shaderSequence.sharedTransitionEffect,
     shaderSequence.singleStepLoopEnabled,
     shaderSequence.steps,
+    timelineState,
     transport.loop,
-    transportTimeSeconds,
   ]);
+  const secondaryTimelineState = secondaryTimelineResolution.state;
 
   const renderableActiveShaderCode = activeSavedShader
     ? getRenderableShaderCode(activeSavedShader)
@@ -452,21 +623,108 @@ export function TimelineStageRenderer({
     opacity: 1,
   };
 
+  const primaryLookaheadTimelineStates = useMemo(
+    () =>
+      collectTimelineLookaheadStates({
+        currentState: timelineState,
+        currentTimeSeconds: transportTimeSeconds,
+        resolveStateAt: (timeSeconds) =>
+          resolveShaderTimelineState({
+            shaders: availableShaders,
+            mode: shaderSequence.mode ?? 'sequence',
+            focusedStepId: shaderSequence.focusedStepId ?? null,
+            singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
+            randomChoiceEnabled: shaderSequence.randomChoiceEnabled ?? false,
+            sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled ?? false,
+            sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+            sharedTransitionDurationSeconds:
+              shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+            steps: shaderSequence.steps,
+            timeSeconds,
+            loop: transport.loop,
+            randomSeedSalt: doublePrimaryRandomSeedSalt,
+          }),
+        depth:
+          shaderSequence.mode === 'double'
+            ? DOUBLE_PRELOAD_LOOKAHEAD_DEPTH
+            : STANDARD_PRELOAD_LOOKAHEAD_DEPTH,
+      }),
+    [
+      availableShaders,
+      doublePrimaryRandomSeedSalt,
+      shaderSequence.focusedStepId,
+      shaderSequence.mode,
+      shaderSequence.randomChoiceEnabled,
+      shaderSequence.sharedTransitionEnabled,
+      shaderSequence.sharedTransitionDurationSeconds,
+      shaderSequence.sharedTransitionEffect,
+      shaderSequence.singleStepLoopEnabled,
+      shaderSequence.steps,
+      timelineState,
+      transport.loop,
+      transportTimeSeconds,
+    ],
+  );
+
+  const secondaryLookaheadTimelineStates = useMemo(
+    () =>
+      shaderSequence.mode !== 'double'
+        ? []
+        : collectTimelineLookaheadStates({
+            currentState: secondaryTimelineState,
+            currentTimeSeconds: secondaryTimelineTimeSeconds,
+            resolveStateAt: (timeSeconds) =>
+              resolveShaderTimelineState({
+                shaders: availableShaders,
+                mode: 'randomMix',
+                focusedStepId: shaderSequence.focusedStepId ?? null,
+                singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
+                randomChoiceEnabled: false,
+                sharedTransitionEnabled: true,
+                sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+                sharedTransitionDurationSeconds:
+                  shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+                steps: shaderSequence.steps,
+                timeSeconds,
+                loop: transport.loop,
+                randomSeedSalt: secondaryTimelineResolution.randomSeedSalt,
+              }),
+            depth: DOUBLE_PRELOAD_LOOKAHEAD_DEPTH,
+          }),
+    [
+      availableShaders,
+      secondaryTimelineState,
+      secondaryTimelineTimeSeconds,
+      secondaryTimelineResolution.randomSeedSalt,
+      shaderSequence.focusedStepId,
+      shaderSequence.mode,
+      shaderSequence.sharedTransitionDurationSeconds,
+      shaderSequence.sharedTransitionEffect,
+      shaderSequence.singleStepLoopEnabled,
+      shaderSequence.steps,
+      transport.loop,
+    ],
+  );
+
   const preloadStageLayers = useMemo<StageRenderLayer[]>(() => {
     if (workspaceFocusedPreviewEnabled || !timelineState) {
       return [];
     }
 
-    const preloadCandidates: Array<StageRenderLayer | null> = [
-      buildTransitionPreloadLayer(timelineState),
-      buildNextSinglePreloadLayer(timelineState),
-    ];
+    const preloadCandidates: Array<StageRenderLayer | null> = [];
+    const pushStatePreloads = (state: ResolvedTimelineState) => {
+      preloadCandidates.push(
+        buildTransitionPreloadLayer(state),
+        buildNextSinglePreloadLayer(state),
+      );
+    };
+
+    pushStatePreloads(timelineState);
+    primaryLookaheadTimelineStates.forEach(pushStatePreloads);
 
     if (shaderSequence.mode === 'double' && secondaryTimelineState) {
-      preloadCandidates.push(
-        buildTransitionPreloadLayer(secondaryTimelineState),
-        buildNextSinglePreloadLayer(secondaryTimelineState),
-      );
+      pushStatePreloads(secondaryTimelineState);
+      secondaryLookaheadTimelineStates.forEach(pushStatePreloads);
     }
 
     const visibleShaderCodes = new Set(stageRenderLayers.map((layer) => layer.shaderCode));
@@ -480,6 +738,8 @@ export function TimelineStageRenderer({
 
     return Array.from(dedupedPreloads.values());
   }, [
+    primaryLookaheadTimelineStates,
+    secondaryLookaheadTimelineStates,
     secondaryTimelineState,
     shaderSequence.mode,
     stageRenderLayers,
