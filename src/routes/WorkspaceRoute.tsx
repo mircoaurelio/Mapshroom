@@ -1,6 +1,5 @@
 import {
   type ChangeEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -123,23 +122,6 @@ function detectAssetKind(file: File): AssetKind | null {
 
 function clampDimension(value: number): number {
   return Math.max(-900, Math.min(1600, value));
-}
-
-function isInteractiveKeyboardTarget(target: EventTarget | null): boolean {
-  const element = target instanceof HTMLElement ? target : null;
-  if (!element) {
-    return false;
-  }
-
-  if (element.isContentEditable) {
-    return true;
-  }
-
-  return Boolean(
-    element.closest(
-      'input, textarea, select, button, a, [role="button"], [role="menuitem"], [contenteditable="true"]',
-    ),
-  );
 }
 
 function applyMappingTransform(transform: StageTransform, action: MappingAction): StageTransform {
@@ -684,6 +666,7 @@ export function WorkspaceRoute() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const stageViewportRef = useRef<HTMLElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
@@ -709,6 +692,7 @@ export function WorkspaceRoute() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
+  const [desktopStageKeyboardArmed, setDesktopStageKeyboardArmed] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
   const [savedProjects, setSavedProjects] = useState<ProjectLibraryEntry[]>(() => loadProjectLibrary());
@@ -2048,36 +2032,87 @@ export function WorkspaceRoute() {
     selectShader(nextShader.id);
   };
 
+  useEffect(() => {
+    if (isMobile) {
+      setDesktopStageKeyboardArmed(false);
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const stageElement = stageViewportRef.current;
+      const target = event.target instanceof Node ? event.target : null;
+      if (!stageElement || !target) {
+        setDesktopStageKeyboardArmed(false);
+        return;
+      }
+
+      setDesktopStageKeyboardArmed(stageElement.contains(target));
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const stageElement = stageViewportRef.current;
+      const target = event.target instanceof Node ? event.target : null;
+      if (!stageElement || !target) {
+        return;
+      }
+
+      setDesktopStageKeyboardArmed(stageElement.contains(target));
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown, true);
+    window.addEventListener('focusin', handleFocusIn, true);
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown, true);
+      window.removeEventListener('focusin', handleFocusIn, true);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (isMobile || !desktopStageKeyboardArmed) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (hasDesktopDialogOpen || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        event.stopPropagation();
+        cyclePreviewShader(1);
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        event.stopPropagation();
+        cyclePreviewShader(-1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [cyclePreviewShader, desktopStageKeyboardArmed, hasDesktopDialogOpen, isMobile]);
+
+  useEffect(() => {
+    if (hasDesktopDialogOpen) {
+      setDesktopStageKeyboardArmed(false);
+    }
+  }, [hasDesktopDialogOpen]);
+
   const handleStageViewportPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
-    if (isMobile || hasDesktopDialogOpen || isInteractiveKeyboardTarget(event.target)) {
+    if (isMobile || hasDesktopDialogOpen) {
       return;
     }
 
-    event.currentTarget.focus();
-  };
-
-  const handleStageViewportKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (
-      isMobile ||
-      hasDesktopDialogOpen ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      isInteractiveKeyboardTarget(event.target)
-    ) {
-      return;
-    }
-
-    if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      cyclePreviewShader(1);
-      return;
-    }
-
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      cyclePreviewShader(-1);
-    }
+    const stageElement = event.currentTarget;
+    setDesktopStageKeyboardArmed(true);
+    window.requestAnimationFrame(() => {
+      stageElement.focus();
+    });
   };
 
   const saveCurrentShader = () => {
@@ -3246,13 +3281,15 @@ ${errorSnapshot}`,
 
   const stageViewport = (
     <section
-      className="workspace-stage-column"
+      ref={stageViewportRef}
+      className={`workspace-stage-column ${
+        desktopStageKeyboardArmed ? 'workspace-stage-column-keyboard-active' : ''
+      }`}
       tabIndex={isMobile ? -1 : 0}
       aria-label={isMobile ? undefined : 'Stage preview. Use left and right arrow keys to switch shaders.'}
       aria-keyshortcuts={isMobile ? undefined : 'ArrowLeft ArrowRight'}
       onClick={handleStageReveal}
       onPointerDown={handleStageViewportPointerDown}
-      onKeyDown={handleStageViewportKeyDown}
     >
       <TimelineStageRenderer
         asset={activeAsset}
