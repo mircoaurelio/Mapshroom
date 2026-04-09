@@ -33,6 +33,7 @@ export interface SavedShader {
   id: string;
   name: string;
   code: string;
+  inputAssetId?: string | null;
   versions?: ShaderVersion[];
   lastValidCode?: string;
   description?: string;

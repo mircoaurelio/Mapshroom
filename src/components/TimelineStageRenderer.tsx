@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import { parseUniforms, syncUniformValues } from '../lib/shader';
 import {
@@ -13,6 +13,7 @@ import {
 import {
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
+import { getAssetBlob } from '../lib/storage';
 import type {
   PlaybackTransport,
   SavedShader,
@@ -21,7 +22,11 @@ import type {
   TimelineStub,
   AssetRecord,
 } from '../types';
-import { StageRenderer, type StageRenderLayer } from './StageRenderer';
+import {
+  StageRenderer,
+  type StageRenderInputSource,
+  type StageRenderLayer,
+} from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 
 const DOUBLE_SECONDARY_SPEED = 1.35;
@@ -32,6 +37,7 @@ const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_SECONDARY_VARIANT_COUNT = 5;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
+const timelineAssetUrlCache = new Map<string, string>();
 
 type TimelineRenderLayerKind = 'single' | 'transition';
 type ResolvedTimelineState = NonNullable<ReturnType<typeof resolveShaderTimelineState>>;
@@ -41,6 +47,11 @@ interface TimelineRenderLayer {
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
   usedFallback: boolean;
+  inputSource?: StageRenderInputSource | null;
+  transitionInputSources?: {
+    from: StageRenderInputSource | null;
+    to: StageRenderInputSource | null;
+  } | null;
 }
 
 interface PinLayerTransitionState {
@@ -161,6 +172,7 @@ function getDoubleSecondaryCandidateScore(
 
 interface TimelineStageRendererProps {
   asset: AssetRecord | null;
+  assets: AssetRecord[];
   assetUrl: string | null;
   assetUrlStatus?: AssetObjectUrlStatus;
   activeShaderId: string;
@@ -181,6 +193,7 @@ interface TimelineStageRendererProps {
 
 export function TimelineStageRenderer({
   asset,
+  assets,
   assetUrl,
   assetUrlStatus,
   activeShaderId,
@@ -220,6 +233,13 @@ export function TimelineStageRenderer({
     isPlaying: transport.isPlaying,
     currentTimeSeconds: transport.currentTimeSeconds,
   });
+  const [resolvedInputSources, setResolvedInputSources] = useState<
+    Record<string, { url: string | null; status: AssetObjectUrlStatus }>
+  >({});
+  const assetMap = useMemo(
+    () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
+    [assets],
+  );
   const workspaceFocusedPreviewEnabled = forceActiveShaderPreview && !isOutputOnly;
   const availableShaders = useMemo(() => {
     const liveShader = {
@@ -258,6 +278,100 @@ export function TimelineStageRenderer({
     shaderSequence.mode === 'double' ? `double-secondary:${doubleModeRandomSeedToken}` : '';
   const sequenceEnabled = shaderSequence.steps.length > 0;
   const shouldResolveLiveTimelineState = sequenceEnabled && !workspaceFocusedPreviewEnabled;
+  const referencedInputAssetIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          savedShaders
+            .map((shader) => shader.inputAssetId ?? null)
+            .filter((assetId): assetId is string => Boolean(assetId)),
+        ),
+      ),
+    [savedShaders],
+  );
+  const referencedInputAssetSignature = useMemo(
+    () => referencedInputAssetIds.join('\u0001'),
+    [referencedInputAssetIds],
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    const nextKnownSources = referencedInputAssetIds.reduce<
+      Record<string, { url: string | null; status: AssetObjectUrlStatus }>
+    >((collection, assetId) => {
+      const assetRecord = assetMap.get(assetId);
+      if (!assetRecord) {
+        collection[assetId] = {
+          url: null,
+          status: 'missing',
+        };
+        return collection;
+      }
+
+      const cachedUrl = timelineAssetUrlCache.get(assetId) ?? null;
+      collection[assetId] = {
+        url: cachedUrl,
+        status: cachedUrl ? 'ready' : 'loading',
+      };
+      return collection;
+    }, {});
+
+    setResolvedInputSources(nextKnownSources);
+
+    const missingAssetRecords = referencedInputAssetIds
+      .map((assetId) => assetMap.get(assetId) ?? null)
+      .filter((assetRecord): assetRecord is AssetRecord => {
+        if (!assetRecord) {
+          return false;
+        }
+
+        return !timelineAssetUrlCache.has(assetRecord.id);
+      });
+    if (missingAssetRecords.length === 0) {
+      return () => {
+        disposed = true;
+      };
+    }
+
+    void Promise.all(
+      missingAssetRecords.map(async (assetRecord) => {
+        const blob = await getAssetBlob(assetRecord.id);
+        if (!blob) {
+          return [assetRecord.id, null] as const;
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        timelineAssetUrlCache.set(assetRecord.id, objectUrl);
+        return [assetRecord.id, objectUrl] as const;
+      }),
+    ).then((entries) => {
+      if (disposed) {
+        return;
+      }
+
+      setResolvedInputSources(() => {
+        const nextValue = referencedInputAssetIds.reduce<
+          Record<string, { url: string | null; status: AssetObjectUrlStatus }>
+        >((collection, assetId) => {
+          const cachedUrl = timelineAssetUrlCache.get(assetId) ?? null;
+          const assetRecord = assetMap.get(assetId);
+          const resolvedEntry = entries.find(([entryAssetId]) => entryAssetId === assetId);
+          const resolvedUrl = resolvedEntry?.[1] ?? cachedUrl;
+          collection[assetId] = {
+            url: resolvedUrl,
+            status: assetRecord ? (resolvedUrl ? 'ready' : 'missing') : 'missing',
+          };
+          return collection;
+        }, {});
+
+        return nextValue;
+      });
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [assetMap, referencedInputAssetIds, referencedInputAssetSignature]);
   const activeSavedShader = useMemo(
     () => availableShaders.find((shader) => shader.id === activeShaderId) ?? null,
     [activeShaderId, availableShaders],
@@ -468,7 +582,47 @@ export function TimelineStageRenderer({
     ],
   );
 
-  const resolveSingleShaderLayer = (
+  const resolveShaderInputSource = useCallback((
+    shader: SavedShader | null | undefined,
+  ): StageRenderInputSource | null => {
+    const inputAssetId = shader?.inputAssetId ?? null;
+    if (!inputAssetId) {
+      return null;
+    }
+
+    if (asset && inputAssetId === asset.id) {
+      return {
+        assetId: asset.id,
+        assetName: asset.name,
+        kind: asset.kind,
+        url: assetUrl,
+        status: assetUrlStatus ?? (assetUrl ? 'ready' : 'loading'),
+      };
+    }
+
+    const sourceAsset = assetMap.get(inputAssetId) ?? null;
+    if (!sourceAsset) {
+      return {
+        assetId: inputAssetId,
+        assetName: 'Assigned asset',
+        kind: 'image',
+        url: null,
+        status: 'missing',
+      };
+    }
+
+    const resolvedSource = resolvedInputSources[inputAssetId];
+
+    return {
+      assetId: sourceAsset.id,
+      assetName: sourceAsset.name,
+      kind: sourceAsset.kind,
+      url: resolvedSource?.url ?? null,
+      status: resolvedSource?.status ?? 'loading',
+    };
+  }, [asset, assetMap, assetUrl, assetUrlStatus, resolvedInputSources]);
+
+  const resolveSingleShaderLayer = useCallback((
     shader: SavedShader | null | undefined,
   ): TimelineRenderLayer => {
     const targetShader = shader ?? activeSavedShader;
@@ -481,6 +635,7 @@ export function TimelineStageRenderer({
         uniformValues: previewActiveUniformValues,
         usedFallback:
           !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
+        inputSource: resolveShaderInputSource(targetShader),
       };
     }
 
@@ -490,6 +645,7 @@ export function TimelineStageRenderer({
         shaderCode: previewActiveShaderCode,
         uniformValues: previewActiveUniformValues,
         usedFallback: false,
+        inputSource: null,
       };
     }
 
@@ -498,10 +654,18 @@ export function TimelineStageRenderer({
       shaderCode: getRenderableShaderCode(targetShader),
       uniformValues: getRenderableShaderUniformValues(targetShader),
       usedFallback: hasShaderCompileError(targetShader),
+      inputSource: resolveShaderInputSource(targetShader),
     };
-  };
+  }, [
+    activeSavedShader,
+    activeShaderId,
+    preferActiveShaderCompilePreview,
+    previewActiveShaderCode,
+    previewActiveUniformValues,
+    resolveShaderInputSource,
+  ]);
 
-  const buildTimelineRenderLayer = (
+  const buildTimelineRenderLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): TimelineRenderLayer => {
     const currentLayer = resolveSingleShaderLayer(state.currentShader);
@@ -532,13 +696,17 @@ export function TimelineStageRenderer({
           }),
         },
         usedFallback: currentLayer.usedFallback || nextLayer.usedFallback,
+        transitionInputSources: {
+          from: currentLayer.inputSource ?? null,
+          to: nextLayer.inputSource ?? null,
+        },
       };
     }
 
     return currentLayer;
-  };
+  }, [resolveSingleShaderLayer]);
 
-  const buildTransitionPreloadLayer = (
+  const buildTransitionPreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): StageRenderLayer | null => {
     if (!state.nextShader || state.transitionEffect === 'cut') {
@@ -568,10 +736,14 @@ export function TimelineStageRenderer({
         }),
       },
       opacity: 1,
+      transitionInputSources: {
+        from: currentLayer.inputSource ?? null,
+        to: nextLayer.inputSource ?? null,
+      },
     };
-  };
+  }, [resolveSingleShaderLayer]);
 
-  const buildNextSinglePreloadLayer = (
+  const buildNextSinglePreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): StageRenderLayer | null => {
     if (!state.nextShader) {
@@ -584,10 +756,11 @@ export function TimelineStageRenderer({
       uniformDefinitions: parseUniforms(nextLayer.shaderCode),
       uniformValues: nextLayer.uniformValues,
       opacity: 1,
+      inputSource: nextLayer.inputSource ?? null,
     };
-  };
+  }, [resolveSingleShaderLayer]);
 
-  const createStageRenderLayer = (
+  const createStageRenderLayer = useCallback((
     layer: TimelineRenderLayer,
     opacity: number,
   ): StageRenderLayer => ({
@@ -595,7 +768,9 @@ export function TimelineStageRenderer({
     uniformDefinitions: parseUniforms(layer.shaderCode),
     uniformValues: layer.uniformValues,
     opacity,
-  });
+    inputSource: layer.inputSource ?? null,
+    transitionInputSources: layer.transitionInputSources ?? null,
+  }), []);
 
   const visibleTimelineRenderState = useMemo(() => {
     const baseLayers: TimelineRenderLayer[] = [];
@@ -663,12 +838,11 @@ export function TimelineStageRenderer({
     };
   }, [
     activeSavedShader,
+    buildTimelineRenderLayer,
     focusedSequenceShader,
     pinnedSequenceShader,
     pinnedSequenceStep,
-    previewActiveShaderCode,
-    previewActiveUniformValues,
-    preferActiveShaderCompilePreview,
+    resolveSingleShaderLayer,
     secondaryTimelineState,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
@@ -816,6 +990,7 @@ export function TimelineStageRenderer({
 
     return composedLayers;
   }, [
+    createStageRenderLayer,
     pinLayerTransition,
     pinTransitionNowMs,
     pinnedTimelineRenderLayer,
@@ -944,6 +1119,8 @@ export function TimelineStageRenderer({
 
     return Array.from(dedupedPreloads.values());
   }, [
+    buildNextSinglePreloadLayer,
+    buildTransitionPreloadLayer,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,
     secondaryTimelineState,

@@ -101,6 +101,8 @@ export function buildTimelineTransitionShaderCode({
 
   return `// NAME: Timeline Transition
 uniform float u_transition_progress; // @min 0.0 @max 1.0 @default 0.0
+uniform sampler2D u_timeline_from_image;
+uniform sampler2D u_timeline_to_image;
 
 ${leftCode}
 
@@ -109,8 +111,8 @@ ${rightCode}
 ${transitionMixer}
 
 vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 fromColor = timeline_from_processColor(tex, uv, time, resolution);
-    vec4 toColor = timeline_to_processColor(tex, uv, time, resolution);
+    vec4 fromColor = timeline_from_processColor(u_timeline_from_image, uv, time, resolution);
+    vec4 toColor = timeline_to_processColor(u_timeline_to_image, uv, time, resolution);
     float progress = clamp(u_transition_progress, 0.0, 1.0);
     return mixTimelineTransition(fromColor, toColor, uv, progress);
 }`;

@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 import type {
+  AssetKind,
   AssetRecord,
   PlaybackTransport,
   ShaderUniformMap,
@@ -35,17 +36,32 @@ interface StageRendererProps {
   onCompilerError?: (message: string) => void;
 }
 
+export interface StageRenderInputSource {
+  assetId: string;
+  assetName: string;
+  kind: AssetKind;
+  url: string | null;
+  status: AssetObjectUrlStatus;
+}
+
 export interface StageRenderLayer {
   shaderCode: string;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   opacity?: number;
+  inputSource?: StageRenderInputSource | null;
+  transitionInputSources?: {
+    from: StageRenderInputSource | null;
+    to: StageRenderInputSource | null;
+  } | null;
 }
 
 interface ProgramLocations {
   position: number;
   time: WebGLUniformLocation | null;
   image: WebGLUniformLocation | null;
+  transitionFromImage: WebGLUniformLocation | null;
+  transitionToImage: WebGLUniformLocation | null;
   resolution: WebGLUniformLocation | null;
   custom: Record<string, WebGLUniformLocation | null>;
 }
@@ -55,6 +71,17 @@ interface CompiledRenderLayer extends StageRenderLayer {
   key: string;
   program: WebGLProgram;
   locations: ProgramLocations;
+}
+
+interface StageTextureSourceState {
+  source: StageRenderInputSource;
+  texture: WebGLTexture | null;
+  image: HTMLImageElement | null;
+  video: HTMLVideoElement | null;
+  textureUploadPending: boolean;
+  lastVideoTextureTime: number | null;
+  aspectRatio: number | null;
+  status: 'loading' | 'ready' | 'error';
 }
 
 function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: string) {
@@ -109,6 +136,8 @@ function createProgramBundle(
       position: gl.getAttribLocation(program, 'a_position'),
       time: gl.getUniformLocation(program, 'u_time'),
       image: gl.getUniformLocation(program, 'u_image'),
+      transitionFromImage: gl.getUniformLocation(program, 'u_timeline_from_image'),
+      transitionToImage: gl.getUniformLocation(program, 'u_timeline_to_image'),
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       custom: Object.fromEntries(
         Object.keys(uniformDefinitions).map((name) => [name, gl.getUniformLocation(program, name)]),
@@ -120,6 +149,28 @@ function createProgramBundle(
   gl.deleteShader(fragmentShader);
 
   return bundle;
+}
+
+function initializeTexture(
+  gl: WebGLRenderingContext,
+  texture: WebGLTexture,
+) {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    1,
+    1,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 0, 255]),
+  );
 }
 
 function disposeVideoElement(video: HTMLVideoElement | null | undefined) {
@@ -157,6 +208,172 @@ function syncVideoToTransport(
   video.pause();
 }
 
+function disposeTextureSourceState(
+  gl: WebGLRenderingContext | null,
+  state: StageTextureSourceState | null | undefined,
+) {
+  if (!state) {
+    return;
+  }
+
+  if (state.video) {
+    disposeVideoElement(state.video);
+  }
+  if (state.image) {
+    state.image.onload = null;
+    state.image.onerror = null;
+  }
+  if (gl && state.texture) {
+    gl.deleteTexture(state.texture);
+  }
+}
+
+function createTextureSourceState(
+  gl: WebGLRenderingContext,
+  source: StageRenderInputSource,
+  transport: PlaybackTransport,
+  onReady: (sourceKey: string, aspectRatio: number | null, renderStatus: string) => void,
+  onError: (sourceKey: string, renderStatus: string) => void,
+): StageTextureSourceState | null {
+  const texture = gl.createTexture();
+  if (!texture) {
+    return null;
+  }
+
+  initializeTexture(gl, texture);
+
+  const state: StageTextureSourceState = {
+    source,
+    texture,
+    image: null,
+    video: null,
+    textureUploadPending: true,
+    lastVideoTextureTime: null,
+    aspectRatio: null,
+    status: 'loading',
+  };
+
+  if (!source.url) {
+    state.status = source.status === 'missing' ? 'error' : 'loading';
+    return state;
+  }
+
+  if (source.kind === 'image') {
+    const image = new Image();
+    image.decoding = 'async';
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      state.image = image;
+      state.video = null;
+      state.textureUploadPending = true;
+      state.lastVideoTextureTime = null;
+      state.aspectRatio =
+        image.naturalWidth > 0 && image.naturalHeight > 0
+          ? image.naturalWidth / image.naturalHeight
+          : null;
+      state.status = 'ready';
+      onReady(state.source.assetId, state.aspectRatio, source.assetName || 'Image asset');
+    };
+    image.onerror = () => {
+      state.image = null;
+      state.status = 'error';
+      onError(state.source.assetId, 'Unable to load image asset');
+    };
+    image.src = source.url;
+    state.image = image;
+    return state;
+  }
+
+  const video = document.createElement('video');
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  video.onloadeddata = () => {
+    state.image = null;
+    state.video = video;
+    state.textureUploadPending = true;
+    state.lastVideoTextureTime = null;
+    state.aspectRatio =
+      video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth / video.videoHeight : null;
+    state.status = 'ready';
+    const targetTime = getTransportTimeSeconds(transport);
+    if (Number.isFinite(targetTime) && video.duration > 0) {
+      video.currentTime = targetTime % video.duration;
+    }
+    if (transport.isPlaying) {
+      void video.play().catch(() => {});
+    }
+    onReady(state.source.assetId, state.aspectRatio, source.assetName || 'Video asset');
+  };
+  video.onerror = () => {
+    state.video = null;
+    state.status = 'error';
+    onError(state.source.assetId, 'Unable to load video asset');
+  };
+  video.src = source.url;
+  state.video = video;
+  return state;
+}
+
+function updateTextureSourceStateTransport(
+  state: StageTextureSourceState,
+  transport: PlaybackTransport,
+) {
+  if (state.source.kind !== 'video' || !state.video || state.status !== 'ready') {
+    return;
+  }
+
+  syncVideoToTransport(state.video, transport, performance.now(), true);
+}
+
+function bindTextureSourceState(
+  gl: WebGLRenderingContext,
+  state: StageTextureSourceState | null | undefined,
+  textureUnit: number,
+  transport: PlaybackTransport,
+  transportTime: number,
+) {
+  if (!state?.texture) {
+    return false;
+  }
+
+  gl.activeTexture(textureUnit);
+  gl.bindTexture(gl.TEXTURE_2D, state.texture);
+
+  if (state.source.kind === 'video' && state.video && state.video.readyState >= 2) {
+    if (transport.isPlaying && state.video.duration > 0) {
+      const targetTime = transport.loop ? transportTime % state.video.duration : transportTime;
+      if (Math.abs(state.video.currentTime - targetTime) > 0.25) {
+        state.video.currentTime = targetTime;
+      }
+    }
+
+    const shouldUploadVideoFrame =
+      state.textureUploadPending ||
+      state.lastVideoTextureTime === null ||
+      Math.abs(state.video.currentTime - state.lastVideoTextureTime) > 0.001;
+
+    if (shouldUploadVideoFrame) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, state.video);
+      state.textureUploadPending = false;
+      state.lastVideoTextureTime = state.video.currentTime;
+    }
+
+    return true;
+  }
+
+  if (state.source.kind === 'image' && state.image && state.status === 'ready') {
+    if (state.textureUploadPending) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, state.image);
+      state.textureUploadPending = false;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
 export function StageRenderer({
   asset,
   assetUrl,
@@ -180,14 +397,10 @@ export function StageRenderer({
   >(new Map());
   const compiledLayersRef = useRef<CompiledRenderLayer[]>([]);
   const onCompilerErrorRef = useRef(onCompilerError);
-  const textureRef = useRef<WebGLTexture | null>(null);
+  const textureSourcesRef = useRef<Map<string, StageTextureSourceState>>(new Map());
   const positionBufferRef = useRef<WebGLBuffer | null>(null);
   const renderWarningRef = useRef<string | null>(null);
   const rafRef = useRef<number | null>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const textureUploadPendingRef = useRef(true);
-  const lastVideoTextureTimeRef = useRef<number | null>(null);
   const mediaAspectRatioRef = useRef<number | null>(null);
   const transportRef = useRef(transport);
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
@@ -195,9 +408,19 @@ export function StageRenderer({
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
-  const assetId = asset?.id ?? null;
-  const assetKind = asset?.kind ?? null;
-  const assetName = asset?.name ?? null;
+  const defaultInputSource = useMemo<StageRenderInputSource | null>(
+    () =>
+      asset
+        ? {
+            assetId: asset.id,
+            assetName: asset.name,
+            kind: asset.kind,
+            url: assetUrl,
+            status: assetUrlStatus,
+          }
+        : null,
+    [asset, assetUrl, assetUrlStatus],
+  );
   const {
     isPlaying,
     currentTimeSeconds,
@@ -225,9 +448,10 @@ export function StageRenderer({
               uniformDefinitions,
               uniformValues,
               opacity: 1,
+              inputSource: defaultInputSource,
             },
           ],
-    [renderLayers, shaderCode, uniformDefinitions, uniformValues],
+    [defaultInputSource, renderLayers, shaderCode, uniformDefinitions, uniformValues],
   );
   const resolvedPreloadLayers = useMemo<StageRenderLayer[]>(
     () => preloadLayers ?? [],
@@ -240,6 +464,49 @@ export function StageRenderer({
         .join('\u0001'),
     [resolvedPreloadLayers, resolvedRenderLayers],
   );
+  const requiredInputSources = useMemo(() => {
+    const sources = new Map<string, StageRenderInputSource>();
+    const registerSource = (source: StageRenderInputSource | null | undefined) => {
+      if (!source) {
+        return;
+      }
+      sources.set(source.assetId, source);
+    };
+
+    registerSource(defaultInputSource);
+    for (const layer of [...resolvedRenderLayers, ...resolvedPreloadLayers]) {
+      registerSource(layer.inputSource);
+      registerSource(layer.transitionInputSources?.from);
+      registerSource(layer.transitionInputSources?.to);
+    }
+
+    return Array.from(sources.values());
+  }, [defaultInputSource, resolvedPreloadLayers, resolvedRenderLayers]);
+  const requiredInputSourceSignature = useMemo(
+    () =>
+      requiredInputSources
+        .map((source) => `${source.assetId}:${source.kind}:${source.url ?? 'null'}:${source.status}`)
+        .join('\u0001'),
+    [requiredInputSources],
+  );
+  const preferredAspectSourceId = useMemo(() => {
+    if (defaultInputSource) {
+      return defaultInputSource.assetId;
+    }
+
+    for (const layer of resolvedRenderLayers) {
+      const source =
+        layer.transitionInputSources?.from ??
+        layer.inputSource ??
+        layer.transitionInputSources?.to ??
+        null;
+      if (source) {
+        return source.assetId;
+      }
+    }
+
+    return null;
+  }, [defaultInputSource, resolvedRenderLayers]);
 
   useEffect(() => {
     resolvedRenderLayersRef.current = resolvedRenderLayers;
@@ -284,8 +551,7 @@ export function StageRenderer({
     glRef.current = gl;
 
     const buffer = gl.createBuffer();
-    const texture = gl.createTexture();
-    if (!buffer || !texture) {
+    if (!buffer) {
       onCompilerErrorRef.current?.('Unable to allocate the WebGL buffers.');
       return;
     }
@@ -297,27 +563,7 @@ export function StageRenderer({
       gl.STATIC_DRAW,
     );
 
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      1,
-      1,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      new Uint8Array([0, 0, 0, 255]),
-    );
-
     positionBufferRef.current = buffer;
-    textureRef.current = texture;
-    textureUploadPendingRef.current = true;
-    lastVideoTextureTimeRef.current = null;
 
     return () => {
       if (rafRef.current !== null) {
@@ -328,9 +574,10 @@ export function StageRenderer({
       });
       programCacheRef.current.clear();
       compiledLayersRef.current = [];
-      if (textureRef.current) {
-        gl.deleteTexture(textureRef.current);
-      }
+      textureSourcesRef.current.forEach((state) => {
+        disposeTextureSourceState(gl, state);
+      });
+      textureSourcesRef.current.clear();
       if (positionBufferRef.current) {
         gl.deleteBuffer(positionBufferRef.current);
       }
@@ -436,156 +683,130 @@ export function StageRenderer({
   }, [renderLayerShaderSignature, shaderCompileNonce]);
 
   useEffect(() => {
-    let disposed = false;
-    const previouslyBufferedMedia =
-      hasBufferedMedia || Boolean(imageRef.current) || Boolean(videoRef.current);
-
-    if (!assetId || !assetKind || !assetUrl) {
-      const existingVideo = videoRef.current;
-      imageRef.current = null;
-      videoRef.current = null;
-      mediaAspectRatioRef.current = null;
-      textureUploadPendingRef.current = true;
-      lastVideoTextureTimeRef.current = null;
-      setMediaAspectRatio(null);
-      setHasBufferedMedia(false);
-      setRenderStatus('No asset loaded');
-      disposeVideoElement(existingVideo);
-      return undefined;
-    }
-
-    if (assetKind === 'image') {
-      const image = new Image();
-      image.decoding = 'async';
-      image.crossOrigin = 'anonymous';
-
-      const handleImageReady = () => {
-        if (disposed) {
-          return;
-        }
-        const existingVideo = videoRef.current;
-        imageRef.current = image;
-        videoRef.current = null;
-        const nextAspectRatio =
-          image.naturalWidth > 0 && image.naturalHeight > 0
-            ? image.naturalWidth / image.naturalHeight
-            : null;
-        mediaAspectRatioRef.current = nextAspectRatio;
-        textureUploadPendingRef.current = true;
-        lastVideoTextureTimeRef.current = null;
-        setMediaAspectRatio(nextAspectRatio);
-        setHasBufferedMedia(true);
-        setRenderStatus(assetName ?? 'Image asset');
-        disposeVideoElement(existingVideo);
-      };
-
-      image.onload = handleImageReady;
-      image.onerror = () => {
-        if (disposed) {
-          return;
-        }
-        if (!previouslyBufferedMedia) {
-          imageRef.current = null;
-          setHasBufferedMedia(false);
-        }
-        setRenderStatus('Unable to load image asset');
-      };
-
-      image.src = assetUrl;
-
-      if (image.complete && image.naturalWidth > 0) {
-        handleImageReady();
-      } else if (typeof image.decode === 'function') {
-        image
-          .decode()
-          .then(() => {
-            handleImageReady();
-          })
-          .catch(() => {
-            // Some browsers reject decode() for blob sources even though onload still fires.
-          });
-      }
-
-      return () => {
-        disposed = true;
-        image.onload = null;
-        image.onerror = null;
-      };
-    }
-
-    const video = document.createElement('video');
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'auto';
-    video.src = assetUrl;
-    video.onloadeddata = () => {
-      if (disposed) {
-        return;
-      }
-      imageRef.current = null;
-      const existingVideo = videoRef.current;
-      videoRef.current = video;
-      const nextAspectRatio =
-        video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth / video.videoHeight : null;
-      mediaAspectRatioRef.current = nextAspectRatio;
-      textureUploadPendingRef.current = true;
-      lastVideoTextureTimeRef.current = null;
-      setMediaAspectRatio(nextAspectRatio);
-      setHasBufferedMedia(true);
-      setRenderStatus(assetName ?? 'Video asset');
-      const currentTransport = transportRef.current;
-      const targetTime = getTransportTimeSeconds(currentTransport);
-      if (Number.isFinite(targetTime) && video.duration > 0) {
-        video.currentTime = targetTime % video.duration;
-      }
-      if (currentTransport.isPlaying) {
-        void video.play().catch(() => {});
-      }
-      if (existingVideo && existingVideo !== video) {
-        disposeVideoElement(existingVideo);
-      }
-    };
-    video.onerror = () => {
-      if (disposed) {
-        return;
-      }
-      if (!previouslyBufferedMedia) {
-        videoRef.current = null;
-        setHasBufferedMedia(false);
-      }
-      setRenderStatus('Unable to load video asset');
-    };
-    return () => {
-      disposed = true;
-      video.onloadeddata = null;
-      video.onerror = null;
-      if (videoRef.current !== video) {
-        disposeVideoElement(video);
-      }
-    };
-  }, [assetId, assetKind, assetName, assetUrl]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || assetKind !== 'video') {
+    const gl = glRef.current;
+    if (!gl) {
       return;
     }
 
-    syncVideoToTransport(
-      video,
-      {
+    const textureSources = textureSourcesRef.current;
+    const requiredSourceIds = new Set(requiredInputSources.map((source) => source.assetId));
+    const syncBufferedMedia = () => {
+      const readyStates = Array.from(textureSources.values()).filter(
+        (state) => state.status === 'ready',
+      );
+      setHasBufferedMedia(readyStates.length > 0);
+      if (readyStates.length === 0 && preferredAspectSourceId === null) {
+        mediaAspectRatioRef.current = null;
+        setMediaAspectRatio(null);
+      }
+    };
+
+    if (requiredInputSources.length === 0) {
+      textureSources.forEach((state) => {
+        disposeTextureSourceState(gl, state);
+      });
+      textureSources.clear();
+      mediaAspectRatioRef.current = null;
+      setMediaAspectRatio(null);
+      setHasBufferedMedia(false);
+      setRenderStatus('No asset loaded');
+      return;
+    }
+
+    for (const [sourceId, state] of textureSources.entries()) {
+      if (requiredSourceIds.has(sourceId)) {
+        continue;
+      }
+
+      disposeTextureSourceState(gl, state);
+      textureSources.delete(sourceId);
+    }
+
+    for (const source of requiredInputSources) {
+      const existingState = textureSources.get(source.assetId);
+      const sourceChanged =
+        !existingState ||
+        existingState.source.kind !== source.kind ||
+        existingState.source.url !== source.url ||
+        existingState.source.status !== source.status ||
+        existingState.source.assetName !== source.assetName;
+
+      if (!sourceChanged) {
+        existingState.source = source;
+        continue;
+      }
+
+      if (existingState) {
+        disposeTextureSourceState(gl, existingState);
+      }
+
+      const nextState = createTextureSourceState(
+        gl,
+        source,
+        transportRef.current,
+        (sourceKey, aspectRatio, nextRenderStatus) => {
+          const currentState = textureSourcesRef.current.get(sourceKey);
+          if (!currentState) {
+            return;
+          }
+
+          currentState.aspectRatio = aspectRatio;
+          currentState.status = 'ready';
+          setHasBufferedMedia(true);
+          if (sourceKey === preferredAspectSourceId) {
+            mediaAspectRatioRef.current = aspectRatio;
+            setMediaAspectRatio(aspectRatio);
+            setRenderStatus(nextRenderStatus);
+          }
+        },
+        (sourceKey, nextRenderStatus) => {
+          const currentState = textureSourcesRef.current.get(sourceKey);
+          if (!currentState) {
+            return;
+          }
+
+          currentState.status = 'error';
+          if (sourceKey === preferredAspectSourceId) {
+            setRenderStatus(nextRenderStatus);
+          }
+          syncBufferedMedia();
+        },
+      );
+
+      if (nextState) {
+        textureSources.set(source.assetId, nextState);
+      } else {
+        textureSources.delete(source.assetId);
+      }
+    }
+
+    const preferredState =
+      (preferredAspectSourceId ? textureSources.get(preferredAspectSourceId) : null) ??
+      requiredInputSources
+        .map((source) => textureSources.get(source.assetId) ?? null)
+        .find((state) => state?.status === 'ready') ??
+      null;
+    if (preferredState?.status === 'ready') {
+      mediaAspectRatioRef.current = preferredState.aspectRatio;
+      setMediaAspectRatio(preferredState.aspectRatio);
+      setRenderStatus(preferredState.source.assetName || 'Media asset');
+    }
+
+    syncBufferedMedia();
+  }, [preferredAspectSourceId, requiredInputSourceSignature, requiredInputSources]);
+
+  useEffect(() => {
+    textureSourcesRef.current.forEach((state) => {
+      updateTextureSourceStateTransport(state, {
         isPlaying,
         currentTimeSeconds,
         anchorTimestampMs,
         playbackRate,
         loop,
         externalClockEnabled,
-      },
-      performance.now(),
-      true,
-    );
+      });
+    });
   }, [
-    assetKind,
     isPlaying,
     currentTimeSeconds,
     anchorTimestampMs,
@@ -598,13 +819,11 @@ export function StageRenderer({
     const render = (timestamp: number) => {
       const gl = glRef.current;
       const canvas = canvasRef.current;
-      const texture = textureRef.current;
       const buffer = positionBufferRef.current;
       const compiledLayers = compiledLayersRef.current;
-      const video = videoRef.current;
-      const image = imageRef.current;
+      const textureSources = textureSourcesRef.current;
 
-      if (!gl || !canvas || !texture || !buffer || compiledLayers.length === 0) {
+      if (!gl || !canvas || !buffer || compiledLayers.length === 0) {
         rafRef.current = requestAnimationFrame(render);
         return;
       }
@@ -613,30 +832,6 @@ export function StageRenderer({
         const currentTransport = transportRef.current;
         const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
         const shaderTime = transportTime;
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-
-        if (assetKind === 'video' && video && video.readyState >= 2) {
-          if (currentTransport.isPlaying && video.duration > 0) {
-            const targetTime = currentTransport.loop ? transportTime % video.duration : transportTime;
-            if (Math.abs(video.currentTime - targetTime) > 0.25) {
-              video.currentTime = targetTime;
-            }
-          }
-          const shouldUploadVideoFrame =
-            textureUploadPendingRef.current ||
-            lastVideoTextureTimeRef.current === null ||
-            Math.abs(video.currentTime - lastVideoTextureTimeRef.current) > 0.001;
-
-          if (shouldUploadVideoFrame) {
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-            textureUploadPendingRef.current = false;
-            lastVideoTextureTimeRef.current = video.currentTime;
-          }
-        } else if (assetKind === 'image' && image && textureUploadPendingRef.current) {
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-          textureUploadPendingRef.current = false;
-        }
 
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.viewport(0, 0, canvas.width, canvas.height);
@@ -644,9 +839,55 @@ export function StageRenderer({
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         for (const layer of compiledLayers) {
+          const primarySource =
+            layer.inputSource ??
+            defaultInputSource ??
+            layer.transitionInputSources?.from ??
+            layer.transitionInputSources?.to ??
+            null;
+          const primaryState = primarySource
+            ? textureSources.get(primarySource.assetId) ?? null
+            : null;
+          const transitionFromSource = layer.transitionInputSources?.from ?? primarySource;
+          const transitionToSource = layer.transitionInputSources?.to ?? primarySource;
+          const transitionFromState = transitionFromSource
+            ? textureSources.get(transitionFromSource.assetId) ?? primaryState
+            : primaryState;
+          const transitionToState = transitionToSource
+            ? textureSources.get(transitionToSource.assetId) ?? primaryState
+            : primaryState;
+
+          bindTextureSourceState(
+            gl,
+            primaryState,
+            gl.TEXTURE0,
+            currentTransport,
+            transportTime,
+          );
+
           gl.useProgram(layer.program);
           if (layer.locations.image) {
             gl.uniform1i(layer.locations.image, 0);
+          }
+          if (layer.locations.transitionFromImage) {
+            bindTextureSourceState(
+              gl,
+              transitionFromState,
+              gl.TEXTURE0,
+              currentTransport,
+              transportTime,
+            );
+            gl.uniform1i(layer.locations.transitionFromImage, 0);
+          }
+          if (layer.locations.transitionToImage) {
+            bindTextureSourceState(
+              gl,
+              transitionToState,
+              gl.TEXTURE1,
+              currentTransport,
+              transportTime,
+            );
+            gl.uniform1i(layer.locations.transitionToImage, 1);
           }
           if (layer.locations.time) {
             gl.uniform1f(layer.locations.time, shaderTime);
@@ -708,7 +949,7 @@ export function StageRenderer({
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [assetKind]);
+  }, [defaultInputSource]);
 
   const mediaSurfaceStyle = useMemo<CSSProperties>(
     () => ({
@@ -721,13 +962,20 @@ export function StageRenderer({
     [stageTransform],
   );
 
+  const hasRequiredInputSource = requiredInputSources.length > 0;
+  const hasLoadingInputSource = requiredInputSources.some((source) => source.status === 'loading');
+  const hasMissingOnlyInputSources =
+    hasRequiredInputSource &&
+    requiredInputSources.every((source) => source.status === 'missing');
   const showEmptyState =
-    !asset || assetUrlStatus === 'missing' || (assetUrlStatus === 'loading' && !hasBufferedMedia);
-  const emptyStateCopy = !asset
+    !hasRequiredInputSource ||
+    hasMissingOnlyInputSources ||
+    (hasLoadingInputSource && !hasBufferedMedia);
+  const emptyStateCopy = !hasRequiredInputSource
     ? 'Load an image or video to drive the stage.'
-    : assetUrlStatus === 'loading'
+    : hasLoadingInputSource && !hasBufferedMedia
       ? 'Restoring the stored asset from this device...'
-      : 'The stored asset is no longer available on this device. Load it again.';
+      : 'The assigned asset is no longer available on this device. Load it again.';
 
   return (
     <div
