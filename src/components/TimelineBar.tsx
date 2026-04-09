@@ -346,6 +346,7 @@ export function TimelineBar({
   const [activeTransitionEditorStepId, setActiveTransitionEditorStepId] = useState<string | null>(null);
   const dragStateRef = useRef<BoundaryDragState | null>(null);
   const transitionDragStateRef = useRef<TransitionDragState | null>(null);
+  const rangeScrubActiveRef = useRef(false);
   const stepTrackRef = useRef<HTMLDivElement | null>(null);
   const assetMap = useMemo(
     () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
@@ -561,9 +562,26 @@ export function TimelineBar({
     }
   }, [activeTransitionEditorStepId, usesSharedTransition]);
 
+  useEffect(() => {
+    if (!transport.isPlaying || scrubValue === null || rangeScrubActiveRef.current) {
+      return;
+    }
+
+    setScrubValue(null);
+  }, [transport.isPlaying, transportTimeSeconds, scrubValue]);
+
+  const clearRangeScrub = () => {
+    rangeScrubActiveRef.current = false;
+    setScrubValue(null);
+  };
+
   const handleScrubChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextTimeSeconds = Number(event.target.value);
-    setScrubValue(event.target.value);
+    if (rangeScrubActiveRef.current) {
+      setScrubValue(event.target.value);
+    } else {
+      setScrubValue(null);
+    }
     onSeek(nextTimeSeconds);
   };
 
@@ -724,10 +742,13 @@ export function TimelineBar({
             step={0.01}
             value={sliderValue}
             aria-label="Timeline position"
+            onPointerDown={() => {
+              rangeScrubActiveRef.current = true;
+            }}
             onChange={handleScrubChange}
-            onMouseUp={() => setScrubValue(null)}
-            onTouchEnd={() => setScrubValue(null)}
-            onBlur={() => setScrubValue(null)}
+            onPointerUp={clearRangeScrub}
+            onPointerCancel={clearRangeScrub}
+            onBlur={clearRangeScrub}
           />
 
           {markerStops.length && displayStepSegments.length === 0 ? (
