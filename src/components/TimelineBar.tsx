@@ -751,7 +751,9 @@ export function TimelineBar({
         ) : null}
 
         {displayStepSegments.length > 0 ? (
-          <div className="timeline-rail-leading-spacer" aria-hidden="true" />
+          <div className="timeline-duration-shell timeline-duration-shell-track timeline-duration-shell-track-left">
+            {durationLengthField}
+          </div>
         ) : null}
 
         {displayStepSegments.length > 0 ? (
@@ -989,11 +991,6 @@ export function TimelineBar({
           </div>
         ) : null}
 
-        {displayStepSegments.length > 0 ? (
-          <div className="timeline-duration-shell timeline-duration-shell-track">
-            {durationLengthField}
-          </div>
-        ) : null}
       </div>
 
       {!displayStepSegments.length ? (

@@ -1660,6 +1660,11 @@ a {
   padding-top: 0.08rem;
 }
 
+.timeline-duration-shell-track-left {
+  grid-column: 1;
+  justify-self: start;
+}
+
 .timeline-duration-field {
   display: inline-flex;
   align-items: center;
