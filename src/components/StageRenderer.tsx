@@ -50,7 +50,12 @@ export interface StageRenderLayer {
   uniformValues: ShaderUniformValueMap;
   opacity?: number;
   inputSource?: StageRenderInputSource | null;
+  overlaySource?: StageRenderInputSource | null;
   transitionInputSources?: {
+    from: StageRenderInputSource | null;
+    to: StageRenderInputSource | null;
+  } | null;
+  transitionOverlaySources?: {
     from: StageRenderInputSource | null;
     to: StageRenderInputSource | null;
   } | null;
@@ -60,8 +65,11 @@ interface ProgramLocations {
   position: number;
   time: WebGLUniformLocation | null;
   image: WebGLUniformLocation | null;
+  overlayImage: WebGLUniformLocation | null;
   transitionFromImage: WebGLUniformLocation | null;
   transitionToImage: WebGLUniformLocation | null;
+  transitionFromOverlayImage: WebGLUniformLocation | null;
+  transitionToOverlayImage: WebGLUniformLocation | null;
   resolution: WebGLUniformLocation | null;
   custom: Record<string, WebGLUniformLocation | null>;
 }
@@ -136,8 +144,11 @@ function createProgramBundle(
       position: gl.getAttribLocation(program, 'a_position'),
       time: gl.getUniformLocation(program, 'u_time'),
       image: gl.getUniformLocation(program, 'u_image'),
+      overlayImage: gl.getUniformLocation(program, 'u_timeline_overlay_image'),
       transitionFromImage: gl.getUniformLocation(program, 'u_timeline_from_image'),
       transitionToImage: gl.getUniformLocation(program, 'u_timeline_to_image'),
+      transitionFromOverlayImage: gl.getUniformLocation(program, 'u_timeline_from_overlay_image'),
+      transitionToOverlayImage: gl.getUniformLocation(program, 'u_timeline_to_overlay_image'),
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       custom: Object.fromEntries(
         Object.keys(uniformDefinitions).map((name) => [name, gl.getUniformLocation(program, name)]),
@@ -169,7 +180,7 @@ function initializeTexture(
     0,
     gl.RGBA,
     gl.UNSIGNED_BYTE,
-    new Uint8Array([0, 0, 0, 255]),
+    new Uint8Array([0, 0, 0, 0]),
   );
 }
 
@@ -476,8 +487,11 @@ export function StageRenderer({
     registerSource(defaultInputSource);
     for (const layer of [...resolvedRenderLayers, ...resolvedPreloadLayers]) {
       registerSource(layer.inputSource);
+      registerSource(layer.overlaySource);
       registerSource(layer.transitionInputSources?.from);
       registerSource(layer.transitionInputSources?.to);
+      registerSource(layer.transitionOverlaySources?.from);
+      registerSource(layer.transitionOverlaySources?.to);
     }
 
     return Array.from(sources.values());
@@ -498,7 +512,10 @@ export function StageRenderer({
       const source =
         layer.transitionInputSources?.from ??
         layer.inputSource ??
+        layer.overlaySource ??
         layer.transitionInputSources?.to ??
+        layer.transitionOverlaySources?.from ??
+        layer.transitionOverlaySources?.to ??
         null;
       if (source) {
         return source.assetId;
@@ -848,6 +865,10 @@ export function StageRenderer({
           const primaryState = primarySource
             ? textureSources.get(primarySource.assetId) ?? null
             : null;
+          const overlaySource = layer.overlaySource ?? null;
+          const overlayState = overlaySource
+            ? textureSources.get(overlaySource.assetId) ?? null
+            : null;
           const transitionFromSource = layer.transitionInputSources?.from ?? primarySource;
           const transitionToSource = layer.transitionInputSources?.to ?? primarySource;
           const transitionFromState = transitionFromSource
@@ -856,6 +877,16 @@ export function StageRenderer({
           const transitionToState = transitionToSource
             ? textureSources.get(transitionToSource.assetId) ?? primaryState
             : primaryState;
+          const transitionFromOverlaySource =
+            layer.transitionOverlaySources?.from ?? overlaySource;
+          const transitionToOverlaySource =
+            layer.transitionOverlaySources?.to ?? overlaySource;
+          const transitionFromOverlayState = transitionFromOverlaySource
+            ? textureSources.get(transitionFromOverlaySource.assetId) ?? overlayState
+            : overlayState;
+          const transitionToOverlayState = transitionToOverlaySource
+            ? textureSources.get(transitionToOverlaySource.assetId) ?? overlayState
+            : overlayState;
 
           bindTextureSourceState(
             gl,
@@ -868,6 +899,16 @@ export function StageRenderer({
           gl.useProgram(layer.program);
           if (layer.locations.image) {
             gl.uniform1i(layer.locations.image, 0);
+          }
+          if (layer.locations.overlayImage) {
+            bindTextureSourceState(
+              gl,
+              overlayState,
+              gl.TEXTURE2,
+              currentTransport,
+              transportTime,
+            );
+            gl.uniform1i(layer.locations.overlayImage, 2);
           }
           if (layer.locations.transitionFromImage) {
             bindTextureSourceState(
@@ -888,6 +929,26 @@ export function StageRenderer({
               transportTime,
             );
             gl.uniform1i(layer.locations.transitionToImage, 1);
+          }
+          if (layer.locations.transitionFromOverlayImage) {
+            bindTextureSourceState(
+              gl,
+              transitionFromOverlayState,
+              gl.TEXTURE2,
+              currentTransport,
+              transportTime,
+            );
+            gl.uniform1i(layer.locations.transitionFromOverlayImage, 2);
+          }
+          if (layer.locations.transitionToOverlayImage) {
+            bindTextureSourceState(
+              gl,
+              transitionToOverlayState,
+              gl.TEXTURE3,
+              currentTransport,
+              transportTime,
+            );
+            gl.uniform1i(layer.locations.transitionToOverlayImage, 3);
           }
           if (layer.locations.time) {
             gl.uniform1f(layer.locations.time, shaderTime);

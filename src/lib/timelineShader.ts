@@ -86,6 +86,44 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
   }
 }
 
+function buildTimelineOverlayComposer(): string {
+  return `
+vec4 applyTimelineOverlay(vec4 baseColor, vec4 overlayColor) {
+    float overlayMix = clamp(overlayColor.a * 0.5, 0.0, 1.0);
+    return vec4(
+        mix(baseColor.rgb, overlayColor.rgb, overlayMix),
+        max(baseColor.a, overlayMix)
+    );
+}`;
+}
+
+export function buildTimelineOverlayShaderCode({
+  shaderCode,
+}: {
+  shaderCode: string;
+}): string {
+  const baseCode = namespaceShaderCode(shaderCode, 'timeline_base');
+  const overlayComposer = buildTimelineOverlayComposer();
+
+  return `// NAME: Timeline Overlay
+uniform bool u_timeline_has_overlay; // @default false
+uniform sampler2D u_timeline_overlay_image;
+
+${baseCode}
+
+${overlayComposer}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec4 baseColor = timeline_base_processColor(tex, uv, time, resolution);
+    if (!u_timeline_has_overlay) {
+        return baseColor;
+    }
+
+    vec4 overlayColor = texture2D(u_timeline_overlay_image, uv);
+    return applyTimelineOverlay(baseColor, overlayColor);
+}`;
+}
+
 export function buildTimelineTransitionShaderCode({
   fromCode,
   toCode,
@@ -98,21 +136,34 @@ export function buildTimelineTransitionShaderCode({
   const leftCode = namespaceShaderCode(fromCode, 'timeline_from');
   const rightCode = namespaceShaderCode(toCode, 'timeline_to');
   const transitionMixer = buildTransitionMixer(effect);
+  const overlayComposer = buildTimelineOverlayComposer();
 
   return `// NAME: Timeline Transition
 uniform float u_transition_progress; // @min 0.0 @max 1.0 @default 0.0
-uniform sampler2D u_timeline_from_image;
-uniform sampler2D u_timeline_to_image;
+uniform bool u_timeline_from_has_overlay; // @default false
+uniform bool u_timeline_to_has_overlay; // @default false
+uniform sampler2D u_timeline_from_overlay_image;
+uniform sampler2D u_timeline_to_overlay_image;
 
 ${leftCode}
 
 ${rightCode}
 
+${overlayComposer}
+
 ${transitionMixer}
 
 vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 fromColor = timeline_from_processColor(u_timeline_from_image, uv, time, resolution);
-    vec4 toColor = timeline_to_processColor(u_timeline_to_image, uv, time, resolution);
+    vec4 fromColor = timeline_from_processColor(tex, uv, time, resolution);
+    vec4 toColor = timeline_to_processColor(tex, uv, time, resolution);
+    if (u_timeline_from_has_overlay) {
+        vec4 fromOverlayColor = texture2D(u_timeline_from_overlay_image, uv);
+        fromColor = applyTimelineOverlay(fromColor, fromOverlayColor);
+    }
+    if (u_timeline_to_has_overlay) {
+        vec4 toOverlayColor = texture2D(u_timeline_to_overlay_image, uv);
+        toColor = applyTimelineOverlay(toColor, toOverlayColor);
+    }
     float progress = clamp(u_transition_progress, 0.0, 1.0);
     return mixTimelineTransition(fromColor, toColor, uv, progress);
 }`;
