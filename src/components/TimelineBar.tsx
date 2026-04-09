@@ -671,6 +671,30 @@ export function TimelineBar({
         </div>
 
         <div className="timeline-range-shell">
+          {displayStepSegments.length > 0 ? (
+            <div className="timeline-range-step-overlay" aria-hidden="true">
+              {displayStepSegments.map((segment) => (
+                <span
+                  key={`range-segment:${segment.step.id}`}
+                  className={`timeline-range-step-segment ${
+                    segment.isDisabled ? 'timeline-range-step-segment-disabled' : ''
+                  }`}
+                  style={{
+                    left: `${segment.startRatio * 100}%`,
+                    width: `${Math.max(0.5, (segment.endRatio - segment.startRatio) * 100)}%`,
+                  }}
+                />
+              ))}
+              {displayStepSegments.slice(0, -1).map((segment) => (
+                <span
+                  key={`range-divider:${segment.step.id}`}
+                  className="timeline-range-step-divider"
+                  style={{ left: `${segment.endRatio * 100}%` }}
+                />
+              ))}
+            </div>
+          ) : null}
+
           <input
             className="timeline-range"
             type="range"
