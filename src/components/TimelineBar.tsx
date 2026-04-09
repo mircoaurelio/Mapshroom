@@ -95,6 +95,10 @@ interface TimelineStepSegment {
   endRatio: number;
 }
 
+interface TimelineDisplayStepSegment extends TimelineStepSegment {
+  isDisabled: boolean;
+}
+
 interface TimelineTransitionSegment {
   stepId: string;
   startRatio: number;
@@ -224,6 +228,31 @@ function getTimelineStepSegments(
       step,
       startRatio,
       endRatio: cursor / totalDurationSeconds,
+    };
+  });
+}
+
+function getTimelineDisplayStepSegments(
+  steps: TimelineStub['shaderSequence']['steps'],
+): TimelineDisplayStepSegment[] {
+  const totalDurationSeconds = steps.reduce(
+    (total, step) => total + clampTimelineStepDuration(step.durationSeconds),
+    0,
+  );
+  if (steps.length === 0 || totalDurationSeconds <= 0) {
+    return [];
+  }
+
+  let cursor = 0;
+  return steps.map((step) => {
+    const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
+    const startRatio = cursor / totalDurationSeconds;
+    cursor += durationSeconds;
+    return {
+      step,
+      startRatio,
+      endRatio: cursor / totalDurationSeconds,
+      isDisabled: Boolean(step.disabled),
     };
   });
 }
@@ -493,6 +522,10 @@ export function TimelineBar({
     [markers, safeDurationSeconds],
   );
   const stepSegments = useMemo(() => getTimelineStepSegments(sequence.steps), [sequence.steps]);
+  const displayStepSegments = useMemo(
+    () => getTimelineDisplayStepSegments(sequence.steps),
+    [sequence.steps],
+  );
   const transitionSegments = useMemo(
     () => getTimelineTransitionSegments({ sequence, stepSegments }),
     [sequence, stepSegments],
@@ -690,10 +723,10 @@ export function TimelineBar({
         </div>
       </div>
 
-      {stepSegments.length > 0 ? (
+      {displayStepSegments.length > 0 ? (
         <div className="timeline-segment-track-shell">
           <div className="timeline-segment-track" ref={stepTrackRef}>
-            {stepSegments.map((segment) => {
+            {displayStepSegments.map((segment) => {
               const shader =
                 savedShaders.find((savedShader) => savedShader.id === segment.step.shaderId) ?? null;
               const shaderName = shader?.name ?? 'Shader';
@@ -701,16 +734,20 @@ export function TimelineBar({
                 ? assetMap.get(shader.inputAssetId) ?? null
                 : null;
               const hasAssignedAsset = Boolean(shader?.inputAssetId);
-              const isCurrent = timelineState?.currentStep.id === segment.step.id;
+              const isCurrent = !segment.isDisabled && timelineState?.currentStep.id === segment.step.id;
               const isNext =
-                timelineState?.isTransitioning && timelineState.nextStep?.id === segment.step.id;
+                !segment.isDisabled &&
+                timelineState?.isTransitioning &&
+                timelineState.nextStep?.id === segment.step.id;
 
               return (
                 <div
                   key={segment.step.id}
                   className={`timeline-segment-block ${
                     isCurrent ? 'timeline-segment-block-current' : ''
-                  } ${isNext ? 'timeline-segment-block-next' : ''}`}
+                  } ${isNext ? 'timeline-segment-block-next' : ''} ${
+                    segment.isDisabled ? 'timeline-segment-block-disabled' : ''
+                  }`}
                   data-focused={segment.step.id === sequence.focusedStepId ? 'true' : 'false'}
                   role="button"
                   tabIndex={0}
@@ -722,7 +759,7 @@ export function TimelineBar({
                     hasAssignedAsset
                       ? ` - overlay: ${assignedAsset?.name ?? 'assigned asset missing'}`
                       : ''
-                  }`}
+                  }${segment.isDisabled ? ' - disabled' : ''}`}
                   onClick={() => onEditSequenceStep(segment.step.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -738,6 +775,11 @@ export function TimelineBar({
                       title={assignedAsset ? assignedAsset.name : 'Assigned asset missing'}
                     >
                       Img
+                    </small>
+                  ) : null}
+                  {segment.isDisabled ? (
+                    <small className="timeline-segment-block-badge timeline-segment-block-badge-disabled">
+                      Off
                     </small>
                   ) : null}
                   <small className="timeline-segment-block-duration">
@@ -916,7 +958,7 @@ export function TimelineBar({
         </div>
       ) : null}
 
-      {!stepSegments.length ? (
+      {!displayStepSegments.length ? (
         <div className="timeline-bar-footer">
           <div className="timeline-chip-row">
             {markerStops.map((marker) => (
