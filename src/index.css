@@ -2103,8 +2103,23 @@ a {
   font-size: 0.45rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  transform: translateX(-50%);
+  transform: translate(-50%, 3px);
   white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease;
+}
+
+.timeline-transition-pin:hover .timeline-transition-pin-label,
+.timeline-transition-pin:focus-visible .timeline-transition-pin-label,
+.timeline-transition-pin-active .timeline-transition-pin-label {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
 }
 
 .timeline-transition-editor {
