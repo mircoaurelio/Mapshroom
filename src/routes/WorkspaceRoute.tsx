@@ -470,6 +470,7 @@ function applyActiveShaderPatch(
   );
   const activeSavedShader =
     currentProject.studio.savedShaders.find((shader) => shader.id === nextActiveShaderId) ?? null;
+  const shouldSyncActiveSavedShader = Boolean(activeSavedShader?.isTemporary);
   const nextShaderVersions = patch.shaderVersions
     ? [...patch.shaderVersions]
     : nextActiveShaderId === currentProject.studio.activeShaderId
@@ -489,7 +490,7 @@ function applyActiveShaderPatch(
       activeShaderCode: nextActiveShaderCode,
       shaderVersions: nextShaderVersions,
       uniformValues: nextUniformValues,
-      savedShaders: activeSavedShader
+      savedShaders: shouldSyncActiveSavedShader && activeSavedShader
         ? currentProject.studio.savedShaders.map((shader) =>
             shader.id === activeSavedShader.id
               ? {
