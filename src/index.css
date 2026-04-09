@@ -1665,6 +1665,10 @@ a {
   justify-self: start;
 }
 
+.timeline-rail-grid > .timeline-duration-shell.timeline-duration-shell-track-left {
+  grid-column: 1;
+}
+
 .timeline-duration-field {
   display: inline-flex;
   align-items: center;
