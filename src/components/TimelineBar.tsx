@@ -743,16 +743,12 @@ export function TimelineBar({
           ) : null}
         </div>
 
-        {displayStepSegments.length > 0 ? (
-          <span className="timeline-timecode timeline-range-end-time">
-            {formatTimelineTime(safeDurationSeconds)}
-          </span>
-        ) : (
+        {displayStepSegments.length === 0 ? (
           <div className="timeline-duration-shell">
             <span className="timeline-timecode">{formatTimelineTime(safeDurationSeconds)}</span>
             {durationLengthField}
           </div>
-        )}
+        ) : null}
 
         {displayStepSegments.length > 0 ? (
           <div className="timeline-rail-leading-spacer" aria-hidden="true" />
