@@ -1728,12 +1728,6 @@ a {
   grid-column: 2;
 }
 
-.timeline-range-end-time {
-  grid-column: 3;
-  justify-self: end;
-  text-align: right;
-}
-
 .timeline-range-step-overlay {
   position: absolute;
   left: 0;
@@ -3590,8 +3584,7 @@ a {
     justify-content: space-between;
   }
 
-  .timeline-rail-leading-spacer,
-  .timeline-range-end-time {
+  .timeline-rail-leading-spacer {
     display: none;
   }
 
