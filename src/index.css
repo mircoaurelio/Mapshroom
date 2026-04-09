@@ -1807,6 +1807,19 @@ a {
   flex: 1;
 }
 
+.timeline-segment-block-badge {
+  flex: 0 0 auto;
+  padding: 0.08rem 0.28rem;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.16);
+  color: #d1fae5;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.44rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .timeline-segment-block-duration {
   flex: 0 0 auto;
   color: rgba(244, 244, 245, 0.6);

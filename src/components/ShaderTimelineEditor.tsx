@@ -10,6 +10,7 @@ import {
   renderShaderPreviewToDataUrl,
   type ShaderPreviewRenderer,
 } from '../lib/shaderPreview';
+import { getAssetBlob } from '../lib/storage';
 import {
   getRenderableShaderCode,
   getRenderableShaderUniformValues,
@@ -25,6 +26,8 @@ import type {
   TimelineStagePreviewMode,
   TimelineStub,
 } from '../types';
+
+const timelineEditorAssetUrlCache = new Map<string, string>();
 
 function getUniformValuesPreviewSignature(uniformValues: ShaderUniformValueMap | undefined): string {
   return JSON.stringify(
@@ -95,10 +98,14 @@ function getPendingAiJobCount(shader: SavedShader | null | undefined): number {
   return Math.max(0, shader?.pendingAiJobCount ?? 0);
 }
 
-function getTimelineShaderPreviewKey(previewNamespace: string, shader: SavedShader): string {
+function getTimelineShaderPreviewKey(
+  previewNamespace: string,
+  overlayPreviewNamespace: string,
+  shader: SavedShader,
+): string {
   const renderCode = getRenderableShaderCode(shader);
   const renderUniformValues = getRenderableShaderUniformValues(shader);
-  return `${previewNamespace}\u0000${shader.id}\u0000${renderCode}\u0000${getUniformValuesPreviewSignature(renderUniformValues)}`;
+  return `${previewNamespace}\u0000${overlayPreviewNamespace}\u0000${shader.id}\u0000${renderCode}\u0000${getUniformValuesPreviewSignature(renderUniformValues)}`;
 }
 
 function ViewModeIcon({ mode }: { mode: TimelineEditorViewMode }) {
@@ -298,6 +305,10 @@ export function ShaderTimelineEditor({
     assetUrl ? 'loading' : 'idle',
   );
   const [previewSources, setPreviewSources] = useState<Record<string, string>>({});
+  const [resolvedAssignedAssetUrls, setResolvedAssignedAssetUrls] = useState<Record<string, string | null>>({});
+  const [loadedAssignedPreviews, setLoadedAssignedPreviews] = useState<
+    Record<string, { assetUrl: string; image: HTMLCanvasElement } | null>
+  >({});
   const previewRendererRef = useRef<ShaderPreviewRenderer | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
   const addMenuRef = useRef<HTMLDivElement | null>(null);
@@ -331,6 +342,21 @@ export function ShaderTimelineEditor({
 
     return Array.from(nextShaders.values());
   }, [sequence.steps, shaderMap]);
+  const referencedAssignedAssetIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          sequenceShaders
+            .map((shader) => shader.inputAssetId ?? null)
+            .filter((assetId): assetId is string => Boolean(assetId)),
+        ),
+      ),
+    [sequenceShaders],
+  );
+  const referencedAssignedAssetSignature = useMemo(
+    () => referencedAssignedAssetIds.join('\u0001'),
+    [referencedAssignedAssetIds],
+  );
   const isAdvancedView = sequence.editorView === 'advanced';
   const sharedTransitionLocked =
     sequence.mode === 'randomMix' || sequence.mode === 'double';
@@ -426,6 +452,122 @@ export function ShaderTimelineEditor({
   const previewNamespace = assetUrl ?? '__no_asset__';
 
   useEffect(() => {
+    let disposed = false;
+
+    const nextResolvedUrls = referencedAssignedAssetIds.reduce<Record<string, string | null>>(
+      (collection, assetId) => {
+        const assetRecord = assetMap.get(assetId);
+        if (!assetRecord) {
+          collection[assetId] = null;
+          return collection;
+        }
+
+        collection[assetId] = timelineEditorAssetUrlCache.get(assetId) ?? null;
+        return collection;
+      },
+      {},
+    );
+
+    setResolvedAssignedAssetUrls(nextResolvedUrls);
+
+    const missingAssetRecords = referencedAssignedAssetIds
+      .map((assetId) => assetMap.get(assetId) ?? null)
+      .filter((assetRecord): assetRecord is AssetRecord => {
+        if (!assetRecord) {
+          return false;
+        }
+
+        return !timelineEditorAssetUrlCache.has(assetRecord.id);
+      });
+
+    if (missingAssetRecords.length === 0) {
+      return () => {
+        disposed = true;
+      };
+    }
+
+    void Promise.all(
+      missingAssetRecords.map(async (assetRecord) => {
+        const blob = await getAssetBlob(assetRecord.id);
+        if (!blob) {
+          return [assetRecord.id, null] as const;
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        timelineEditorAssetUrlCache.set(assetRecord.id, objectUrl);
+        return [assetRecord.id, objectUrl] as const;
+      }),
+    ).then((entries) => {
+      if (disposed) {
+        return;
+      }
+
+      setResolvedAssignedAssetUrls((currentValue) => {
+        const nextValue = { ...currentValue };
+        for (const assetId of referencedAssignedAssetIds) {
+          const resolvedEntry = entries.find(([entryAssetId]) => entryAssetId === assetId);
+          if (resolvedEntry) {
+            nextValue[assetId] = resolvedEntry[1];
+            continue;
+          }
+
+          nextValue[assetId] = timelineEditorAssetUrlCache.get(assetId) ?? nextValue[assetId] ?? null;
+        }
+
+        return nextValue;
+      });
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [assetMap, referencedAssignedAssetIds, referencedAssignedAssetSignature]);
+
+  useEffect(() => {
+    if (referencedAssignedAssetIds.length === 0) {
+      setLoadedAssignedPreviews({});
+      return;
+    }
+
+    let disposed = false;
+
+    void Promise.all(
+      referencedAssignedAssetIds.map(async (assetId) => {
+        const resolvedAssetUrl = resolvedAssignedAssetUrls[assetId] ?? null;
+        const assetRecord = assetMap.get(assetId) ?? null;
+        if (!resolvedAssetUrl || !assetRecord) {
+          return [assetId, null] as const;
+        }
+
+        const previewImage = await loadShaderPreviewSource(resolvedAssetUrl, assetRecord.kind);
+        if (!previewImage) {
+          return [assetId, null] as const;
+        }
+
+        return [
+          assetId,
+          {
+            assetUrl: resolvedAssetUrl,
+            image: previewImage,
+          },
+        ] as const;
+      }),
+    ).then((entries) => {
+      if (disposed) {
+        return;
+      }
+
+      setLoadedAssignedPreviews(() =>
+        Object.fromEntries(entries.map(([assetId, preview]) => [assetId, preview])),
+      );
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [assetMap, referencedAssignedAssetIds, resolvedAssignedAssetUrls]);
+
+  useEffect(() => {
     if (!previewImage) {
       return;
     }
@@ -435,13 +577,23 @@ export function ShaderTimelineEditor({
     for (const shader of sequenceShaders) {
       const renderCode = getRenderableShaderCode(shader);
       const renderUniformValues = getRenderableShaderUniformValues(shader);
-      const previewKey = getTimelineShaderPreviewKey(previewNamespace, shader);
+      const assignedPreview = shader.inputAssetId
+        ? loadedAssignedPreviews[shader.inputAssetId] ?? null
+        : null;
+      const overlayPreviewNamespace = assignedPreview?.assetUrl ??
+        (shader.inputAssetId ? `${shader.inputAssetId}:pending` : '__no_overlay__');
+      const previewKey = getTimelineShaderPreviewKey(
+        previewNamespace,
+        overlayPreviewNamespace,
+        shader,
+      );
       const cachedPreview =
         previewSourceRef.current[previewKey] ??
         renderShaderPreviewToDataUrl(
           renderCode,
           renderUniformValues,
           previewImage,
+          assignedPreview?.image ?? null,
           previewRendererRef,
         );
 
@@ -456,7 +608,7 @@ export function ShaderTimelineEditor({
       ...current,
       ...nextPreviewSources,
     }));
-  }, [previewImage, previewNamespace, sequenceShaders]);
+  }, [loadedAssignedPreviews, previewImage, previewNamespace, sequenceShaders]);
 
   const previewPlaceholder =
     !assetUrl || !assetKind
@@ -763,10 +915,17 @@ export function ShaderTimelineEditor({
           const shader = shaderMap.get(step.shaderId);
           const isPlayingStep = step.id === activeStepId;
           const isTransitionStep = step.id === transitionStepId && transitionStepId !== activeStepId;
-          const previewKey = shader ? getTimelineShaderPreviewKey(previewNamespace, shader) : '';
+          const assignedAsset = shader?.inputAssetId ? assetMap.get(shader.inputAssetId) ?? null : null;
+          const assignedPreview = shader?.inputAssetId
+            ? loadedAssignedPreviews[shader.inputAssetId] ?? null
+            : null;
+          const overlayPreviewNamespace = assignedPreview?.assetUrl ??
+            (shader?.inputAssetId ? `${shader.inputAssetId}:pending` : '__no_overlay__');
+          const previewKey = shader
+            ? getTimelineShaderPreviewKey(previewNamespace, overlayPreviewNamespace, shader)
+            : '';
           const previewSrc = shader ? previewSources[previewKey] ?? null : null;
           const hasCompileError = hasShaderCompileError(shader);
-          const assignedAsset = shader?.inputAssetId ? assetMap.get(shader.inputAssetId) ?? null : null;
           const hasAssignedAsset = Boolean(shader?.inputAssetId);
           const isDisabledStep = Boolean(step.disabled);
           const isPinnedStep = pinnedStepId === step.id;

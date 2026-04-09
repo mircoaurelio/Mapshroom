@@ -218,6 +218,7 @@ export function renderShaderPreviewToDataUrl(
   shaderCode: string,
   uniformValues: ShaderUniformValueMap | undefined,
   image: HTMLCanvasElement,
+  overlayImage: HTMLCanvasElement | null,
   rendererRef: { current: ShaderPreviewRenderer | null },
 ) {
   const renderer = getShaderPreviewRenderer(rendererRef);
@@ -309,7 +310,25 @@ export function renderShaderPreviewToDataUrl(
   gl.drawArrays(gl.TRIANGLES, 0, 6);
   gl.finish();
 
-  const previewSrc = renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
+  let previewSrc = renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
+
+  if (overlayImage) {
+    const composedCanvas = document.createElement('canvas');
+    composedCanvas.width = PREVIEW_WIDTH;
+    composedCanvas.height = PREVIEW_HEIGHT;
+
+    const composedContext = composedCanvas.getContext('2d');
+    if (composedContext) {
+      composedContext.fillStyle = PREVIEW_FALLBACK_BG;
+      composedContext.fillRect(0, 0, composedCanvas.width, composedCanvas.height);
+      composedContext.drawImage(renderCanvas, 0, 0, composedCanvas.width, composedCanvas.height);
+      composedContext.globalAlpha = 0.5;
+      composedContext.drawImage(overlayImage, 0, 0, composedCanvas.width, composedCanvas.height);
+      composedContext.globalAlpha = 1;
+      previewSrc = composedCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
+    }
+  }
+
   gl.disableVertexAttribArray(posLoc);
   gl.deleteProgram(program);
   gl.deleteShader(fragmentShader);
