@@ -1705,25 +1705,6 @@ a {
   pointer-events: none;
 }
 
-.timeline-range-step-segment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-radius: 999px;
-  background: rgba(52, 211, 153, 0.12);
-}
-
-.timeline-range-step-segment-disabled {
-  background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(113, 113, 122, 0.22) 0,
-      rgba(113, 113, 122, 0.22) 6px,
-      rgba(39, 39, 42, 0.28) 6px,
-      rgba(39, 39, 42, 0.28) 12px
-    );
-}
-
 .timeline-range-step-divider {
   position: absolute;
   top: -1px;
@@ -1732,6 +1713,10 @@ a {
   margin-left: -1px;
   border-radius: 999px;
   background: rgba(244, 244, 245, 0.55);
+}
+
+.timeline-range-step-divider-disabled {
+  background: rgba(161, 161, 170, 0.55);
 }
 
 .timeline-range {
