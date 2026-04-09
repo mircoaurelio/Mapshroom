@@ -318,6 +318,10 @@ export function TimelineBar({
   const dragStateRef = useRef<BoundaryDragState | null>(null);
   const transitionDragStateRef = useRef<TransitionDragState | null>(null);
   const stepTrackRef = useRef<HTMLDivElement | null>(null);
+  const assetMap = useMemo(
+    () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
+    [assets],
+  );
   const baseDurationSeconds =
     Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
   const usesSharedTransition =
@@ -690,8 +694,13 @@ export function TimelineBar({
         <div className="timeline-segment-track-shell">
           <div className="timeline-segment-track" ref={stepTrackRef}>
             {stepSegments.map((segment) => {
-              const shaderName =
-                savedShaders.find((shader) => shader.id === segment.step.shaderId)?.name ?? 'Shader';
+              const shader =
+                savedShaders.find((savedShader) => savedShader.id === segment.step.shaderId) ?? null;
+              const shaderName = shader?.name ?? 'Shader';
+              const assignedAsset = shader?.inputAssetId
+                ? assetMap.get(shader.inputAssetId) ?? null
+                : null;
+              const hasAssignedAsset = Boolean(shader?.inputAssetId);
               const isCurrent = timelineState?.currentStep.id === segment.step.id;
               const isNext =
                 timelineState?.isTransitioning && timelineState.nextStep?.id === segment.step.id;
@@ -709,7 +718,11 @@ export function TimelineBar({
                     left: `${segment.startRatio * 100}%`,
                     width: `${Math.max(0.8, (segment.endRatio - segment.startRatio) * 100)}%`,
                   }}
-                  title={`${shaderName} - ${roundTimelineSeconds(segment.step.durationSeconds).toFixed(2)}s`}
+                  title={`${shaderName} - ${roundTimelineSeconds(segment.step.durationSeconds).toFixed(2)}s${
+                    hasAssignedAsset
+                      ? ` - overlay: ${assignedAsset?.name ?? 'assigned asset missing'}`
+                      : ''
+                  }`}
                   onClick={() => onEditSequenceStep(segment.step.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -719,6 +732,14 @@ export function TimelineBar({
                   }}
                 >
                   <span className="timeline-segment-block-name">{shaderName}</span>
+                  {hasAssignedAsset ? (
+                    <small
+                      className="timeline-segment-block-badge"
+                      title={assignedAsset ? assignedAsset.name : 'Assigned asset missing'}
+                    >
+                      Img
+                    </small>
+                  ) : null}
                   <small className="timeline-segment-block-duration">
                     {roundTimelineSeconds(segment.step.durationSeconds).toFixed(2)}s
                   </small>
