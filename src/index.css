@@ -1820,6 +1820,11 @@ a {
   white-space: nowrap;
 }
 
+.timeline-segment-block-badge-disabled {
+  background: rgba(244, 244, 245, 0.1);
+  color: rgba(244, 244, 245, 0.68);
+}
+
 .timeline-segment-block-duration {
   flex: 0 0 auto;
   color: rgba(244, 244, 245, 0.6);
@@ -1837,6 +1842,18 @@ a {
 .timeline-segment-block-next {
   background: rgba(244, 244, 245, 0.12);
   color: rgba(244, 244, 245, 0.82);
+}
+
+.timeline-segment-block-disabled {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(113, 113, 122, 0.24) 0,
+      rgba(113, 113, 122, 0.24) 8px,
+      rgba(39, 39, 42, 0.32) 8px,
+      rgba(39, 39, 42, 0.32) 16px
+    );
+  color: rgba(228, 228, 231, 0.55);
 }
 
 .timeline-segment-block[data-focused='true'] {
