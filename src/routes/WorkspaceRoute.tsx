@@ -566,6 +566,7 @@ function createSavedShaderRecord(
       | 'compileError'
       | 'description'
       | 'group'
+      | 'inputAssetId'
       | 'isTemporary'
       | 'isDirty'
       | 'lastValidCode'
@@ -598,6 +599,7 @@ function createSavedShaderRecord(
     ),
     description: options.description ?? 'Saved from the current workspace state.',
     group: options.group ?? 'Saved',
+    inputAssetId: options.inputAssetId ?? null,
     uniformValues: syncedUniformValues,
     lastValidCode,
     lastValidUniformValues: getSyncedShaderUniformValues(
@@ -1656,6 +1658,114 @@ export function WorkspaceRoute() {
     );
   }, [pinnedTimelineStepId, project, updateProject]);
 
+  const handleTimelineAssignStepAsset = useCallback((stepId: string, assetId: string | null) => {
+    const nextInputAssetId = assetId?.trim() || null;
+    let nextStatusMessage = '';
+
+    updateProject((currentProject) => {
+      const step = currentProject.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
+      if (!step) {
+        return currentProject;
+      }
+
+      const sourceShader =
+        currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId) ?? null;
+      if (!sourceShader) {
+        return currentProject;
+      }
+
+      const isOwnedDraft = sourceShader.isTemporary && sourceShader.ownerTimelineStepId === stepId;
+      const editableShader = isOwnedDraft
+        ? sourceShader
+        : createSavedShaderRecord(
+            sourceShader.name,
+            sourceShader.code,
+            sourceShader.uniformValues,
+            {
+              description: 'Linked timeline shader.',
+              group: 'Timeline',
+              inputAssetId: sourceShader.inputAssetId ?? null,
+              isTemporary: true,
+              isDirty: sourceShader.isDirty,
+              sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
+              ownerTimelineStepId: stepId,
+              versions: sourceShader.versions,
+              lastValidCode: sourceShader.lastValidCode,
+              lastValidUniformValues: sourceShader.lastValidUniformValues,
+              compileError: sourceShader.compileError,
+            },
+          );
+      const nextSavedShaders = (isOwnedDraft
+        ? currentProject.studio.savedShaders
+        : [...currentProject.studio.savedShaders, editableShader]
+      ).map((shader) =>
+        shader.id === editableShader.id
+          ? {
+              ...shader,
+              inputAssetId: nextInputAssetId,
+              isDirty: true,
+              hasUnreadAiResult: false,
+            }
+          : shader,
+      );
+      const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
+        item.id === stepId ? { ...item, shaderId: editableShader.id } : item,
+      );
+      const shouldSyncActiveShader =
+        editingTimelineStepId === stepId ||
+        currentProject.studio.activeShaderId === sourceShader.id ||
+        currentProject.studio.activeShaderId === editableShader.id;
+      const assignedAssetName =
+        nextInputAssetId
+          ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId)?.name ??
+            'selected asset'
+          : null;
+
+      nextStatusMessage = nextInputAssetId
+        ? `Assigned "${assignedAssetName}" to "${editableShader.name}".`
+        : `"${editableShader.name}" now uses the live stage asset.`;
+
+      return pruneTemporaryTimelineShaders({
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          activeShaderId: shouldSyncActiveShader
+            ? editableShader.id
+            : currentProject.studio.activeShaderId,
+          activeShaderName: shouldSyncActiveShader
+            ? editableShader.name
+            : currentProject.studio.activeShaderName,
+          activeShaderCode: shouldSyncActiveShader
+            ? editableShader.code
+            : currentProject.studio.activeShaderCode,
+          shaderVersions: shouldSyncActiveShader
+            ? currentProject.studio.activeShaderId === editableShader.id
+              ? currentProject.studio.shaderVersions
+              : getShaderVersionTrail(editableShader)
+            : currentProject.studio.shaderVersions,
+          uniformValues: shouldSyncActiveShader
+            ? getSyncedShaderUniformValues(editableShader.code, editableShader.uniformValues)
+            : currentProject.studio.uniformValues,
+          savedShaders: nextSavedShaders,
+        },
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              focusedStepId: stepId,
+              steps: nextSteps,
+            },
+          },
+        },
+      });
+    });
+
+    if (nextStatusMessage) {
+      setStatusMessage(nextStatusMessage);
+    }
+  }, [editingTimelineStepId, updateProject]);
+
   const handleTimelineAddStepsWithShaders = useCallback((shaderIds: string[]) => {
     const requestedShaderIds = Array.from(
       new Set(shaderIds.map((shaderId) => shaderId.trim()).filter(Boolean)),
@@ -1811,6 +1921,7 @@ export function WorkspaceRoute() {
           {
             description: 'Linked timeline shader.',
             group: 'Timeline',
+            inputAssetId: stepShader.inputAssetId ?? null,
             isTemporary: true,
             isDirty: stepShader.isDirty,
             sourceShaderId: stepShader.sourceShaderId ?? stepShader.id,
@@ -2280,6 +2391,7 @@ export function WorkspaceRoute() {
         currentProject.studio.activeShaderCode,
         nextUniformValues,
         {
+          inputAssetId: activeShader?.inputAssetId ?? null,
           versions: currentProject.studio.shaderVersions,
         },
       );
@@ -3004,6 +3116,7 @@ ${errorSnapshot}`,
             {
               description: 'Linked timeline shader.',
               group: 'Timeline',
+              inputAssetId: sourceShader.inputAssetId ?? null,
               isTemporary: true,
               isDirty: false,
               sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
@@ -3347,6 +3460,7 @@ ${errorSnapshot}`,
 
   const timelineBar = (
     <TimelineBar
+      assets={project.library.assets}
       assetKind={activeAsset?.kind ?? null}
       assetUrl={activeAssetUrl}
       activeShaderId={project.studio.activeShaderId}
@@ -3370,6 +3484,7 @@ ${errorSnapshot}`,
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceStepChange={handleTimelineStepChange}
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
+      onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
       onSequenceDurationChange={handleTimelineDurationChange}
       onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
@@ -3407,6 +3522,7 @@ ${errorSnapshot}`,
     >
       <TimelineStageRenderer
         asset={activeAsset}
+        assets={project.library.assets}
         assetUrl={activeAssetUrl}
         assetUrlStatus={activeAssetResolution.status}
         activeShaderId={project.studio.activeShaderId}
@@ -3671,6 +3787,7 @@ ${errorSnapshot}`,
 
       <TimelineDialog
         open={isMobile && isMobileTimelineOpen}
+        assets={project.library.assets}
         assetKind={activeAsset?.kind ?? null}
         assetUrl={activeAssetUrl}
         activeShaderId={project.studio.activeShaderId}
@@ -3694,6 +3811,7 @@ ${errorSnapshot}`,
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceStepChange={handleTimelineStepChange}
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
+        onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
         onSequenceDurationChange={handleTimelineDurationChange}
         onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}

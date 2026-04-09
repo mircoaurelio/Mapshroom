@@ -77,6 +77,7 @@ export function OutputRoute() {
     <div className="output-route">
       <TimelineStageRenderer
         asset={activeAsset}
+        assets={project.library.assets}
         assetUrl={activeAssetUrl}
         assetUrlStatus={activeAssetResolution.status}
         activeShaderId={project.studio.activeShaderId}

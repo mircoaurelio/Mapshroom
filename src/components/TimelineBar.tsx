@@ -17,6 +17,7 @@ import {
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
 import type {
+  AssetRecord,
   AssetKind,
   PlaybackTransport,
   SavedShader,
@@ -31,6 +32,7 @@ import { ShaderTimelineEditor } from './ShaderTimelineEditor';
 type TimelineBarVariant = 'desktop' | 'dialog';
 
 interface TimelineBarProps {
+  assets: AssetRecord[];
   assetKind: AssetKind | null;
   assetUrl: string | null;
   activeShaderId: string;
@@ -61,6 +63,7 @@ interface TimelineBarProps {
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
   onSequencePinnedStepToggle: (stepId: string) => void;
+  onAssignSequenceStepAsset: (stepId: string, assetId: string | null) => void;
   onSequenceDurationChange: (durationSeconds: number) => void;
   onAddSequenceStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
@@ -275,6 +278,7 @@ function getTimelineTransitionSegments({
 }
 
 export function TimelineBar({
+  assets,
   assetKind,
   assetUrl,
   activeShaderId,
@@ -298,6 +302,7 @@ export function TimelineBar({
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
   onSequencePinnedStepToggle,
+  onAssignSequenceStepAsset,
   onSequenceDurationChange,
   onAddSequenceStepsWithShaders,
   onDuplicateSequenceStep,
@@ -921,6 +926,7 @@ export function TimelineBar({
       ) : null}
 
       <ShaderTimelineEditor
+        assets={assets}
         assetKind={assetKind}
         assetUrl={assetUrl}
         savedShaders={savedShaders}
@@ -945,6 +951,7 @@ export function TimelineBar({
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
         onPinnedStepToggle={onSequencePinnedStepToggle}
+        onAssignStepAsset={onAssignSequenceStepAsset}
         onAddStepsWithShaders={onAddSequenceStepsWithShaders}
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}

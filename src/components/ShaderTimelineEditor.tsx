@@ -16,6 +16,7 @@ import {
   hasShaderCompileError,
 } from '../lib/shaderState';
 import type {
+  AssetRecord,
   AssetKind,
   SavedShader,
   ShaderUniformValueMap,
@@ -32,6 +33,7 @@ function getUniformValuesPreviewSignature(uniformValues: ShaderUniformValueMap |
 }
 
 interface ShaderTimelineEditorProps {
+  assets: AssetRecord[];
   assetKind: AssetKind | null;
   assetUrl: string | null;
   savedShaders: SavedShader[];
@@ -61,6 +63,7 @@ interface ShaderTimelineEditorProps {
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
   onPinnedStepToggle: (stepId: string) => void;
+  onAssignStepAsset: (stepId: string, assetId: string | null) => void;
   onAddStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
@@ -161,6 +164,16 @@ function PinIcon() {
   );
 }
 
+function ImageAssetIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="2.25" y="3.25" width="11.5" height="9.5" rx="1.6" />
+      <circle cx="5.2" cy="6" r="1.1" />
+      <path d="m4 11 2.6-2.8 2.05 2.05 1.65-1.75L12 11" />
+    </svg>
+  );
+}
+
 function ErrorIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -240,6 +253,7 @@ function ChevronDownIcon() {
 }
 
 export function ShaderTimelineEditor({
+  assets,
   assetKind,
   assetUrl,
   savedShaders,
@@ -262,6 +276,7 @@ export function ShaderTimelineEditor({
   onSharedTransitionChange,
   onStepChange,
   onPinnedStepToggle,
+  onAssignStepAsset,
   onAddStepsWithShaders,
   onDuplicateStep,
   onRemoveStep,
@@ -287,11 +302,16 @@ export function ShaderTimelineEditor({
   const previewSourceRef = useRef<Record<string, string>>({});
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [assetPickerStepId, setAssetPickerStepId] = useState<string | null>(null);
   const [selectedAddShaderIds, setSelectedAddShaderIds] = useState<string[]>([]);
   const [cardScale, setCardScale] = useState(1);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
+  );
+  const assetMap = useMemo(
+    () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
+    [assets],
   );
   const addableShaders = useMemo(
     () => savedShaders.filter((shader) => !shader.isTemporary),
@@ -450,6 +470,26 @@ export function ShaderTimelineEditor({
           : 'Render...';
   const selectedAddShaderCount = selectedAddShaderIds.length;
   const enabledStepCount = sequence.steps.filter((step) => !step.disabled).length;
+  const assetPickerStep =
+    assetPickerStepId !== null
+      ? sequence.steps.find((step) => step.id === assetPickerStepId) ?? null
+      : null;
+  const assetPickerShader = assetPickerStep
+    ? shaderMap.get(assetPickerStep.shaderId) ?? null
+    : null;
+  const assetPickerAssignedAsset =
+    assetPickerShader?.inputAssetId ? assetMap.get(assetPickerShader.inputAssetId) ?? null : null;
+
+  useEffect(() => {
+    if (!assetPickerStepId) {
+      return;
+    }
+
+    const stepStillExists = sequence.steps.some((step) => step.id === assetPickerStepId);
+    if (!stepStillExists) {
+      setAssetPickerStepId(null);
+    }
+  }, [assetPickerStepId, sequence.steps]);
 
   const toggleAddShaderSelection = (shaderId: string) => {
     setSelectedAddShaderIds((currentIds) =>
@@ -726,6 +766,8 @@ export function ShaderTimelineEditor({
           const previewKey = shader ? getTimelineShaderPreviewKey(previewNamespace, shader) : '';
           const previewSrc = shader ? previewSources[previewKey] ?? null : null;
           const hasCompileError = hasShaderCompileError(shader);
+          const assignedAsset = shader?.inputAssetId ? assetMap.get(shader.inputAssetId) ?? null : null;
+          const hasAssignedAsset = Boolean(shader?.inputAssetId);
           const isDisabledStep = Boolean(step.disabled);
           const isPinnedStep = pinnedStepId === step.id;
           const disableToggleBlocked = !isDisabledStep && enabledStepCount <= 1;
@@ -790,6 +832,32 @@ export function ShaderTimelineEditor({
 
                     <button
                       type="button"
+                      className={`icon-button timeline-step-overlay-button ${
+                        hasAssignedAsset ? 'timeline-step-overlay-button-pin-active' : ''
+                      }`}
+                      aria-label={
+                        hasAssignedAsset
+                          ? `Change assigned asset for ${shader?.name ?? 'shader'}`
+                          : `Assign asset to ${shader?.name ?? 'shader'}`
+                      }
+                      aria-pressed={hasAssignedAsset}
+                      title={
+                        assignedAsset
+                          ? `Assigned asset: ${assignedAsset.name}`
+                          : hasAssignedAsset
+                            ? 'Assigned asset is unavailable on this device'
+                            : 'Assign asset'
+                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setAssetPickerStepId(step.id);
+                      }}
+                    >
+                      <ImageAssetIcon />
+                    </button>
+
+                    <button
+                      type="button"
                       className={`icon-button timeline-step-overlay-button timeline-step-overlay-button-disable ${
                         isDisabledStep ? 'timeline-step-overlay-button-disable-active' : ''
                       }`}
@@ -848,6 +916,7 @@ export function ShaderTimelineEditor({
 
                   {isDisabledStep ||
                   isPinnedStep ||
+                  hasAssignedAsset ||
                   hasCompileError ||
                   getPendingAiJobCount(shader) > 0 ||
                   shader?.hasUnreadAiResult ? (
@@ -860,6 +929,14 @@ export function ShaderTimelineEditor({
                       {isDisabledStep ? (
                         <span className="timeline-step-preview-badge timeline-step-preview-badge-disabled">
                           Off
+                        </span>
+                      ) : null}
+                      {hasAssignedAsset ? (
+                        <span
+                          className="timeline-step-preview-badge timeline-step-preview-badge-pinned"
+                          title={assignedAsset ? assignedAsset.name : 'Assigned asset missing'}
+                        >
+                          Img
                         </span>
                       ) : null}
                       {hasCompileError ? (
@@ -911,6 +988,94 @@ export function ShaderTimelineEditor({
           );
         })}
       </div>
+
+      {assetPickerStep && assetPickerShader ? (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setAssetPickerStepId(null);
+            }
+          }}
+        >
+          <section
+            className="dialog-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-asset-picker-title"
+          >
+            <header className="dialog-header">
+              <div>
+                <span className="panel-eyebrow">Shader Asset</span>
+                <h2 id="timeline-asset-picker-title" className="dialog-title">
+                  Assign Media
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setAssetPickerStepId(null)}
+              >
+                Close
+              </button>
+            </header>
+
+            <div className="dialog-body">
+              <div className="stack gap-md">
+                <p className="helper-copy">
+                  Pick which library asset should feed <strong>{assetPickerShader.name}</strong>.
+                </p>
+
+                <button
+                  type="button"
+                  className={`secondary-button ${
+                    !assetPickerShader.inputAssetId ? 'timeline-add-trigger-active' : ''
+                  }`}
+                  onClick={() => {
+                    onAssignStepAsset(assetPickerStep.id, null);
+                    setAssetPickerStepId(null);
+                  }}
+                >
+                  Use Live Stage Asset
+                </button>
+
+                {assets.length === 0 ? (
+                  <p className="empty-copy">Import an image or video first.</p>
+                ) : (
+                  <div className="timeline-add-option-list">
+                    {assets.map((assetRecord) => {
+                      const isSelected = assetPickerShader.inputAssetId === assetRecord.id;
+
+                      return (
+                        <button
+                          key={assetRecord.id}
+                          type="button"
+                          className={`timeline-add-option ${
+                            isSelected ? 'timeline-add-option-active' : ''
+                          }`}
+                          onClick={() => {
+                            onAssignStepAsset(assetPickerStep.id, assetRecord.id);
+                            setAssetPickerStepId(null);
+                          }}
+                        >
+                          <span className="timeline-add-option-copy">
+                            <strong>{assetRecord.name}</strong>
+                            <small>
+                              {assetRecord.kind}
+                              {assetPickerAssignedAsset?.id === assetRecord.id ? ' | current' : ''}
+                            </small>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }
