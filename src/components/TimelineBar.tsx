@@ -705,7 +705,7 @@ export function TimelineBar({
             onBlur={() => setScrubValue(null)}
           />
 
-          {markerStops.length ? (
+          {markerStops.length && displayStepSegments.length === 0 ? (
             <div className="timeline-range-markers" aria-hidden="true">
               {markerStops.map((marker) => (
                 <span
