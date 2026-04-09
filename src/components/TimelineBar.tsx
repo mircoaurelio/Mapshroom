@@ -643,31 +643,56 @@ export function TimelineBar({
     document.body.style.userSelect = 'none';
   };
 
+  const durationLengthField = (
+    <label className="timeline-duration-field">
+      <span>Length</span>
+      <input
+        className="text-field"
+        type="number"
+        min={0.5}
+        step={1}
+        value={durationFieldValue}
+        onChange={(event) => setDurationInputValue(event.target.value)}
+        onBlur={commitDurationInput}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commitDurationInput();
+          } else if (event.key === 'Escape') {
+            setDurationInputValue(null);
+          }
+        }}
+      />
+    </label>
+  );
+
   return (
     <div className={`timeline-bar timeline-bar-${variant}`}>
-      <div className="timeline-bar-scrub">
-        <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
+      <div className="timeline-rail-grid">
+        <div className="timeline-rail-leading">
+          <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
 
-        <div className="timeline-transport-controls" role="group" aria-label="Timeline transport">
-          <button
-            type="button"
-            className="icon-button timeline-transport-button"
-            aria-label={transport.isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-            title={transport.isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-            onClick={onPlayToggle}
-          >
-            {transport.isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
+          <div className="timeline-transport-controls" role="group" aria-label="Timeline transport">
+            <button
+              type="button"
+              className="icon-button timeline-transport-button"
+              aria-label={transport.isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+              title={transport.isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+              onClick={onPlayToggle}
+            >
+              {transport.isPlaying ? <PauseIcon /> : <PlayIcon />}
+            </button>
 
-          <button
-            type="button"
-            className="icon-button timeline-transport-button"
-            aria-label="Stop timeline playback"
-            title="Stop timeline playback"
-            onClick={onStop}
-          >
-            <StopIcon />
-          </button>
+            <button
+              type="button"
+              className="icon-button timeline-transport-button"
+              aria-label="Stop timeline playback"
+              title="Stop timeline playback"
+              onClick={onStop}
+            >
+              <StopIcon />
+            </button>
+          </div>
         </div>
 
         <div className="timeline-range-shell">
@@ -718,33 +743,23 @@ export function TimelineBar({
           ) : null}
         </div>
 
-        <div className="timeline-duration-shell">
-          <span className="timeline-timecode">{formatTimelineTime(safeDurationSeconds)}</span>
-          <label className="timeline-duration-field">
-            <span>Length</span>
-            <input
-              className="text-field"
-              type="number"
-              min={0.5}
-              step={1}
-              value={durationFieldValue}
-              onChange={(event) => setDurationInputValue(event.target.value)}
-              onBlur={commitDurationInput}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  commitDurationInput();
-                } else if (event.key === 'Escape') {
-                  setDurationInputValue(null);
-                }
-              }}
-            />
-          </label>
-        </div>
-      </div>
+        {displayStepSegments.length > 0 ? (
+          <span className="timeline-timecode timeline-range-end-time">
+            {formatTimelineTime(safeDurationSeconds)}
+          </span>
+        ) : (
+          <div className="timeline-duration-shell">
+            <span className="timeline-timecode">{formatTimelineTime(safeDurationSeconds)}</span>
+            {durationLengthField}
+          </div>
+        )}
 
-      {displayStepSegments.length > 0 ? (
-        <div className="timeline-segment-track-shell">
+        {displayStepSegments.length > 0 ? (
+          <div className="timeline-rail-leading-spacer" aria-hidden="true" />
+        ) : null}
+
+        {displayStepSegments.length > 0 ? (
+          <div className="timeline-segment-track-shell">
           <div className="timeline-segment-track" ref={stepTrackRef}>
             {displayStepSegments.map((segment) => {
               const shader =
@@ -975,8 +990,15 @@ export function TimelineBar({
               </label>
             </div>
           ) : null}
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+
+        {displayStepSegments.length > 0 ? (
+          <div className="timeline-duration-shell timeline-duration-shell-track">
+            {durationLengthField}
+          </div>
+        ) : null}
+      </div>
 
       {!displayStepSegments.length ? (
         <div className="timeline-bar-footer">
