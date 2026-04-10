@@ -71,6 +71,9 @@ interface ShaderTimelineEditorProps {
   onPinnedStepToggle: (stepId: string) => void;
   onAssignStepAsset: (stepId: string, assetId: string | null) => void;
   onImportAsset: () => void;
+  assetPickerRequestStepId: string | null;
+  assetPickerRequestToken: number;
+  onAssetPickerRequestHandled: () => void;
   onAddStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
@@ -289,6 +292,9 @@ export function ShaderTimelineEditor({
   onPinnedStepToggle,
   onAssignStepAsset,
   onImportAsset,
+  assetPickerRequestStepId,
+  assetPickerRequestToken,
+  onAssetPickerRequestHandled,
   onAddStepsWithShaders,
   onDuplicateStep,
   onRemoveStep,
@@ -654,6 +660,18 @@ export function ShaderTimelineEditor({
       setAssetPickerStepId(null);
     }
   }, [assetPickerStepId, sequence.steps]);
+
+  useEffect(() => {
+    if (!assetPickerRequestStepId) {
+      return;
+    }
+
+    if (sequence.steps.some((step) => step.id === assetPickerRequestStepId)) {
+      setAssetPickerStepId(assetPickerRequestStepId);
+    }
+
+    onAssetPickerRequestHandled();
+  }, [assetPickerRequestStepId, assetPickerRequestToken, onAssetPickerRequestHandled, sequence.steps]);
 
   useEffect(() => {
     if (!assetPickerStep) {
