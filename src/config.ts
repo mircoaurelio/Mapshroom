@@ -1,5 +1,5 @@
 import type { ProjectDocument, StageTransform, UiPreferences } from './types';
-import { shaderPresets } from './shaders/presets';
+import { shaderPresetList, shaderPresets } from './shaders/presets';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
@@ -39,8 +39,13 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   desktopSlidersWindowEnabled: true,
 };
 
+const defaultShader = shaderPresetList[0];
+
+if (!defaultShader) {
+  throw new Error('Mapshroom requires at least one shader preset.');
+}
+
 export function createDefaultProject(sessionId: string): ProjectDocument {
-  const defaultShader = DEFAULT_SHADERS.default_psych;
   const firstTimelineStepId = crypto.randomUUID();
   const defaultShaderVersions = [
     {
@@ -81,7 +86,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
               ],
       })),
       shaderChatHistory: [],
-      uniformValues: {},
+      uniformValues: defaultShader.uniformValues ?? {},
     },
     mapping: {
       stageTransform: { ...DEFAULT_STAGE_TRANSFORM },

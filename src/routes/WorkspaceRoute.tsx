@@ -173,26 +173,36 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     const shaderLastValidUniformValues =
       'lastValidUniformValues' in shader ? shader.lastValidUniformValues : undefined;
     const shaderCompileError = 'compileError' in shader ? shader.compileError : undefined;
+    const defaultPreset = DEFAULT_SHADERS[shader.id];
+    const normalizedName = defaultPreset?.name ?? shader.name;
     const normalizedCode = shader.code;
     const normalizedUniformValues = getSyncedShaderUniformValues(
       normalizedCode,
-      shaderUniformValues,
+      shaderUniformValues ?? defaultPreset?.uniformValues,
     );
     const normalizedLastValidCode = shaderLastValidCode ?? normalizedCode;
     const normalizedShader: SavedShader = {
       ...shader,
+      name: normalizedName,
+      description: defaultPreset?.description ?? shader.description,
+      template: defaultPreset?.template ?? shader.template ?? 'stage',
+      group: defaultPreset?.group ?? shader.group,
       code: normalizedCode,
       versions: getShaderVersionTrail(
         {
-          name: shader.name,
+          name: normalizedName,
           code: normalizedCode,
           versions: shaderVersions,
-          isTemporary: 'isTemporary' in shader ? shader.isTemporary : undefined,
+          isTemporary: defaultPreset
+            ? false
+            : 'isTemporary' in shader
+              ? shader.isTemporary
+              : undefined,
         },
         {
           fallbackVersions:
             shader.id === project.studio.activeShaderId ? project.studio.shaderVersions : undefined,
-          fallbackName: shader.name,
+          fallbackName: normalizedName,
           fallbackCode: normalizedCode,
         },
       ),
@@ -202,9 +212,29 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         normalizedLastValidCode,
         shaderLastValidUniformValues ?? normalizedUniformValues,
       ),
+      isTemporary: defaultPreset
+        ? false
+        : 'isTemporary' in shader
+          ? shader.isTemporary
+          : undefined,
+      isDirty: defaultPreset ? false : 'isDirty' in shader ? shader.isDirty : undefined,
+      sourceShaderId: defaultPreset
+        ? undefined
+        : 'sourceShaderId' in shader
+          ? shader.sourceShaderId
+          : undefined,
+      ownerTimelineStepId: defaultPreset
+        ? undefined
+        : 'ownerTimelineStepId' in shader
+          ? shader.ownerTimelineStepId
+          : undefined,
       pendingAiJobCount: 0,
-      hasUnreadAiResult: 'hasUnreadAiResult' in shader ? Boolean(shader.hasUnreadAiResult) : false,
-      compileError: shaderCompileError?.trim() ? shaderCompileError : undefined,
+      hasUnreadAiResult: defaultPreset
+        ? false
+        : 'hasUnreadAiResult' in shader
+          ? Boolean(shader.hasUnreadAiResult)
+          : false,
+      compileError: defaultPreset ? undefined : shaderCompileError?.trim() ? shaderCompileError : undefined,
     };
     const existingIndex = collection.findIndex((item) => item.id === normalizedShader.id);
     if (existingIndex >= 0) {
@@ -566,6 +596,7 @@ function createSavedShaderRecord(
       SavedShader,
       | 'compileError'
       | 'description'
+      | 'template'
       | 'group'
       | 'inputAssetId'
       | 'isTemporary'
@@ -599,6 +630,7 @@ function createSavedShaderRecord(
       },
     ),
     description: options.description ?? 'Saved from the current workspace state.',
+    template: options.template ?? 'stage',
     group: options.group ?? 'Saved',
     inputAssetId: options.inputAssetId ?? null,
     uniformValues: syncedUniformValues,
@@ -1684,6 +1716,7 @@ export function WorkspaceRoute() {
             sourceShader.uniformValues,
             {
               description: 'Linked timeline shader.',
+              template: sourceShader.template ?? 'stage',
               group: 'Timeline',
               inputAssetId: sourceShader.inputAssetId ?? null,
               isTemporary: true,
@@ -1921,6 +1954,7 @@ export function WorkspaceRoute() {
           stepShader.uniformValues,
           {
             description: 'Linked timeline shader.',
+            template: stepShader.template ?? 'stage',
             group: 'Timeline',
             inputAssetId: stepShader.inputAssetId ?? null,
             isTemporary: true,
@@ -2392,6 +2426,9 @@ export function WorkspaceRoute() {
         currentProject.studio.activeShaderCode,
         nextUniformValues,
         {
+          description: activeShader?.description ?? 'Saved from the current workspace state.',
+          template: activeShader?.template ?? 'stage',
+          group: activeShader?.group ?? 'Saved',
           inputAssetId: activeShader?.inputAssetId ?? null,
           versions: currentProject.studio.shaderVersions,
         },
@@ -2426,6 +2463,7 @@ export function WorkspaceRoute() {
       {},
       {
         description: 'Linked timeline shader.',
+        template: 'stage',
         group: 'Timeline',
         isTemporary: true,
         isDirty: false,
@@ -2535,6 +2573,7 @@ export function WorkspaceRoute() {
           project.studio.uniformValues,
           {
             description: 'Autosaved shader from the workspace editor.',
+            template: 'stage',
             group: 'Autosaved',
             versions: project.studio.shaderVersions,
           },
@@ -3116,6 +3155,7 @@ ${errorSnapshot}`,
             sourceShader.uniformValues,
             {
               description: 'Linked timeline shader.',
+              template: sourceShader.template ?? 'stage',
               group: 'Timeline',
               inputAssetId: sourceShader.inputAssetId ?? null,
               isTemporary: true,

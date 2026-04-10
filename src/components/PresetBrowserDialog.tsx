@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useRef, useState, type MutableRefObject } from 'react';
-import type { SavedShader, ShaderUniformValueMap } from '../types';
+import type { SavedShader, ShaderTemplate, ShaderUniformValueMap } from '../types';
 import {
   buildFragmentShaderSource,
   VERTEX_SHADER_SOURCE,
@@ -10,7 +10,17 @@ import {
   getRenderableShaderUniformValues,
 } from '../lib/shaderState';
 
-const GROUP_ORDER = ['Glow', 'Color', 'Graphic', 'Geometry', 'Motion', 'Default', 'Saved'];
+const TEMPLATE_ORDER: ShaderTemplate[] = ['stage', 'drawing', 'sculpture'];
+const TEMPLATE_LABELS: Record<ShaderTemplate, string> = {
+  stage: 'Stage',
+  drawing: 'Drawing',
+  sculpture: 'Sculpture',
+};
+const GROUP_ORDER: Record<ShaderTemplate, string[]> = {
+  stage: ['Base', 'Sacred Geometry', 'Laser Gates', 'Tunnels', 'Reactive Grids', 'Plasma Flow'],
+  drawing: ['Base', 'Ink Halos', 'Ink Flow', 'Scanner Bands', 'Op Art', 'Crosshatch Ritual'],
+  sculpture: ['Base', 'Relief Halos', 'Chrome Relief', 'Laser Relief', 'Structural Relief', 'Patina Flow'],
+};
 const PREVIEW_WIDTH = 128;
 const PREVIEW_HEIGHT = 96;
 const PREVIEW_SOURCE_MAX_EDGE = 256;
@@ -45,12 +55,17 @@ function getPresetGroup(preset: SavedShader): string {
     return preset.group;
   }
 
-  return preset.id.startsWith('default_') ? 'Default' : 'Saved';
+  return 'Saved';
 }
 
-function sortGroups(left: string, right: string): number {
-  const leftIndex = GROUP_ORDER.indexOf(left);
-  const rightIndex = GROUP_ORDER.indexOf(right);
+function getPresetTemplate(preset: SavedShader): ShaderTemplate {
+  return preset.template ?? 'stage';
+}
+
+function sortGroups(template: ShaderTemplate, left: string, right: string): number {
+  const order = GROUP_ORDER[template];
+  const leftIndex = order.indexOf(left);
+  const rightIndex = order.indexOf(right);
 
   if (leftIndex === -1 && rightIndex === -1) {
     return left.localeCompare(right);
@@ -377,7 +392,7 @@ export function PresetBrowserDialog({
 }: PresetBrowserDialogProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [activeTemplate, setActiveTemplate] = useState<ShaderTemplate>('stage');
   const [loadedPreview, setLoadedPreview] = useState<{
     assetUrl: string;
     image: HTMLCanvasElement;
@@ -430,6 +445,16 @@ export function PresetBrowserDialog({
     };
   }, [open, assetUrl]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const currentTemplate =
+      presets.find((preset) => preset.id === activeShaderId)?.template ?? 'stage';
+    setActiveTemplate(currentTemplate);
+  }, [open, presets, activeShaderId]);
+
   if (!open) return null;
 
   const image = assetUrl && loadedPreview?.assetUrl === assetUrl ? loadedPreview.image : null;
@@ -475,13 +500,10 @@ export function PresetBrowserDialog({
       };
     });
   };
-  const categories = ['All', ...Array.from(new Set(presets.map(getPresetGroup))).sort(sortGroups)];
-  const selectedCategory = categories.includes(activeCategory) ? activeCategory : 'All';
+  const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'stage';
   const normalizedQuery = deferredQuery.trim().toLowerCase();
   const filteredPresets = presets.filter((preset) => {
-    const matchesCategory =
-      selectedCategory === 'All' || getPresetGroup(preset) === selectedCategory;
-    if (!matchesCategory) {
+    if (getPresetTemplate(preset) !== selectedTemplate) {
       return false;
     }
 
@@ -489,7 +511,13 @@ export function PresetBrowserDialog({
       return true;
     }
 
-    const haystack = [preset.name, preset.description, preset.group, preset.id]
+    const haystack = [
+      preset.name,
+      preset.description,
+      preset.group,
+      TEMPLATE_LABELS[getPresetTemplate(preset)],
+      preset.id,
+    ]
       .filter(Boolean)
       .join(' ')
       .toLowerCase();
@@ -505,7 +533,7 @@ export function PresetBrowserDialog({
       return groups;
     }, new Map<string, SavedShader[]>()),
   )
-    .sort(([left], [right]) => sortGroups(left, right))
+    .sort(([left], [right]) => sortGroups(selectedTemplate, left, right))
     .map(([group, items]) => ({
       group,
       items: [...items].sort((left, right) => left.name.localeCompare(right.name)),
@@ -578,17 +606,17 @@ export function PresetBrowserDialog({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
-                <div className="preset-category-row" role="tablist" aria-label="Preset categories">
-                  {categories.map((category) => (
+                <div className="preset-category-row" role="tablist" aria-label="Preset templates">
+                  {TEMPLATE_ORDER.map((template) => (
                     <button
-                      key={category}
+                      key={template}
                       type="button"
                       className={`preset-category-chip ${
-                        category === selectedCategory ? 'preset-category-chip-active' : ''
+                        template === selectedTemplate ? 'preset-category-chip-active' : ''
                       }`}
-                      onClick={() => setActiveCategory(category)}
+                      onClick={() => setActiveTemplate(template)}
                     >
-                      {category}
+                      {TEMPLATE_LABELS[template]}
                     </button>
                   ))}
                 </div>
