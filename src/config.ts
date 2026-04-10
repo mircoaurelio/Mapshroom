@@ -1,5 +1,6 @@
 import type { ProjectDocument, StageTransform, UiPreferences } from './types';
 import { shaderPresetList, shaderPresets } from './shaders/presets';
+import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
@@ -142,6 +143,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
               durationSeconds: 8,
               transitionDurationSeconds: 0.75,
               transitionEffect: 'mix',
+              assetSettings: normalizeTimelineStepAssetSettings(),
             },
           ],
         },

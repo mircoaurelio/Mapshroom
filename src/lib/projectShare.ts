@@ -1,6 +1,7 @@
 import { APP_VERSION, createDefaultProject } from '../config';
 import { persistActiveSessionId, saveProjectDocument } from './storage';
 import { parseShaderName, parseUniforms, syncUniformValues } from './shader';
+import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings';
 import type {
   ProjectDocument,
   SavedShader,
@@ -24,6 +25,16 @@ interface CompactSharedTimelineStepPayload {
   d: number;
   x: number;
   e: TimelineTransitionEffect;
+  asx?: number;
+  asy?: number;
+  ax?: number;
+  ay?: number;
+  ao?: number;
+  ab?: number;
+  af?: number;
+  aq?: number;
+  acs?: number;
+  acd?: number;
 }
 
 interface CompactSharedTimelinePayload {
@@ -280,6 +291,16 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
           d: step.durationSeconds,
           x: step.transitionDurationSeconds,
           e: step.transitionEffect,
+          asx: step.assetSettings.scaleX !== 1 ? step.assetSettings.scaleX : undefined,
+          asy: step.assetSettings.scaleY !== 1 ? step.assetSettings.scaleY : undefined,
+          ax: step.assetSettings.offsetX !== 0 ? step.assetSettings.offsetX : undefined,
+          ay: step.assetSettings.offsetY !== 0 ? step.assetSettings.offsetY : undefined,
+          ao: step.assetSettings.opacity !== 0.85 ? step.assetSettings.opacity : undefined,
+          ab: ['mix', 'screen', 'add', 'multiply'].indexOf(step.assetSettings.blendMode),
+          af: ['cover', 'contain', 'stretch'].indexOf(step.assetSettings.fitMode),
+          aq: ['draft', 'balanced', 'high'].indexOf(step.assetSettings.quality),
+          acs: step.assetSettings.clipStartSeconds > 0 ? step.assetSettings.clipStartSeconds : undefined,
+          acd: step.assetSettings.clipDurationSeconds ?? undefined,
         })),
     },
     h: timelineShaders.map((shader) => {
@@ -333,6 +354,28 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
           durationSeconds: step.d,
           transitionDurationSeconds: step.x,
           transitionEffect: step.e,
+          assetSettings: normalizeTimelineStepAssetSettings({
+            scaleX: step.asx,
+            scaleY: step.asy,
+            offsetX: step.ax,
+            offsetY: step.ay,
+            opacity: step.ao,
+            blendMode: ['mix', 'screen', 'add', 'multiply'][step.ab ?? 0] as
+              | 'mix'
+              | 'screen'
+              | 'add'
+              | 'multiply',
+            fitMode: ['cover', 'contain', 'stretch'][step.af ?? 0] as
+              | 'cover'
+              | 'contain'
+              | 'stretch',
+            quality: ['draft', 'balanced', 'high'][step.aq ?? 1] as
+              | 'draft'
+              | 'balanced'
+              | 'high',
+            clipStartSeconds: step.acs,
+            clipDurationSeconds: step.acd,
+          }),
         }))
     : [
         {

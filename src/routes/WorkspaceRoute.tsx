@@ -53,6 +53,7 @@ import {
   roundTimelineSeconds,
   scaleTimelineStepDurations,
 } from '../lib/timeline';
+import { normalizeTimelineStepAssetSettings } from '../lib/timelineAssetSettings';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import {
@@ -283,6 +284,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         step.transitionDurationSeconds,
       ),
       transitionEffect: step.transitionEffect ?? 'mix',
+      assetSettings: normalizeTimelineStepAssetSettings(step.assetSettings),
     };
   });
   const requestedPinnedStepId =
@@ -1633,6 +1635,9 @@ export function WorkspaceRoute() {
                 const durationSeconds = clampTimelineStepDuration(
                   patch.durationSeconds ?? step.durationSeconds,
                 );
+                const assetSettings = patch.assetSettings
+                  ? normalizeTimelineStepAssetSettings(patch.assetSettings)
+                  : normalizeTimelineStepAssetSettings(step.assetSettings);
 
                 return {
                   ...step,
@@ -1642,6 +1647,7 @@ export function WorkspaceRoute() {
                     durationSeconds,
                     patch.transitionDurationSeconds ?? step.transitionDurationSeconds,
                   ),
+                  assetSettings,
                 };
               }),
             },

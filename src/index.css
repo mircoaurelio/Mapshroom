@@ -3303,6 +3303,36 @@ a {
   text-transform: uppercase;
 }
 
+.timeline-asset-dialog-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+}
+
+.timeline-asset-dialog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 420px);
+  gap: 1rem;
+  align-items: start;
+}
+
+.timeline-asset-preview-shell {
+  min-height: 300px;
+}
+
+.timeline-asset-preview-grid {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.timeline-asset-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  align-content: start;
+}
+
 .asset-import-dialog {
   width: min(100%, 460px);
 }
@@ -3595,6 +3625,14 @@ a {
   }
 
   .asset-browser-dialog-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timeline-asset-dialog-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timeline-asset-settings-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

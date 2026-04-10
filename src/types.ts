@@ -10,6 +10,9 @@ export type TimelineTransitionEffect = 'cut' | 'mix' | 'wipe' | 'radial' | 'glit
 export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix' | 'double';
 export type TimelineEditorViewMode = 'simple' | 'advanced';
 export type TimelineStagePreviewMode = 'timeline' | 'focused';
+export type TimelineAssetBlendMode = 'mix' | 'screen' | 'add' | 'multiply';
+export type TimelineAssetFitMode = 'cover' | 'contain' | 'stretch';
+export type TimelineAssetQuality = 'draft' | 'balanced' | 'high';
 
 export interface AssetRecord {
   id: string;
@@ -80,6 +83,19 @@ export interface AiSettings {
   videoGenProvider: 'runway';
 }
 
+export interface TimelineStepAssetSettings {
+  scaleX: number;
+  scaleY: number;
+  offsetX: number;
+  offsetY: number;
+  opacity: number;
+  blendMode: TimelineAssetBlendMode;
+  fitMode: TimelineAssetFitMode;
+  quality: TimelineAssetQuality;
+  clipStartSeconds: number;
+  clipDurationSeconds: number | null;
+}
+
 export interface TimelineStub {
   enabled: boolean;
   durationSeconds: number;
@@ -108,6 +124,7 @@ export interface TimelineStub {
       durationSeconds: number;
       transitionDurationSeconds: number;
       transitionEffect: TimelineTransitionEffect;
+      assetSettings: TimelineStepAssetSettings;
     }>;
   };
 }

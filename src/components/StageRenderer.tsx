@@ -12,6 +12,7 @@ import type {
   ShaderUniformMap,
   ShaderUniformValueMap,
   StageTransform,
+  TimelineAssetQuality,
 } from '../types';
 import {
   buildFragmentShaderSource,
@@ -37,11 +38,15 @@ interface StageRendererProps {
 }
 
 export interface StageRenderInputSource {
+  sourceKey: string;
   assetId: string;
   assetName: string;
   kind: AssetKind;
   url: string | null;
   status: AssetObjectUrlStatus;
+  clipStartSeconds?: number;
+  clipDurationSeconds?: number | null;
+  quality?: TimelineAssetQuality;
 }
 
 export interface StageRenderLayer {
@@ -66,10 +71,13 @@ interface ProgramLocations {
   time: WebGLUniformLocation | null;
   image: WebGLUniformLocation | null;
   overlayImage: WebGLUniformLocation | null;
+  overlayAspectRatio: WebGLUniformLocation | null;
   transitionFromImage: WebGLUniformLocation | null;
   transitionToImage: WebGLUniformLocation | null;
   transitionFromOverlayImage: WebGLUniformLocation | null;
   transitionToOverlayImage: WebGLUniformLocation | null;
+  transitionFromOverlayAspectRatio: WebGLUniformLocation | null;
+  transitionToOverlayAspectRatio: WebGLUniformLocation | null;
   resolution: WebGLUniformLocation | null;
   custom: Record<string, WebGLUniformLocation | null>;
 }
@@ -145,10 +153,19 @@ function createProgramBundle(
       time: gl.getUniformLocation(program, 'u_time'),
       image: gl.getUniformLocation(program, 'u_image'),
       overlayImage: gl.getUniformLocation(program, 'u_timeline_overlay_image'),
+      overlayAspectRatio: gl.getUniformLocation(program, 'u_timeline_overlay_aspect_ratio'),
       transitionFromImage: gl.getUniformLocation(program, 'u_timeline_from_image'),
       transitionToImage: gl.getUniformLocation(program, 'u_timeline_to_image'),
       transitionFromOverlayImage: gl.getUniformLocation(program, 'u_timeline_from_overlay_image'),
       transitionToOverlayImage: gl.getUniformLocation(program, 'u_timeline_to_overlay_image'),
+      transitionFromOverlayAspectRatio: gl.getUniformLocation(
+        program,
+        'u_timeline_from_overlay_aspect_ratio',
+      ),
+      transitionToOverlayAspectRatio: gl.getUniformLocation(
+        program,
+        'u_timeline_to_overlay_aspect_ratio',
+      ),
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       custom: Object.fromEntries(
         Object.keys(uniformDefinitions).map((name) => [name, gl.getUniformLocation(program, name)]),
@@ -184,6 +201,17 @@ function initializeTexture(
   );
 }
 
+function applyTextureSamplingQuality(
+  gl: WebGLRenderingContext,
+  texture: WebGLTexture,
+  quality: TimelineAssetQuality | undefined,
+) {
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  const filter = quality === 'draft' ? gl.NEAREST : gl.LINEAR;
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+}
+
 function disposeVideoElement(video: HTMLVideoElement | null | undefined) {
   if (!video) {
     return;
@@ -194,8 +222,60 @@ function disposeVideoElement(video: HTMLVideoElement | null | undefined) {
   video.load();
 }
 
+function getClippedVideoWindow(
+  source: StageRenderInputSource,
+  durationSeconds: number,
+): {
+  startSeconds: number;
+  visibleDurationSeconds: number;
+} {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return {
+      startSeconds: 0,
+      visibleDurationSeconds: 0.001,
+    };
+  }
+
+  const maxStartSeconds = Math.max(0, durationSeconds - 0.001);
+  const startSeconds = Math.max(
+    0,
+    Math.min(maxStartSeconds, Number(source.clipStartSeconds ?? 0)),
+  );
+  const availableDurationSeconds = Math.max(0.001, durationSeconds - startSeconds);
+  const visibleDurationSeconds =
+    Number.isFinite(source.clipDurationSeconds) && (source.clipDurationSeconds ?? 0) > 0
+      ? Math.max(
+          0.001,
+          Math.min(availableDurationSeconds, Number(source.clipDurationSeconds)),
+        )
+      : availableDurationSeconds;
+
+  return {
+    startSeconds,
+    visibleDurationSeconds,
+  };
+}
+
+function getClippedVideoTime(
+  source: StageRenderInputSource,
+  transportTimeSeconds: number,
+  durationSeconds: number,
+  loop: boolean,
+): number {
+  const { startSeconds, visibleDurationSeconds } = getClippedVideoWindow(source, durationSeconds);
+  const normalizedTimeSeconds = loop
+    ? transportTimeSeconds % visibleDurationSeconds
+    : Math.min(transportTimeSeconds, visibleDurationSeconds);
+
+  return Math.max(
+    startSeconds,
+    Math.min(durationSeconds, startSeconds + Math.max(0, normalizedTimeSeconds)),
+  );
+}
+
 function syncVideoToTransport(
   video: HTMLVideoElement,
+  source: StageRenderInputSource,
   transport: PlaybackTransport,
   nowMs = performance.now(),
   forceSeek = false,
@@ -204,7 +284,7 @@ function syncVideoToTransport(
 
   if (video.duration > 0) {
     const absoluteTime = getTransportTimeSeconds(transport, nowMs);
-    const targetTime = transport.loop ? absoluteTime % video.duration : absoluteTime;
+    const targetTime = getClippedVideoTime(source, absoluteTime, video.duration, transport.loop);
 
     if (forceSeek || Math.abs(video.currentTime - targetTime) > 0.08) {
       video.currentTime = targetTime;
@@ -252,6 +332,7 @@ function createTextureSourceState(
   }
 
   initializeTexture(gl, texture);
+  applyTextureSamplingQuality(gl, texture, source.quality);
 
   const state: StageTextureSourceState = {
     source,
@@ -283,12 +364,12 @@ function createTextureSourceState(
           ? image.naturalWidth / image.naturalHeight
           : null;
       state.status = 'ready';
-      onReady(state.source.assetId, state.aspectRatio, source.assetName || 'Image asset');
+      onReady(state.source.sourceKey, state.aspectRatio, source.assetName || 'Image asset');
     };
     image.onerror = () => {
       state.image = null;
       state.status = 'error';
-      onError(state.source.assetId, 'Unable to load image asset');
+      onError(state.source.sourceKey, 'Unable to load image asset');
     };
     image.src = source.url;
     state.image = image;
@@ -309,17 +390,17 @@ function createTextureSourceState(
     state.status = 'ready';
     const targetTime = getTransportTimeSeconds(transport);
     if (Number.isFinite(targetTime) && video.duration > 0) {
-      video.currentTime = targetTime % video.duration;
+      video.currentTime = getClippedVideoTime(source, targetTime, video.duration, transport.loop);
     }
     if (transport.isPlaying) {
       void video.play().catch(() => {});
     }
-    onReady(state.source.assetId, state.aspectRatio, source.assetName || 'Video asset');
+    onReady(state.source.sourceKey, state.aspectRatio, source.assetName || 'Video asset');
   };
   video.onerror = () => {
     state.video = null;
     state.status = 'error';
-    onError(state.source.assetId, 'Unable to load video asset');
+    onError(state.source.sourceKey, 'Unable to load video asset');
   };
   video.src = source.url;
   state.video = video;
@@ -334,7 +415,7 @@ function updateTextureSourceStateTransport(
     return;
   }
 
-  syncVideoToTransport(state.video, transport, performance.now(), true);
+  syncVideoToTransport(state.video, state.source, transport, performance.now(), true);
 }
 
 function bindTextureSourceState(
@@ -353,7 +434,12 @@ function bindTextureSourceState(
 
   if (state.source.kind === 'video' && state.video && state.video.readyState >= 2) {
     if (transport.isPlaying && state.video.duration > 0) {
-      const targetTime = transport.loop ? transportTime % state.video.duration : transportTime;
+      const targetTime = getClippedVideoTime(
+        state.source,
+        transportTime,
+        state.video.duration,
+        transport.loop,
+      );
       if (Math.abs(state.video.currentTime - targetTime) > 0.25) {
         state.video.currentTime = targetTime;
       }
@@ -423,11 +509,13 @@ export function StageRenderer({
     () =>
       asset
         ? {
+            sourceKey: asset.id,
             assetId: asset.id,
             assetName: asset.name,
             kind: asset.kind,
             url: assetUrl,
             status: assetUrlStatus,
+            quality: 'high',
           }
         : null,
     [asset, assetUrl, assetUrlStatus],
@@ -481,7 +569,7 @@ export function StageRenderer({
       if (!source) {
         return;
       }
-      sources.set(source.assetId, source);
+      sources.set(source.sourceKey, source);
     };
 
     registerSource(defaultInputSource);
@@ -499,13 +587,18 @@ export function StageRenderer({
   const requiredInputSourceSignature = useMemo(
     () =>
       requiredInputSources
-        .map((source) => `${source.assetId}:${source.kind}:${source.url ?? 'null'}:${source.status}`)
+        .map(
+          (source) =>
+            `${source.sourceKey}:${source.assetId}:${source.kind}:${source.url ?? 'null'}:${source.status}:${
+              source.quality ?? 'balanced'
+            }:${source.clipStartSeconds ?? 0}:${source.clipDurationSeconds ?? 'auto'}`,
+        )
         .join('\u0001'),
     [requiredInputSources],
   );
   const preferredAspectSourceId = useMemo(() => {
     if (defaultInputSource) {
-      return defaultInputSource.assetId;
+      return defaultInputSource.sourceKey;
     }
 
     for (const layer of resolvedRenderLayers) {
@@ -518,7 +611,7 @@ export function StageRenderer({
         layer.transitionOverlaySources?.to ??
         null;
       if (source) {
-        return source.assetId;
+        return source.sourceKey;
       }
     }
 
@@ -706,7 +799,7 @@ export function StageRenderer({
     }
 
     const textureSources = textureSourcesRef.current;
-    const requiredSourceIds = new Set(requiredInputSources.map((source) => source.assetId));
+    const requiredSourceIds = new Set(requiredInputSources.map((source) => source.sourceKey));
     const syncBufferedMedia = () => {
       const readyStates = Array.from(textureSources.values()).filter(
         (state) => state.status === 'ready',
@@ -740,13 +833,17 @@ export function StageRenderer({
     }
 
     for (const source of requiredInputSources) {
-      const existingState = textureSources.get(source.assetId);
+      const existingState = textureSources.get(source.sourceKey);
       const sourceChanged =
         !existingState ||
+        existingState.source.sourceKey !== source.sourceKey ||
         existingState.source.kind !== source.kind ||
         existingState.source.url !== source.url ||
         existingState.source.status !== source.status ||
-        existingState.source.assetName !== source.assetName;
+        existingState.source.assetName !== source.assetName ||
+        existingState.source.quality !== source.quality ||
+        existingState.source.clipStartSeconds !== source.clipStartSeconds ||
+        existingState.source.clipDurationSeconds !== source.clipDurationSeconds;
 
       if (!sourceChanged) {
         existingState.source = source;
@@ -791,16 +888,16 @@ export function StageRenderer({
       );
 
       if (nextState) {
-        textureSources.set(source.assetId, nextState);
+        textureSources.set(source.sourceKey, nextState);
       } else {
-        textureSources.delete(source.assetId);
+        textureSources.delete(source.sourceKey);
       }
     }
 
     const preferredState =
       (preferredAspectSourceId ? textureSources.get(preferredAspectSourceId) : null) ??
       requiredInputSources
-        .map((source) => textureSources.get(source.assetId) ?? null)
+        .map((source) => textureSources.get(source.sourceKey) ?? null)
         .find((state) => state?.status === 'ready') ??
       null;
     if (preferredState?.status === 'ready') {
@@ -863,29 +960,29 @@ export function StageRenderer({
             layer.transitionInputSources?.to ??
             null;
           const primaryState = primarySource
-            ? textureSources.get(primarySource.assetId) ?? null
+            ? textureSources.get(primarySource.sourceKey) ?? null
             : null;
           const overlaySource = layer.overlaySource ?? null;
           const overlayState = overlaySource
-            ? textureSources.get(overlaySource.assetId) ?? null
+            ? textureSources.get(overlaySource.sourceKey) ?? null
             : null;
           const transitionFromSource = layer.transitionInputSources?.from ?? primarySource;
           const transitionToSource = layer.transitionInputSources?.to ?? primarySource;
           const transitionFromState = transitionFromSource
-            ? textureSources.get(transitionFromSource.assetId) ?? primaryState
+            ? textureSources.get(transitionFromSource.sourceKey) ?? primaryState
             : primaryState;
           const transitionToState = transitionToSource
-            ? textureSources.get(transitionToSource.assetId) ?? primaryState
+            ? textureSources.get(transitionToSource.sourceKey) ?? primaryState
             : primaryState;
           const transitionFromOverlaySource =
             layer.transitionOverlaySources?.from ?? overlaySource;
           const transitionToOverlaySource =
             layer.transitionOverlaySources?.to ?? overlaySource;
           const transitionFromOverlayState = transitionFromOverlaySource
-            ? textureSources.get(transitionFromOverlaySource.assetId) ?? overlayState
+            ? textureSources.get(transitionFromOverlaySource.sourceKey) ?? overlayState
             : overlayState;
           const transitionToOverlayState = transitionToOverlaySource
-            ? textureSources.get(transitionToOverlaySource.assetId) ?? overlayState
+            ? textureSources.get(transitionToOverlaySource.sourceKey) ?? overlayState
             : overlayState;
 
           bindTextureSourceState(
@@ -909,6 +1006,9 @@ export function StageRenderer({
               transportTime,
             );
             gl.uniform1i(layer.locations.overlayImage, 2);
+          }
+          if (layer.locations.overlayAspectRatio) {
+            gl.uniform1f(layer.locations.overlayAspectRatio, overlayState?.aspectRatio ?? 1);
           }
           if (layer.locations.transitionFromImage) {
             bindTextureSourceState(
@@ -940,6 +1040,12 @@ export function StageRenderer({
             );
             gl.uniform1i(layer.locations.transitionFromOverlayImage, 2);
           }
+          if (layer.locations.transitionFromOverlayAspectRatio) {
+            gl.uniform1f(
+              layer.locations.transitionFromOverlayAspectRatio,
+              transitionFromOverlayState?.aspectRatio ?? 1,
+            );
+          }
           if (layer.locations.transitionToOverlayImage) {
             bindTextureSourceState(
               gl,
@@ -949,6 +1055,12 @@ export function StageRenderer({
               transportTime,
             );
             gl.uniform1i(layer.locations.transitionToOverlayImage, 3);
+          }
+          if (layer.locations.transitionToOverlayAspectRatio) {
+            gl.uniform1f(
+              layer.locations.transitionToOverlayAspectRatio,
+              transitionToOverlayState?.aspectRatio ?? 1,
+            );
           }
           if (layer.locations.time) {
             gl.uniform1f(layer.locations.time, shaderTime);
