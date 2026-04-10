@@ -12,6 +12,16 @@ import type {
   TimelineTransitionEffect,
 } from '../types';
 
+const COMPACT_TIMELINE_ASSET_BLEND_MODES = ['mix', 'screen', 'add', 'multiply'] as const;
+const COMPACT_TIMELINE_ASSET_FIT_MODES = [
+  'cover',
+  'contain',
+  'stretch',
+  'fitWidth',
+  'fitHeight',
+] as const;
+const COMPACT_TIMELINE_ASSET_QUALITIES = ['draft', 'balanced', 'high'] as const;
+
 interface CompactSharedShaderPayload {
   i: string;
   c: string;
@@ -296,9 +306,9 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
           ax: step.assetSettings.offsetX !== 0 ? step.assetSettings.offsetX : undefined,
           ay: step.assetSettings.offsetY !== 0 ? step.assetSettings.offsetY : undefined,
           ao: step.assetSettings.opacity !== 0.85 ? step.assetSettings.opacity : undefined,
-          ab: ['mix', 'screen', 'add', 'multiply'].indexOf(step.assetSettings.blendMode),
-          af: ['cover', 'contain', 'stretch'].indexOf(step.assetSettings.fitMode),
-          aq: ['draft', 'balanced', 'high'].indexOf(step.assetSettings.quality),
+          ab: COMPACT_TIMELINE_ASSET_BLEND_MODES.indexOf(step.assetSettings.blendMode),
+          af: COMPACT_TIMELINE_ASSET_FIT_MODES.indexOf(step.assetSettings.fitMode),
+          aq: COMPACT_TIMELINE_ASSET_QUALITIES.indexOf(step.assetSettings.quality),
           acs: step.assetSettings.clipStartSeconds > 0 ? step.assetSettings.clipStartSeconds : undefined,
           acd: step.assetSettings.clipDurationSeconds ?? undefined,
         })),
@@ -360,19 +370,9 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
             offsetX: step.ax,
             offsetY: step.ay,
             opacity: step.ao,
-            blendMode: ['mix', 'screen', 'add', 'multiply'][step.ab ?? 0] as
-              | 'mix'
-              | 'screen'
-              | 'add'
-              | 'multiply',
-            fitMode: ['cover', 'contain', 'stretch'][step.af ?? 0] as
-              | 'cover'
-              | 'contain'
-              | 'stretch',
-            quality: ['draft', 'balanced', 'high'][step.aq ?? 1] as
-              | 'draft'
-              | 'balanced'
-              | 'high',
+            blendMode: COMPACT_TIMELINE_ASSET_BLEND_MODES[step.ab ?? 3],
+            fitMode: COMPACT_TIMELINE_ASSET_FIT_MODES[step.af ?? 0],
+            quality: COMPACT_TIMELINE_ASSET_QUALITIES[step.aq ?? 1],
             clipStartSeconds: step.acs,
             clipDurationSeconds: step.acd,
           }),

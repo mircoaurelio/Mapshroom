@@ -22,6 +22,8 @@ export const TIMELINE_ASSET_FIT_MODE_OPTIONS: Array<{
   { value: 'cover', label: 'Cover' },
   { value: 'contain', label: 'Contain' },
   { value: 'stretch', label: 'Stretch' },
+  { value: 'fitWidth', label: 'Fit Width' },
+  { value: 'fitHeight', label: 'Fit Height' },
 ];
 
 export const TIMELINE_ASSET_QUALITY_OPTIONS: Array<{
@@ -39,7 +41,7 @@ export const DEFAULT_TIMELINE_STEP_ASSET_SETTINGS: TimelineStepAssetSettings = {
   offsetX: 0,
   offsetY: 0,
   opacity: 0.85,
-  blendMode: 'mix',
+  blendMode: 'multiply',
   fitMode: 'cover',
   quality: 'balanced',
   clipStartSeconds: 0,
