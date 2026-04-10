@@ -782,6 +782,13 @@ export function WorkspaceRoute() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
+  const [timelineAssetPickerRequest, setTimelineAssetPickerRequest] = useState<{
+    stepId: string | null;
+    token: number;
+  }>({
+    stepId: null,
+    token: 0,
+  });
   const [desktopStageKeyboardArmed, setDesktopStageKeyboardArmed] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
@@ -3154,6 +3161,18 @@ ${errorSnapshot}`,
     setMobilePanel(panel);
   };
 
+  const requestTimelineAssetPicker = useCallback((stepId: string) => {
+    if (isMobile) {
+      updateMobileUiMode('full');
+      setIsMobileTimelineOpen(true);
+    }
+
+    setTimelineAssetPickerRequest((currentValue) => ({
+      stepId,
+      token: currentValue.token + 1,
+    }));
+  }, [isMobile, updateMobileUiMode]);
+
   const closeMobileShaderDialog = () => {
     if (!isMobile) {
       return;
@@ -3588,6 +3607,8 @@ ${errorSnapshot}`,
               })
           : null
       }
+      onChooseAsset={inspectorTimelineStep ? () => requestTimelineAssetPicker(inspectorTimelineStep.id) : null}
+      onImportAsset={inspectorTimelineStep ? () => openFilePicker('timeline-picker') : null}
       onUseLiveStageAsset={
         inspectorTimelineStep && inspectorTimelineShader?.inputAssetId
           ? () => handleTimelineAssignStepAsset(inspectorTimelineStep.id, null)
@@ -3624,6 +3645,13 @@ ${errorSnapshot}`,
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
       onImportSequenceAsset={() => openFilePicker('timeline-picker')}
+      assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
+      assetPickerRequestToken={timelineAssetPickerRequest.token}
+      onAssetPickerRequestHandled={() =>
+        setTimelineAssetPickerRequest((currentValue) =>
+          currentValue.stepId === null ? currentValue : { ...currentValue, stepId: null },
+        )
+      }
       onSequenceDurationChange={handleTimelineDurationChange}
       onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
@@ -3813,6 +3841,8 @@ ${errorSnapshot}`,
                     >
                       <div className="workspace-pane-scroll">
                         {desktopSlidersPanel}
+                        {timelineStepAssetPanel}
+                        {mappingPanel}
                       </div>
                     </aside>
 
@@ -3861,8 +3891,6 @@ ${errorSnapshot}`,
             >
               <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
                 {aiPanel}
-                {timelineStepAssetPanel}
-                {mappingPanel}
                 {desktopShaderToolsPanel}
                 {desktopHistoryPanel}
                 {desktopCodePanel}
@@ -3959,6 +3987,13 @@ ${errorSnapshot}`,
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
         onImportSequenceAsset={() => openFilePicker('timeline-picker')}
+        assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
+        assetPickerRequestToken={timelineAssetPickerRequest.token}
+        onAssetPickerRequestHandled={() =>
+          setTimelineAssetPickerRequest((currentValue) =>
+            currentValue.stepId === null ? currentValue : { ...currentValue, stepId: null },
+          )
+        }
         onSequenceDurationChange={handleTimelineDurationChange}
         onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}

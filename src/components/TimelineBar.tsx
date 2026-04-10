@@ -65,6 +65,9 @@ interface TimelineBarProps {
   onSequencePinnedStepToggle: (stepId: string) => void;
   onAssignSequenceStepAsset: (stepId: string, assetId: string | null) => void;
   onImportSequenceAsset: () => void;
+  assetPickerRequestStepId: string | null;
+  assetPickerRequestToken: number;
+  onAssetPickerRequestHandled: () => void;
   onSequenceDurationChange: (durationSeconds: number) => void;
   onAddSequenceStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
@@ -334,6 +337,9 @@ export function TimelineBar({
   onSequencePinnedStepToggle,
   onAssignSequenceStepAsset,
   onImportSequenceAsset,
+  assetPickerRequestStepId,
+  assetPickerRequestToken,
+  onAssetPickerRequestHandled,
   onSequenceDurationChange,
   onAddSequenceStepsWithShaders,
   onDuplicateSequenceStep,
@@ -1074,6 +1080,9 @@ export function TimelineBar({
         onPinnedStepToggle={onSequencePinnedStepToggle}
         onAssignStepAsset={onAssignSequenceStepAsset}
         onImportAsset={onImportSequenceAsset}
+        assetPickerRequestStepId={assetPickerRequestStepId}
+        assetPickerRequestToken={assetPickerRequestToken}
+        onAssetPickerRequestHandled={onAssetPickerRequestHandled}
         onAddStepsWithShaders={onAddSequenceStepsWithShaders}
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}

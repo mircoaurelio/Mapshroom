@@ -13,6 +13,8 @@ interface TimelineStepAssetPanelProps {
   assignedAsset: AssetRecord | null;
   settings: TimelineStepAssetSettings | null;
   onSettingsChange: ((patch: Partial<TimelineStepAssetSettings>) => void) | null;
+  onChooseAsset: (() => void) | null;
+  onImportAsset: (() => void) | null;
   onUseLiveStageAsset: (() => void) | null;
 }
 
@@ -22,6 +24,8 @@ export function TimelineStepAssetPanel({
   assignedAsset,
   settings,
   onSettingsChange,
+  onChooseAsset,
+  onImportAsset,
   onUseLiveStageAsset,
 }: TimelineStepAssetPanelProps) {
   const assignedAssetResolution = useAssetObjectUrl(assignedAsset);
@@ -62,7 +66,7 @@ export function TimelineStepAssetPanel({
             <div className="asset-browser-preview-placeholder">
               {assignedAsset
                 ? 'Preview unavailable on this device.'
-                : 'This step is using the live stage asset. Click the image button on the timeline card to assign media.'}
+                : 'This step is using the live stage asset. Use Choose Asset or Load Media to assign dedicated media.'}
             </div>
           )}
         </div>
@@ -75,19 +79,41 @@ export function TimelineStepAssetPanel({
 
           <p className="helper-copy">
             {assignedAsset
-              ? `${assignedAsset.name} is assigned to this step. Use the image button on the timeline card to replace it, or switch back to the live stage asset here.`
+              ? `${assignedAsset.name} is assigned to this step. Use Choose Asset to replace it, or switch back to the live stage asset here.`
               : 'This step follows the live stage asset until you assign a dedicated library image or video.'}
           </p>
 
-          {assignedAsset && onUseLiveStageAsset ? (
+          {onChooseAsset || onImportAsset || (assignedAsset && onUseLiveStageAsset) ? (
             <div className="timeline-step-asset-panel-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={onUseLiveStageAsset}
-              >
-                Use Live Stage Asset
-              </button>
+              {onChooseAsset ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={onChooseAsset}
+                >
+                  Choose Asset
+                </button>
+              ) : null}
+
+              {onImportAsset ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={onImportAsset}
+                >
+                  Load Media
+                </button>
+              ) : null}
+
+              {assignedAsset && onUseLiveStageAsset ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={onUseLiveStageAsset}
+                >
+                  Use Live Stage Asset
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
