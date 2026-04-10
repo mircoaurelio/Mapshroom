@@ -17,7 +17,19 @@ const TEMPLATE_LABELS: Record<ShaderTemplate, string> = {
   sculpture: 'Sculpture',
 };
 const GROUP_ORDER: Record<ShaderTemplate, string[]> = {
-  stage: ['Base', 'Sacred Geometry', 'Laser Gates', 'Tunnels', 'Reactive Grids', 'Plasma Flow'],
+  stage: [
+    'Halos',
+    'Scanners',
+    'Lights',
+    'Geometry',
+    'Dots & Grids',
+    'Spirals',
+    'Organic Motion',
+    'Eyes & Entities',
+    'Fractals',
+    'Masks & Contrast',
+    'Experimental',
+  ],
   drawing: ['Base', 'Ink Halos', 'Ink Flow', 'Scanner Bands', 'Op Art', 'Crosshatch Ritual'],
   sculpture: ['Base', 'Relief Halos', 'Chrome Relief', 'Laser Relief', 'Structural Relief', 'Patina Flow'],
 };

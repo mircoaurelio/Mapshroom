@@ -2,1023 +2,1319 @@ import type { ShaderPresetDefinition } from '../types';
 
 export const stagePresetList: ShaderPresetDefinition[] = [
   {
-    id: "stage_contour_beacon_base",
-    name: "Contour Beacon Base",
+    id: "timeline-498f9868-cd5d-4683-ad68-69278172b106",
+    name: "High Contrast Aura",
     template: "stage",
-    group: "Base",
-    description: "Simple contour lift for stage assets with a restrained psy pulse.",
-    code: `// NAME: Contour Beacon Base
-uniform float speed; // @min 0.1 @max 3.5 @default 0.9
-uniform float intensity; // @min 0.2 @max 2.0 @default 0.9
-uniform float scale; // @min 0.6 @max 2.4 @default 1
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 0.6
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.03
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.72
-uniform vec3 accent; // @default 0.18,0.82,0.98
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    float ring = smoothstep(0.78, 0.06, length(p));
-    float wave = 0.5 + 0.5 * sin(t * 1.4 + p.y * 8.0);
-    field = clamp(ring * (0.45 + 0.55 * wave) + edge * 0.7, 0.0, 1.2);
-    pulse = wave;
-    chroma = mix(accent, vec3(1.0, 0.92, 0.55), 0.18 + 0.22 * wave);
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 0.9,
-      "intensity": 0.9,
-      "scale": 1,
-      "halo_strength": 0.6,
-      "black_threshold": 0.03,
-      "white_threshold": 0.72,
-      "accent": [0.18, 0.82, 0.98]
+    group: "Halos",
+    description: "Recovered from the project timeline for the Halos stage collection.",
+    code: "// NAME: High Contrast Aura\nuniform float speed; // @min 0.0 @max 100.0 @default 30.0\nuniform float softness; // @min 0.0 @max 10.0 @default 4.0\nuniform float sensitivity; // @min 0.0 @max 10.0 @default 5.0\nuniform float depth_mult; // @min 0.0 @max 1.0 @default 0.4\nuniform float shadow_threshold; // @min 0.0 @max 1.0 @default 0.1\nuniform float shadow_contrast; // @min 0.0 @max 5.0 @default 2.0\nuniform float glimmer; // @min 0.0 @max 1.0 @default 0.5\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 texel = 1.0 / max(resolution, vec2(1.0));\n    vec4 base = texture2D(tex, uv);\n    \n    // Soften sampling for smoother normals and aura\n    vec2 sO = texel * softness;\n    vec4 s1 = texture2D(tex, uv + vec2(sO.x, 0.0));\n    vec4 s2 = texture2D(tex, uv - vec2(sO.x, 0.0));\n    vec4 s3 = texture2D(tex, uv + vec2(0.0, sO.y));\n    vec4 s4 = texture2D(tex, uv - vec2(0.0, sO.y));\n    vec4 blurred = (base + s1 + s2 + s3 + s4) * 0.2;\n    \n    // Calculate smooth surface normal\n    vec3 lum = vec3(0.299, 0.587, 0.114);\n    float h = dot(blurred.rgb, lum);\n    float hx = dot(s1.rgb, lum);\n    float hy = dot(s3.rgb, lum);\n    vec3 n = normalize(vec3((h - hx) * depth_mult * 40.0, (h - hy) * depth_mult * 40.0, 0.2));\n\n    float t = time * speed;\n    \n    // Reactive light vectors\n    vec3 lr = normalize(vec3(sin(t + blurred.r * sensitivity), cos(t * 1.1), 0.6));\n    vec3 lg = normalize(vec3(sin(t * 1.2 + blurred.g * sensitivity), cos(t * 0.8), 0.6));\n    vec3 lb = normalize(vec3(sin(t * 0.9 + blurred.b * sensitivity), cos(t * 1.3), 0.6));\n    \n    // Per-channel diffuse lighting\n    vec3 light;\n    light.r = max(dot(n, lr), 0.0);\n    light.g = max(dot(n, lg), 0.0);\n    light.b = max(dot(n, lb), 0.0);\n    \n    // Apply shadow threshold and contrast\n    light = max(vec3(0.0), light - shadow_threshold);\n    light = pow(light, vec3(1.0 + shadow_contrast));\n    \n    // Add glimmer (specular element)\n    float spec = pow(max(dot(n, vec3(0.0, 0.0, 1.0)), 0.0), 32.0) * glimmer;\n    \n    // Final composition\n    // 1. Base texture lit by high-contrast light\n    // 2. Soft aura bleed from blurred texture\n    // 3. Glimmer highlights\n    vec3 finalRGB = base.rgb * (light * 3.0 + 0.1);\n    finalRGB += light * blurred.rgb * 1.2; \n    finalRGB += spec * light;\n    \n    return vec4(finalRGB, base.a);\n}",
+    uniformValues:     {
+          "speed": 10,
+          "softness": 4.8,
+          "sensitivity": 0,
+          "depth_mult": 0.87,
+          "shadow_threshold": 0.74,
+          "shadow_contrast": 0,
+          "glimmer": 0
     },
   },
   {
-    id: "stage_laser_mandala_bloom",
-    name: "Laser Mandala Bloom",
+    id: "timeline-5da84ddc-ed7d-42ac-a7e5-cc61a917e65f",
+    name: "Psych Wave Halo",
     template: "stage",
-    group: "Sacred Geometry",
-    description: "Sacred-geometry petals and laser bloom for psytrance LED walls.",
-    code: `// NAME: Laser Mandala Bloom
-uniform float speed; // @min 0.1 @max 3.5 @default 1.25
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.25
-uniform float scale; // @min 0.6 @max 2.4 @default 1.3
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 1.15
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.02
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.75
-uniform vec3 accent; // @default 0.08,0.86,0.96
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    vec2 q = kalei(p * 1.3, 10.0);
-    float radius = length(q);
-    float petals = sin(18.0 * atan(q.y, q.x) + t * 2.5);
-    float rings = sin(28.0 * radius - t * 3.2);
-    field = clamp(exp(-4.0 * radius) + 0.45 * petals + 0.35 * rings, 0.0, 1.25);
-    pulse = 0.5 + 0.5 * sin(t * 2.0 + radius * 14.0);
-    chroma = palette(pulse + radius * 0.4, vec3(0.02, 0.28, 0.58));
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.25,
-      "intensity": 1.25,
-      "scale": 1.3,
-      "halo_strength": 1.15,
-      "black_threshold": 0.02,
-      "white_threshold": 0.75,
-      "accent": [0.08, 0.86, 0.96]
+    group: "Halos",
+    description: "Recovered from the project timeline for the Halos stage collection.",
+    code: "// NAME: Psych Wave Halo\nuniform float intensity; // @min 0.0 @max 1.0 @default 0.8\nuniform float waveSpacing; // @min 10.0 @max 150.0 @default 60.0\nuniform float waveSpeed; // @min 0.0 @max 100.0 @default 30.0\nuniform float invertThreshold; // @min 0.0 @max 1.0 @default 0.8\nuniform float verticalWave; // @min 0.0 @max 1.0 @default 0.0\n\nvec3 palette(float i) {\n    // High-frequency, clashing neon palette\n    return 0.5 + 0.5 * cos(6.28318 * (vec3(3.0, 2.0, 5.0) * i + vec3(0.0, 0.33, 0.67)));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Sample original unwarped pixel\n    vec4 origSource = texture2D(tex, uv);\n    float origMax = max(max(origSource.r, origSource.g), origSource.b);\n    float origMin = min(min(origSource.r, origSource.g), origSource.b);\n    float origChroma = origMax - origMin;\n    float origHue = 0.0;\n    \n    if (origChroma > 0.0) {\n        if (origMax == origSource.r) origHue = (origSource.g - origSource.b) / origChroma;\n        else if (origMax == origSource.g) origHue = 2.0 + (origSource.b - origSource.r) / origChroma;\n        else origHue = 4.0 + (origSource.r - origSource.g) / origChroma;\n        origHue *= 60.0;\n        if (origHue < 0.0) origHue += 360.0;\n    }\n    \n    bool isBlueOrViolet = origChroma > 0.05 && origHue >= 200.0 && origHue <= 330.0;\n    \n    // Reverse time for excluded colors to make the wave go in the opposite direction\n    float localTime = isBlueOrViolet ? -time : time;\n    \n    // Calculate wave coordinates\n    vec2 centerUv = uv - 0.5;\n    vec2 aspectUv = centerUv * vec2(resolution.x / resolution.y, 1.0);\n    float dist = length(aspectUv);\n    \n    // Blend between radial and vertical wave based on parameter\n    float waveDist = mix(dist, aspectUv.y, verticalWave);\n    float phase = waveDist * waveSpacing - localTime * waveSpeed;\n    float wave = sin(phase);\n    \n    vec2 warpDir = mix(centerUv, vec2(0.0, 1.0), verticalWave);\n    vec2 warp = uv + warpDir * wave * 0.04 * intensity;\n    \n    vec4 source = texture2D(tex, warp);\n    \n    // Psychedelic fractal generation\n    vec2 uv_c = centerUv * 2.0;\n    uv_c.x *= resolution.x / resolution.y;\n    \n    // Erratic space folding\n    for(int i = 0; i < 5; i++) {\n        uv_c = abs(uv_c) - 0.4;\n        float a = localTime * 3.0 + length(uv_c) * 8.0;\n        mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));\n        uv_c *= rot;\n        uv_c *= 1.6;\n    }\n    \n    // Intense color banding and feedback look\n    vec3 psychColor = palette(length(uv_c) - localTime * 5.0);\n    psychColor = fract(psychColor * 2.5); \n    \n    // Add chromatic aberration flash\n    float flash = abs(sin(localTime * 10.0));\n    psychColor += vec3(flash, 0.0, 1.0 - flash) * step(0.95, fract(uv_c.x * 10.0));\n    \n    vec4 finalColor = mix(source, vec4(psychColor, 1.0), intensity);\n    \n    // Invert color of random pixels in odd waves\n    float waveIndex = floor(phase / 3.14159);\n    if (mod(waveIndex, 2.0) != 0.0 && node_rand(uv + localTime) > invertThreshold) {\n        finalColor.rgb = 1.0 - finalColor.rgb;\n    }\n    \n    // Create a soft halo gradient around black pixels instead of a hard cutoff\n    float blackMask = smoothstep(0.0, 0.3, origMax);\n    \n    return mix(origSource, finalColor, blackMask);\n}",
+    uniformValues:     {
+          "intensity": 0,
+          "waveSpacing": 150,
+          "waveSpeed": 26,
+          "invertThreshold": 0,
+          "verticalWave": 0.29
     },
   },
   {
-    id: "stage_chrome_serpent_tunnel",
-    name: "Chrome Serpent Tunnel",
+    id: "timeline-c0589e9a-1970-411c-93c4-882d2eff955c",
+    name: "Psych Wave Halo",
     template: "stage",
-    group: "Tunnels",
-    description: "Chrome tunnel bands and serpent flow for darker stage media.",
-    code: `// NAME: Chrome Serpent Tunnel
-uniform float speed; // @min 0.1 @max 3.5 @default 1.45
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.1
-uniform float scale; // @min 0.6 @max 2.4 @default 1.15
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 0.9
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.02
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.8
-uniform vec3 accent; // @default 0.72,0.8,1
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    float angle = atan(p.y, p.x);
-    float radius = max(length(p), 0.04);
-    float bands = sin(10.0 * angle + 14.0 / radius - t * 4.2);
-    float snake = fbm(vec2(angle * 2.5, 1.0 / radius + t * 0.15));
-    field = smoothstep(-0.2, 0.95, bands * 0.5 + snake);
-    pulse = 0.5 + 0.5 * cos(t * 1.6 + radius * 11.0);
-    chroma = mix(vec3(0.82, 0.84, 0.92), palette(snake + pulse * 0.25, vec3(0.0, 0.16, 0.42)), 0.58);
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.45,
-      "intensity": 1.1,
-      "scale": 1.15,
-      "halo_strength": 0.9,
-      "black_threshold": 0.02,
-      "white_threshold": 0.8,
-      "accent": [0.72, 0.8, 1]
+    group: "Halos",
+    description: "Recovered from the project timeline for the Halos stage collection.",
+    code: "// NAME: Psych Wave Halo\nuniform float intensity; // @min 0.0 @max 1.0 @default 0.8\nuniform float waveSpacing; // @min 10.0 @max 150.0 @default 60.0\nuniform float waveSpeed; // @min 0.0 @max 100.0 @default 30.0\nuniform float invertThreshold; // @min 0.0 @max 1.0 @default 0.8\nuniform float verticalWave; // @min 0.0 @max 1.0 @default 0.0\n\nvec3 palette(float i) {\n    // High-frequency, clashing neon palette\n    return 0.5 + 0.5 * cos(6.28318 * (vec3(3.0, 2.0, 5.0) * i + vec3(0.0, 0.33, 0.67)));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Sample original unwarped pixel\n    vec4 origSource = texture2D(tex, uv);\n    float origMax = max(max(origSource.r, origSource.g), origSource.b);\n    float origMin = min(min(origSource.r, origSource.g), origSource.b);\n    float origChroma = origMax - origMin;\n    float origHue = 0.0;\n    \n    if (origChroma > 0.0) {\n        if (origMax == origSource.r) origHue = (origSource.g - origSource.b) / origChroma;\n        else if (origMax == origSource.g) origHue = 2.0 + (origSource.b - origSource.r) / origChroma;\n        else origHue = 4.0 + (origSource.r - origSource.g) / origChroma;\n        origHue *= 60.0;\n        if (origHue < 0.0) origHue += 360.0;\n    }\n    \n    bool isBlueOrViolet = origChroma > 0.05 && origHue >= 200.0 && origHue <= 330.0;\n    \n    // Reverse time for excluded colors to make the wave go in the opposite direction\n    float localTime = isBlueOrViolet ? -time : time;\n    \n    // Calculate wave coordinates\n    vec2 centerUv = uv - 0.5;\n    vec2 aspectUv = centerUv * vec2(resolution.x / resolution.y, 1.0);\n    float dist = length(aspectUv);\n    \n    // Blend between radial and vertical wave based on parameter\n    float waveDist = mix(dist, aspectUv.y, verticalWave);\n    float phase = waveDist * waveSpacing - localTime * waveSpeed;\n    float wave = sin(phase);\n    \n    vec2 warpDir = mix(centerUv, vec2(0.0, 1.0), verticalWave);\n    vec2 warp = uv + warpDir * wave * 0.04 * intensity;\n    \n    vec4 source = texture2D(tex, warp);\n    \n    // Psychedelic fractal generation\n    vec2 uv_c = centerUv * 2.0;\n    uv_c.x *= resolution.x / resolution.y;\n    \n    // Erratic space folding\n    for(int i = 0; i < 5; i++) {\n        uv_c = abs(uv_c) - 0.4;\n        float a = localTime * 3.0 + length(uv_c) * 8.0;\n        mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));\n        uv_c *= rot;\n        uv_c *= 1.6;\n    }\n    \n    // Intense color banding and feedback look\n    vec3 psychColor = palette(length(uv_c) - localTime * 5.0);\n    psychColor = fract(psychColor * 2.5); \n    \n    // Add chromatic aberration flash\n    float flash = abs(sin(localTime * 10.0));\n    psychColor += vec3(flash, 0.0, 1.0 - flash) * step(0.95, fract(uv_c.x * 10.0));\n    \n    vec4 finalColor = mix(source, vec4(psychColor, 1.0), intensity);\n    \n    // Invert color of random pixels in odd waves\n    float waveIndex = floor(phase / 3.14159);\n    if (mod(waveIndex, 2.0) != 0.0 && node_rand(uv + localTime) > invertThreshold) {\n        finalColor.rgb = 1.0 - finalColor.rgb;\n    }\n    \n    // Create a soft halo gradient around black pixels instead of a hard cutoff\n    float blackMask = smoothstep(0.0, 0.3, origMax);\n    \n    return mix(origSource, finalColor, blackMask);\n}",
+    uniformValues:     {
+          "intensity": 0.91,
+          "waveSpacing": 150,
+          "waveSpeed": 43,
+          "invertThreshold": 0,
+          "verticalWave": 0
     },
   },
   {
-    id: "stage_prism_gate_scanner",
-    name: "Prism Gate Scanner",
+    id: "timeline-16eab1eb-f611-4479-800d-ec6cc744c40b",
+    name: "Psych Wave Halo",
     template: "stage",
-    group: "Laser Gates",
-    description: "Prismatic gates and scanning beams for festival transitions.",
-    code: `// NAME: Prism Gate Scanner
-uniform float speed; // @min 0.1 @max 3.5 @default 1.35
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.2
-uniform float scale; // @min 0.6 @max 2.4 @default 1.05
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 0.85
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.025
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.78
-uniform vec3 accent; // @default 0.58,0.22,0.98
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    vec2 q = abs(p);
-    float gate = smoothstep(0.34, 0.0, abs(q.x - 0.24 - 0.08 * sin(t * 0.9)));
-    float scanBeam = smoothstep(0.14, 0.0, abs(q.y + sin(p.x * 9.0 + t * 2.2) * 0.08));
-    float shards = fbm(q * 5.0 + vec2(t * 0.6, -t * 0.4));
-    field = clamp(gate + scanBeam + shards * 0.45, 0.0, 1.25);
-    pulse = 0.5 + 0.5 * sin(t * 3.1 + q.y * 12.0);
-    chroma = palette(shards + pulse * 0.4, vec3(0.12, 0.38, 0.72));
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.35,
-      "intensity": 1.2,
-      "scale": 1.05,
-      "halo_strength": 0.85,
-      "black_threshold": 0.025,
-      "white_threshold": 0.78,
-      "accent": [0.58, 0.22, 0.98]
+    group: "Halos",
+    description: "Recovered from the project timeline for the Halos stage collection.",
+    code: "// NAME: Psych Wave Halo\nuniform float intensity; // @min 0.0 @max 1.0 @default 0.8\nuniform float waveSpacing; // @min 10.0 @max 150.0 @default 60.0\nuniform float waveSpeed; // @min 0.0 @max 100.0 @default 30.0\nuniform float invertThreshold; // @min 0.0 @max 1.0 @default 0.8\nuniform float verticalWave; // @min 0.0 @max 1.0 @default 0.0\n\nvec3 palette(float i) {\n    // High-frequency, clashing neon palette\n    return 0.5 + 0.5 * cos(6.28318 * (vec3(3.0, 2.0, 5.0) * i + vec3(0.0, 0.33, 0.67)));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Sample original unwarped pixel\n    vec4 origSource = texture2D(tex, uv);\n    float origMax = max(max(origSource.r, origSource.g), origSource.b);\n    float origMin = min(min(origSource.r, origSource.g), origSource.b);\n    float origChroma = origMax - origMin;\n    float origHue = 0.0;\n    \n    if (origChroma > 0.0) {\n        if (origMax == origSource.r) origHue = (origSource.g - origSource.b) / origChroma;\n        else if (origMax == origSource.g) origHue = 2.0 + (origSource.b - origSource.r) / origChroma;\n        else origHue = 4.0 + (origSource.r - origSource.g) / origChroma;\n        origHue *= 60.0;\n        if (origHue < 0.0) origHue += 360.0;\n    }\n    \n    bool isBlueOrViolet = origChroma > 0.05 && origHue >= 200.0 && origHue <= 330.0;\n    \n    // Reverse time for excluded colors to make the wave go in the opposite direction\n    float localTime = isBlueOrViolet ? -time : time;\n    \n    // Calculate wave coordinates\n    vec2 centerUv = uv - 0.5;\n    vec2 aspectUv = centerUv * vec2(resolution.x / resolution.y, 1.0);\n    float dist = length(aspectUv);\n    \n    // Blend between radial and vertical wave based on parameter\n    float waveDist = mix(dist, aspectUv.y, verticalWave);\n    float phase = waveDist * waveSpacing - localTime * waveSpeed;\n    float wave = sin(phase);\n    \n    vec2 warpDir = mix(centerUv, vec2(0.0, 1.0), verticalWave);\n    vec2 warp = uv + warpDir * wave * 0.04 * intensity;\n    \n    vec4 source = texture2D(tex, warp);\n    \n    // Psychedelic fractal generation\n    vec2 uv_c = centerUv * 2.0;\n    uv_c.x *= resolution.x / resolution.y;\n    \n    // Erratic space folding\n    for(int i = 0; i < 5; i++) {\n        uv_c = abs(uv_c) - 0.4;\n        float a = localTime * 3.0 + length(uv_c) * 8.0;\n        mat2 rot = mat2(cos(a), -sin(a), sin(a), cos(a));\n        uv_c *= rot;\n        uv_c *= 1.6;\n    }\n    \n    // Intense color banding and feedback look\n    vec3 psychColor = palette(length(uv_c) - localTime * 5.0);\n    psychColor = fract(psychColor * 2.5); \n    \n    // Add chromatic aberration flash\n    float flash = abs(sin(localTime * 10.0));\n    psychColor += vec3(flash, 0.0, 1.0 - flash) * step(0.95, fract(uv_c.x * 10.0));\n    \n    vec4 finalColor = mix(source, vec4(psychColor, 1.0), intensity);\n    \n    // Invert color of random pixels in odd waves\n    float waveIndex = floor(phase / 3.14159);\n    if (mod(waveIndex, 2.0) != 0.0 && node_rand(uv + localTime) > invertThreshold) {\n        finalColor.rgb = 1.0 - finalColor.rgb;\n    }\n    \n    // Create a soft halo gradient around black pixels instead of a hard cutoff\n    float blackMask = smoothstep(0.0, 0.3, origMax);\n    \n    return mix(origSource, finalColor, blackMask);\n}",
+    uniformValues:     {
+          "intensity": 0.01,
+          "waveSpacing": 150,
+          "waveSpeed": 46,
+          "invertThreshold": 0,
+          "verticalWave": 0
     },
   },
   {
-    id: "stage_shakti_grid_pulse",
-    name: "Shakti Grid Pulse",
+    id: "timeline-efcc9725-32d9-464c-a703-89c956bddcf2",
+    name: "Speed-Looping Chrome Halo",
     template: "stage",
-    group: "Reactive Grids",
-    description: "Reactive gridded shimmer with shrine-dot motion for psytrance pacing.",
-    code: `// NAME: Shakti Grid Pulse
-uniform float speed; // @min 0.1 @max 3.5 @default 1.2
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.08
-uniform float scale; // @min 0.6 @max 2.4 @default 1.18
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 0.7
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.03
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.82
-uniform vec3 accent; // @default 0.18,0.96,0.74
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    vec2 q = p * 3.4;
-    vec2 cellId = floor(q);
-    vec2 cellUv = fract(q) - 0.5;
-    float lines = smoothstep(0.14, 0.02, min(abs(cellUv.x), abs(cellUv.y)));
-    float dotRadius = 0.18 + 0.08 * node_noise(cellId + vec2(3.0, 7.0));
-    float dots = smoothstep(dotRadius, 0.0, length(cellUv));
-    float sway = fbm(q + vec2(t * 0.25, -t * 0.2));
-    field = clamp(lines * 0.85 + dots * 0.75 + sway * 0.35, 0.0, 1.25);
-    pulse = 0.5 + 0.5 * sin(t * 2.4 + dot(cellId, vec2(0.23, 0.31)));
-    chroma = palette(sway + pulse * 0.3, vec3(0.08, 0.24, 0.58));
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.2,
-      "intensity": 1.08,
-      "scale": 1.18,
-      "halo_strength": 0.7,
-      "black_threshold": 0.03,
-      "white_threshold": 0.82,
-      "accent": [0.18, 0.96, 0.74]
+    group: "Halos",
+    description: "Recovered from the project timeline for the Halos stage collection.",
+    code: "// NAME: Speed-Looping Chrome Halo\nuniform float speed; // @min 0.1 @max 2.0 @default 0.5\nuniform float speed_loop; // @min 0.0 @max 5.0 @default 1.0\nuniform float range_width; // @min 0.01 @max 0.5 @default 0.1\nuniform float halo_strength; // @min 0.0 @max 3.0 @default 1.5\nuniform float halo_spread; // @min 1.0 @max 15.0 @default 5.0\nuniform vec3 halo_color; // @default 0.0,0.8,1.0\nuniform float zoom; // @min 1.0 @max 10.0 @default 4.0\nuniform float psy_blend; // @min 0.0 @max 1.0 @default 0.8\nuniform float contrast; // @min 0.5 @max 2.0 @default 1.2\nuniform float saturation; // @min 0.0 @max 2.0 @default 1.3\n\nfloat getActivity(sampler2D t, vec2 uv, float target, float width) {\n    vec3 c = texture2D(t, uv).rgb;\n    float lum = dot(c, vec3(0.299, 0.587, 0.114));\n    // Ensure absolute black pixels never trigger activity\n    if (lum < 0.02) return 0.0;\n    float diff = abs(lum - target);\n    if (diff > 0.5) diff = 1.0 - diff;\n    return smoothstep(width, width * 0.5, diff);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    float origLum = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    \n    // CRITICAL: Ensure all black pixels of the original image remain black\n    if (origLum < 0.01) return vec4(0.0, 0.0, 0.0, source.a);\n\n    vec2 texel = 1.0 / resolution;\n    \n    // 1. Speed Loop: Modulate the time factor to create a pulsing animation pace\n    float t_mod = time * speed;\n    if (speed_loop > 0.0) {\n        t_mod += (sin(time * speed_loop) * 0.5);\n    }\n    \n    // 2. Randomly looping parameters for spread and strength using noise\n    float dynSpread = halo_spread * (0.6 + 0.4 * node_noise(vec2(t_mod * 0.5, 7.12)));\n    float dynStrength = halo_strength * (0.5 + 0.5 * node_noise(vec2(13.45, t_mod * 0.7)));\n    \n    // 3. Animated target color range\n    float target = fract(t_mod * 0.2);\n    float active = getActivity(tex, uv, target, range_width);\n    \n    vec3 finalRGB = vec3(0.0);\n\n    if (active > 0.01) {\n        // 4. Fractal Logic for active range\n        vec3 groupedColor = floor(source.rgb * 10.0) / 10.0;\n        float groupID = node_rand(groupedColor.rg + groupedColor.b);\n        float localTime = t_mod + (groupID * 10.0);\n        \n        vec2 p = (uv - 0.5) * zoom;\n        p.x *= resolution.x / resolution.y;\n        \n        vec3 psy = vec3(0.0);\n        for (int i = 0; i < 4; i++) {\n            float fi = float(i);\n            float angle = localTime * 0.2 + fi * 1.047 + (groupID * 6.28);\n            float s = sin(angle), c = cos(angle);\n            p = vec2(p.x * c - p.y * s, p.x * s + p.y * c);\n            p = abs(p) - (0.3 + groupID * 0.1);\n            if (p.x < p.y) p = p.yx;\n            float d = max(abs(p.x) * 0.866 + p.y * 0.5, -p.y);\n            psy.r += sin(d * 12.0 + localTime) * 0.5 + 0.5;\n            psy.g += sin(d * 12.0 + localTime + 2.09) * 0.5 + 0.5;\n            psy.b += sin(d * 12.0 + localTime + 4.18) * 0.5 + 0.5;\n        }\n        finalRGB = mix(source.rgb, (psy / 4.0) * 2.0, psy_blend * active);\n    } else {\n        // 5. Dynamic Halo Logic\n        float haloIntensity = 0.0;\n        vec2 offsets[8];\n        offsets[0] = vec2(1, 1);   offsets[1] = vec2(-1, -1);\n        offsets[2] = vec2(1, -1);  offsets[3] = vec2(-1, 1);\n        offsets[4] = vec2(0, 1);   offsets[5] = vec2(0, -1);\n        offsets[6] = vec2(1, 0);   offsets[7] = vec2(-1, 0);\n\n        for (int i = 0; i < 8; i++) {\n            haloIntensity += getActivity(tex, uv + offsets[i] * texel * dynSpread, target, range_width);\n        }\n        haloIntensity /= 8.0;\n\n        if (haloIntensity > 0.001) {\n            vec3 dynamicColor = halo_color * (0.6 + 0.4 * sin(t_mod * 3.0 + origLum));\n            finalRGB = dynamicColor * haloIntensity * dynStrength;\n        } else {\n            return vec4(0.0, 0.0, 0.0, source.a);\n        }\n    }\n\n    // 6. Final Post-Processing\n    finalRGB = (finalRGB - 0.5) * contrast + 0.5;\n    float gray = dot(finalRGB, vec3(0.299, 0.587, 0.114));\n    finalRGB = mix(vec3(gray), finalRGB, saturation);\n\n    // Final safety check to keep original black pixels black\n    finalRGB *= smoothstep(0.0, 0.02, origLum);\n\n    return vec4(clamp(finalRGB, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "speed": 1.582,
+          "speed_loop": 3.7,
+          "range_width": 0.1864,
+          "halo_strength": 3,
+          "halo_spread": 14.86,
+          "halo_color": [
+                0.7333333333333333,
+                0.027450980392156862,
+                0.7098039215686275
+          ],
+          "zoom": 2.89,
+          "psy_blend": 0.95,
+          "contrast": 1.13,
+          "saturation": 1.04
     },
   },
   {
-    id: "stage_solar_crown_strobe",
-    name: "Solar Crown Strobe",
+    id: "timeline-77b0f722-f288-4010-83df-6a0d7c4fea85",
+    name: "Symmetrical Halo Square with White Glow",
     template: "stage",
-    group: "Sacred Geometry",
-    description: "Radial sun-crown strobe inspired by mandala and laser festival looks.",
-    code: `// NAME: Solar Crown Strobe
-uniform float speed; // @min 0.1 @max 3.5 @default 1.55
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.28
-uniform float scale; // @min 0.6 @max 2.4 @default 1.22
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 1.18
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.02
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.74
-uniform vec3 accent; // @default 0.98,0.55,0.18
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    float radius = length(p);
-    float crown = sin(20.0 * atan(p.y, p.x));
-    float corona = sin(36.0 * radius - t * 4.0);
-    float flare = exp(-3.5 * radius);
-    field = clamp(flare + 0.35 * crown + 0.35 * corona, 0.0, 1.25);
-    pulse = 0.5 + 0.5 * sin(t * 4.6 - radius * 18.0);
-    chroma = mix(vec3(1.0, 0.68, 0.18), vec3(0.95, 0.14, 0.52), 0.35 + 0.35 * pulse);
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.55,
-      "intensity": 1.28,
-      "scale": 1.22,
-      "halo_strength": 1.18,
-      "black_threshold": 0.02,
-      "white_threshold": 0.74,
-      "accent": [0.98, 0.55, 0.18]
+    group: "Halos",
+    description: "Recovered from the project timeline for the Halos stage collection.",
+    code: "// NAME: Symmetrical Halo Square with White Glow\nuniform float intensity; // @min 0.0 @max 5.0 @default 2.5\nuniform vec3 tint; // @default 0.1,0.5,0.9\nuniform float haloSize; // @min 0.0 @max 1.0 @default 0.6\nuniform float haloSoftness; // @min 0.01 @max 1.0 @default 0.5\nuniform float warp; // @min 0.0 @max 5.0 @default 1.5\nuniform float speed; // @min 0.0 @max 5.0 @default 1.0\nuniform float sizeofthesquare; // @min 0.0 @max 1.0 @default 0.5\nuniform float whiteSoftLight; // @min 0.0 @max 1.0 @default 0.5\nuniform float whitesoftlighttreshold; // @min 0.0 @max 1.0 @default 0.5\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Apply symmetry across the Y axis (mirroring left and right)\n    vec2 symUv = uv;\n    symUv.x = abs(symUv.x - 0.5) + 0.5;\n\n    vec4 original = texture2D(tex, fract(symUv));\n    vec2 off = 2.0 / max(resolution, vec2(1.0));\n    \n    float lum = dot(original.rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(symUv + vec2(off.x, off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(symUv + vec2(-off.x, off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(symUv + vec2(off.x, -off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(symUv + vec2(-off.x, -off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum *= 0.2;\n    \n    float dynamicHaloSize = clamp(haloSize, 0.01, 0.99);\n    \n    // Continuous loop back and forth for the halo softness\n    float animSoftness = max(0.01, haloSoftness * (0.5 + 0.5 * sin(time * speed * 2.0)));\n    \n    float darkHaloMask = smoothstep(max(0.0, dynamicHaloSize - animSoftness), dynamicHaloSize, lum) *\n                         (1.0 - smoothstep(dynamicHaloSize, dynamicHaloSize + animSoftness, lum));\n\n    // Use seamless trigonometric functions and animate with time\n    vec2 uvWrap = symUv * 6.28318530718;\n    float t = time * speed;\n    \n    vec2 flow = vec2(\n        sin(uvWrap.x * 2.0 + cos(uvWrap.y * 2.0 + t)),\n        cos(uvWrap.y * 2.0 + sin(uvWrap.x * 2.0 - t))\n    ) * warp * 0.25;\n    \n    float blobNoise = sin(uvWrap.x * 3.0 + flow.x * 5.0 + t * 1.5) * cos(uvWrap.y * 3.0 + flow.y * 5.0 - t * 1.2);\n    float phase = lum + blobNoise * 0.5 + flow.x * 0.5 + flow.y * 0.5 - t * 0.5;\n    \n    vec3 psychColor = 0.5 + 0.5 * cos(6.28318530718 * (vec3(phase) + tint + vec3(0.02, 0.20, 0.38)));\n    \n    vec3 finalColor = clamp(psychColor * darkHaloMask * intensity, 0.0, 1.0);\n\n    // Calculate colorfulness (saturation) of the original pixel\n    float cMax = max(max(original.r, original.g), original.b);\n    float cMin = min(min(original.r, original.g), original.b);\n    float saturation = cMax - cMin;\n\n    // Apply white soft light to more colored pixels based on the new parameter and threshold\n    float glowAmount = smoothstep(whitesoftlighttreshold, whitesoftlighttreshold + 0.1, saturation);\n    float glow = glowAmount * whiteSoftLight;\n    finalColor = finalColor + (vec3(1.0) - finalColor) * glow;\n\n    // Apply the square mask based on the parameter\n    vec2 centerUv = uv - 0.5;\n    float squareMask = step(abs(centerUv.x), sizeofthesquare * 0.5) * step(abs(centerUv.y), sizeofthesquare * 0.5);\n    \n    // Output transparency where the mask or halo is empty to show underlying layers\n    float alpha = clamp(squareMask * darkHaloMask + glow * squareMask, 0.0, 1.0);\n\n    return vec4(finalColor, alpha);\n}",
+    uniformValues:     {
+          "intensity": 0.5,
+          "tint": [
+                0.6549019607843137,
+                0.5607843137254902,
+                0.08627450980392157
+          ],
+          "haloSize": 0.16,
+          "haloSoftness": 0.2278,
+          "warp": 1.5,
+          "speed": 3,
+          "sizeofthesquare": 0.99,
+          "whiteSoftLight": 0.35,
+          "whitesoftlighttreshold": 0.26
     },
   },
   {
-    id: "stage_vortex_halo_runner",
-    name: "Vortex Halo Runner",
+    id: "timeline-be45f143-d9f2-4f6f-b508-a24ab3eb5af8",
+    name: "Distorted Chromy Hue Scanner",
     template: "stage",
-    group: "Plasma Flow",
-    description: "Circular halo vortex with fast psytrance pacing.",
-    code: `// NAME: Vortex Halo Runner
-uniform float speed; // @min 0.1 @max 3.5 @default 1.42
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.15
-uniform float scale; // @min 0.6 @max 2.4 @default 1.28
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 1
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.025
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.8
-uniform vec3 accent; // @default 0.18,0.62,1
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    float radius = length(p);
-    float angle = atan(p.y, p.x);
-    float swirl = fbm(vec2(angle * 3.0 + t * 0.6, radius * 6.0 - t * 0.4));
-    float ring = smoothstep(0.42, 0.12, abs(radius - 0.32 - 0.07 * sin(t * 1.4)));
-    field = clamp(swirl * 0.7 + ring + exp(-5.0 * radius) * 0.3, 0.0, 1.25);
-    pulse = 0.5 + 0.5 * cos(t * 2.8 + angle * 4.0);
-    chroma = palette(swirl + pulse * 0.35, vec3(0.18, 0.45, 0.78));
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.42,
-      "intensity": 1.15,
-      "scale": 1.28,
-      "halo_strength": 1,
-      "black_threshold": 0.025,
-      "white_threshold": 0.8,
-      "accent": [0.18, 0.62, 1]
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Distorted Chromy Hue Scanner\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform float p; // @min 0.0 @max 10.0 @default 5.0\nuniform float dotGrid; // @min 1.0 @max 100.0 @default 10.0\nuniform float dotSize; // @min 0.0 @max 2.0 @default 1.0\nuniform float gridGrowth; // @min 0.0 @max 5.0 @default 1.0\nuniform float dotspeed; // @min 0.0 @max 1.0 @default 0.2\nuniform float distortion; // @min 0.0 @max 5.0 @default 1.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p_vec = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p_vec.xyw, c.r), vec4(c.r, p_vec.yzx), step(p_vec.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    // Calculate the current hue target based on time and speed\n    float targetHue = fract(time * speed);\n    \n    // Calculate the shortest distance on the circular hue spectrum (0.0 to 1.0)\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Create a mask: 1.0 if within the range, 0.0 otherwise\n    float mask = step(dist, rangeWidth * 0.5);\n    \n    // Adjust UV for perfect circles and center it\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 centeredUv = (uv - 0.5) * aspect;\n    float distFromCenter = length(centeredUv);\n    \n    // Distort the grid as it goes far away from the center\n    float angle = distFromCenter * distortion * 3.0 - time;\n    float s = sin(angle);\n    float c = cos(angle);\n    vec2 distortedUv = centeredUv * mat2(c, s, -s, c);\n    \n    // Add radial wave distortion\n    distortedUv += normalize(centeredUv + 0.0001) * sin(distFromCenter * 15.0 - time * 4.0) * (distFromCenter * distFromCenter) * distortion * 0.5;\n    \n    // Make the grid shrink towards the center\n    float scale = exp(fract(time * gridGrowth) * 3.0);\n    vec2 gridUv = distortedUv * dotGrid * scale;\n    \n    // Apply dotspeed to animate the dots\n    vec2 dotUv = fract(gridUv + time * dotspeed * 0.1) - 0.5;\n    \n    // Make dots bigger further from the center\n    float currentDotSize = dotSize * distFromCenter * 3.0 + (1.0 - 1.0 / scale) * 0.5 + 0.2;\n    \n    // Blurred dots\n    float dots = 1.0 - smoothstep(0.0, currentDotSize * 2.0 + 0.1, length(dotUv));\n    \n    // Ensure black and dark pixels in the original image remain black\n    float brightness = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    float isNotBlack = smoothstep(0.05, 0.25, brightness);\n    dots *= isNotBlack;\n    \n    // Create soft chromy inverted color\n    vec3 invertedColor = 1.0 - source.rgb;\n    float invLum = dot(invertedColor, vec3(0.299, 0.587, 0.114));\n    vec3 chromyColor = 0.5 + 0.5 * sin(invLum * 12.0 + vec3(0.0, 2.0, 4.0));\n    \n    // Only show the effect where the mask and dots are active, otherwise stay black\n    vec3 finalColor = (chromyColor * dots) * mask;\n    \n    return vec4(finalColor, source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.25,
+          "speed": 2,
+          "p": 0,
+          "dotGrid": 49.51,
+          "dotSize": 0.12,
+          "gridGrowth": 0,
+          "dotspeed": 1,
+          "distortion": 0
     },
   },
   {
-    id: "stage_fractal_lotus_warp",
-    name: "Fractal Lotus Warp",
+    id: "timeline-54fdf5b3-05a9-46a7-a6bf-f7c9f53f1505",
+    name: "Distorted Chromy Hue Scanner",
     template: "stage",
-    group: "Sacred Geometry",
-    description: "Lotus-fold kaleidoscopic warp for psytrance backdrops.",
-    code: `// NAME: Fractal Lotus Warp
-uniform float speed; // @min 0.1 @max 3.5 @default 1.18
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.12
-uniform float scale; // @min 0.6 @max 2.4 @default 1.3
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 0.88
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.02
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.77
-uniform vec3 accent; // @default 0.2,0.88,0.84
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    vec2 q = kalei(p * (1.0 + 0.18 * sin(t * 0.6)), 8.0);
-    float petals = fbm(q * 5.5 + vec2(-t * 0.3, t * 0.45));
-    float flower = smoothstep(0.82, 0.18, length(q)) * (0.4 + 0.6 * petals);
-    field = clamp(flower + 0.35 * sin(12.0 * atan(q.y, q.x) - t * 1.7), 0.0, 1.25);
-    pulse = 0.5 + 0.5 * sin(t * 1.9 + petals * 4.0);
-    chroma = palette(petals + pulse * 0.25, vec3(0.06, 0.31, 0.64));
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.18,
-      "intensity": 1.12,
-      "scale": 1.3,
-      "halo_strength": 0.88,
-      "black_threshold": 0.02,
-      "white_threshold": 0.77,
-      "accent": [0.2, 0.88, 0.84]
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Distorted Chromy Hue Scanner\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform float p; // @min 0.0 @max 10.0 @default 5.0\nuniform float dotGrid; // @min 1.0 @max 100.0 @default 10.0\nuniform float dotSize; // @min 0.0 @max 2.0 @default 1.0\nuniform float gridGrowth; // @min 0.0 @max 5.0 @default 1.0\nuniform float dotspeed; // @min 0.0 @max 1.0 @default 0.2\nuniform float distortion; // @min 0.0 @max 5.0 @default 1.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p_vec = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p_vec.xyw, c.r), vec4(c.r, p_vec.yzx), step(p_vec.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    // Calculate the current hue target based on time and speed\n    float targetHue = fract(time * speed);\n    \n    // Calculate the shortest distance on the circular hue spectrum (0.0 to 1.0)\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Create a mask: 1.0 if within the range, 0.0 otherwise\n    float mask = step(dist, rangeWidth * 0.5);\n    \n    // Adjust UV for perfect circles and center it\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 centeredUv = (uv - 0.5) * aspect;\n    float distFromCenter = length(centeredUv);\n    \n    // Distort the grid as it goes far away from the center\n    float angle = distFromCenter * distortion * 3.0 - time;\n    float s = sin(angle);\n    float c = cos(angle);\n    vec2 distortedUv = centeredUv * mat2(c, s, -s, c); // Twist distortion\n    // Add radial wave distortion that gets stronger further from the center\n    distortedUv += normalize(centeredUv + 0.0001) * sin(distFromCenter * 15.0 - time * 4.0) * (distFromCenter * distFromCenter) * distortion * 0.5;\n    \n    // Make the grid shrink towards the center (going backward)\n    float scale = exp(fract(time * gridGrowth) * 3.0);\n    vec2 gridUv = distortedUv * dotGrid * scale;\n    \n    // Apply dotspeed to animate the dots within their grid cells\n    vec2 dotUv = fract(gridUv + time * dotspeed * 0.1) - 0.5;\n    \n    // Make dots bigger further from the center, adjusting for the reversed scale\n    float currentDotSize = dotSize * distFromCenter * 3.0 + (1.0 - 1.0 / scale) * 0.5 + 0.2;\n    \n    // Super blurred dots using a wide smoothstep\n    float dots = 1.0 - smoothstep(0.0, currentDotSize * 2.0 + 0.1, length(dotUv));\n    \n    // Ensure black and dark pixels in the original image remain black\n    float brightness = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    float isNotBlack = smoothstep(0.05, 0.25, brightness);\n    dots *= isNotBlack;\n    \n    // Create soft chromy inverted color\n    vec3 invertedColor = 1.0 - source.rgb;\n    float invLum = dot(invertedColor, vec3(0.299, 0.587, 0.114));\n    vec3 chromyColor = 0.5 + 0.5 * sin(invLum * 12.0 + vec3(0.0, 2.0, 4.0));\n    \n    // Mix original color with the chromy dots based on the hue mask\n    vec3 finalColor = mix(source.rgb, chromyColor * dots, mask);\n    \n    return vec4(finalColor, source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.97,
+          "speed": 0.76,
+          "p": 1.3,
+          "dotGrid": 49.51,
+          "dotSize": 0,
+          "gridGrowth": 0,
+          "dotspeed": 0.84,
+          "distortion": 1.6
     },
   },
   {
-    id: "stage_void_mirror_runner",
-    name: "Void Mirror Runner",
+    id: "timeline-18e60178-4966-4675-b372-e0fb61d5d128",
+    name: "Hue Scanner",
     template: "stage",
-    group: "Laser Gates",
-    description: "Mirrored laser runners that work well on dark stage plates.",
-    code: `// NAME: Void Mirror Runner
-uniform float speed; // @min 0.1 @max 3.5 @default 1.38
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.16
-uniform float scale; // @min 0.6 @max 2.4 @default 1.1
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 0.92
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.02
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.79
-uniform vec3 accent; // @default 0.58,0.86,1
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    vec2 q = vec2(abs(p.x), p.y);
-    float runner = smoothstep(0.2, 0.0, abs(q.x - 0.18 - 0.12 * sin(t * 1.7 + q.y * 6.0)));
-    float mirror = smoothstep(0.24, 0.03, abs(q.y - 0.18 * cos(t * 1.1 + q.x * 8.0)));
-    float haze = fbm(q * 4.2 + vec2(t * 0.5, -t * 0.3));
-    field = clamp(runner + mirror * 0.8 + haze * 0.3, 0.0, 1.3);
-    pulse = 0.5 + 0.5 * sin(t * 3.3 + q.y * 10.0);
-    chroma = mix(vec3(0.54, 0.88, 1.0), vec3(0.98, 0.24, 0.72), pulse);
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.38,
-      "intensity": 1.16,
-      "scale": 1.1,
-      "halo_strength": 0.92,
-      "black_threshold": 0.02,
-      "white_threshold": 0.79,
-      "accent": [0.58, 0.86, 1]
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Hue Scanner\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    // Calculate the current hue target based on time and speed\n    float targetHue = fract(time * speed);\n    \n    // Calculate the shortest distance on the circular hue spectrum (0.0 to 1.0)\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Create a mask: 1.0 if within the range, 0.0 otherwise\n    float mask = step(dist, rangeWidth * 0.5);\n    \n    return vec4(source.rgb * mask, source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.12,
+          "speed": 2.4
     },
   },
   {
-    id: "stage_ritual_plasma_weave",
-    name: "Ritual Plasma Weave",
+    id: "timeline-fff011a4-2bc6-472b-b246-30617e8d3d2a",
+    name: "Hue Scanner Multi Negative Dots",
     template: "stage",
-    group: "Plasma Flow",
-    description: "Flowing plasma weave for psychedelic peaks and liquid transitions.",
-    code: `// NAME: Ritual Plasma Weave
-uniform float speed; // @min 0.1 @max 3.5 @default 1.32
-uniform float intensity; // @min 0.2 @max 2.0 @default 1.2
-uniform float scale; // @min 0.6 @max 2.4 @default 1.24
-uniform float halo_strength; // @min 0.0 @max 1.8 @default 0.82
-uniform float black_threshold; // @min 0.0 @max 0.3 @default 0.03
-uniform float white_threshold; // @min 0.2 @max 0.95 @default 0.82
-uniform vec3 accent; // @default 0.18,0.94,0.78
-
-float luma(vec3 c) {
-    return dot(c, vec3(0.299, 0.587, 0.114));
-}
-
-vec2 centeredUv(vec2 uv, vec2 resolution) {
-    vec2 p = uv * 2.0 - 1.0;
-    p.x *= resolution.x / max(resolution.y, 1.0);
-    return p;
-}
-
-mat2 rot(float a) {
-    float s = sin(a);
-    float c = cos(a);
-    return mat2(c, -s, s, c);
-}
-
-float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 5; i++) {
-        value += amplitude * node_noise(p);
-        p = rot(0.65) * p * 2.03 + vec2(1.7, 9.2);
-        amplitude *= 0.5;
-    }
-    return value;
-}
-
-vec2 kalei(vec2 p, float segments) {
-    float angle = atan(p.y, p.x);
-    float radius = length(p);
-    float slice = 6.28318530718 / max(segments, 1.0);
-    angle = abs(mod(angle + 0.5 * slice, slice) - 0.5 * slice);
-    return vec2(cos(angle), sin(angle)) * radius;
-}
-
-vec3 palette(float t, vec3 phase) {
-    return 0.5 + 0.5 * cos(6.28318530718 * (t + phase));
-}
-
-float edgeField(sampler2D tex, vec2 uv, vec2 resolution) {
-    vec2 px = 1.0 / max(resolution, vec2(1.0));
-    float left = luma(texture2D(tex, uv - vec2(px.x, 0.0)).rgb);
-    float right = luma(texture2D(tex, uv + vec2(px.x, 0.0)).rgb);
-    float down = luma(texture2D(tex, uv - vec2(0.0, px.y)).rgb);
-    float up = luma(texture2D(tex, uv + vec2(0.0, px.y)).rgb);
-    return length(vec2(right - left, up - down));
-}
-
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 source = texture2D(tex, uv);
-    float lum = luma(source.rgb);
-    float subject = smoothstep(black_threshold, white_threshold, lum) * source.a;
-    float edge = edgeField(tex, uv, resolution);
-    vec2 p = centeredUv(uv, resolution) * scale;
-    float t = time * speed;
-    float field = 0.0;
-    float pulse = 0.0;
-    vec3 chroma = accent;
-
-    vec2 q = p * 2.4;
-    float flow = fbm(q + vec2(t * 0.4, -t * 0.25));
-    float weave = sin(q.x * 6.0 + flow * 4.0 + t * 1.8) * cos(q.y * 7.0 - flow * 5.0 - t * 1.3);
-    float plasma = 0.5 + 0.5 * sin(weave * 5.0 + t * 1.5);
-    field = clamp(plasma + flow * 0.55, 0.0, 1.25);
-    pulse = 0.5 + 0.5 * cos(t * 2.5 + flow * 6.0);
-    chroma = palette(plasma + flow * 0.2, vec3(0.14, 0.44, 0.76));
-    
-    float energy = clamp(field * (0.65 + 0.35 * pulse), 0.0, 1.5);
-    float lineMask = clamp(subject + smoothstep(0.03, 0.28, edge), 0.0, 1.0);
-    vec3 stageColor = mix(accent, chroma, 0.7);
-    vec3 beam = stageColor * energy * lineMask;
-    vec3 halo = chroma * energy * halo_strength * smoothstep(0.0, 0.22, edge);
-    vec3 lift = source.rgb * (0.08 + 0.12 * energy);
-    vec3 result = (beam + halo + lift) * intensity;
-    float alpha = clamp(max(lineMask, energy * 0.45), 0.0, 1.0);
-    return vec4(clamp(result, 0.0, 1.0), alpha);
-}`,
-    uniformValues: {
-      "speed": 1.32,
-      "intensity": 1.2,
-      "scale": 1.24,
-      "halo_strength": 0.82,
-      "black_threshold": 0.03,
-      "white_threshold": 0.82,
-      "accent": [0.18, 0.94, 0.78]
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Hue Scanner Multi Negative Dots\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform float p; // @min 0.0 @max 10.0 @default 5.0\nuniform float dotGrid; // @min 1.0 @max 100.0 @default 10.0\nuniform float dotSize; // @min 0.0 @max 1.0 @default 0.5\nuniform float dotsblur; // @min 0.0 @max 1.0 @default 0.5\nuniform float gridGrowth; // @min 0.0 @max 5.0 @default 1.0\nuniform float gridDistortion; // @min 0.0 @max 5.0 @default 2.0\nuniform float colorFreq; // @min 0.1 @max 10.0 @default 2.0\nuniform float colorSpeed; // @min -5.0 @max 5.0 @default 1.0\nuniform float tint; // @min 0.0 @max 1.0 @default 0.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p_vec = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p_vec.xyw, c.r), vec4(c.r, p_vec.yzx), step(p_vec.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p_vec = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p_vec - K.xxx, 0.0, 1.0), c.y);\n}\n\nfloat getDots(float tOffset, vec2 centeredUv, float distFromCenter, float time) {\n    float t = time + tOffset;\n    float linearProgress = abs(fract(t * gridGrowth * 0.5) * 2.0 - 1.0);\n    float loopProgress = smoothstep(0.0, 1.0, linearProgress);\n    float scale = exp(-loopProgress * 3.0);\n    float fade = smoothstep(0.0, 0.2, loopProgress) * (1.0 - smoothstep(0.8, 1.0, loopProgress));\n    float distortion = exp(-distFromCenter * gridDistortion);\n    vec2 gridUv = centeredUv * dotGrid * scale * distortion;\n    vec2 dotUv = fract(gridUv) - 0.5;\n    float currentDotSize = dotSize * distFromCenter * 2.0;\n    float d = 1.0 - smoothstep(max(0.0, currentDotSize - dotsblur), currentDotSize + dotsblur + 0.001, length(dotUv));\n    return d * fade;\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    // Calculate the current hue target based on time and speed\n    float targetHue = fract(time * speed);\n    \n    // Calculate the shortest distance on the circular hue spectrum (0.0 to 1.0)\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Create a mask: 1.0 if within the range, 0.0 otherwise\n    float mask = step(dist, rangeWidth * 0.5);\n    \n    // Adjust UV for perfect circles and center it\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 centeredUv = (uv - 0.5) * aspect;\n    float distFromCenter = length(centeredUv);\n    \n    // Generate multiple dot grids with different time offsets\n    float d1 = getDots(0.0, centeredUv, distFromCenter, time);\n    float d2 = getDots(0.33, centeredUv, distFromCenter, time);\n    float d3 = getDots(0.66, centeredUv, distFromCenter, time);\n    \n    // Sum them in a negative/difference way\n    float dots = abs(d1 - d2 - d3);\n    \n    // Ensure black pixels in the original image remain black\n    float isNotBlack = step(0.05, length(source.rgb));\n    dots *= isNotBlack;\n    \n    // Scanner color applies where mask is 1.0, but cut out the dots (make them black)\n    vec3 scannerColor = source.rgb * p * mask * (1.0 - dots);\n    \n    // Generate a color pattern based on distance from the center and mix with original based on tint\n    vec3 generatedColor = hsv2rgb(vec3(distFromCenter * colorFreq - time * colorSpeed, 1.0, 1.0));\n    vec3 dotPatternColor = mix(source.rgb, generatedColor, tint);\n    \n    // Dots apply where mask is 0.0 (the black zones of the scanner)\n    vec3 dotsColor = dotPatternColor * dots * (1.0 - mask);\n    \n    // Combine both effects\n    return vec4(scannerColor + dotsColor, source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0,
+          "speed": 1.96,
+          "p": 0.4,
+          "dotGrid": 100,
+          "dotSize": 0.35,
+          "dotsblur": 0.09,
+          "gridGrowth": 1.1,
+          "gridDistortion": 0,
+          "colorFreq": 10,
+          "colorSpeed": -1.2,
+          "tint": 0.28
     },
-  }
+  },
+  {
+    id: "timeline-9784a079-b841-4b13-8eec-56182650919d",
+    name: "Hue Scanner PingPong Ease Dots",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Hue Scanner PingPong Ease Dots\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform float p; // @min 0.0 @max 10.0 @default 5.0\nuniform float dotGrid; // @min 1.0 @max 100.0 @default 10.0\nuniform float dotSize; // @min 0.0 @max 1.0 @default 0.5\nuniform float dotsblur; // @min 0.0 @max 1.0 @default 0.5\nuniform float gridGrowth; // @min 0.0 @max 5.0 @default 1.0\nuniform float gridDistortion; // @min 0.0 @max 5.0 @default 2.0\nuniform float colorFreq; // @min 0.1 @max 10.0 @default 2.0\nuniform float colorSpeed; // @min -5.0 @max 5.0 @default 1.0\nuniform float tint; // @min 0.0 @max 1.0 @default 0.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p_vec = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p_vec.xyw, c.r), vec4(c.r, p_vec.yzx), step(p_vec.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p_vec = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p_vec - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    // Calculate the current hue target based on time and speed\n    float targetHue = fract(time * speed);\n    \n    // Calculate the shortest distance on the circular hue spectrum (0.0 to 1.0)\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Create a mask: 1.0 if within the range, 0.0 otherwise\n    float mask = step(dist, rangeWidth * 0.5);\n    \n    // Adjust UV for perfect circles and center it\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 centeredUv = (uv - 0.5) * aspect;\n    float distFromCenter = length(centeredUv);\n    \n    // Make the grid grow and shrink from the center (ping-pong)\n    float linearProgress = abs(fract(time * gridGrowth * 0.5) * 2.0 - 1.0);\n    \n    // Apply ease-in-out animation to the grid movement\n    float loopProgress = smoothstep(0.0, 1.0, linearProgress);\n    float scale = exp(-loopProgress * 3.0);\n    \n    // Fade in and out the dots at the extremes\n    float fade = smoothstep(0.0, 0.2, loopProgress) * (1.0 - smoothstep(0.8, 1.0, loopProgress));\n    \n    // Distort the grid so cells (and dots) become larger further from the center\n    float distortion = exp(-distFromCenter * gridDistortion);\n    vec2 gridUv = centeredUv * dotGrid * scale * distortion;\n    vec2 dotUv = fract(gridUv) - 0.5;\n    \n    // Make dots bigger further from the center, static size over time\n    float currentDotSize = dotSize * distFromCenter * 2.0;\n    \n    // Use smoothstep to blur the dots based on the dotsblur uniform\n    float dots = 1.0 - smoothstep(max(0.0, currentDotSize - dotsblur), currentDotSize + dotsblur + 0.001, length(dotUv));\n    \n    // Ensure black pixels in the original image remain black\n    float isNotBlack = step(0.05, length(source.rgb));\n    dots *= isNotBlack;\n    \n    // Scanner color applies where mask is 1.0, but cut out the dots (make them black)\n    vec3 scannerColor = source.rgb * p * mask * (1.0 - dots);\n    \n    // Generate a color pattern based on distance from the center and mix with original based on tint\n    vec3 generatedColor = hsv2rgb(vec3(distFromCenter * colorFreq - time * colorSpeed, 1.0, 1.0));\n    vec3 dotPatternColor = mix(source.rgb, generatedColor, tint);\n    \n    // Dots apply where mask is 0.0 (the black zones of the scanner)\n    vec3 dotsColor = dotPatternColor * dots * (1.0 - mask) * fade;\n    \n    // Combine both effects\n    return vec4(scannerColor + dotsColor, source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.34,
+          "speed": -2,
+          "p": 10,
+          "dotGrid": 71.29,
+          "dotSize": 1,
+          "dotsblur": 0.38,
+          "gridGrowth": 2.45,
+          "gridDistortion": 2,
+          "colorFreq": 0.298,
+          "colorSpeed": 3.6,
+          "tint": 0.22
+    },
+  },
+  {
+    id: "timeline-6a87a93e-92bf-47f2-a3ca-531d4dd0cad9",
+    name: "Hue Scanner PingPong Ease Dots",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Hue Scanner PingPong Ease Dots\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform float p; // @min 0.0 @max 10.0 @default 5.0\nuniform float dotGrid; // @min 1.0 @max 100.0 @default 10.0\nuniform float dotSize; // @min 0.0 @max 1.0 @default 0.5\nuniform float dotsblur; // @min 0.0 @max 1.0 @default 0.5\nuniform float gridGrowth; // @min 0.0 @max 5.0 @default 1.0\nuniform float gridDistortion; // @min 0.0 @max 5.0 @default 2.0\nuniform float colorFreq; // @min 0.1 @max 10.0 @default 2.0\nuniform float colorSpeed; // @min -5.0 @max 5.0 @default 1.0\nuniform float tint; // @min 0.0 @max 1.0 @default 0.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p_vec = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p_vec.xyw, c.r), vec4(c.r, p_vec.yzx), step(p_vec.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p_vec = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p_vec - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    // Calculate the current hue target based on time and speed\n    float targetHue = fract(time * speed);\n    \n    // Calculate the shortest distance on the circular hue spectrum (0.0 to 1.0)\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Create a mask: 1.0 if within the range, 0.0 otherwise\n    float mask = step(dist, rangeWidth * 0.5);\n    \n    // Adjust UV for perfect circles and center it\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 centeredUv = (uv - 0.5) * aspect;\n    float distFromCenter = length(centeredUv);\n    \n    // Make the grid grow and shrink from the center (ping-pong)\n    float linearProgress = abs(fract(time * gridGrowth * 0.5) * 2.0 - 1.0);\n    \n    // Apply ease-in-out animation to the grid movement\n    float loopProgress = smoothstep(0.0, 1.0, linearProgress);\n    float scale = exp(-loopProgress * 3.0);\n    \n    // Fade in and out the dots at the extremes\n    float fade = smoothstep(0.0, 0.2, loopProgress) * (1.0 - smoothstep(0.8, 1.0, loopProgress));\n    \n    // Distort the grid so cells (and dots) become larger further from the center\n    float distortion = exp(-distFromCenter * gridDistortion);\n    vec2 gridUv = centeredUv * dotGrid * scale * distortion;\n    vec2 dotUv = fract(gridUv) - 0.5;\n    \n    // Make dots bigger further from the center, static size over time\n    float currentDotSize = dotSize * distFromCenter * 2.0;\n    \n    // Use smoothstep to blur the dots based on the dotsblur uniform\n    float dots = 1.0 - smoothstep(max(0.0, currentDotSize - dotsblur), currentDotSize + dotsblur + 0.001, length(dotUv));\n    \n    // Ensure black pixels in the original image remain black\n    float isNotBlack = step(0.05, length(source.rgb));\n    dots *= isNotBlack;\n    \n    // Scanner color applies where mask is 1.0, but cut out the dots (make them black)\n    vec3 scannerColor = source.rgb * p * mask * (1.0 - dots);\n    \n    // Generate a color pattern based on distance from the center and mix with original based on tint\n    vec3 generatedColor = hsv2rgb(vec3(distFromCenter * colorFreq - time * colorSpeed, 1.0, 1.0));\n    vec3 dotPatternColor = mix(source.rgb, generatedColor, tint);\n    \n    // Dots apply where mask is 0.0 (the black zones of the scanner)\n    vec3 dotsColor = dotPatternColor * dots * (1.0 - mask) * fade;\n    \n    // Combine both effects\n    return vec4(scannerColor + dotsColor, source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.9,
+          "speed": -2,
+          "p": 10,
+          "dotGrid": 71.29,
+          "dotSize": 0.4,
+          "dotsblur": 0.26,
+          "gridGrowth": 2.45,
+          "gridDistortion": 2.7,
+          "colorFreq": 0.298,
+          "colorSpeed": -1.8,
+          "tint": 0.22
+    },
+  },
+  {
+    id: "timeline-783ce49f-4ade-4942-8d2c-2f12d95336c0",
+    name: "Soft Symmetrical Scanner",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Soft Symmetrical Scanner\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform vec3 tintColor; // @default 1.0,0.5,0.0\nuniform float edgeSoftness; // @min 0.001 @max 0.5 @default 0.05\nuniform float borderSoftness; // @min 0.001 @max 1.0 @default 0.2\nuniform float blackThreshold; // @min 0.001 @max 0.5 @default 0.05\nuniform float psychScale; // @min 1.0 @max 50.0 @default 20.0\nuniform float psychIntensity; // @min 0.0 @max 1.0 @default 0.3\nuniform float addbackgroundcolor; // @min 0.0 @max 1.0 @default 0.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Make the UVs symmetrical horizontally\n    vec2 symUv = vec2(uv.x > 0.5 ? 1.0 - uv.x : uv.x, uv.y);\n    \n    vec4 source = texture2D(tex, symUv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    float targetHue = fract(time * speed);\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Soften the mask to remove pixelated artifacts\n    float mask = smoothstep(rangeWidth * 0.5 + edgeSoftness, rangeWidth * 0.5, dist);\n    \n    // Create a much softer white border highlight around the masked area\n    float border = smoothstep(borderSoftness, 0.0, abs(dist - rangeWidth * 0.5));\n    \n    // Parametric psychedelic shift\n    float psychShift = sin(symUv.x * psychScale + time * 3.0) * psychIntensity + \n                       cos(symUv.y * psychScale - time * 2.0) * psychIntensity + time * 2.0;\n                       \n    hsv.x = fract(hsv.x + psychShift);\n    hsv.y = clamp(hsv.y * 1.5, 0.0, 1.0);\n    \n    vec3 psychColor = hsv2rgb(hsv);\n    \n    // Apply the selected tint color\n    psychColor *= tintColor * 1.5; \n    \n    // Combine the tinted psychedelic effect, the mask, and the soft white border\n    vec3 finalColor = psychColor * mask + vec3(1.0) * border * 1.2;\n    \n    // Add the original background color to unmasked areas based on the new parameter\n    finalColor += source.rgb * addbackgroundcolor * (1.0 - clamp(mask + border, 0.0, 1.0));\n    \n    // Keep black pixels black smoothly to avoid hard jagged edges\n    float blackMask = smoothstep(0.0, blackThreshold, hsv.z);\n    finalColor *= blackMask;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.25,
+          "speed": 2,
+          "tintColor": [
+                0.9294117647058824,
+                0.9294117647058824,
+                0.9294117647058824
+          ],
+          "edgeSoftness": 0.001,
+          "borderSoftness": 0.09091,
+          "blackThreshold": 0.5,
+          "psychScale": 2.96,
+          "psychIntensity": 0.17,
+          "addbackgroundcolor": 0.38
+    },
+  },
+  {
+    id: "timeline-d641bd34-21c4-4d67-85da-e2bce7b43a55",
+    name: "Soft Symmetrical Scanner",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Soft Symmetrical Scanner\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform vec3 tintColor; // @default 1.0,0.5,0.0\nuniform float edgeSoftness; // @min 0.001 @max 0.5 @default 0.05\nuniform float borderSoftness; // @min 0.001 @max 1.0 @default 0.2\nuniform float blackThreshold; // @min 0.001 @max 0.5 @default 0.05\nuniform float psychScale; // @min 1.0 @max 50.0 @default 20.0\nuniform float psychIntensity; // @min 0.0 @max 1.0 @default 0.3\nuniform float addbackgroundcolor; // @min 0.0 @max 1.0 @default 0.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Make the UVs symmetrical horizontally\n    vec2 symUv = vec2(uv.x > 0.5 ? 1.0 - uv.x : uv.x, uv.y);\n    \n    vec4 source = texture2D(tex, symUv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    float targetHue = fract(time * speed);\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Soften the mask to remove pixelated artifacts\n    float mask = smoothstep(rangeWidth * 0.5 + edgeSoftness, rangeWidth * 0.5, dist);\n    \n    // Create a much softer white border highlight around the masked area\n    float border = smoothstep(borderSoftness, 0.0, abs(dist - rangeWidth * 0.5));\n    \n    // Parametric psychedelic shift\n    float psychShift = sin(symUv.x * psychScale + time * 3.0) * psychIntensity + \n                       cos(symUv.y * psychScale - time * 2.0) * psychIntensity + time * 2.0;\n                       \n    hsv.x = fract(hsv.x + psychShift);\n    hsv.y = clamp(hsv.y * 1.5, 0.0, 1.0);\n    \n    vec3 psychColor = hsv2rgb(hsv);\n    \n    // Apply the selected tint color\n    psychColor *= tintColor * 1.5; \n    \n    // Combine the tinted psychedelic effect, the mask, and the soft white border\n    vec3 finalColor = psychColor * mask + vec3(1.0) * border * 1.2;\n    \n    // Add the original background color to unmasked areas based on the new parameter\n    finalColor += source.rgb * addbackgroundcolor * (1.0 - clamp(mask + border, 0.0, 1.0));\n    \n    // Keep black pixels black smoothly to avoid hard jagged edges\n    float blackMask = smoothstep(0.0, blackThreshold, hsv.z);\n    finalColor *= blackMask;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.02,
+          "speed": 2,
+          "tintColor": [
+                0.054901960784313725,
+                0.0392156862745098,
+                1
+          ],
+          "edgeSoftness": 0.5,
+          "borderSoftness": 0.15085,
+          "blackThreshold": 0.33034,
+          "psychScale": 19.62,
+          "psychIntensity": 0.89,
+          "addbackgroundcolor": 0.08
+    },
+  },
+  {
+    id: "timeline-069a2e36-8f86-4fee-933e-28bde46809c7",
+    name: "Soft Symmetrical Scanner with Blurred Trace",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Soft Symmetrical Scanner with Blurred Trace\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform vec3 tintColor; // @default 1.0,0.5,0.0\nuniform float edgeSoftness; // @min 0.001 @max 0.5 @default 0.05\nuniform float borderSoftness; // @min 0.001 @max 1.0 @default 0.2\nuniform float traceLength; // @min 0.0 @max 1.0 @default 0.3\nuniform float whiteBlurAmount; // @min 0.0 @max 10.0 @default 3.0\nuniform float blackThreshold; // @min 0.001 @max 0.5 @default 0.05\nuniform float psychScale; // @min 1.0 @max 50.0 @default 20.0\nuniform float psychIntensity; // @min 0.0 @max 1.0 @default 0.3\nuniform float whiteOpacity; // @min 0.0 @max 5.0 @default 1.2\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Make the UVs symmetrical horizontally\n    vec2 symUv = vec2(uv.x > 0.5 ? 1.0 - uv.x : uv.x, uv.y);\n    \n    vec4 source = texture2D(tex, symUv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    float targetHue = fract(time * speed);\n    float signedDist = fract(hsv.x - targetHue + 0.5) - 0.5;\n    float dist = abs(signedDist);\n    \n    // Soften the mask to remove pixelated artifacts\n    float mask = smoothstep(rangeWidth * 0.5 + edgeSoftness, rangeWidth * 0.5, dist);\n    \n    float dir = speed >= 0.0 ? 1.0 : -1.0;\n    \n    // Calculate spatially blurred white border and trace\n    float finalWhite = 0.0;\n    float totalWeight = 0.0;\n    vec2 texel = 1.0 / resolution;\n    \n    for(int i = -1; i <= 1; i++) {\n        for(int j = -1; j <= 1; j++) {\n            vec2 offset = vec2(float(i), float(j)) * whiteBlurAmount * texel * 2.0;\n            vec2 sampleUv = symUv + offset;\n            \n            vec4 s = texture2D(tex, sampleUv);\n            vec3 shsv = rgb2hsv(s.rgb);\n            \n            float sDistSigned = fract(shsv.x - targetHue + 0.5) - 0.5;\n            float sDist = abs(sDistSigned);\n            \n            float b = smoothstep(borderSoftness, 0.0, abs(sDist - rangeWidth * 0.5));\n            float t = smoothstep(rangeWidth * 0.5 + traceLength, rangeWidth * 0.5, sDist) * step(0.0, -sDistSigned * dir);\n            \n            float weight = 1.0 - (abs(float(i)) + abs(float(j))) * 0.25;\n            finalWhite += max(b, t) * weight;\n            totalWeight += weight;\n        }\n    }\n    finalWhite /= totalWeight;\n    \n    // Parametric psychedelic shift\n    float psychShift = sin(symUv.x * psychScale + time * 3.0) * psychIntensity + \n                       cos(symUv.y * psychScale - time * 2.0) * psychIntensity + time * 2.0;\n                       \n    hsv.x = fract(hsv.x + psychShift);\n    hsv.y = clamp(hsv.y * 1.5, 0.0, 1.0);\n    \n    vec3 psychColor = hsv2rgb(hsv);\n    \n    // Apply the selected tint color\n    psychColor *= tintColor * 1.5; \n    \n    // Combine the tinted psychedelic effect, the mask, and the blurred white border/trace with parametric opacity\n    vec3 finalColor = psychColor * mask + vec3(1.0) * finalWhite * whiteOpacity;\n    \n    // Keep black pixels black smoothly to avoid hard jagged edges\n    float blackMask = smoothstep(0.0, blackThreshold, hsv.z);\n    finalColor *= blackMask;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0.75,
+          "speed": 1.76,
+          "tintColor": [
+                0.3607843137254902,
+                0.28627450980392155,
+                0.396078431372549
+          ],
+          "edgeSoftness": 0.16567,
+          "borderSoftness": 0.001,
+          "traceLength": 0.95,
+          "whiteBlurAmount": 9,
+          "blackThreshold": 0.03593,
+          "psychScale": 18.64,
+          "psychIntensity": 0.62,
+          "whiteOpacity": 0.35
+    },
+  },
+  {
+    id: "timeline-b4e50db2-7a2d-485e-a0e5-d32fd8b5128c",
+    name: "Soft Symmetrical Scanner with Blurred Trace",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Soft Symmetrical Scanner with Blurred Trace\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform vec3 tintColor; // @default 1.0,0.5,0.0\nuniform float edgeSoftness; // @min 0.001 @max 0.5 @default 0.05\nuniform float borderSoftness; // @min 0.001 @max 1.0 @default 0.2\nuniform float traceLength; // @min 0.0 @max 1.0 @default 0.3\nuniform float whiteBlurAmount; // @min 0.0 @max 10.0 @default 3.0\nuniform float blackThreshold; // @min 0.001 @max 0.5 @default 0.05\nuniform float psychScale; // @min 1.0 @max 50.0 @default 20.0\nuniform float psychIntensity; // @min 0.0 @max 1.0 @default 0.3\nuniform float whiteOpacity; // @min 0.0 @max 5.0 @default 1.2\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Make the UVs symmetrical horizontally\n    vec2 symUv = vec2(uv.x > 0.5 ? 1.0 - uv.x : uv.x, uv.y);\n    \n    vec4 source = texture2D(tex, symUv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    float targetHue = fract(time * speed);\n    float signedDist = fract(hsv.x - targetHue + 0.5) - 0.5;\n    float dist = abs(signedDist);\n    \n    // Soften the mask to remove pixelated artifacts\n    float mask = smoothstep(rangeWidth * 0.5 + edgeSoftness, rangeWidth * 0.5, dist);\n    \n    float dir = speed >= 0.0 ? 1.0 : -1.0;\n    \n    // Calculate spatially blurred white border and trace\n    float finalWhite = 0.0;\n    float totalWeight = 0.0;\n    vec2 texel = 1.0 / resolution;\n    \n    for(int i = -1; i <= 1; i++) {\n        for(int j = -1; j <= 1; j++) {\n            vec2 offset = vec2(float(i), float(j)) * whiteBlurAmount * texel * 2.0;\n            vec2 sampleUv = symUv + offset;\n            \n            vec4 s = texture2D(tex, sampleUv);\n            vec3 shsv = rgb2hsv(s.rgb);\n            \n            float sDistSigned = fract(shsv.x - targetHue + 0.5) - 0.5;\n            float sDist = abs(sDistSigned);\n            \n            float b = smoothstep(borderSoftness, 0.0, abs(sDist - rangeWidth * 0.5));\n            float t = smoothstep(rangeWidth * 0.5 + traceLength, rangeWidth * 0.5, sDist) * step(0.0, -sDistSigned * dir);\n            \n            float weight = 1.0 - (abs(float(i)) + abs(float(j))) * 0.25;\n            finalWhite += max(b, t) * weight;\n            totalWeight += weight;\n        }\n    }\n    finalWhite /= totalWeight;\n    \n    // Parametric psychedelic shift\n    float psychShift = sin(symUv.x * psychScale + time * 3.0) * psychIntensity + \n                       cos(symUv.y * psychScale - time * 2.0) * psychIntensity + time * 2.0;\n                       \n    hsv.x = fract(hsv.x + psychShift);\n    hsv.y = clamp(hsv.y * 1.5, 0.0, 1.0);\n    \n    vec3 psychColor = hsv2rgb(hsv);\n    \n    // Apply the selected tint color\n    psychColor *= tintColor * 1.5; \n    \n    // Combine the tinted psychedelic effect, the mask, and the blurred white border/trace with parametric opacity\n    vec3 finalColor = psychColor * mask + vec3(1.0) * finalWhite * whiteOpacity;\n    \n    // Keep black pixels black smoothly to avoid hard jagged edges\n    float blackMask = smoothstep(0.0, blackThreshold, hsv.z);\n    finalColor *= blackMask;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0,
+          "speed": 1.76,
+          "tintColor": [
+                0.03529411764705882,
+                0.17254901960784313,
+                0.00784313725490196
+          ],
+          "edgeSoftness": 0.5,
+          "borderSoftness": 0.001,
+          "traceLength": 1,
+          "whiteBlurAmount": 10,
+          "blackThreshold": 0.34531,
+          "psychScale": 50,
+          "psychIntensity": 0,
+          "whiteOpacity": 0.9
+    },
+  },
+  {
+    id: "timeline-b0382c21-6b2f-4194-bfe0-0d41412cce16",
+    name: "Soft Symmetrical Scanner with Blurred Trace",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Soft Symmetrical Scanner with Blurred Trace\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform vec3 tintColor; // @default 1.0,0.5,0.0\nuniform float edgeSoftness; // @min 0.001 @max 0.5 @default 0.05\nuniform float borderSoftness; // @min 0.001 @max 1.0 @default 0.2\nuniform float traceLength; // @min 0.0 @max 1.0 @default 0.3\nuniform float whiteBlurAmount; // @min 0.0 @max 10.0 @default 3.0\nuniform float blackThreshold; // @min 0.001 @max 0.5 @default 0.05\nuniform float psychScale; // @min 1.0 @max 50.0 @default 20.0\nuniform float psychIntensity; // @min 0.0 @max 1.0 @default 0.3\nuniform float whiteOpacity; // @min 0.0 @max 5.0 @default 1.2\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Make the UVs symmetrical horizontally\n    vec2 symUv = vec2(uv.x > 0.5 ? 1.0 - uv.x : uv.x, uv.y);\n    \n    vec4 source = texture2D(tex, symUv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    float targetHue = fract(time * speed);\n    float signedDist = fract(hsv.x - targetHue + 0.5) - 0.5;\n    float dist = abs(signedDist);\n    \n    // Soften the mask to remove pixelated artifacts\n    float mask = smoothstep(rangeWidth * 0.5 + edgeSoftness, rangeWidth * 0.5, dist);\n    \n    float dir = speed >= 0.0 ? 1.0 : -1.0;\n    \n    // Calculate spatially blurred white border and trace\n    float finalWhite = 0.0;\n    float totalWeight = 0.0;\n    vec2 texel = 1.0 / resolution;\n    \n    for(int i = -1; i <= 1; i++) {\n        for(int j = -1; j <= 1; j++) {\n            vec2 offset = vec2(float(i), float(j)) * whiteBlurAmount * texel * 2.0;\n            vec2 sampleUv = symUv + offset;\n            \n            vec4 s = texture2D(tex, sampleUv);\n            vec3 shsv = rgb2hsv(s.rgb);\n            \n            float sDistSigned = fract(shsv.x - targetHue + 0.5) - 0.5;\n            float sDist = abs(sDistSigned);\n            \n            float b = smoothstep(borderSoftness, 0.0, abs(sDist - rangeWidth * 0.5));\n            float t = smoothstep(rangeWidth * 0.5 + traceLength, rangeWidth * 0.5, sDist) * step(0.0, -sDistSigned * dir);\n            \n            float weight = 1.0 - (abs(float(i)) + abs(float(j))) * 0.25;\n            finalWhite += max(b, t) * weight;\n            totalWeight += weight;\n        }\n    }\n    finalWhite /= totalWeight;\n    \n    // Parametric psychedelic shift\n    float psychShift = sin(symUv.x * psychScale + time * 3.0) * psychIntensity + \n                       cos(symUv.y * psychScale - time * 2.0) * psychIntensity + time * 2.0;\n                       \n    hsv.x = fract(hsv.x + psychShift);\n    hsv.y = clamp(hsv.y * 1.5, 0.0, 1.0);\n    \n    vec3 psychColor = hsv2rgb(hsv);\n    \n    // Apply the selected tint color\n    psychColor *= tintColor * 1.5; \n    \n    // Combine the tinted psychedelic effect, the mask, and the blurred white border/trace with parametric opacity\n    vec3 finalColor = psychColor * mask + vec3(1.0) * finalWhite * whiteOpacity;\n    \n    // Keep black pixels black smoothly to avoid hard jagged edges\n    float blackMask = smoothstep(0.0, blackThreshold, hsv.z);\n    finalColor *= blackMask;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0,
+          "speed": 1.76,
+          "tintColor": [
+                0.09019607843137255,
+                0.24705882352941178,
+                0.25098039215686274
+          ],
+          "edgeSoftness": 0.24551,
+          "borderSoftness": 0.45055,
+          "traceLength": 1,
+          "whiteBlurAmount": 1.7,
+          "blackThreshold": 0.5,
+          "psychScale": 50,
+          "psychIntensity": 0.92,
+          "whiteOpacity": 0.25
+    },
+  },
+  {
+    id: "timeline-d4e2dd87-344b-4241-b5d2-12f0d008d7ef",
+    name: "Soft Symmetrical Scanner2",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Soft Symmetrical Scanner2\nuniform float rangeWidth; // @min 0.0 @max 1.0 @default 0.2\nuniform float speed; // @min -2.0 @max 2.0 @default 0.5\nuniform vec3 tintColor; // @default 1.0,0.5,0.0\nuniform float edgeSoftness; // @min 0.001 @max 0.5 @default 0.05\nuniform float borderSoftness; // @min 0.001 @max 1.0 @default 0.2\nuniform float blackThreshold; // @min 0.001 @max 0.5 @default 0.05\nuniform float psychScale; // @min 1.0 @max 50.0 @default 20.0\nuniform float psychIntensity; // @min 0.0 @max 1.0 @default 0.3\nuniform float addbackgroundcolor; // @min 0.0 @max 1.0 @default 0.5\n\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Make the UVs symmetrical horizontally\n    vec2 symUv = vec2(uv.x > 0.5 ? 1.0 - uv.x : uv.x, uv.y);\n    \n    vec4 source = texture2D(tex, symUv);\n    vec3 hsv = rgb2hsv(source.rgb);\n    \n    float targetHue = fract(time * speed);\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n    \n    // Soften the mask to remove pixelated artifacts\n    float mask = smoothstep(rangeWidth * 0.5 + edgeSoftness, rangeWidth * 0.5, dist);\n    \n    // Create a much softer white border highlight around the masked area\n    float border = smoothstep(borderSoftness, 0.0, abs(dist - rangeWidth * 0.5));\n    \n    // Parametric psychedelic shift\n    float psychShift = sin(symUv.x * psychScale + time * 3.0) * psychIntensity + \n                       cos(symUv.y * psychScale - time * 2.0) * psychIntensity + time * 2.0;\n                       \n    hsv.x = fract(hsv.x + psychShift);\n    hsv.y = clamp(hsv.y * 1.5, 0.0, 1.0);\n    \n    vec3 psychColor = hsv2rgb(hsv);\n    \n    // Apply the selected tint color\n    psychColor *= tintColor * 1.5; \n    \n    // Combine the tinted psychedelic effect, the mask, and the soft white border\n    vec3 finalColor = psychColor * mask + vec3(1.0) * border * 1.2;\n    \n    // Add the original background color to unmasked areas based on the new parameter\n    finalColor += source.rgb * addbackgroundcolor * (1.0 - clamp(mask + border, 0.0, 1.0));\n    \n    // Keep black pixels black smoothly to avoid hard jagged edges\n    float blackMask = smoothstep(0.0, blackThreshold, hsv.z);\n    finalColor *= blackMask;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "rangeWidth": 0,
+          "speed": 2,
+          "tintColor": [
+                0.9921568627450981,
+                0.8666666666666667,
+                0.07058823529411765
+          ],
+          "edgeSoftness": 0.09581,
+          "borderSoftness": 0.001,
+          "blackThreshold": 0.17066,
+          "psychScale": 19.62,
+          "psychIntensity": 0.08,
+          "addbackgroundcolor": 0.06
+    },
+  },
+  {
+    id: "timeline-68e57786-59e7-4009-8871-34b9d5ce89a6",
+    name: "Zone Fractal + Hue Scanner",
+    template: "stage",
+    group: "Scanners",
+    description: "Recovered from the project timeline for the Scanners stage collection.",
+    code: "// NAME: Zone Fractal + Hue Scanner\nuniform float zoneWidth;      // @min 1.0  @max 80.0  @default 15.0\nuniform float edgeWidth;      // @min 0.0  @max 10.0  @default 1.5\nuniform float maxDepth;       // @min 10.0 @max 200.0 @default 100.0\nuniform float blackThreshold; // @min 0.03 @max 0.6   @default 0.18\nuniform float whiteThreshold; // @min 0.4  @max 0.99  @default 0.85\nuniform float trailSpeed;     // @min 0.0  @max 200.0 @default 50.0\nuniform float trailLength;    // @min 0.01 @max 0.99  @default 0.65\nuniform float trailDistance;  // @min 1.0  @max 80.0  @default 15.0\nuniform float scanSpeed;      // @min -2.0 @max 2.0   @default 0.4\nuniform float rangeWidth;     // @min 0.0  @max 1.0   @default 0.25\nuniform float edgeSoftness;   // @min 0.001 @max 0.5  @default 0.06\nuniform float borderSoftness; // @min 0.001 @max 1.0  @default 0.15\nuniform float borderBright;   // @min 0.0  @max 2.0   @default 1.2\nuniform float symmetrical;    // @min 0.0  @max 1.0   @default 1.0\n\n// ── rgb2hsv / hsv2rgb ─────────────────────────────────────────────────────────\nvec3 rgb2hsv(vec3 c) {\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d = q.x - min(q.w, q.y);\n    float e = 1.0e-10;\n    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);\n}\n\n// ── 1. isEdgePixel ────────────────────────────────────────────────────────────\nbool isEdgePixel(vec4 sp, float blackT, float whiteT) {\n    return sp.a < 0.3\n        || (sp.r < blackT && sp.g < blackT && sp.b < blackT)\n        || (sp.r > whiteT && sp.g > whiteT && sp.b > whiteT);\n}\n\n// ── 2. marchRay ───────────────────────────────────────────────────────────────\nfloat marchRay(sampler2D tex, vec2 uv, vec2 dir, vec2 px,\n               float minD, float blackT, float whiteT,\n               inout vec2 nearVec) {\n    for (int j = 11; j <= 100; j++) {\n        float fj = float(j);\n        if (fj >= minD) break;\n        vec2 s = uv + dir * px * fj;\n        if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0) {\n            if (fj < minD) { minD = fj; nearVec = dir; }\n            break;\n        }\n        if (isEdgePixel(texture2D(tex, s), blackT, whiteT)) {\n            if (fj < minD) { minD = fj; nearVec = dir; }\n            break;\n        }\n    }\n    return minD;\n}\n\n// ── 3. sampleZoneColor ────────────────────────────────────────────────────────\nvec3 sampleZoneColor(sampler2D tex, vec2 uv,\n                     vec2 nearVec, vec2 px,\n                     float minD, float zoneW, float maxD,\n                     float blackT, float whiteT) {\n\n    float zoneCenter = (floor(minD / zoneW) + 0.5) * zoneW;\n    vec2  anchorUV   = uv + nearVec * px * (minD - zoneCenter);\n\n    vec3  accum  = vec3(0.0);\n    float weight = 0.0;\n\n    for (int dy = -1; dy <= 1; dy++) {\n        for (int dx = -1; dx <= 1; dx++) {\n            vec2 s = anchorUV + vec2(float(dx), float(dy)) * px * 1.5;\n            if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0) continue;\n            vec4 sc = texture2D(tex, s);\n            if (isEdgePixel(sc, blackT, whiteT)) continue;\n            if (sc.r < blackT && sc.g < blackT && sc.b < blackT && sc.a > 0.3) continue;\n            accum  += sc.rgb;\n            weight += 1.0;\n        }\n    }\n\n    vec3  col       = (weight > 0.0) ? accum / weight : vec3(0.3);\n    float depthFade = 1.0 - (zoneCenter / maxD) * 0.6;\n    col *= depthFade * 0.65;\n    return col;\n}\n\n// ── 4. hueScanMask ────────────────────────────────────────────────────────────\n// Returns (mask, border) using the source pixel's hue and a sweeping target hue.\n// If symmetrical > 0.5, the UV is mirrored on x before sampling for the mask.\nvec2 hueScanMask(sampler2D tex, vec2 uv, float time) {\n    vec2 maskUV = uv;\n    if (symmetrical > 0.5)\n        maskUV.x = uv.x > 0.5 ? 1.0 - uv.x : uv.x;\n\n    vec4 src = texture2D(tex, maskUV);\n    vec3 hsv = rgb2hsv(src.rgb);\n\n    float targetHue = fract(time * scanSpeed);\n    float dist = abs(fract(hsv.x - targetHue + 0.5) - 0.5);\n\n    float mask   = smoothstep(rangeWidth * 0.5 + edgeSoftness, rangeWidth * 0.5, dist);\n    float border = smoothstep(borderSoftness, 0.0, abs(dist - rangeWidth * 0.5));\n\n    return vec2(mask, border);\n}\n\n// ── 5. processColor ───────────────────────────────────────────────────────────\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n\n    vec4 src = texture2D(tex, uv);\n\n    bool srcIsBlack = src.r < blackThreshold && src.g < blackThreshold && src.b < blackThreshold && src.a > 0.3;\n    bool srcIsBg    = src.r > whiteThreshold  && src.g > whiteThreshold  && src.b > whiteThreshold;\n    bool srcIsShape = src.a > 0.3 && !srcIsBlack && !srcIsBg;\n\n    if (srcIsBlack)             return vec4(0.0, 0.0, 0.0, 1.0);\n    if (srcIsBg || !srcIsShape) return vec4(0.0, 0.0, 0.0, 0.0);\n\n    // ── Hue scan mask ─────────────────────────────────────────────────────────\n    vec2 mb     = hueScanMask(tex, uv, time);\n    float mask  = mb.x;\n    float border = mb.y;\n\n    // If fully outside the scan window and no border glow, skip entirely\n    if (mask <= 0.0 && border <= 0.0) return vec4(0.0, 0.0, 0.0, 0.0);\n\n    float aspect = resolution.x / resolution.y;\n    vec2  px     = vec2(0.001, 0.001 * aspect);\n\n    float minD    = maxDepth;\n    vec2  nearVec = vec2(1.0, 0.0);\n\n    // ── Phase 1: Euclidean search ±10 ────────────────────────────────────────\n    for (int dy = -10; dy <= 10; dy++) {\n        for (int dx = -10; dx <= 10; dx++) {\n            float fdx = float(dx), fdy = float(dy);\n            float d2  = fdx*fdx + fdy*fdy;\n            if (d2 < 0.5 || d2 > 100.5) continue;\n            vec2  s  = uv + vec2(fdx, fdy) * px;\n            float nd = sqrt(d2);\n            if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0) {\n                if (nd < minD) { minD = nd; nearVec = normalize(vec2(fdx, fdy)); }\n                continue;\n            }\n            if (isEdgePixel(texture2D(tex, s), blackThreshold, whiteThreshold))\n                if (nd < minD) { minD = nd; nearVec = normalize(vec2(fdx, fdy)); }\n        }\n    }\n\n    // ── Phase 2: 32-direction ray-march ──────────────────────────────────────\n    if (minD > 10.0) {\n        minD = marchRay(tex, uv, vec2( 1.0000, 0.0000), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.9808, 0.1951), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.9239, 0.3827), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.8315, 0.5556), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.7071, 0.7071), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.5556, 0.8315), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.3827, 0.9239), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.1951, 0.9808), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.0000, 1.0000), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.1951, 0.9808), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.3827, 0.9239), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.5556, 0.8315), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.7071, 0.7071), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.8315, 0.5556), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.9239, 0.3827), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.9808, 0.1951), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-1.0000, 0.0000), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.9808,-0.1951), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.9239,-0.3827), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.8315,-0.5556), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.7071,-0.7071), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.5556,-0.8315), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.3827,-0.9239), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2(-0.1951,-0.9808), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.0000,-1.0000), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.1951,-0.9808), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.3827,-0.9239), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.5556,-0.8315), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.7071,-0.7071), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.8315,-0.5556), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.9239,-0.3827), px, minD, blackThreshold, whiteThreshold, nearVec);\n        minD = marchRay(tex, uv, vec2( 0.9808,-0.1951), px, minD, blackThreshold, whiteThreshold, nearVec);\n    }\n\n    // ── Zone border ───────────────────────────────────────────────────────────\n    float depFrac = mod(minD, zoneWidth);\n    if (depFrac < edgeWidth || depFrac > zoneWidth - edgeWidth)\n        return vec4(0.0, 0.0, 0.0, mask);\n\n    // ── Snap nearVec to nearest 45° octant ────────────────────────────────────\n    float snapAngle = floor(atan(nearVec.y, nearVec.x) / 0.7854 + 0.5) * 0.7854;\n    vec2  tangent   = vec2(-sin(snapAngle), cos(snapAngle));\n\n    // ── Zone color ────────────────────────────────────────────────────────────\n    vec3 col = sampleZoneColor(tex, uv, nearVec, px,\n                               minD, zoneWidth, maxDepth,\n                               blackThreshold, whiteThreshold);\n\n    // ── Animated dot trail ────────────────────────────────────────────────────\n    float zoneNum  = floor(minD / zoneWidth);\n    float isEven   = mod(zoneNum, 2.0) < 0.5 ? 1.0 : 0.0;\n    float zoneIdx  = mod(zoneNum, 4.0);\n\n    float speedMul;\n    if      (zoneIdx < 0.5) speedMul =  1.0;\n    else if (zoneIdx < 1.5) speedMul = -1.4;\n    else if (zoneIdx < 2.5) speedMul =  1.2;\n    else                    speedMul = -0.9;\n\n    speedMul *= isEven > 0.5 ? -1.0 : 1.0;\n\n    vec2  uvPx  = uv * vec2(1000.0, 1000.0 / aspect);\n    float along = dot(uvPx, tangent);\n    float phase = fract((along + time * trailSpeed * speedMul) / trailDistance);\n    float headSize = 0.04;\n\n    if (phase < headSize) {\n        col = mix(col, vec3(1.0), 0.95);\n    } else if (phase < headSize + trailLength) {\n        float t = (phase - headSize) / trailLength;\n        col = mix(col, vec3(1.0), 0.88 * (1.0 - t * t));\n    }\n\n    // ── Apply hue scan mask + soft border highlight ───────────────────────────\n    vec3 finalColor = col * mask + vec3(1.0) * border * borderBright;\n\n    return vec4(clamp(finalColor, 0.0, 1.0), clamp(mask + border, 0.0, 1.0));\n}\n",
+    uniformValues:     {
+          "zoneWidth": 5.74,
+          "edgeWidth": 1,
+          "maxDepth": 154.4,
+          "blackThreshold": 0.144,
+          "whiteThreshold": 0.7304,
+          "trailSpeed": 178,
+          "trailLength": 0.6862,
+          "trailDistance": 38.92,
+          "scanSpeed": -0.96,
+          "rangeWidth": 0.34,
+          "edgeSoftness": 0.3503,
+          "borderSoftness": 0.001,
+          "borderBright": 2,
+          "symmetrical": 0.06
+    },
+  },
+  {
+    id: "timeline-956c4dad-5476-4a0e-b361-11acbe351777",
+    name: "3D Contrasted Radial Strobe Edge",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: 3D Contrasted Radial Strobe Edge\nuniform float speed; // @min 0.0 @max 5.0 @default 1.5\nuniform float warp; // @min 0.0 @max 0.2 @default 0.05\nuniform float threshold; // @min 0.0 @max 1.0 @default 0.85\nuniform float trippy; // @min 0.0 @max 5.0 @default 2.0\nuniform float radialSpeed; // @min 0.0 @max 10.0 @default 4.0\nuniform float radialDensity; // @min 1.0 @max 50.0 @default 15.0\nuniform float strobeSpeed; // @min 0.0 @max 100.0 @default 40.0\n\n#define TAU 6.28318530718\n\nfloat luma(vec3 c) {\n    return dot(c, vec3(0.2126, 0.7152, 0.0722));\n}\n\nvec3 palette(float t) {\n    vec3 a = vec3(0.5);\n    vec3 b = vec3(0.5);\n    vec3 c = vec3(1.0, 1.2, 1.5) * trippy;\n    vec3 d = vec3(0.00, 0.33, 0.67);\n    return a + b * cos(TAU * (c * t + d));\n}\n\nfloat inkAt(sampler2D tex, vec2 uv) {\n    uv = clamp(uv, 0.0, 1.0);\n    float lum = luma(texture2D(tex, uv).rgb);\n    return 1.0 - smoothstep(threshold - 0.15, threshold + 0.15, lum);\n}\n\nfloat blurInk(sampler2D tex, vec2 uv, vec2 px, float radiusPx) {\n    vec2 r = px * radiusPx;\n    float s = inkAt(tex, uv + vec2(1.0, 0.0)*r) + inkAt(tex, uv + vec2(-1.0, 0.0)*r) +\n              inkAt(tex, uv + vec2(0.0, 1.0)*r) + inkAt(tex, uv + vec2(0.0, -1.0)*r);\n    return s * 0.25;\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 origColor = texture2D(tex, uv);\n    float origLum = luma(origColor.rgb);\n    \n    vec2 px = 1.0 / resolution.xy;\n    float t = time * speed * 0.62;\n    \n    float symX = abs(uv.x - 0.5);\n    float signX = sign(uv.x - 0.5);\n    vec2 warpedUv = uv + vec2(sin(uv.y * 15.0 + t * 3.0) * signX, cos(symX * 30.0 - t * 2.5)) * warp;\n    \n    vec2 p = warpedUv - 0.5;\n    p.x *= resolution.x / resolution.y;\n\n    float r = length(p);\n    float a = atan(p.y, p.x);\n\n    float ink = inkAt(tex, warpedUv);\n    float inkNear = blurInk(tex, warpedUv, px, 3.0);\n    float inkFar  = blurInk(tex, warpedUv, px, 9.0);\n\n    float halo = clamp(inkFar - ink * 0.5, 0.0, 1.0);\n    float filigree = clamp((inkNear - ink) * 2.0, 0.0, 1.0);\n\n    vec2 drift = vec2(sin(9.0 * p.y + t * 2.7), cos(11.0 * p.x - t * 2.5));\n    vec2 q = p + drift * 0.2;\n    float rq = length(q);\n    float aq = atan(q.y, q.x);\n\n    float field = 0.5 + 0.5 * sin(20.0 * aq - 12.0 * rq - t * 5.2);\n    float auraWave = 0.5 + 0.5 * sin(40.0 * r - 20.0 * a - t * 8.0);\n    \n    vec3 psyA = palette(t * 0.2 + field * 1.5 + auraWave * 0.5);\n    vec3 psyB = palette(t * 0.3 - field * 1.2 + sin(8.0 * a - t * 2.0));\n    vec3 psyC = palette(rq * 5.0 - t * 0.5 + aq * 2.0);\n\n    vec3 sourceColor = texture2D(tex, warpedUv).rgb;\n    vec3 color = sourceColor * mix(vec3(1.0), psyC * 2.0, 0.5 + 0.5 * sin(t + r * 10.0));\n\n    color += psyA * (0.3 + 0.7 * field) * (1.0 - ink);\n    color += psyB * pow(halo, 0.9) * (0.8 + 1.2 * auraWave);\n    color += psyC * pow(filigree, 1.1) * 1.5;\n\n    color *= 1.0 - ink;\n\n    float perfectR = length((uv - 0.5) * vec2(resolution.x / resolution.y, 1.0));\n    float radialWave = pow(sin(perfectR * radialDensity + time * radialSpeed) * 0.5 + 0.5, 2.0);\n    float strobe = step(0.5, sin(time * strobeSpeed));\n    \n    color += radialWave * strobe * psyA * origLum;\n\n    return vec4(clamp(color, 0.0, 1.0), origColor.a);\n}",
+    uniformValues:     {
+          "speed": 5,
+          "warp": 0,
+          "threshold": 0.71,
+          "trippy": 0.5,
+          "radialSpeed": 8.1,
+          "radialDensity": 8.84,
+          "strobeSpeed": 100
+    },
+  },
+  {
+    id: "timeline-b0ffd726-c3d9-4cd9-9730-d75d383f0919",
+    name: "3D Spotlight Tracer",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: 3D Spotlight Tracer\nuniform float speed; // @min -10.0 @max 10.0 @default 5.0\nuniform float contrast; // @min 1.0 @max 5.0 @default 1.5\nuniform float depth; // @min 0.1 @max 5.0 @default 1.5\n\nvec3 hsv2rgb(vec3 c) {\n    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);\n    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);\n}\n\nvec3 calcLight(vec3 lightPos, vec3 lightCol, vec3 normal, vec3 fragPos, vec3 viewDir) {\n    vec3 lightDir = normalize(lightPos - fragPos);\n    float diff = max(dot(normal, lightDir), 0.0);\n    vec3 reflectDir = reflect(-lightDir, normal);\n    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);\n    float dist = length(lightPos - fragPos);\n    float attenuation = 1.0 / (1.0 + 2.0 * dist * dist);\n    return lightCol * (diff * 0.8 + spec * 1.2) * attenuation;\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 baseColor = texture2D(tex, uv);\n    vec2 off = 1.0 / resolution;\n    \n    // Sobel edge detection for normals\n    float t00 = texture2D(tex, uv + vec2(-off.x, -off.y)).r;\n    float t10 = texture2D(tex, uv + vec2( 0.0,   -off.y)).r;\n    float t20 = texture2D(tex, uv + vec2( off.x, -off.y)).r;\n    float t01 = texture2D(tex, uv + vec2(-off.x,  0.0)).r;\n    float t21 = texture2D(tex, uv + vec2( off.x,  0.0)).r;\n    float t02 = texture2D(tex, uv + vec2(-off.x,  off.y)).r;\n    float t12 = texture2D(tex, uv + vec2( 0.0,    off.y)).r;\n    float t22 = texture2D(tex, uv + vec2( off.x,  off.y)).r;\n\n    float gx = (t00 + 2.0 * t01 + t02) - (t20 + 2.0 * t21 + t22);\n    float gy = (t00 + 2.0 * t10 + t20) - (t02 + 2.0 * t12 + t22);\n    \n    // 3D Surface setup\n    vec3 normal = normalize(vec3(gx, gy, 1.0 / depth));\n    vec3 fragPos = vec3(uv * 2.0 - 1.0, 0.0);\n    vec3 viewDir = vec3(0.0, 0.0, 1.0);\n    \n    // 3 Colored Spotlights orbiting the center\n    vec3 lPos1 = vec3(sin(time * speed * 0.3) * 0.8, cos(time * speed * 0.3) * 0.8, 0.3);\n    vec3 lPos2 = vec3(cos(time * speed * 0.24) * 0.8, sin(time * speed * 0.24) * 0.8, 0.3);\n    vec3 lPos3 = vec3(sin(time * speed * 0.18 + 2.0) * 0.8, cos(time * speed * 0.18 + 2.0) * 0.8, 0.3);\n    \n    vec3 lCol1 = hsv2rgb(vec3(time * 0.1, 1.0, 1.0));\n    vec3 lCol2 = hsv2rgb(vec3(time * 0.1 + 0.33, 1.0, 1.0));\n    vec3 lCol3 = hsv2rgb(vec3(time * 0.1 + 0.66, 1.0, 1.0));\n    \n    vec3 lighting = calcLight(lPos1, lCol1, normal, fragPos, viewDir) +\n                    calcLight(lPos2, lCol2, normal, fragPos, viewDir) +\n                    calcLight(lPos3, lCol3, normal, fragPos, viewDir);\n                    \n    vec3 finalColor = baseColor.rgb * lighting * contrast;\n    return vec4(finalColor, baseColor.a);\n}",
+    uniformValues:     {
+          "speed": -10,
+          "contrast": 5,
+          "depth": 5
+    },
+  },
+  {
+    id: "timeline-0270c4f3-ae54-4259-a850-dec579a97073",
+    name: "Fast Moving 3D Light",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: Fast Moving 3D Light\nuniform float speed; // @min 1.0 @max 30.0 @default 12.0\nuniform float light_z; // @min 0.01 @max 1.0 @default 0.2\nuniform float range; // @min 0.1 @max 5.0 @default 1.5\nuniform float depth_strength; // @min 0.0 @max 2.0 @default 0.5\nuniform float brightness; // @min 0.0 @max 10.0 @default 4.0\nuniform vec3 light_color; // @default 1.0,1.0,1.0\n\nfloat getLuma(vec3 rgb) {\n    return dot(rgb, vec3(0.299, 0.587, 0.114));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec4 source = texture2D(tex, uv);\n    \n    // Calculate surface height based on luminance\n    float h = getLuma(source.rgb);\n    \n    // Estimate normal for 3D shading using finite differences\n    vec2 eps = 1.0 / max(resolution, vec2(1.0));\n    float hx = getLuma(texture2D(tex, uv + vec2(eps.x, 0.0)).rgb);\n    float hy = getLuma(texture2D(tex, uv + vec2(0.0, eps.y)).rgb);\n    vec3 normal = normalize(vec3((h - hx) * 10.0, (h - hy) * 10.0, 1.0));\n    \n    // Fast automated movement using a Lissajous-like pattern\n    vec2 light_uv = vec2(\n        0.5 + sin(time * speed) * 0.45,\n        0.5 + cos(time * speed * 0.7) * 0.45\n    );\n    \n    // Define 3D positions for lighting calculation\n    vec3 surfacePos = vec3(uv * aspect, h * depth_strength);\n    vec3 lightPos = vec3(light_uv * aspect, light_z);\n    \n    // Calculate light vector and distance\n    vec3 lightDir = lightPos - surfacePos;\n    float dist = length(lightDir);\n    vec3 lightDirNorm = normalize(lightDir);\n    \n    // Diffuse lighting (Lambertian)\n    float diff = max(dot(normal, lightDirNorm), 0.0);\n    \n    // Distance falloff using smoothstep for a soft light edge\n    float attenuation = smoothstep(range, 0.0, dist);\n    \n    // Combine lighting components: Ambient (0.1) + Diffuse\n    vec3 lighting = light_color * (diff + 0.1) * attenuation * brightness;\n    vec3 finalRGB = source.rgb * lighting;\n    \n    return vec4(finalRGB, source.a);\n}",
+    uniformValues:     {
+          "speed": 8,
+          "light_z": 0.1981,
+          "range": 2.256,
+          "depth_strength": 0.92,
+          "brightness": 3.05,
+          "light_color": [
+                1,
+                1,
+                1
+          ]
+    },
+  },
+  {
+    id: "timeline-c4502af7-3753-4afd-8584-ece329906fc6",
+    name: "HD 3D Dual Relight",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: HD 3D Dual Relight\nuniform float lightHeight; // @min 0.01 @max 1.0 @default 0.15\nuniform float lightIntensity; // @min 0.0 @max 5.0 @default 2.5\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.15\nuniform float shininess; // @min 1.0 @max 100.0 @default 40.0\nuniform float detail; // @min 0.1 @max 10.0 @default 3.0\nuniform vec3 lightColor1; // @default 0.0,0.8,1.0\nuniform vec3 lightColor2; // @default 1.0,0.2,0.5\n\nfloat getLuma(vec4 c) {\n    return dot(c.rgb, vec3(0.299, 0.587, 0.114));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 texel = 1.0 / resolution;\n    \n    // Sample base color\n    vec4 base = texture2D(tex, uv);\n    \n    // Mask to prevent any lighting on black or near-black pixels\n    float isNotBlack = step(0.01, max(max(base.r, base.g), base.b));\n    \n    // High Definition Normal Generation using Sobel Operator\n    float tl = getLuma(texture2D(tex, uv + vec2(-texel.x, -texel.y)));\n    float tc = getLuma(texture2D(tex, uv + vec2(0.0, -texel.y)));\n    float tr = getLuma(texture2D(tex, uv + vec2(texel.x, -texel.y)));\n    float ml = getLuma(texture2D(tex, uv + vec2(-texel.x, 0.0)));\n    float mr = getLuma(texture2D(tex, uv + vec2(texel.x, 0.0)));\n    float bl = getLuma(texture2D(tex, uv + vec2(-texel.x, texel.y)));\n    float bc = getLuma(texture2D(tex, uv + vec2(0.0, texel.y)));\n    float br = getLuma(texture2D(tex, uv + vec2(texel.x, texel.y)));\n    \n    float dX = (tr + 2.0 * mr + br) - (tl + 2.0 * ml + bl);\n    float dY = (bl + 2.0 * bc + br) - (tl + 2.0 * tc + tr);\n    \n    // Construct high-detail normal vector\n    vec3 normal = normalize(vec3(dX * detail, dY * detail, 0.1));\n    \n    // Current pixel position in 3D space\n    vec3 fragPos = vec3(uv, 0.0);\n    vec3 viewDir = vec3(0.0, 0.0, 1.0);\n    \n    // Moving light positions\n    vec3 lightPos1 = vec3(0.5 + 0.4 * sin(time), 0.5 + 0.4 * cos(time * 1.3), lightHeight);\n    vec3 lightPos2 = vec3(0.5 + 0.4 * cos(time * 1.1), 0.5 + 0.4 * sin(time * 0.8), lightHeight);\n    \n    // Calculate Light 1\n    vec3 L1 = normalize(lightPos1 - fragPos);\n    vec3 H1 = normalize(L1 + viewDir);\n    float diff1 = max(dot(normal, L1), 0.0);\n    float spec1 = pow(max(dot(normal, H1), 0.0), shininess);\n    vec3 dist1 = lightPos1 - fragPos;\n    float att1 = 1.0 / (1.0 + 10.0 * dot(dist1, dist1));\n    \n    // Calculate Light 2\n    vec3 L2 = normalize(lightPos2 - fragPos);\n    vec3 H2 = normalize(L2 + viewDir);\n    float diff2 = max(dot(normal, L2), 0.0);\n    float spec2 = pow(max(dot(normal, H2), 0.0), shininess);\n    vec3 dist2 = lightPos2 - fragPos;\n    float att2 = 1.0 / (1.0 + 10.0 * dot(dist2, dist2));\n    \n    // Combine lighting components\n    vec3 ambientLight = base.rgb * ambient;\n    vec3 diffuseLight = base.rgb * (diff1 * lightColor1 * att1 + diff2 * lightColor2 * att2) * lightIntensity;\n    vec3 specularLight = (spec1 * lightColor1 * att1 + spec2 * lightColor2 * att2) * lightIntensity;\n    \n    // Apply the mask to the final color to ensure black pixels stay completely dark\n    vec3 finalColor = (ambientLight + diffuseLight + specularLight) * isNotBlack;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), base.a);\n}",
+    uniformValues:     {
+          "lightHeight": 0.01,
+          "lightIntensity": 1.85,
+          "ambient": 0.04,
+          "shininess": 76.24,
+          "detail": 9.109,
+          "lightColor1": [
+                0.5764705882352941,
+                0.5333333333333333,
+                0.807843137254902
+          ],
+          "lightColor2": [
+                1,
+                0.8666666666666667,
+                0.2
+          ]
+    },
+  },
+  {
+    id: "timeline-203d4db3-5873-484a-8329-891791fef5e3",
+    name: "Looping Color Relight",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: Looping Color Relight\nuniform float lightHeight; // @min 0.01 @max 1.0 @default 0.15\nuniform float lightIntensity; // @min 0.0 @max 5.0 @default 2.5\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.15\nuniform float shininess; // @min 1.0 @max 100.0 @default 40.0\nuniform float detail; // @min 0.1 @max 10.0 @default 3.0\nuniform float blackThreshold; // @min 0.0 @max 1.0 @default 0.05\nuniform float colorSpeed; // @min 0.0 @max 5.0 @default 1.0\n\nfloat getLuma(vec3 c) {\n    return dot(c, vec3(0.299, 0.587, 0.114));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 texel = 1.0 / resolution;\n    \n    // Sample base color\n    vec4 base = texture2D(tex, uv);\n    \n    // Mask to prevent lighting on black pixels\n    float maxColor = max(max(base.r, base.g), base.b);\n    float isNotBlack = smoothstep(max(0.0, blackThreshold - 0.02), blackThreshold + 0.02, maxColor);\n    \n    // Normal Generation\n    float l = getLuma(texture2D(tex, uv + vec2(-texel.x, 0.0)).rgb);\n    float r = getLuma(texture2D(tex, uv + vec2(texel.x, 0.0)).rgb);\n    float u = getLuma(texture2D(tex, uv + vec2(0.0, -texel.y)).rgb);\n    float d = getLuma(texture2D(tex, uv + vec2(0.0, texel.y)).rgb);\n    \n    float dX = r - l;\n    float dY = d - u;\n    \n    vec3 normal = normalize(vec3(dX * detail, dY * detail, 0.2));\n    \n    vec3 fragPos = vec3(uv, 0.0);\n    vec3 viewDir = vec3(0.0, 0.0, 1.0);\n    \n    // Moving light positions\n    vec3 lp1 = vec3(0.5 + 0.4 * sin(time), 0.5 + 0.4 * cos(time * 1.3), lightHeight);\n    vec3 lp2 = vec3(0.5 + 0.4 * cos(time * 1.1), 0.5 + 0.4 * sin(time * 0.8), lightHeight);\n    \n    vec3 l1 = lp1 - fragPos;\n    vec3 l2 = lp2 - fragPos;\n    float distSq1 = dot(l1, l1);\n    float distSq2 = dot(l2, l2);\n    \n    vec3 L1 = l1 * inversesqrt(distSq1);\n    vec3 L2 = l2 * inversesqrt(distSq2);\n    \n    vec3 H1 = normalize(L1 + viewDir);\n    vec3 H2 = normalize(L2 + viewDir);\n    \n    float diff1 = max(dot(normal, L1), 0.0);\n    float diff2 = max(dot(normal, L2), 0.0);\n    float spec1 = pow(max(dot(normal, H1), 0.0), shininess);\n    float spec2 = pow(max(dot(normal, H2), 0.0), shininess);\n    \n    float att1 = 1.0 / (1.0 + 10.0 * distSq1);\n    float att2 = 1.0 / (1.0 + 10.0 * distSq2);\n    \n    // Looping animated colors based on time\n    float t = time * colorSpeed;\n    vec3 animColor1 = vec3(0.5 + 0.5 * sin(t), 0.5 + 0.5 * sin(t + 2.094), 0.5 + 0.5 * sin(t + 4.188));\n    vec3 animColor2 = vec3(0.5 + 0.5 * cos(t * 1.2), 0.5 + 0.5 * cos(t * 1.2 + 2.094), 0.5 + 0.5 * cos(t * 1.2 + 4.188));\n    \n    // Combine lighting\n    vec3 ambientLight = base.rgb * ambient;\n    vec3 diffuseLight = base.rgb * (diff1 * animColor1 * att1 + diff2 * animColor2 * att2) * lightIntensity;\n    vec3 specularLight = (spec1 * animColor1 * att1 + spec2 * animColor2 * att2) * lightIntensity;\n    \n    vec3 finalColor = (ambientLight + diffuseLight + specularLight) * isNotBlack;\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), base.a);\n}",
+    uniformValues:     {
+          "lightHeight": 0.01,
+          "lightIntensity": 3,
+          "ambient": 0,
+          "shininess": 40,
+          "detail": 10,
+          "blackThreshold": 0.41,
+          "colorSpeed": 1
+    },
+  },
+  {
+    id: "timeline-56d561a6-bc92-44cd-a48e-2154db6fddcf",
+    name: "Looping Symmetrical Edge Lights",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: Looping Symmetrical Edge Lights\nuniform float light_height; // @min 0.05 @max 1.0 @default 0.3\nuniform float light_size; // @min 0.1 @max 3.0 @default 1.2\nuniform float light_intensity; // @min 0.5 @max 5.0 @default 2.0\nuniform float loop_speed; // @min 0.1 @max 5.0 @default 1.0\nuniform float edge_sensitivity; // @min 0.1 @max 20.0 @default 10.0\nuniform float threshold_black; // @min 0.0 @max 1.0 @default 0.05\nuniform float threshold_white; // @min 0.0 @max 1.0 @default 0.5\nuniform float bump_strength; // @min 0.01 @max 0.2 @default 0.1\nuniform float shininess; // @min 1.0 @max 64.0 @default 32.0\nuniform vec3 light_color; // @default 1.0,0.9,0.8\n\nfloat getLuma(vec3 rgb) {\n    return dot(rgb, vec3(0.299, 0.587, 0.114));\n}\n\nvec3 calculatePointLight(vec3 lp, vec3 p, vec3 normal, vec3 viewDir, vec3 sourceRGB, float size, float intensity, float shiny, vec3 lCol) {\n    vec3 lightDir = normalize(lp - p);\n    vec3 reflectDir = reflect(-lightDir, normal);\n    float dist = distance(lp, p);\n    float atten = pow(clamp(1.0 - dist / size, 0.0, 1.0), 2.0);\n    float diff = max(dot(normal, lightDir), 0.0);\n    float spec = pow(max(dot(viewDir, reflectDir), 0.0), shiny);\n    return (diff * sourceRGB + spec) * lCol * atten * intensity;\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 texel = 1.0 / resolution;\n    vec4 source = texture2D(tex, uv);\n    \n    // Edge detection via luminance gradients\n    float h = getLuma(source.rgb);\n    float hR = getLuma(texture2D(tex, uv + vec2(texel.x, 0.0)).rgb);\n    float hL = getLuma(texture2D(tex, uv - vec2(texel.x, 0.0)).rgb);\n    float hU = getLuma(texture2D(tex, uv + vec2(0.0, texel.y)).rgb);\n    float hD = getLuma(texture2D(tex, uv - vec2(0.0, texel.y)).rgb);\n    \n    float gx = hR - hL;\n    float gy = hU - hD;\n    \n    // Edge mask based on thresholds\n    float edgeRaw = length(vec2(gx, gy)) * edge_sensitivity;\n    float edgeMask = smoothstep(threshold_black, threshold_white, edgeRaw);\n    \n    // Surface normal for lighting\n    vec3 normal = normalize(vec3(-gx, -gy, bump_strength));\n    vec3 p = vec3(uv, 0.0);\n    vec3 viewDir = vec3(0.0, 0.0, 1.0);\n    \n    // Looping back and forth movement using sine waves\n    float t = time * loop_speed;\n    float lx = 0.5 + sin(t) * 0.4;\n    float ly = 0.5 + cos(t * 0.7) * 0.4;\n    \n    // Light 1 position\n    vec3 lp1 = vec3(lx, ly, light_height);\n    \n    // Symmetrical Light 2 position (mirrored across the center 0.5, 0.5)\n    vec3 lp2 = vec3(1.0 - lx, 1.0 - ly, light_height);\n    \n    // Calculate lighting for both symmetrical sources\n    vec3 light1 = calculatePointLight(lp1, p, normal, viewDir, source.rgb, light_size, light_intensity, shininess, light_color);\n    vec3 light2 = calculatePointLight(lp2, p, normal, viewDir, source.rgb, light_size, light_intensity, shininess, light_color);\n    \n    // Combine lights and apply the edge threshold mask\n    vec3 finalRGB = (light1 + light2) * edgeMask;\n    \n    // Add a subtle ambient glow to the edges to maintain visibility\n    finalRGB += source.rgb * edgeMask * 0.05;\n    \n    return vec4(finalRGB, source.a);\n}",
+    uniformValues:     {
+          "light_height": 0.05,
+          "light_size": 1.144,
+          "light_intensity": 1.085,
+          "loop_speed": 4.461,
+          "edge_sensitivity": 20,
+          "threshold_black": 0.02,
+          "threshold_white": 0.17,
+          "bump_strength": 0.0974,
+          "shininess": 64,
+          "light_color": [
+                0.8980392156862745,
+                0.9019607843137255,
+                1
+          ]
+    },
+  },
+  {
+    id: "timeline-5bbbc915-ac20-4bd9-bb37-bf7969863d59",
+    name: "Random 3D Wide Light",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: Random 3D Wide Light\nuniform float speed; // @min 0.1 @max 5.0 @default 1.0\nuniform float range; // @min 1.0 @max 15.0 @default 8.0\nuniform float brightness; // @min 0.0 @max 10.0 @default 4.5\nuniform float depth_scale; // @min 0.1 @max 3.0 @default 1.5\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec4 source = texture2D(tex, uv);\n    \n    // Base time for noise sampling\n    float t = time * speed * 0.5;\n    \n    // Randomly looping position (X, Y)\n    vec2 light_uv = vec2(\n        node_noise(vec2(t, 12.34)),\n        node_noise(vec2(t, 56.78))\n    );\n    light_uv = 0.05 + light_uv * 0.9; // Keep light mostly on screen\n    \n    // Randomly looping depth (Z)\n    // Higher Z values create a wider, more diffused \"blurred\" look\n    float dynamic_z = 0.1 + node_noise(vec2(t, 91.01)) * depth_scale;\n    \n    // Randomly looping color\n    vec3 dynamic_color = vec3(\n        node_noise(vec2(t * 0.8, 0.5)),\n        node_noise(vec2(t * 0.8, 1.5)),\n        node_noise(vec2(t * 0.8, 2.5))\n    );\n    // Boost saturation and ensure it's not too dark\n    dynamic_color = normalize(dynamic_color + 0.3);\n    \n    // 3D Surface interaction: use luminance as a height map\n    float luma = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    vec3 surfacePos = vec3(uv * aspect, luma * 0.15);\n    vec3 lightPos = vec3(light_uv * aspect, dynamic_z);\n    \n    // Calculate distance in 3D space\n    float dist = length(lightPos - surfacePos);\n    \n    // Super wide and blurred attenuation using dual-exponential falloff\n    // This simulates a thick volumetric glow\n    float falloff = dist / range;\n    float attenuation = exp(-falloff * falloff * 2.2) * 0.8 + exp(-falloff * 1.2) * 0.4;\n    \n    // Combine lighting with the source texture\n    // 0.12 ambient factor to keep the original image visible in shadows\n    vec3 lighting = dynamic_color * attenuation * brightness;\n    vec3 finalRGB = source.rgb * (lighting + 0.12);\n    \n    return vec4(finalRGB, source.a);\n}",
+    uniformValues:     {
+          "speed": 25.07,
+          "range": 0.738,
+          "brightness": 3.05,
+          "depth_scale": 1.5
+    },
+  },
+  {
+    id: "timeline-ad5f3952-e928-4040-9141-32e25711569a",
+    name: "Random Light Shadow BPM",
+    template: "stage",
+    group: "Lights",
+    description: "Recovered from the project timeline for the Lights stage collection.",
+    code: "// NAME: Random Light Shadow BPM\nuniform float bpm; // @min 1.0 @max 240.0 @default 120.0\nuniform float light_z; // @min 0.01 @max 1.0 @default 0.15\nuniform float intensity; // @min 0.0 @max 10.0 @default 5.0\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.1\nuniform float bump; // @min 0.001 @max 0.2 @default 0.05\nuniform float speed; // @min 0.1 @max 2.0 @default 1.0\nuniform float lightspped; // @min 0.0 @max 10.0 @default 1.0\nuniform float edge_glow; // @min 0.0 @max 5.0 @default 1.5\nuniform float shadow_strength; // @min 0.0 @max 1.0 @default 0.8\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 texel = 1.0 / resolution;\n    vec4 source = texture2D(tex, uv);\n    \n    // Calculate beat-based timing for light position jumps\n    float beat = floor(time * (bpm / 60.0) * speed * lightspped);\n    \n    // Generate random light position per beat\n    vec2 lp = vec2(\n        node_rand(vec2(beat, 12.345)),\n        node_rand(vec2(beat, 67.890))\n    );\n    \n    // Luminance for bump mapping and shadow calculation\n    vec3 lumWeight = vec3(0.299, 0.587, 0.114);\n    float l = dot(source.rgb, lumWeight);\n    float lx = dot(texture2D(tex, uv + vec2(texel.x, 0.0)).rgb, lumWeight);\n    float ly = dot(texture2D(tex, uv + vec2(0.0, texel.y)).rgb, lumWeight);\n    \n    // Normal calculation\n    vec2 grad = vec2(l - lx, l - ly);\n    vec3 normal = normalize(vec3(grad, bump));\n    \n    // Lighting vectors\n    vec3 lightPos3D = vec3(lp, light_z);\n    vec3 fragPos3D = vec3(uv, l * bump);\n    vec3 dir = normalize(lightPos3D - fragPos3D);\n    \n    // Shadow Raymarching (8 steps)\n    float shadow = 1.0;\n    float currentH = l * bump;\n    vec2 rayStep = (lp - uv) * 0.125; // 1/8th steps\n    \n    for (int i = 1; i <= 8; i++) {\n        vec2 sampleUv = uv + rayStep * float(i);\n        float sampleHeight = dot(texture2D(tex, sampleUv).rgb, lumWeight) * bump;\n        float rayHeight = mix(currentH, light_z, float(i) * 0.125);\n        if (sampleHeight > rayHeight) {\n            shadow = 1.0 - shadow_strength;\n            break;\n        }\n    }\n    \n    // Attenuation and Diffuse\n    float dist = distance(lightPos3D, fragPos3D);\n    float atten = 1.0 / (1.0 + dist * dist * 20.0);\n    float diff = max(dot(normal, dir), 0.0);\n    \n    // Edge detection for glow\n    float edge = length(grad) * edge_glow * 10.0;\n    \n    // Final composition\n    // Fixed: directLight must be a float to be added to ambient (float)\n    float directLight = (diff * intensity * atten) * shadow;\n    vec3 lighting = source.rgb * (ambient + directLight);\n    \n    // Fixed: lighting is vec3, so we must add a vec3\n    lighting += vec3(edge * atten * intensity * shadow);\n    \n    return vec4(lighting, source.a);\n}",
+    uniformValues:     {
+          "bpm": 44.02,
+          "light_z": 0.01,
+          "intensity": 2,
+          "ambient": 0,
+          "bump": 0.2,
+          "speed": 0.86,
+          "lightspped": 9.8,
+          "edge_glow": 0.05,
+          "shadow_strength": 0.5
+    },
+  },
+  {
+    id: "timeline-70e7865e-7410-47b8-be47-4916023e12e5",
+    name: "Hexagon Dance Overlay",
+    template: "stage",
+    group: "Geometry",
+    description: "Recovered from the project timeline for the Geometry stage collection.",
+    code: "// NAME: Hexagon Dance Overlay\nuniform float speed; // @min 0.0 @max 5.0 @default 1.0\nuniform float intensity; // @min 0.0 @max 3.0 @default 1.0\nuniform float scale; // @min 0.1 @max 5.0 @default 0.3\n\n#define R3 1.732051\n\nvec4 HexCoords(vec2 uv) {\n    vec2 s = vec2(1.0, R3);\n    vec2 h = 0.5 * s;\n    vec2 gv = s * uv;\n    vec2 a = mod(gv, s) - h;\n    vec2 b = mod(gv + h, s) - h;\n    vec2 ab = dot(a, a) < dot(b, b) ? a : b;\n    return vec4(ab, gv - ab);\n}\n\nfloat GetSize(vec2 id, float seed, float time) {\n    float d = length(id);\n    float t = time * 0.5;\n    float a = sin(d * seed + t) + sin(d * seed * seed * 10.0 + t * 2.0);\n    return a / 2.0 + 0.5;\n}\n\nmat2 Rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat Hexagon(vec2 uv, float r, float time) {\n    uv *= Rot(mix(0.0, 3.1415, r));\n    r /= 0.7071;\n    uv = vec2(-uv.y, uv.x);\n    uv.x *= R3;\n    uv = abs(uv);\n    float d = dot(uv, normalize(vec2(1.0, 1.0))) - r;\n    d = max(d, uv.y - r * 0.707);\n    d = smoothstep(0.06, 0.02, abs(d));\n    d += smoothstep(0.1, 0.09, abs(r - 0.5)) * sin(time);\n    return d;\n}\n\nfloat Layer(vec2 uv, float s, float time) {\n    vec4 hu = HexCoords(uv * 2.0);\n    float d = Hexagon(hu.xy, GetSize(hu.zw, s, time), time);\n    vec2 offs = vec2(1.0, 0.0);\n    d += Hexagon(hu.xy - offs, GetSize(hu.zw + offs, s, time), time);\n    d += Hexagon(hu.xy + offs, GetSize(hu.zw - offs, s, time), time);\n    offs = vec2(0.5, 0.8725);\n    d += Hexagon(hu.xy - offs, GetSize(hu.zw + offs, s, time), time);\n    d += Hexagon(hu.xy + offs, GetSize(hu.zw - offs, s, time), time);\n    offs = vec2(-0.5, 0.8725);\n    d += Hexagon(hu.xy - offs, GetSize(hu.zw + offs, s, time), time);\n    d += Hexagon(hu.xy + offs, GetSize(hu.zw - offs, s, time), time);\n    return d;\n}\n\nfloat N(float p) {\n    return fract(sin(p * 123.34) * 345.456);\n}\n\nvec3 Col(float p, float offs) {\n    float n = N(p) * 1234.34;\n    return sin(n * vec3(12.23, 45.23, 56.2) + offs * 3.0) * 0.5 + 0.5;\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec2 UV = uv - 0.5;\n    UV.x *= resolution.x / resolution.y;\n    float duv = dot(UV, UV);\n    \n    float t = time * speed * 0.5 + 5.0;\n    vec2 p_uv = UV * mix(1.0, 5.0, sin(t * 0.5) * 0.5 + 0.5) * scale;\n    p_uv *= Rot(t);\n    p_uv.x *= R3;\n    \n    vec3 col = vec3(0.0);\n    for(float i = 0.0; i < 1.0; i += 0.3333) {\n        float id = floor(i + t);\n        float ft = fract(i + t);\n        float z = mix(5.0, 0.1, ft);\n        float fade = smoothstep(0.0, 0.3, ft) * smoothstep(1.0, 0.7, ft);\n        col += fade * ft * Layer(p_uv * z, N(i + id), time) * Col(id, duv);\n    }\n    \n    col *= 2.0 * intensity;\n    \n    // Calculate luminance to mask out black pixels\n    float lum = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    float mask = smoothstep(0.01, 0.05, lum);\n    \n    // Only show the original color where the hexagon effect is illuminating\n    float illumination = clamp(length(col), 0.0, 1.0);\n    vec3 finalColor = (source.rgb * illumination) + (col * mask);\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "speed": 5,
+          "intensity": 0.12,
+          "scale": 0.541
+    },
+  },
+  {
+    id: "timeline-55b3e5cd-b477-4347-a033-9331938c2f4b",
+    name: "Horizontal Symmetrical Hexagon",
+    template: "stage",
+    group: "Geometry",
+    description: "Recovered from the project timeline for the Geometry stage collection.",
+    code: "// NAME: Horizontal Symmetrical Hexagon\nuniform float speed; // @min 0.0 @max 5.0 @default 1.0\nuniform float intensity; // @min 0.0 @max 1.5 @default 0.5\nuniform float scale; // @min 0.1 @max 5.0 @default 0.3\nuniform float effectAmount; // @min 0.0 @max 1.0 @default 1.0\nuniform float blackLineScale; // @min 0.01 @max 1.0 @default 0.15\nuniform float blackLineThickness; // @min 0.01 @max 2.0 @default 0.1\nuniform float blackLineSpeed; // @min -5.0 @max 5.0 @default -1.0\nuniform float blackLineBlur; // @min 0.0 @max 2.0 @default 0.5\n\n#define R3 1.732051\n\nvec4 HexCoords(vec2 uv) {\n    vec2 s = vec2(1.0, R3);\n    vec2 h = 0.5 * s;\n    vec2 gv = s * uv;\n    vec2 a = mod(gv, s) - h;\n    vec2 b = mod(gv + h, s) - h;\n    vec2 ab = dot(a, a) < dot(b, b) ? a : b;\n    return vec4(ab, gv - ab);\n}\n\nfloat GetSize(vec2 id, float seed, float time) {\n    float d = length(id);\n    float t = time * 0.5;\n    return (sin(d * seed + t) + sin(d * seed * seed * 10.0 + t * 2.0)) / 2.0 + 0.5;\n}\n\nmat2 Rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat Hexagon(vec2 uv, float r, float time, float thickness, float blur) {\n    uv *= Rot(mix(0.0, 3.1415, r));\n    r /= 0.7071;\n    uv = vec2(-uv.y, uv.x);\n    uv.x *= R3;\n    uv = abs(uv);\n    float d = dot(uv, normalize(vec2(1.0, 1.0))) - r;\n    d = max(d, uv.y - r * 0.707);\n    \n    float edge = smoothstep(0.06 * thickness + blur, 0.02 * thickness, abs(d));\n    float glow = smoothstep(0.25 * thickness + blur, 0.0, abs(d)) * 2.5;\n    \n    return edge + glow + smoothstep(0.1 * thickness + blur, 0.09 * thickness, abs(r - 0.5)) * sin(time);\n}\n\nfloat Layer(vec2 uv, float s, float time, float thickness, float blur) {\n    vec4 hu = HexCoords(uv * 2.0);\n    float d = Hexagon(hu.xy, GetSize(hu.zw, s, time), time, thickness, blur);\n    vec2 offs = vec2(1.0, 0.0);\n    d += Hexagon(hu.xy - offs, GetSize(hu.zw + offs, s, time), time, thickness, blur);\n    d += Hexagon(hu.xy + offs, GetSize(hu.zw - offs, s, time), time, thickness, blur);\n    offs = vec2(0.5, 0.8725);\n    d += Hexagon(hu.xy - offs, GetSize(hu.zw + offs, s, time), time, thickness, blur);\n    d += Hexagon(hu.xy + offs, GetSize(hu.zw - offs, s, time), time, thickness, blur);\n    offs = vec2(-0.5, 0.8725);\n    d += Hexagon(hu.xy - offs, GetSize(hu.zw + offs, s, time), time, thickness, blur);\n    d += Hexagon(hu.xy + offs, GetSize(hu.zw - offs, s, time), time, thickness, blur);\n    return d;\n}\n\nfloat N(float p) {\n    return fract(sin(p * 123.34) * 345.456);\n}\n\nvec3 Col(float p, float offs) {\n    float n = N(p) * 1234.34;\n    return sin(n * vec3(12.23, 45.23, 56.2) + offs * 3.0) * 0.5 + 0.5;\n}\n\nvec3 GetAnimColor(vec2 UV, float time, float duv, float thickness, float blur, float timeMult) {\n    float t = time * speed * timeMult * 0.5 + 5.0;\n    vec2 p_uv = UV * mix(1.0, 5.0, sin(t * 0.5) * 0.5 + 0.5) * scale;\n    p_uv *= Rot(t);\n    p_uv.x *= R3;\n    \n    vec3 col = vec3(0.0);\n    for(float i = 0.0; i < 1.0; i += 0.3333) {\n        float id = floor(i + t);\n        float ft = fract(i + t);\n        float z = mix(5.0, 0.1, ft);\n        float fade = smoothstep(0.0, 0.3, ft) * smoothstep(1.0, 0.7, ft);\n        col += fade * ft * Layer(p_uv * z, N(i + id), time, thickness, blur) * Col(id, duv);\n    }\n    return col;\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec2 UV = uv - 0.5;\n    UV.x *= resolution.x / resolution.y;\n    float duv = dot(UV, UV);\n    \n    // Make the effect symmetrical only horizontally\n    UV.x = abs(UV.x);\n    \n    vec3 col1 = GetAnimColor(UV, time, duv, 1.0, 0.0, 1.0);\n    vec3 illuminatedColor = source.rgb * col1 * 2.0 * intensity;\n    float illumFactor = clamp(length(col1 * intensity), 0.0, 1.0);\n    \n    vec3 invertedSource = 1.0 - source.rgb;\n    float brightness = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    invertedSource *= smoothstep(0.05, 0.2, brightness);\n    \n    vec3 effectColor = mix(invertedSource, illuminatedColor, illumFactor);\n    vec3 finalColor = mix(source.rgb, effectColor, effectAmount);\n    \n    float whiteness = min(finalColor.r, min(finalColor.g, finalColor.b));\n    float mask = smoothstep(0.8, 1.0, whiteness);\n    \n    if (mask > 0.0) {\n        vec3 col2 = GetAnimColor(UV, time, duv, 1.0, 0.0, -1.0);\n        vec3 reverseIlluminated = source.rgb * col2 * 2.0 * intensity;\n        finalColor = mix(finalColor, reverseIlluminated, mask);\n    }\n    \n    vec3 col3 = GetAnimColor(UV * blackLineScale, time, duv, blackLineThickness, blackLineBlur, blackLineSpeed);\n    float blackMask = smoothstep(0.2, 0.8, length(col3));\n    finalColor = mix(finalColor, vec3(0.0), blackMask * effectAmount * 0.85);\n    \n    return vec4(clamp(finalColor, 0.0, 1.0), source.a);\n}",
+    uniformValues:     {
+          "speed": 1,
+          "intensity": 0.225,
+          "scale": 0.982,
+          "effectAmount": 1,
+          "blackLineScale": 0.2476,
+          "blackLineThickness": 0.2289,
+          "blackLineSpeed": -0.1,
+          "blackLineBlur": 0.08
+    },
+  },
+  {
+    id: "timeline-d51c1add-1169-4272-9bb7-23700555a0ea",
+    name: "Infinity Cube",
+    template: "stage",
+    group: "Geometry",
+    description: "Recovered from the project timeline for the Geometry stage collection.",
+    code: "// NAME: Infinity Cube\nuniform float size; // @min 0.1 @max 1.0 @default 0.5\nuniform float thickness; // @min 0.005 @max 0.05 @default 0.01\nuniform float speed; // @min 0.1 @max 3.0 @default 1.0\nuniform vec3 cubeColor; // @default 0.0,0.8,1.0\n\nmat2 node_rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat sdFrame(vec3 p, float s, float e) {\n    p = abs(p) - s;\n    vec3 q = abs(p + e) - e;\n    return min(min(\n        length(max(vec3(p.x, q.y, q.z), 0.0)) + min(max(p.x, max(q.y, q.z)), 0.0),\n        length(max(vec3(q.x, p.y, q.z), 0.0)) + min(max(q.x, max(p.y, q.z)), 0.0)),\n        length(max(vec3(q.x, q.y, p.z), 0.0)) + min(max(q.x, max(q.y, p.z)), 0.0));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    \n    vec3 ro = vec3(0.0, 0.0, 2.5);\n    vec3 rd = normalize(vec3(p, -1.5));\n    \n    float t = 0.0;\n    float glow = 0.0;\n    float d = 0.0;\n    \n    for(int i = 0; i < 32; i++) {\n        vec3 pos = ro + rd * t;\n        float dScene = 10.0;\n        \n        // Create 3 nested rotating frames\n        for(int j = 0; j < 3; j++) {\n            float fj = float(j);\n            vec3 q = pos;\n            q.xy *= node_rot(time * speed * (0.4 + fj * 0.15));\n            q.xz *= node_rot(time * speed * (0.7 + fj * 0.1));\n            float currentSize = size * (1.0 - fj * 0.25);\n            dScene = min(dScene, sdFrame(q, currentSize, thickness));\n        }\n        \n        d = dScene;\n        if(d < 0.001 || t > 5.0) break;\n        t += d;\n        glow += 0.015 / (d + 0.04);\n    }\n    \n    vec4 src = texture2D(tex, uv);\n    vec3 col = cubeColor * glow;\n    \n    // Add a sharp edge highlight if we hit the surface\n    if(d < 0.01) {\n        col += cubeColor * 0.4;\n    }\n    \n    return vec4(src.rgb + col, src.a);\n}",
+    uniformValues:     {
+          "size": 0.5,
+          "thickness": 0.01,
+          "speed": 1,
+          "cubeColor": [
+                0,
+                0.8,
+                1
+          ]
+    },
+  },
+  {
+    id: "timeline-32a93fd2-344c-46c8-84cd-57714f3de955",
+    name: "Infinity Cube Delayed",
+    template: "stage",
+    group: "Geometry",
+    description: "Recovered from the project timeline for the Geometry stage collection.",
+    code: "// NAME: Infinity Cube Delayed\nuniform float size; // @min 0.1 @max 1.0 @default 0.4\nuniform float thickness; // @min 0.005 @max 0.05 @default 0.01\nuniform float speed; // @min 0.1 @max 3.0 @default 1.0\nuniform float delay; // @min 0.0 @max 2.0 @default 0.5\nuniform float glow; // @min 0.001 @max 0.01 @default 0.003\nuniform float blackThreshold; // @min 0.0 @max 1.0 @default 0.02\nuniform float spacing; // @min 1.5 @max 5.0 @default 2.5\nuniform float nearClip; // @min 0.0 @max 15.0 @default 3.0\nuniform float farClip; // @min 5.0 @max 30.0 @default 15.0\nuniform float count; // @min 0.0 @max 5.0 @default 2.0\nuniform float sourceMix; // @min 0.0 @max 1.0 @default 1.0\nuniform vec3 color1; // @default 1.0,0.2,0.2\nuniform vec3 color2; // @default 0.2,1.0,0.2\nuniform vec3 color3; // @default 0.2,0.2,1.0\n\nmat2 node_rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat sdFrame(vec3 p, float s, float e) {\n    p = abs(p) - s;\n    vec3 q = abs(p + e) - e;\n    return min(min(\n        length(max(vec3(p.x, q.y, q.z), 0.0)) + min(max(p.x, max(q.y, q.z)), 0.0),\n        length(max(vec3(q.x, p.y, q.z), 0.0)) + min(max(q.x, max(p.y, q.z)), 0.0)),\n        length(max(vec3(q.x, q.y, p.z), 0.0)) + min(max(q.x, max(q.y, p.z)), 0.0));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 src = texture2D(tex, uv);\n    if (max(src.r, max(src.g, src.b)) <= blackThreshold) return src;\n\n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    vec3 ro = vec3(0.0, 0.0, 5.0), rd = normalize(vec3(p, -2.0)), glowCol = vec3(0.0);\n    float t = 0.0, animCount = (0.5 + 0.5 * sin(time * speed)) * count;\n    \n    for(int i = 0; i < 40; i++) {\n        vec3 pos = ro + rd * t;\n        vec3 cell = floor(pos / spacing + 0.5);\n        vec3 clampedCell = clamp(cell, -animCount, animCount);\n        vec3 q = pos - clampedCell * spacing;\n        \n        float distCenter = length(clampedCell * spacing);\n        float rotBase = time * speed - distCenter * delay;\n        float colorVal = distCenter * 0.4 - time * speed;\n        \n        vec3 c1 = mix(color1, color2, 0.5 + 0.5 * sin(colorVal));\n        vec3 c2 = mix(color2, color3, 0.5 + 0.5 * sin(colorVal + 2.0));\n        vec3 c3 = mix(color3, color1, 0.5 + 0.5 * sin(colorVal + 4.0));\n\n        vec3 q1 = q; q1.xy *= node_rot(rotBase * 0.4); q1.xz *= node_rot(rotBase * 0.7);\n        float d1 = sdFrame(q1, size, thickness);\n        \n        vec3 q2 = q; q2.xy *= node_rot(rotBase * 0.55); q2.xz *= node_rot(rotBase * 0.8);\n        float d2 = sdFrame(q2, size * 0.7, thickness);\n        \n        vec3 q3 = q; q3.xy *= node_rot(rotBase * 0.7); q3.xz *= node_rot(rotBase * 0.9);\n        float d3 = sdFrame(q3, size * 0.4, thickness);\n        \n        float dScene = min(d1, min(d2, d3));\n        float fade = smoothstep(nearClip, nearClip + 0.5, t) * (1.0 - smoothstep(farClip - 2.0, farClip, t));\n        \n        glowCol += fade * c1 * (glow / (d1 + 0.04));\n        glowCol += fade * c2 * (glow / (d2 + 0.04));\n        glowCol += fade * c3 * (glow / (d3 + 0.04));\n        \n        if(t > farClip || (t > nearClip && dScene < 0.001)) break;\n        t += (t < nearClip) ? max(dScene, 0.2) : dScene * 0.8;\n    }\n    \n    return vec4(src.rgb * sourceMix + glowCol, src.a);\n}",
+    uniformValues:     {
+          "size": 0.4,
+          "thickness": 0.01,
+          "speed": 1,
+          "delay": 0.5,
+          "glow": 0.003,
+          "blackThreshold": 0.17,
+          "spacing": 2.5,
+          "nearClip": 3,
+          "farClip": 15,
+          "count": 2,
+          "sourceMix": 1,
+          "color1": [
+                1,
+                0.2,
+                0.2
+          ],
+          "color2": [
+                0.2,
+                1,
+                0.2
+          ],
+          "color3": [
+                0.2,
+                0.2,
+                1
+          ]
+    },
+  },
+  {
+    id: "timeline-5ddb167c-cec8-4897-aa0a-1c8d0c586bb4",
+    name: "Animated Dot Grid",
+    template: "stage",
+    group: "Dots & Grids",
+    description: "Recovered from the project timeline for the Dots & Grids stage collection.",
+    code: "// NAME: Animated Dot Grid\nuniform float gridDensity; // @min 5.0 @max 100.0 @default 40.0\nuniform float growSpeed; // @min 0.1 @max 5.0 @default 1.0\nuniform float maxDistance; // @min 0.05 @max 0.5 @default 0.4\nuniform float animationDelay; // @min 0.0 @max 2.0 @default 0.2\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Sample the original texture\n    vec4 source = texture2D(tex, uv);\n    \n    // Calculate aspect ratio to keep dots circular\n    float aspect = resolution.x / resolution.y;\n    vec2 gridUv = uv * gridDensity;\n    gridUv.x *= aspect;\n    \n    // Identify the grid cell and local position within the cell\n    vec2 cellId = floor(gridUv);\n    vec2 localPos = fract(gridUv) - 0.5;\n    \n    // Calculate animation phase with spatial delay\n    // Using both x and y for the delay creates a diagonal wave effect\n    float delay = (cellId.x + cellId.y) * animationDelay;\n    float phase = fract(time * growSpeed + delay);\n    \n    // Calculate the current radius of the dot based on the animation phase\n    float radius = phase * maxDistance;\n    \n    // Calculate the dot mask using distance from cell center\n    float dist = length(localPos);\n    // Smoothstep for anti-aliasing\n    float dotMask = 1.0 - smoothstep(radius - 0.02, radius + 0.02, dist);\n    \n    // Determine if the pixel is \"colored\" (has enough brightness or alpha)\n    float brightness = (source.r + source.g + source.b) / 3.0;\n    float isColored = step(0.05, brightness) * step(0.05, source.a);\n    \n    // Apply the dot mask only to colored areas\n    // Pixels that are not colored or are outside the dot radius become transparent/black\n    return source * dotMask * isColored;\n}",
+    uniformValues:     {
+          "gridDensity": 61.05,
+          "growSpeed": 1.031,
+          "maxDistance": 0.113,
+          "animationDelay": 0.52
+    },
+  },
+  {
+    id: "timeline-9d21b00c-cea9-4748-b8c1-fd6f6fe3c51a",
+    name: "Dynamic Transparent Dot Grid",
+    template: "stage",
+    group: "Dots & Grids",
+    description: "Recovered from the project timeline for the Dots & Grids stage collection.",
+    code: "// NAME: Dynamic Transparent Dot Grid\nuniform float gridDensity; // @min 5.0 @max 100.0 @default 40.0\nuniform float growSpeed; // @min 0.1 @max 5.0 @default 1.0\nuniform float maxDistance; // @min 0.05 @max 0.5 @default 0.4\nuniform float animationDelay; // @min 0.0 @max 2.0 @default 0.2\nuniform float inclination; // @min -3.0 @max 6.0 @default 0.3\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Apply horizontal symmetry to the UV coordinates\n    vec2 symUv = vec2(0.5 - abs(uv.x - 0.5), uv.y);\n    \n    // Sample the original texture using the mirrored UV\n    vec4 source = texture2D(tex, symUv);\n    \n    // Calculate aspect ratio to keep dots circular\n    float aspect = resolution.x / resolution.y;\n    \n    // Setup grid coordinates with aspect correction and inclination\n    vec2 gridUv = symUv * gridDensity;\n    gridUv.x *= aspect;\n    gridUv.x += gridUv.y * inclination;\n    \n    // Identify the grid cell and local position within the cell\n    vec2 cellId = floor(gridUv);\n    vec2 localPos = fract(gridUv) - 0.5;\n    \n    // Calculate animation phase (0.0 to 1.0) with spatial delay\n    float delay = (cellId.x + cellId.y) * animationDelay;\n    float phase = fract(time * growSpeed + delay);\n    \n    // Calculate the current radius and the transparency factor\n    // As phase increases, radius increases and transparency increases (alpha decreases)\n    float radius = phase * maxDistance;\n    float transparency = 1.0 - phase;\n    \n    // Calculate the dot mask using distance from cell center\n    float dist = length(localPos);\n    float dotMask = 1.0 - smoothstep(radius - 0.02, radius + 0.02, dist);\n    \n    // Determine if the pixel is \"colored\" based on source brightness/alpha\n    float brightness = (source.r + source.g + source.b) / 3.0;\n    float isColored = step(0.05, brightness) * step(0.05, source.a);\n    \n    // Change color based on size: interpolate towards a shifted version of the source color\n    vec3 shiftedColor = mix(source.rgb, vec3(source.b, source.r, source.g), phase);\n    \n    // Combine color shift, transparency, and the dot mask\n    vec4 finalColor = vec4(shiftedColor, source.a * transparency);\n    \n    return finalColor * dotMask * isColored;\n}",
+    uniformValues:     {
+          "gridDensity": 46.8,
+          "growSpeed": 1.668,
+          "maxDistance": 0.5,
+          "animationDelay": 0.08,
+          "inclination": 2.49
+    },
+  },
+  {
+    id: "timeline-dcb8e1d4-4e8b-454a-8186-7e42fddfd3ba",
+    name: "Edge Flowing Rotating Fat Dots",
+    template: "stage",
+    group: "Dots & Grids",
+    description: "Recovered from the project timeline for the Dots & Grids stage collection.",
+    code: "// NAME: Edge Flowing Rotating Fat Dots\nuniform float speed; // @min -10.0 @max 10.0 @default 5.0\nuniform float dotDensity; // @min 10.0 @max 100.0 @default 40.0\nuniform float dotSize; // @min 0.1 @max 1.0 @default 0.7\nuniform float edgeThickness; // @min 1.0 @max 10.0 @default 3.0\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 baseColor = texture2D(tex, uv);\n\n    // Scale the offset by edgeThickness to create a wider \"edge zone\"\n    vec2 off = (1.0 / resolution) * edgeThickness;\n    \n    // Sample 8 neighboring pixels for edge detection (using the red channel for luminance)\n    float t00 = texture2D(tex, uv + vec2(-off.x, -off.y)).r;\n    float t10 = texture2D(tex, uv + vec2( 0.0,   -off.y)).r;\n    float t20 = texture2D(tex, uv + vec2( off.x, -off.y)).r;\n    float t01 = texture2D(tex, uv + vec2(-off.x,  0.0)).r;\n    float t21 = texture2D(tex, uv + vec2( off.x,  0.0)).r;\n    float t02 = texture2D(tex, uv + vec2(-off.x,  off.y)).r;\n    float t12 = texture2D(tex, uv + vec2( 0.0,    off.y)).r;\n    float t22 = texture2D(tex, uv + vec2( off.x,  off.y)).r;\n\n    // Apply Sobel operators\n    float gx = (t00 + 2.0 * t01 + t02) - (t20 + 2.0 * t21 + t22);\n    float gy = (t00 + 2.0 * t10 + t20) - (t02 + 2.0 * t12 + t22);\n    \n    // Calculate edge intensity\n    float edge = length(vec2(gx, gy));\n    \n    // Soften and expand the edge mask to create a walkable \"zone\" for the dots\n    float edgeZone = smoothstep(0.1, 0.6, edge);\n\n    // The Normal vector points ACROSS the edge. \n    // The Tangent vector points ALONG the edge. Adding a tiny fraction avoids division by zero.\n    vec2 tangent = normalize(vec2(-gy, gx) + 0.00001);\n    vec2 normal = normalize(vec2(gx, gy) + 0.00001);\n\n    // 1. Calculate movement traveling along the edge path\n    float travelPos = dot(uv, tangent) * dotDensity + (time * speed);\n    \n    // 2. Calculate the cross-section coordinate (across the edge thickness)\n    float crossPos = dot(uv, normal) * dotDensity;\n\n    // Combine into a local 2D coordinate system aligned with the edge\n    vec2 localSpace = vec2(travelPos, crossPos);\n\n    // Create a rotation matrix based on time to make the dots rotate/tumble\n    float spin = time * speed * 1.5;\n    float s = sin(spin);\n    float c = cos(spin);\n    mat2 rotMatrix = mat2(c, -s, s, c);\n    \n    // Apply the rotation to our local edge-aligned space\n    vec2 rotatedSpace = rotMatrix * localSpace;\n\n    // Generate the blob/dot shape using intersecting sine waves on the rotated space\n    float dotPattern = sin(rotatedSpace.x) * sin(rotatedSpace.y);\n    \n    // Threshold the pattern to create isolated, \"fat\" dots. \n    // A wider smoothstep based on dotSize makes them larger and thicker.\n    float dots = smoothstep(1.0 - dotSize, 1.0 - dotSize + 0.15, dotPattern);\n\n    // Constrain the dots strictly to the edge zone\n    float finalMask = dots * edgeZone;\n\n    // Soft light base from the original image (dimmed to make dots pop)\n    vec3 softLight = baseColor.rgb * 0.3;\n    \n    // Highlight lines colored based on the original image color (brightened)\n    vec3 dotColor = clamp(baseColor.rgb + vec3(0.4), 0.0, 1.0);\n    vec3 highlight = dotColor * finalMask * 2.5;\n    \n    // Combine soft background and animated fat dots\n    vec3 finalColor = softLight + highlight;\n    \n    return vec4(finalColor, baseColor.a);\n}",
+    uniformValues:     {
+          "speed": -9,
+          "dotDensity": 10,
+          "dotSize": 0.1,
+          "edgeThickness": 9.91
+    },
+  },
+  {
+    id: "timeline-b1f34764-81e0-4824-9382-3f9c1a4a23bf",
+    name: "Grid Drive Color Range",
+    template: "stage",
+    group: "Dots & Grids",
+    description: "Recovered from the project timeline for the Dots & Grids stage collection.",
+    code: "// NAME: Grid Drive Color Range\nuniform vec3 target_color; // @default 0.0,0.0,0.0\nuniform float color_threshold; // @min 0.0 @max 2.0 @default 0.3\nuniform float color_smoothness; // @min 0.001 @max 1.0 @default 0.1\nuniform float spped; // @min 0.0 @max 1.0 @default 0.5\n\n#define PI 3.141592654\n\nmat2 rot(float x) {\n    return mat2(cos(x), sin(x), -sin(x), cos(x));\n}\n\nvec2 foldRotate(in vec2 p, in float s) {\n    float a = PI / s - atan(p.x, p.y);\n    float n = PI * 2.0 / s;\n    a = floor(a / n) * n;\n    p *= rot(a);\n    return p;\n}\n\nfloat sdRect(vec2 p, vec2 b) {\n    vec2 d = abs(p) - b;\n    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));\n}\n\nfloat tex_func(vec2 p, float z) {\n    p = foldRotate(p, 8.0);\n    vec2 q = (fract(p / 10.0) - 0.5) * 10.0;\n    for (int i = 0; i < 3; ++i) {\n        for(int j = 0; j < 2; j++) {\n            q = abs(q) - 0.25;\n            q *= rot(PI * 0.25);\n        }\n        q = abs(q) - vec2(1.0, 1.5);\n        q *= rot(PI * 0.25 * z);\n        q = foldRotate(q, 3.0);  \n    }\n    float d = sdRect(q, vec2(1.0, 1.0));\n    float f = 1.0 / (1.0 + abs(d));\n    return smoothstep(0.9, 1.0, f);\n}\n\nfloat Bokeh(vec2 p, vec2 sp, float size, float mi, float blur) {\n    float d = length(p - sp);\n    float c = smoothstep(size, size * (1.0 - blur), d);\n    c *= mix(mi, 1.0, smoothstep(size * 0.8, size, d));\n    return c;\n}\n\nvec2 hash(vec2 p) {\n    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));\n    return fract(sin(p) * 43758.5453) * 2.0 - 1.0;\n}\n\nfloat dirt(vec2 uv, float n) {\n    vec2 p = fract(uv * n);\n    vec2 st = (floor(uv * n) + 0.5) / n;\n    vec2 rnd = hash(st);\n    return Bokeh(p, vec2(0.5) + vec2(0.2) * rnd, 0.05, abs(rnd.y * 0.4) + 0.3, 0.25 + rnd.x * rnd.y * 0.2);\n}\n\nfloat sm(float start, float end, float t, float smo) {\n    return smoothstep(start, start + smo, t) - smoothstep(end - smo, end, t);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    \n    // Calculate distance from current pixel color to the target color\n    float dist = distance(source.rgb, target_color);\n    \n    // Mask to apply effect only within the chosen color range threshold\n    float mask = 1.0 - smoothstep(color_threshold, color_threshold + color_smoothness, dist);\n    \n    if (mask <= 0.0) {\n        return vec4(0.0, 0.0, 0.0, source.a);\n    }\n    \n    vec2 p_uv = uv * 2.0 - 1.0;\n    p_uv.x *= resolution.x / resolution.y;\n    p_uv *= 2.0;\n    \n    vec3 col = vec3(0.0);\n    float INTERVAL = 3.0;\n    float t_val = time * spped * 2.0;\n    \n    for(int i = 0; i < 6; i++) {\n        float ii = float(6 - i);\n        \n        float t1 = ii * INTERVAL - mod(t_val - INTERVAL * 0.75, INTERVAL);\n        vec3 I1 = vec3((18.0 - t1) / 18.0);\n        col = mix(col, I1, dirt(mod(p_uv * max(0.0, t1) * 0.1 + vec2(0.2, -0.2) * t_val, 1.2), 3.5));\n        \n        float t2 = ii * INTERVAL - mod(t_val + INTERVAL * 0.5, INTERVAL);\n        vec3 I2 = vec3((18.0 - t2) / 18.0);\n        col = mix(col, I2 * vec3(0.7, 0.8, 1.0) * 1.3, tex_func(p_uv * max(0.0, t2), 4.45));\n        \n        float t3 = ii * INTERVAL - mod(t_val - INTERVAL * 0.25, INTERVAL);\n        vec3 I3 = vec3((18.0 - t3) / 18.0);\n        col = mix(col, I3, dirt(mod(p_uv * max(0.0, t3) * 0.1 + vec2(-0.2, -0.2) * t_val, 1.2), 3.5));\n        \n        float t4 = ii * INTERVAL - mod(t_val, INTERVAL);\n        vec3 I4 = vec3((18.0 - t4) / 18.0);\n        float r = length(p_uv * 2.0 * max(0.0, t4));\n        float rr = sm(-24.0, 0.0, (r - mod(t_val * 30.0, 90.0)), 10.0);\n        col = mix(col, mix(I4, I4 * vec3(0.7, 0.5, 1.0) * 3.0, rr), tex_func(p_uv * 2.0 * max(0.0, t4), 0.27 + (2.0 * rr)));\n    }\n\n    return mix(vec4(0.0, 0.0, 0.0, source.a), vec4(col, source.a), mask);\n}",
+    uniformValues:     {
+          "target_color": [
+                0.7176470588235294,
+                0.6823529411764706,
+                0.6823529411764706
+          ],
+          "color_threshold": 0.3,
+          "color_smoothness": 0.1,
+          "spped": 0.5
+    },
+  },
+  {
+    id: "timeline-eff65be9-aa18-47a4-af71-69b3c2430917",
+    name: "Zooming Grid Blob Wiggle",
+    template: "stage",
+    group: "Dots & Grids",
+    description: "Recovered from the project timeline for the Dots & Grids stage collection.",
+    code: "// NAME: Zooming Grid Blob Wiggle\nuniform float edgeThreshold; // @min 0.0 @max 2.0 @default 0.2\nuniform float edgeSoftness; // @min 0.01 @max 1.0 @default 0.3\nuniform float tintAmount; // @min 0.0 @max 1.0 @default 0.85\nuniform float edgeWidth; // @min 0.5 @max 5.0 @default 1.0\nuniform float darkThreshold; // @min 0.0 @max 1.0 @default 0.2\nuniform float wiggleAmp; // @min 0.0 @max 0.1 @default 0.01\nuniform float wiggleFreq; // @min 1.0 @max 50.0 @default 15.0\nuniform float wiggleSpeed; // @min 0.0 @max 10.0 @default 3.0\nuniform float blobRadius; // @min 0.0 @max 1.0 @default 0.2\nuniform float blobSoftness; // @min 0.01 @max 1.0 @default 0.2\nuniform float blobMoveRadius; // @min 0.0 @max 1.0 @default 0.2\nuniform float blobMoveSpeed; // @min 0.0 @max 10.0 @default 2.0\nuniform vec3 blobColor; // @default 0.0,0.0,0.0\nuniform float gridScale; // @min 10.0 @max 500.0 @default 200.0\nuniform float gridIntensity; // @min 0.0 @max 1.0 @default 0.6\nuniform float gridSpeed; // @min 0.0 @max 5.0 @default 0.5\nuniform float gridDistortion; // @min 0.0 @max 0.5 @default 0.05\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 texel = edgeWidth / resolution;\n    vec4 c = texture2D(tex, uv);\n    \n    vec2 symUv = vec2(abs(uv.x - 0.5), uv.y - 0.5);\n    vec2 wiggleOffset = vec2(\n        sin(symUv.y * wiggleFreq + time * wiggleSpeed),\n        cos(symUv.x * wiggleFreq + time * wiggleSpeed)\n    ) * wiggleAmp;\n    \n    if (uv.x > 0.5) wiggleOffset.x = -wiggleOffset.x;\n    \n    vec2 wUv = uv + wiggleOffset;\n    vec4 wc = texture2D(tex, wUv);\n    vec4 n = texture2D(tex, wUv + vec2(0.0, texel.y));\n    vec4 s = texture2D(tex, wUv - vec2(0.0, texel.y));\n    vec4 e = texture2D(tex, wUv + vec2(texel.x, 0.0));\n    vec4 w = texture2D(tex, wUv - vec2(texel.x, 0.0));\n\n    vec4 diff = abs(wc - n) + abs(wc - s) + abs(wc - e) + abs(wc - w);\n    float edge = length(diff.rgb) + diff.a;\n    float isEdge = smoothstep(edgeThreshold, edgeThreshold + edgeSoftness, edge);\n\n    float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));\n    float darkFactor = smoothstep(0.0, darkThreshold, lum);\n\n    float strobo = step(0.5, fract(time * 15.0));\n    vec3 psychColor = mix(vec3(1.0, 0.4, 0.0), vec3(0.7, 0.0, 1.0), strobo);\n    float swirl = sin(uv.x * 15.0 + time * 5.0) * cos(uv.y * 15.0 - time * 4.0);\n    psychColor = clamp(psychColor + swirl * 0.3, 0.0, 1.0);\n\n    vec4 tinted = mix(c, vec4(psychColor, c.a), tintAmount * darkFactor);\n    \n    vec2 aspectUv = symUv * vec2(resolution.x / resolution.y, 1.0);\n    vec2 blobCenter = vec2(0.25 * (resolution.x / resolution.y), 0.0) + vec2(cos(time * blobMoveSpeed), sin(time * blobMoveSpeed)) * blobMoveRadius;\n    float dist = distance(aspectUv, blobCenter);\n    float blob = smoothstep(blobRadius, blobRadius + blobSoftness, dist);\n    \n    tinted.rgb = mix(blobColor, tinted.rgb, blob);\n    \n    vec4 finalColor = mix(tinted, wc, isEdge);\n    \n    // Zooming, Distorted, Symmetrical Grid with Growing Dots\n    float zoom = 1.0 + 0.6 * sin(time * 1.5);\n    vec2 gridUv = vec2(abs(uv.x - 0.5), uv.y);\n    gridUv = (gridUv - vec2(0.25, 0.5)) * zoom + vec2(0.25, 0.5);\n    gridUv.y -= time * gridSpeed; \n    gridUv += vec2(sin(gridUv.y * 15.0 + time), cos(gridUv.x * 15.0 + time)) * gridDistortion; \n    \n    float gridX = sin(gridUv.x * gridScale);\n    float gridY = sin(gridUv.y * gridScale);\n    float dots = (gridX * gridY) * 0.5 + 0.5;\n    \n    float dotSize = 0.5 + 0.45 * sin(time * 3.0);\n    float moire = smoothstep(1.0 - dotSize, 1.0 - dotSize + 0.1, dots);\n    \n    float mask = mix(1.0 - gridIntensity, 1.0 + gridIntensity, moire);\n    finalColor.rgb *= mask;\n    \n    return finalColor;\n}",
+    uniformValues:     {
+          "edgeThreshold": 0.2,
+          "edgeSoftness": 0.3,
+          "tintAmount": 0.85,
+          "edgeWidth": 0.5,
+          "darkThreshold": 0.71,
+          "wiggleAmp": 0.004,
+          "wiggleFreq": 49.02,
+          "wiggleSpeed": 3,
+          "blobRadius": 0.63,
+          "blobSoftness": 0.8515,
+          "blobMoveRadius": 0.86,
+          "blobMoveSpeed": 6.8,
+          "blobColor": [
+                0,
+                0,
+                0
+          ],
+          "gridScale": 200,
+          "gridIntensity": 0.6,
+          "gridSpeed": 0.5,
+          "gridDistortion": 0.05
+    },
+  },
+  {
+    id: "timeline-9fcd0d40-8834-48d3-b786-bab08c9ec64e",
+    name: "3D Dual Light Spiral Masked Ground",
+    template: "stage",
+    group: "Spirals",
+    description: "Recovered from the project timeline for the Spirals stage collection.",
+    code: "// NAME: 3D Dual Light Spiral Masked Ground\nuniform float speed; // @min -10.0 @max 10.0 @default 5.0\nuniform float speed2; // @min -10.0 @max 10.0 @default 3.0\nuniform float lineLength; // @min 1.0 @max 10.0 @default 1.0\nuniform float delay; // @min 0.0 @max 5.0 @default 2.0\nuniform float distOffset; // @min 0.0 @max 20.0 @default 10.0\nuniform float centerBlur; // @min 0.0 @max 0.5 @default 0.1\nuniform vec3 waveColor1; // @default 0.1,0.5,1.0\nuniform vec3 waveColor2; // @default 1.0,0.1,0.8\nuniform vec3 waveColor3; // @default 0.9,1.0,0.1\nuniform float waveFreq; // @min 1.0 @max 50.0 @default 20.0\nuniform float colorShiftSpeed; // @min 0.0 @max 5.0 @default 1.0\nuniform float blackSpotAmount; // @min 0.0 @max 1.0 @default 0.8\nuniform float spiralScale; // @min 5.0 @max 100.0 @default 40.0\nuniform float spiralSpeed; // @min -20.0 @max 20.0 @default 7.0\nuniform float spiralSize; // @min 0.05 @max 1.0 @default 0.3\nuniform float lsdGlowWidth; // @min 0.1 @max 2.0 @default 0.8\nuniform float prime1; // @min 1.0 @max 13.0 @default 2.0\nuniform float prime2; // @min 1.0 @max 13.0 @default 3.0\nuniform bool blackLinesInLight; // @default false\nuniform vec3 secondLightColor; // @default 0.8,0.9,1.0\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 baseColor = texture2D(tex, uv);\n    float baseLuma = dot(baseColor.rgb, vec3(0.299, 0.587, 0.114));\n    float spiralMask = smoothstep(0.01, 0.05, baseLuma);\n    \n    vec2 symUv = uv;\n    float dir = 1.0;\n    if (symUv.x > 0.5) {\n        symUv.x = 1.0 - symUv.x;\n        dir = -1.0;\n    }\n    \n    float blob = node_noise(symUv * 5.0);\n    float localTime = (blob > 0.0) ? time - delay : time;\n\n    vec2 off = 1.0 / resolution;\n    float t00 = texture2D(tex, uv + vec2(-off.x, -off.y)).r;\n    float t10 = texture2D(tex, uv + vec2( 0.0,   -off.y)).r;\n    float t20 = texture2D(tex, uv + vec2( off.x, -off.y)).r;\n    float t01 = texture2D(tex, uv + vec2(-off.x,  0.0)).r;\n    float t21 = texture2D(tex, uv + vec2( off.x,  0.0)).r;\n    float t02 = texture2D(tex, uv + vec2(-off.x,  off.y)).r;\n    float t12 = texture2D(tex, uv + vec2( 0.0,    off.y)).r;\n    float t22 = texture2D(tex, uv + vec2( off.x,  off.y)).r;\n\n    float gx = (t00 + 2.0 * t01 + t02) - (t20 + 2.0 * t21 + t22);\n    float gy = (t00 + 2.0 * t10 + t20) - (t02 + 2.0 * t12 + t22);\n    float edge = sqrt(gx * gx + gy * gy);\n    float angle = atan(gy, gx);\n    float dist = distance(uv, vec2(0.5));\n    \n    float segment1 = smoothstep(mix(0.7, 0.0, smoothstep(centerBlur + 0.001, 0.0, abs(uv.x - 0.5))), mix(0.95, 1.0, smoothstep(centerBlur + 0.001, 0.0, abs(uv.x - 0.5))), sin(angle * lineLength + localTime * speed * dir - dist * distOffset));\n    float segment2 = smoothstep(0.2, 0.8, sin(angle * lineLength - localTime * speed2 * dir - dist * distOffset * 0.7));\n    \n    float shift = time * colorShiftSpeed;\n    vec3 dynColor1 = mix(waveColor1, waveColor2, sin(shift) * 0.5 + 0.5);\n    vec3 dynColor2 = mix(waveColor2, waveColor3, cos(shift * 0.8) * 0.5 + 0.5);\n    vec3 dynColor3 = mix(waveColor3, waveColor1, sin(shift * 1.2) * 0.5 + 0.5);\n    \n    vec3 lineColor1 = mix(dynColor1, dynColor2, node_noise(vec2(dist * waveFreq, 0.0) + vec2(cos(fract(time * speed * 0.05) * 6.283), sin(fract(time * speed * 0.05) * 6.283))) * 0.5 + 0.5);\n    vec3 lineColor2 = mix(dynColor2, dynColor3, node_noise(vec2(dist * waveFreq * 0.6, 5.0) + vec2(cos(fract(time * speed2 * 0.05) * 6.283), sin(fract(time * speed2 * 0.05) * 6.283))) * 0.5 + 0.5);\n    \n    vec3 finalColor = (baseColor.rgb * 0.4) + (lineColor1 * edge * segment1 * 2.0) + (lineColor2 * edge * segment2 * 1.5);\n    \n    vec2 centeredUv = (symUv - vec2(0.5)) * vec2(resolution.x / resolution.y, 1.0);\n    float r = length(centeredUv);\n    float a = atan(centeredUv.y, centeredUv.x);\n    float mathBlob = sin(a * 5.0 + r * spiralScale * prime1 - time * spiralSpeed) + cos(r * spiralScale * prime2 + a * 11.0) + sin(r * spiralScale * prime1 - time * 5.0);\n    \n    float sizeMask = smoothstep(spiralSize, 0.05, r) * (smoothstep(0.0, 0.15, uv.x) * smoothstep(1.0, 0.85, uv.x) * smoothstep(0.0, 0.15, uv.y) * smoothstep(1.0, 0.85, uv.y));\n    float spot = smoothstep(0.5, 1.5, mathBlob) * sizeMask * spiralMask;\n    float lsdEdge = smoothstep(lsdGlowWidth, 0.0, abs(mathBlob - 0.3)) * sizeMask * spiralMask;\n    \n    finalColor += lineColor1 * lsdEdge * blackSpotAmount * 2.0;\n    finalColor = mix(finalColor, vec3(0.0), spot * blackSpotAmount);\n    \n    vec2 lPos1 = vec2(0.5 + 0.4 * sin(time * 1.1 + node_noise(vec2(time * 0.5, 0.0))), 0.5 + 0.4 * cos(time * 1.3 + node_noise(vec2(0.0, time * 0.5))));\n    vec2 lPos2 = vec2(0.5 + 0.4 * sin(time * 0.85 + node_noise(vec2(time * 0.2, 5.0)) * 10.0), 0.5 + 0.4 * cos(time * 0.65 + node_noise(vec2(5.0, time * 0.2)) * 10.0));\n    \n    vec2 aspectUv = uv * vec2(resolution.x / resolution.y, 1.0);\n    float illumination = pow(smoothstep(1.2, 0.0, distance(aspectUv, lPos1 * vec2(resolution.x / resolution.y, 1.0))), 1.5);\n    finalColor *= illumination * (1.0 + vec3(1.0, 0.9, 0.7) * 2.5);\n    \n    if (blackLinesInLight) {\n        finalColor = mix(finalColor, vec3(0.0), clamp((edge * segment1 * 2.0) + (edge * segment2 * 1.5) + (lsdEdge * 2.0), 0.0, 1.0) * illumination);\n    }\n    \n    float illumination2 = pow(smoothstep(0.8, 0.0, distance(aspectUv, lPos2 * vec2(resolution.x / resolution.y, 1.0))), 2.0) * spiralMask;\n    finalColor = mix(finalColor, (vec3(1.0) - baseColor.rgb) * secondLightColor * 2.5, illumination2);\n    \n    return vec4(finalColor, baseColor.a);\n}",
+    uniformValues:     {
+          "speed": -9.6,
+          "speed2": 4.4,
+          "lineLength": 4.6,
+          "delay": 2,
+          "distOffset": 3.2,
+          "centerBlur": 0.395,
+          "waveColor1": [
+                0.06274509803921569,
+                0.5568627450980392,
+                0.1450980392156863
+          ],
+          "waveColor2": [
+                0.058823529411764705,
+                0.43529411764705883,
+                0.5607843137254902
+          ],
+          "waveColor3": [
+                0.9882352941176471,
+                0.2,
+                1
+          ],
+          "waveFreq": 40.69,
+          "colorShiftSpeed": 4.85,
+          "blackSpotAmount": 0.59,
+          "spiralScale": 20.2,
+          "spiralSpeed": 7,
+          "spiralSize": 0.9905,
+          "lsdGlowWidth": 0.8,
+          "prime1": 9.76,
+          "prime2": 9.16,
+          "blackLinesInLight": false,
+          "secondLightColor": [
+                0.047058823529411764,
+                0.047058823529411764,
+                0.054901960784313725
+          ]
+    },
+  },
+  {
+    id: "timeline-395ec924-e8ef-43b8-bd84-55f66c0e9d59",
+    name: "Dark Masked Spiral Eye",
+    template: "stage",
+    group: "Spirals",
+    description: "Recovered from the project timeline for the Spirals stage collection.",
+    code: "// NAME: Dark Masked Spiral Eye\nuniform float speed; // @min -10.0 @max 10.0 @default 5.0\nuniform float speed2; // @min -10.0 @max 10.0 @default 3.0\nuniform float lineLength; // @min 1.0 @max 10.0 @default 1.0\nuniform float distOffset; // @min 0.0 @max 20.0 @default 10.0\nuniform vec3 waveColor1; // @default 1.0,0.2,0.5\nuniform vec3 waveColor2; // @default 0.2,0.8,1.0\nuniform vec3 waveColor3; // @default 0.5,1.0,0.2\nuniform float waveFreq; // @min 1.0 @max 50.0 @default 20.0\nuniform float spiralScale; // @min 5.0 @max 100.0 @default 40.0\nuniform float spiralSpeed; // @min -20.0 @max 20.0 @default 7.0\nuniform float spiralSize; // @min 0.05 @max 1.0 @default 0.3\nuniform float eyeRange; // @min 0.0 @max 0.4 @default 0.15\nuniform float eyeSize; // @min 0.05 @max 0.4 @default 0.2\nuniform vec3 secondLightColor; // @default 0.8,0.9,1.0\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 baseColor = texture2D(tex, uv);\n    float originalLum = dot(baseColor.rgb, vec3(0.299, 0.587, 0.114));\n    float darkMask = smoothstep(0.05, 0.25, originalLum);\n    \n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 centeredUv = (uv - 0.5) * aspect;\n    float dist = length(centeredUv);\n    float angle = atan(centeredUv.y, centeredUv.x);\n    \n    // Edge detection for line effects\n    vec2 off = 1.0 / resolution;\n    float t01 = texture2D(tex, uv + vec2(-off.x, 0.0)).r;\n    float t21 = texture2D(tex, uv + vec2(off.x, 0.0)).r;\n    float t10 = texture2D(tex, uv + vec2(0.0, -off.y)).r;\n    float t12 = texture2D(tex, uv + vec2(0.0, off.y)).r;\n    float edge = sqrt(pow(t01 - t21, 2.0) + pow(t10 - t12, 2.0)) * 5.0;\n    \n    // Spiral and Wave Logic\n    float dir = (uv.x > 0.5) ? -1.0 : 1.0;\n    float seg1 = smoothstep(0.7, 0.95, sin(angle * lineLength + time * speed * dir - dist * distOffset));\n    float seg2 = smoothstep(0.2, 0.8, sin(angle * lineLength - time * speed2 * dir - dist * distOffset * 0.7));\n    vec3 lineColor1 = mix(waveColor1, waveColor2, sin(dist * waveFreq - time * speed) * 0.5 + 0.5);\n    vec3 lineColor2 = mix(waveColor2, waveColor3, sin(dist * waveFreq * 0.6 + time * speed2) * 0.5 + 0.5);\n    \n    // Apply darkMask to spiral lines\n    vec3 spiralLines = (lineColor1 * edge * seg1 * 2.0) + (lineColor2 * edge * seg2 * 1.5);\n    vec3 finalColor = baseColor.rgb * 0.4 + (spiralLines * darkMask);\n    \n    // Spiral Blob with darkMask\n    float mathBlob = sin(angle * 5.0 + dist * spiralScale - time * spiralSpeed) + cos(dist * 3.0 + angle * 11.0);\n    float sizeMask = smoothstep(spiralSize, 0.05, dist) * smoothstep(0.0, 0.1, uv.x) * smoothstep(1.0, 0.9, uv.x);\n    finalColor += (lineColor1 * smoothstep(0.8, 0.0, abs(mathBlob - 0.3)) * sizeMask) * darkMask;\n\n    // Dual Dynamic Lights\n    vec2 lPos1 = (vec2(0.5) + vec2(sin(time * 1.1), cos(time * 1.3)) * 0.4) * aspect;\n    vec2 lPos2 = (vec2(0.5) + vec2(sin(time * 0.8), cos(time * 0.6)) * 0.4) * aspect;\n    float illu1 = pow(smoothstep(1.2, 0.0, distance(uv * aspect, lPos1)), 1.5);\n    float illu2 = pow(smoothstep(0.8, 0.0, distance(uv * aspect, lPos2)), 2.0);\n    \n    // Second light also respects dark spots\n    float secondLightMask = illu2 * 0.5 * darkMask;\n\n    finalColor *= illu1 * (1.0 + vec3(1.0, 0.9, 0.7) * 2.5);\n    finalColor = mix(finalColor, (1.0 - baseColor.rgb) * secondLightColor * 2.5, secondLightMask);\n\n    // Spherical Eye\n    vec2 eyePos = (vec2(0.5) + vec2(sin(time * 0.7), cos(time * 0.9)) * eyeRange) * aspect;\n    float eyeDist = length(uv * aspect - eyePos);\n    float eyeMask = smoothstep(eyeSize, eyeSize - 0.02, eyeDist);\n    float pupilMask = smoothstep(eyeSize * 0.35, eyeSize * 0.35 - 0.02, eyeDist);\n    vec3 eyeRender = mix(baseColor.rgb * 2.5, vec3(0.02), pupilMask);\n    finalColor = mix(finalColor, eyeRender, eyeMask * clamp(illu1 + illu2, 0.0, 1.0));\n\n    return vec4(finalColor, baseColor.a);\n}",
+    uniformValues:     {
+          "speed": -10,
+          "speed2": 10,
+          "lineLength": 1,
+          "distOffset": 0,
+          "waveColor1": [
+                0.6549019607843137,
+                0.5725490196078431,
+                0.16470588235294117
+          ],
+          "waveColor2": [
+                0.7803921568627451,
+                0.9254901960784314,
+                0.054901960784313725
+          ],
+          "waveColor3": [
+                0.7294117647058823,
+                0.30980392156862746,
+                0.03137254901960784
+          ],
+          "waveFreq": 50,
+          "spiralScale": 46.8,
+          "spiralSpeed": -16,
+          "spiralSize": 0.4965,
+          "eyeRange": 0,
+          "eyeSize": 0.05,
+          "secondLightColor": [
+                0.5333333333333333,
+                0.0784313725490196,
+                0.027450980392156862
+          ]
+    },
+  },
+  {
+    id: "timeline-1b334cd8-8ef9-4254-b9de-ee3d3e10a176",
+    name: "Dual Light Spiral Eye",
+    template: "stage",
+    group: "Spirals",
+    description: "Recovered from the project timeline for the Spirals stage collection.",
+    code: "// NAME: Dual Light Spiral Eye\nuniform float speed; // @min -10.0 @max 10.0 @default 5.0\nuniform float speed2; // @min -10.0 @max 10.0 @default 3.0\nuniform float lineLength; // @min 1.0 @max 10.0 @default 1.0\nuniform float distOffset; // @min 0.0 @max 20.0 @default 10.0\nuniform vec3 waveColor1; // @default 1.0,0.2,0.5\nuniform vec3 waveColor2; // @default 0.2,0.8,1.0\nuniform vec3 waveColor3; // @default 0.5,1.0,0.2\nuniform float waveFreq; // @min 1.0 @max 50.0 @default 20.0\nuniform float spiralScale; // @min 5.0 @max 100.0 @default 40.0\nuniform float spiralSpeed; // @min -20.0 @max 20.0 @default 7.0\nuniform float spiralSize; // @min 0.05 @max 1.0 @default 0.3\nuniform float eyeRange; // @min 0.0 @max 0.4 @default 0.15\nuniform float eyeSize; // @min 0.05 @max 0.4 @default 0.2\nuniform vec3 secondLightColor; // @default 0.8,0.9,1.0\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 baseColor = texture2D(tex, uv);\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 centeredUv = (uv - 0.5) * aspect;\n    float dist = length(centeredUv);\n    float angle = atan(centeredUv.y, centeredUv.x);\n    \n    // Edge detection for line effects\n    vec2 off = 1.0 / resolution;\n    float t01 = texture2D(tex, uv + vec2(-off.x, 0.0)).r;\n    float t21 = texture2D(tex, uv + vec2(off.x, 0.0)).r;\n    float t10 = texture2D(tex, uv + vec2(0.0, -off.y)).r;\n    float t12 = texture2D(tex, uv + vec2(0.0, off.y)).r;\n    float edge = sqrt(pow(t01 - t21, 2.0) + pow(t10 - t12, 2.0)) * 5.0;\n    \n    // Spiral and Wave Logic\n    float dir = (uv.x > 0.5) ? -1.0 : 1.0;\n    float seg1 = smoothstep(0.7, 0.95, sin(angle * lineLength + time * speed * dir - dist * distOffset));\n    float seg2 = smoothstep(0.2, 0.8, sin(angle * lineLength - time * speed2 * dir - dist * distOffset * 0.7));\n    vec3 lineColor1 = mix(waveColor1, waveColor2, sin(dist * waveFreq - time * speed) * 0.5 + 0.5);\n    vec3 lineColor2 = mix(waveColor2, waveColor3, sin(dist * waveFreq * 0.6 + time * speed2) * 0.5 + 0.5);\n    vec3 finalColor = baseColor.rgb * 0.4 + (lineColor1 * edge * seg1 * 2.0) + (lineColor2 * edge * seg2 * 1.5);\n    \n    // Spiral Blob\n    float mathBlob = sin(angle * 5.0 + dist * spiralScale - time * spiralSpeed) + cos(dist * 3.0 + angle * 11.0);\n    float sizeMask = smoothstep(spiralSize, 0.05, dist) * smoothstep(0.0, 0.1, uv.x) * smoothstep(1.0, 0.9, uv.x);\n    finalColor += lineColor1 * smoothstep(0.8, 0.0, abs(mathBlob - 0.3)) * sizeMask;\n\n    // Dual Dynamic Lights\n    vec2 lPos1 = (vec2(0.5) + vec2(sin(time * 1.1), cos(time * 1.3)) * 0.4) * aspect;\n    vec2 lPos2 = (vec2(0.5) + vec2(sin(time * 0.8), cos(time * 0.6)) * 0.4) * aspect;\n    float illu1 = pow(smoothstep(1.2, 0.0, distance(uv * aspect, lPos1)), 1.5);\n    float illu2 = pow(smoothstep(0.8, 0.0, distance(uv * aspect, lPos2)), 2.0);\n    finalColor *= illu1 * (1.0 + vec3(1.0, 0.9, 0.7) * 2.5);\n    finalColor = mix(finalColor, (1.0 - baseColor.rgb) * secondLightColor * 2.5, illu2 * 0.5);\n\n    // Spherical Eye\n    vec2 eyePos = (vec2(0.5) + vec2(sin(time * 0.7), cos(time * 0.9)) * eyeRange) * aspect;\n    float eyeDist = length(uv * aspect - eyePos);\n    float eyeMask = smoothstep(eyeSize, eyeSize - 0.02, eyeDist);\n    float pupilMask = smoothstep(eyeSize * 0.35, eyeSize * 0.35 - 0.02, eyeDist);\n    vec3 eyeRender = mix(baseColor.rgb * 2.5, vec3(0.02), pupilMask);\n    finalColor = mix(finalColor, eyeRender, eyeMask * clamp(illu1 + illu2, 0.0, 1.0));\n\n    return vec4(finalColor, baseColor.a);\n}",
+    uniformValues:     {
+          "speed": 10,
+          "speed2": 10,
+          "lineLength": 1,
+          "distOffset": 1,
+          "waveColor1": [
+                0.14901960784313725,
+                0.5019607843137255,
+                0
+          ],
+          "waveColor2": [
+                0.16470588235294117,
+                0.3176470588235294,
+                0.2
+          ],
+          "waveColor3": [
+                0.03529411764705882,
+                0.39215686274509803,
+                0.027450980392156862
+          ],
+          "waveFreq": 50,
+          "spiralScale": 100,
+          "spiralSpeed": 20,
+          "spiralSize": 0.3,
+          "eyeRange": 0.4,
+          "eyeSize": 0.05,
+          "secondLightColor": [
+                0,
+                0,
+                0
+          ]
+    },
+  },
+  {
+    id: "timeline-ec58c7f0-c562-40f4-a476-76e6c8c13af1",
+    name: "HD Diffused Reactive Swirl",
+    template: "stage",
+    group: "Spirals",
+    description: "Recovered from the project timeline for the Spirals stage collection.",
+    code: "// NAME: HD Diffused Reactive Swirl\n\nuniform float colorShift; // @min 0.0 @max 10.0 @default 3.0\nuniform float intensity; // @min 0.0 @max 1.0 @default 0.9\nuniform float blur; // @min 0.0 @max 1.0 @default 0.1\nuniform float spread; // @min 0.0 @max 10.0 @default 0.5\n\nvec3 palette(float t){\n    vec3 a = vec3(0.84, 0.49, 0.85);\n    vec3 b = vec3(0.52, 0.56, 0.88);\n    vec3 c = vec3(0.18, 0.40, 0.07);\n    vec3 d = vec3(0.28, 0.68, 0.30);\n    return a + b * cos(6.2831853 * (c * t + d));\n}\n\nvec2 circleUV(vec2 p, float R){\n    float a = atan(p.y, p.x);\n    float u = a / 6.2831853 + 0.5;\n    float v = length(p) / R;\n    return vec2(u, v);\n}\n\nvec2 swirl(vec2 p, float strength, float freq, float speed, float time) {\n    float r = length(p);\n    float a = atan(p.y, p.x);\n    float s = sin(speed * time + freq * r);\n    a += strength * r * s;\n    float w = sin(speed * time + freq * r);\n    r += 0.06 * w;\n    a += strength * r * w;\n    w = sin(speed * time + freq * r + 3.0 * a);\n    a += strength * r * w;\n    return r * vec2(cos(a), sin(a));\n}\n\nvec3 makeFlower(vec2 p, float level, float time, float b) {\n    float R = 0.8;\n    vec2 cuv = circleUV(p, R);\n    \n    float edgeSoftness = max(0.02, b * 0.3);\n    float m = smoothstep(R + edgeSoftness, R - edgeSoftness, length(p));\n    \n    float stripe = 0.5 + 0.5 * sin(6.2831853 * (cuv.x * 12.0 + time));\n    stripe = 0.02 / (stripe * stripe + b * 0.2 + 0.02);\n    \n    vec3 col = vec3(stripe) * palette(cuv.y * sin(time * 0.25) * 3.0 + level);\n    return col * smoothstep(1.0, 0.4 - b * 0.1, cuv.y) * smoothstep(0.0, 0.4 + b * 0.1, cuv.y) * m;\n}\n\nvec3 renderPixel(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec2 p = (uv * 2.0 - 1.0);\n    p.x *= resolution.x / resolution.y;\n    \n    float t_r = time + smoothstep(0.0, 1.0, source.r) * colorShift;\n    float t_g = time + smoothstep(0.0, 1.0, source.g) * colorShift;\n    float t_b = time + smoothstep(0.0, 1.0, source.b) * colorShift;\n    \n    p = p * (sin(time / 4.0) + 1.15);\n    p = swirl(p, 0.15, 0.15, 0.1 + source.b * 0.3, t_r);\n    \n    vec3 finalCol = makeFlower(p, 4.0 + source.g * colorShift, t_g, blur);\n    \n    p /= 8.0;\n    vec2 p0 = p;\n    float r = length(mat2(1.0, 0.3, -0.2, 1.0) * p0);\n    \n    for (int i = 0; i < 3; i++) {\n        float fi = float(i);\n        p *= 2.0;                 \n        p = fract(p);\n        p = abs(p - 0.5) * 2.0;\n        \n        vec3 flower = makeFlower(p * exp(-r), fi + source.r * colorShift, t_b, blur);\n        finalCol += (flower / (fi + 0.5));\n    }\n    \n    float lum = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    return mix(source.rgb, finalCol, intensity * smoothstep(0.05, 0.4, lum));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 px = spread / resolution;\n    \n    vec3 col = renderPixel(tex, uv, time, resolution);\n    col += renderPixel(tex, uv + vec2(px.x, 0.0), time, resolution);\n    col += renderPixel(tex, uv - vec2(px.x, 0.0), time, resolution);\n    col += renderPixel(tex, uv + vec2(0.0, px.y), time, resolution);\n    col += renderPixel(tex, uv - vec2(0.0, px.y), time, resolution);\n    \n    col /= 5.0;\n    \n    float alpha = texture2D(tex, uv).a;\n    return vec4(col, alpha);\n}",
+    uniformValues:     {
+          "colorShift": 0,
+          "intensity": 0.85,
+          "blur": 0.05,
+          "spread": 0.6
+    },
+  },
+  {
+    id: "timeline-538c096e-bfd6-442b-b986-19ea5af19b1c",
+    name: "Masked Dual Light Spiral",
+    template: "stage",
+    group: "Spirals",
+    description: "Recovered from the project timeline for the Spirals stage collection.",
+    code: "// NAME: Masked Dual Light Spiral\nuniform float speed; // @min -10.0 @max 10.0 @default 5.0\nuniform float speed2; // @min -10.0 @max 10.0 @default 3.0\nuniform float lineLength; // @min 1.0 @max 10.0 @default 1.0\nuniform float delay; // @min 0.0 @max 5.0 @default 2.0\nuniform float distOffset; // @min 0.0 @max 20.0 @default 10.0\nuniform float centerBlur; // @min 0.0 @max 0.5 @default 0.1\nuniform float waveFreq; // @min 1.0 @max 50.0 @default 20.0\nuniform float blackSpotAmount; // @min 0.0 @max 1.0 @default 0.8\nuniform float spiralScale; // @min 5.0 @max 100.0 @default 40.0\nuniform float spiralSpeed; // @min -20.0 @max 20.0 @default 7.0\nuniform float spiralSize; // @min 0.05 @max 1.0 @default 0.3\nuniform float lsdGlowWidth; // @min 0.1 @max 2.0 @default 0.8\nuniform float prime1; // @min 1.0 @max 13.0 @default 2.0\nuniform float prime2; // @min 1.0 @max 13.0 @default 3.0\nuniform bool blackLinesInLight; // @default false\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 baseColor = texture2D(tex, uv);\n    float luma = dot(baseColor.rgb, vec3(0.299, 0.587, 0.114));\n    float effectMask = smoothstep(0.01, 0.1, luma);\n    \n    vec2 symUv = uv;\n    float dir = (symUv.x > 0.5) ? -1.0 : 1.0;\n    if (symUv.x > 0.5) symUv.x = 1.0 - symUv.x;\n    \n    float localTime = (node_noise(symUv * 5.0) > 0.0) ? time - delay : time;\n    vec2 off = 1.0 / resolution;\n    float t01 = texture2D(tex, uv + vec2(-off.x, 0.0)).r;\n    float t21 = texture2D(tex, uv + vec2(off.x, 0.0)).r;\n    float t10 = texture2D(tex, uv + vec2(0.0, -off.y)).r;\n    float t12 = texture2D(tex, uv + vec2(0.0, off.y)).r;\n    float gx = t01 - t21;\n    float gy = t10 - t12;\n    float edge = sqrt(gx * gx + gy * gy);\n    float angle = atan(gy, gx);\n    float dist = distance(uv, vec2(0.5));\n    \n    float seg1 = smoothstep(mix(0.7, 0.0, smoothstep(centerBlur + 0.001, 0.0, abs(uv.x - 0.5))), 1.0, sin(angle * lineLength + localTime * speed * dir - dist * distOffset));\n    float seg2 = smoothstep(0.2, 0.8, sin(angle * lineLength - localTime * speed2 * dir - dist * distOffset * 0.7));\n    \n    vec3 dW1 = vec3(sin(time * 0.4), cos(time * 0.3), sin(time * 0.5)) * 0.5 + 0.5;\n    vec3 dW2 = vec3(cos(time * 0.5), sin(time * 0.6), cos(time * 0.4)) * 0.5 + 0.5;\n    vec3 dW3 = vec3(sin(time * 0.7), cos(time * 0.8), sin(time * 0.6)) * 0.5 + 0.5;\n    vec3 col1 = mix(dW1, dW2, sin(dist * waveFreq - time * speed) * 0.5 + 0.5);\n    vec3 col2 = mix(dW2, dW3, sin(dist * waveFreq * 0.6 + time * speed2) * 0.5 + 0.5);\n    \n    vec3 finalColor = baseColor.rgb * 0.4 + (col1 * edge * seg1 * 2.0 + col2 * edge * seg2 * 1.5) * effectMask;\n    \n    vec2 cUv = (symUv - 0.5) * vec2(resolution.x / resolution.y, 1.0);\n    float r = length(cUv), a = atan(cUv.y, cUv.x);\n    float sR = r * spiralScale;\n    float mB = sin(a * 5.0 + sR * prime1 - time * spiralSpeed) + cos(sR * prime2 + a * 11.0) + sin(sR * prime1 - time * 5.0);\n    \n    float bM = smoothstep(0.0, 0.15, uv.x) * smoothstep(1.0, 0.85, uv.x) * smoothstep(0.0, 0.15, uv.y) * smoothstep(1.0, 0.85, uv.y);\n    float sM = smoothstep(spiralSize, 0.05, r) * bM * effectMask;\n    float spot = smoothstep(0.5, 1.5, mB) * sM;\n    float lsdE = smoothstep(lsdGlowWidth, 0.0, abs(mB - 0.3)) * sM;\n    \n    finalColor += col1 * lsdE * blackSpotAmount * 2.0;\n    finalColor = mix(finalColor, vec3(0.0), spot * blackSpotAmount);\n    \n    vec2 lP1 = vec2(0.5 + 0.4 * sin(time * 1.1), 0.5 + 0.4 * cos(time * 1.3));\n    vec2 lP2 = vec2(0.5 + 0.4 * cos(time * 0.7 + 2.0), 0.5 + 0.4 * sin(time * 0.9 + 1.0));\n    vec2 lUv = uv * vec2(resolution.x / resolution.y, 1.0);\n    float illu = pow(smoothstep(1.2, 0.0, distance(lUv, lP1 * vec2(resolution.x / resolution.y, 1.0))), 1.5);\n    \n    finalColor *= illu * (1.0 + (vec3(sin(time * 0.2), cos(time * 0.25), sin(time * 0.3)) * 0.5 + 0.5) * 2.5);\n    if (blackLinesInLight) finalColor = mix(finalColor, vec3(0.0), clamp((edge * seg1 * 2.0 + edge * seg2 * 1.5 + lsdE * 2.0), 0.0, 1.0) * illu);\n    \n    float illu2 = pow(smoothstep(0.8, 0.0, distance(lUv, lP2 * vec2(resolution.x / resolution.y, 1.0))), 2.0) * effectMask;\n    finalColor = mix(finalColor, (1.0 - baseColor.rgb) * col2 * 2.5, illu2);\n    \n    return vec4(finalColor, baseColor.a);\n}",
+    uniformValues:     {
+          "speed": 5,
+          "speed2": 3,
+          "lineLength": 1,
+          "delay": 2,
+          "distOffset": 10,
+          "centerBlur": 0.1,
+          "waveFreq": 20,
+          "blackSpotAmount": 0.8,
+          "spiralScale": 40,
+          "spiralSpeed": 7,
+          "spiralSize": 0.3,
+          "lsdGlowWidth": 1.582,
+          "prime1": 2,
+          "prime2": 3,
+          "blackLinesInLight": false
+    },
+  },
+  {
+    id: "timeline-e04a3135-dfc6-42ef-ac62-63d4548fa024",
+    name: "Shining Soft Swirl",
+    template: "stage",
+    group: "Spirals",
+    description: "Recovered from the project timeline for the Spirals stage collection.",
+    code: "// NAME: Shining Soft Swirl\n\nuniform float colorShift; // @min 0.0 @max 10.0 @default 3.0\nuniform float intensity; // @min 0.0 @max 1.0 @default 0.9\nuniform float blur; // @min 0.0 @max 1.0 @default 0.5\nuniform float shine; // @min 0.0 @max 5.0 @default 1.5\n\nvec3 palette(float t){\n    vec3 a = vec3(0.84, 0.49, 0.85);\n    vec3 b = vec3(0.52, 0.56, 0.88);\n    vec3 c = vec3(0.18, 0.40, 0.07);\n    vec3 d = vec3(0.28, 0.68, 0.30);\n    return a + b * cos(6.2831853 * (c * t + d));\n}\n\nvec2 circleUV(vec2 p, float R){\n    float a = atan(p.y, p.x);\n    float u = a / 6.2831853 + 0.5;\n    float v = length(p) / R;\n    return vec2(u, v);\n}\n\nvec2 swirl(vec2 p, float strength, float freq, float speed, float time) {\n    float r = length(p);\n    float a = atan(p.y, p.x);\n    float s = sin(speed * time + freq * r);\n    a += strength * r * s;\n    float w = sin(speed * time + freq * r);\n    r += 0.06 * w;\n    a += strength * r * w;\n    w = sin(speed * time + freq * r + 3.0 * a);\n    a += strength * r * w;\n    return r * vec2(cos(a), sin(a));\n}\n\nvec3 makeFlower(vec2 p, float level, float time, float b) {\n    float R = 0.8;\n    vec2 cuv = circleUV(p, R);\n    \n    float edgeSoftness = max(0.1, b * 0.6);\n    float m = smoothstep(R + edgeSoftness, R - edgeSoftness, length(p));\n    \n    float stripe = 0.5 + 0.5 * sin(6.2831853 * (cuv.x * 8.0 + time));\n    stripe = 0.05 / (stripe * stripe + b * 0.5 + 0.05);\n    \n    vec3 col = vec3(stripe) * palette(cuv.y * sin(time * 0.25) * 3.0 + level);\n    return col * smoothstep(1.0, 0.4 - b * 0.2, cuv.y) * smoothstep(0.0, 0.4 + b * 0.2, cuv.y) * m;\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec2 p = (uv * 2.0 - 1.0);\n    p.x *= resolution.x / resolution.y;\n    \n    float t_r = time + smoothstep(0.0, 1.0, source.r) * colorShift;\n    float t_g = time + smoothstep(0.0, 1.0, source.g) * colorShift;\n    float t_b = time + smoothstep(0.0, 1.0, source.b) * colorShift;\n    \n    p = p * (sin(time / 4.0) + 1.15);\n    p = swirl(p, 0.15, 0.15, 0.1 + source.b * 0.3, t_r);\n    \n    vec3 finalCol = makeFlower(p, 4.0 + source.g * colorShift, t_g, blur);\n    \n    p /= 8.0;\n    vec2 p0 = p;\n    float r = length(mat2(1.0, 0.3, -0.2, 1.0) * p0);\n    \n    for (int i = 0; i < 2; i++) {\n        float fi = float(i);\n        p *= 2.0;                 \n        p = fract(p);\n        p = abs(p - 0.5) * 2.0;\n        \n        vec3 flower = makeFlower(p * exp(-r), fi + source.r * colorShift, t_b, blur);\n        finalCol += (flower / (fi + 0.5));\n    }\n    \n    float lum = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    vec3 blended = mix(source.rgb, finalCol, intensity * smoothstep(0.05, 0.4, lum));\n    \n    // Add shine and sparkle to the final colored pixels\n    float finalLum = dot(blended, vec3(0.299, 0.587, 0.114));\n    float sparkle = pow(finalLum, 2.0) * shine * (1.0 + 0.5 * sin(time * 8.0 + uv.x * 150.0 + uv.y * 150.0));\n    blended += blended * sparkle;\n    \n    return vec4(blended, source.a);\n}",
+    uniformValues:     {
+          "colorShift": 3,
+          "intensity": 1,
+          "blur": 0.38,
+          "shine": 1.5
+    },
+  },
+  {
+    id: "timeline-ffd6f66d-85bd-4525-9e09-7623a214281f",
+    name: "Distorted LSD Snake",
+    template: "stage",
+    group: "Organic Motion",
+    description: "Recovered from the project timeline for the Organic Motion stage collection.",
+    code: "// NAME: Distorted LSD Snake\nuniform float scale; // @min 1.0 @max 50.0 @default 10.0\nuniform float speed; // @min 0.0 @max 5.0 @default 0.5\nuniform float dash_freq; // @min 1.0 @max 20.0 @default 8.0\nuniform float thickness; // @min 0.01 @max 0.5 @default 0.15\nuniform float blur; // @min 0.0 @max 0.2 @default 0.05\nuniform float distortion; // @min 0.0 @max 5.0 @default 1.5\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 bg = texture2D(tex, uv);\n    \n    // Mask to prevent the snake from appearing on black/dark pixels\n    float luma = dot(bg.rgb, vec3(0.299, 0.587, 0.114));\n    float isNotBlack = smoothstep(0.02, 0.1, luma);\n    \n    // Distance from center for distortion\n    vec2 centerDist = uv - 0.5;\n    float dist = length(centerDist);\n    \n    // Apply radial ripple distortion based on distance from center\n    vec2 p = uv + centerDist * sin(dist * 15.0 - time * 3.0) * distortion * 0.1;\n    \n    // Snake pattern generation (global overlay)\n    p.x = abs(p.x - 0.5); // Symmetry\n    float dyn_scale = scale + sin(time * 0.5) * 2.0;\n    p *= dyn_scale;\n    \n    vec2 ip = floor(p);\n    vec2 fp = fract(p);\n    \n    float h = fract(sin(dot(ip, vec2(12.9898, 78.233))) * 43758.5453);\n    if (h > 0.5) {\n        fp.x = 1.0 - fp.x;\n    }\n    \n    float d1 = length(fp);\n    float d2 = length(fp - vec2(1.0));\n    float d = min(abs(d1 - 0.5), abs(d2 - 0.5));\n    \n    // Pulsing thickness\n    float dyn_thick = thickness + sin(time * 3.0) * 0.02;\n    float path = smoothstep(dyn_thick, dyn_thick - blur, d);\n    \n    float arcLen = min(d1, d2);\n    float dash = step(0.5, fract((arcLen - time * speed) * dash_freq));\n    \n    // Apply the black pixel mask to the snake body\n    float mask = path * dash * isNotBlack;\n    \n    // 3D tube effect for the snake body\n    float nx = clamp(d / dyn_thick, 0.0, 1.0);\n    float nz = sqrt(1.0 - nx * nx);\n    \n    // LSD Psychedelic Color Stripes affected by the original image color\n    vec3 lsdColor = 0.5 + 0.5 * cos(time * 5.0 - arcLen * 25.0 + vec3(0.0, 2.0, 4.0));\n    lsdColor = clamp(lsdColor * bg.rgb * 2.0, 0.0, 1.0);\n    \n    vec3 snakeColor = lsdColor * nz; // Base tube color\n    snakeColor += lsdColor * pow(nz, 4.0); // Glowing core\n    \n    // Add a glowing aura bleeding into the background, also masked by black pixels\n    float glow = smoothstep(dyn_thick + 0.2, dyn_thick, d) * dash * isNotBlack;\n    \n    // Make all pixels black unless illuminated by the snake's glow\n    vec3 bgWithGlow = (bg.rgb * glow) + (lsdColor * glow * 0.8);\n    \n    // Composite the snake completely on top of everything\n    vec3 finalColor = mix(bgWithGlow, snakeColor, mask);\n    \n    return vec4(finalColor, bg.a);\n}",
+    uniformValues:     {
+          "scale": 36.77,
+          "speed": 1.1,
+          "dash_freq": 7.08,
+          "thickness": 0.451,
+          "blur": 0,
+          "distortion": 1.45
+    },
+  },
+  {
+    id: "timeline-aa8d760f-b00c-4413-a581-da0de8845510",
+    name: "Dual Blob Inversion & Color Hide",
+    template: "stage",
+    group: "Organic Motion",
+    description: "Recovered from the project timeline for the Organic Motion stage collection.",
+    code: "// NAME: Dual Blob Inversion & Color Hide\nuniform vec3 tint; // @default 0.1,0.5,0.9\nuniform float warp; // @min 0.0 @max 5.0 @default 1.5\nuniform float speed; // @min 0.0 @max 5.0 @default 1.0\nuniform float blobIntensity; // @min 0.0 @max 5.0 @default 1.5\nuniform float colorSpeed; // @min 0.0 @max 5.0 @default 1.0\nuniform float hideTolerance; // @min 0.0 @max 1.0 @default 0.2\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 original = texture2D(tex, fract(uv));\n    vec2 off = 2.0 / max(resolution, vec2(1.0));\n    \n    float lum = dot(original.rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(uv + vec2(off.x, off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(uv + vec2(-off.x, off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(uv + vec2(off.x, -off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum += dot(texture2D(tex, fract(uv + vec2(-off.x, -off.y))).rgb, vec3(0.299, 0.587, 0.114));\n    lum *= 0.2;\n    \n    vec2 symUv = abs(uv - 0.5);\n    vec2 uvWrap = symUv * 6.28318530718 * 2.0;\n    float t = time * speed;\n    \n    vec2 flow = vec2(\n        sin(uvWrap.x * 2.0 + cos(uvWrap.y * 2.0 + t)),\n        cos(uvWrap.y * 2.0 + sin(uvWrap.x * 2.0 - t))\n    ) * warp * 0.25;\n    \n    float blobNoise = sin(uvWrap.x * 3.0 + flow.x * 5.0 + t * 1.5) * cos(uvWrap.y * 3.0 + flow.y * 5.0 - t * 1.2);\n    float phase = lum + blobNoise * 0.5 + flow.x * 0.5 + flow.y * 0.5 - t * 0.5;\n    \n    vec3 psychColor = 0.5 + 0.5 * cos(6.28318530718 * (vec3(phase) + tint + vec3(0.02, 0.20, 0.38)));\n    vec3 psychColor2 = 0.5 + 0.5 * cos(6.28318530718 * (vec3(phase) + tint + vec3(0.38, 0.20, 0.02)));\n    \n    // Blob 1 (Normal Area)\n    vec2 blobPos = vec2(\n        sin(t * 0.8) * 0.25 + (node_noise(vec2(t, 0.0)) - 0.5) * 0.2,\n        cos(t * 0.9) * 0.25 + (node_noise(vec2(0.0, t)) - 0.5) * 0.2\n    );\n    vec2 symY = vec2(abs(uv.x - 0.5), uv.y - 0.5) - blobPos;\n    float blobMask = smoothstep(0.4, 0.0, length(symY));\n    \n    // Blob 2 (Inverted Area)\n    vec2 blobPos2 = vec2(\n        sin(t * 0.7 + 3.14) * 0.3 + (node_noise(vec2(t * 1.1, 5.0)) - 0.5) * 0.2,\n        cos(t * 0.8 + 3.14) * 0.3 + (node_noise(vec2(5.0, t * 1.1)) - 0.5) * 0.2\n    );\n    vec2 symY2 = vec2(abs(uv.x - 0.5), uv.y - 0.5) - blobPos2;\n    float blobMask2 = smoothstep(0.4, 0.0, length(symY2));\n    \n    // Mask to prevent illuminating black/dark pixels\n    float isNotDark = smoothstep(0.05, 0.2, lum);\n    \n    // Softly invert areas not illuminated by the first blob\n    vec3 softInvert = mix(original.rgb, 1.0 - original.rgb, 0.8);\n    \n    // Calculate colors for both states\n    vec3 invertedAreaColor = softInvert + psychColor2 * blobMask2 * blobIntensity;\n    vec3 normalAreaColor = original.rgb + psychColor * blobMask * blobIntensity;\n    \n    // Mix based on the first blob's presence\n    vec3 effectColor = mix(invertedAreaColor, normalAreaColor, blobMask);\n    \n    // Ensure dark pixels remain untouched\n    vec3 finalColor = mix(original.rgb, effectColor, isNotDark);\n    \n    // Color hiding logic: constantly changing target color\n    vec3 targetColor = 0.5 + 0.5 * cos(time * colorSpeed + vec3(0.0, 2.094, 4.188));\n    float colorDist = distance(original.rgb, targetColor);\n    float hideMask = smoothstep(hideTolerance, hideTolerance + 0.15, colorDist);\n    \n    return vec4(clamp(finalColor, 0.0, 1.0) * hideMask, original.a * hideMask);\n}",
+    uniformValues:     {
+          "tint": [
+                0.023529411764705882,
+                0.47058823529411764,
+                0.9176470588235294
+          ],
+          "warp": 10,
+          "speed": 1.3,
+          "blobIntensity": 0.65,
+          "colorSpeed": 1,
+          "hideTolerance": 0.72
+    },
+  },
+  {
+    id: "timeline-dcdd6243-8f2b-41ca-a002-b39cf0b3df89",
+    name: "Psychedelic Snake",
+    template: "stage",
+    group: "Organic Motion",
+    description: "Recovered from the project timeline for the Organic Motion stage collection.",
+    code: "// NAME: Psychedelic Snake\nuniform float scale; // @min 1.0 @max 50.0 @default 10.0\nuniform float speed; // @min 0.0 @max 5.0 @default 0.5\nuniform float dash_freq; // @min 1.0 @max 20.0 @default 8.0\nuniform float thickness; // @min 0.01 @max 0.5 @default 0.15\nuniform float blur; // @min 0.0 @max 0.2 @default 0.05\nuniform float dark_threshold; // @min 0.0 @max 1.0 @default 0.1\nuniform float warp_strength; // @min -0.5 @max 0.5 @default 0.1\nuniform float chrome_mix; // @min 0.0 @max 1.0 @default 0.85\nuniform float ripple_strength; // @min 0.0 @max 0.2 @default 0.05\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Ripple distortion\n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 dir = (uv - 0.5) * aspect;\n    float dist = length(dir);\n    float ripple = exp(-30.0 * abs(dist - (1.0 - fract(time)))) * sin((dist - (1.0 - fract(time))) * 40.0);\n    vec2 uvW = uv + (dist > 0.001 ? (dir / dist) : vec2(0.0)) * ripple * ripple_strength / aspect;\n\n    vec4 src = texture2D(tex, uvW);\n    if (length(src.rgb) < dark_threshold || src.a < 0.01) return vec4(0.0);\n\n    // Compact RGB to HSV for color isolation\n    vec3 c = src.rgb;\n    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));\n    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));\n    float d_hsv = q.x - min(q.w, q.y);\n    vec3 hsv = vec3(abs(q.z + (q.w - q.y) / (6.0 * d_hsv + 1e-10)), d_hsv / (q.x + 1e-10), q.x);\n\n    // Isolate Violet to Green range\n    if (!((hsv.x > 0.70 || hsv.x < 0.35) && hsv.y > 0.2 && hsv.z > 0.2)) return vec4(0.0);\n\n    // Psychedelic Snake Tiling\n    vec2 st = abs(uvW - 0.5) * (scale + sin(time * 0.5) * 3.0);\n    vec2 ip = floor(st);\n    vec2 fp = fract(st);\n    if (node_rand(ip) > 0.5) fp.x = 1.0 - fp.x;\n\n    float d1 = length(fp), d2 = length(fp - 1.0);\n    float d = min(abs(d1 - 0.5), abs(d2 - 0.5));\n    float dyn_thick = thickness + sin(time * 1.2) * 0.05;\n    float mask = smoothstep(dyn_thick, dyn_thick - blur, d);\n    mask *= step(0.5, fract((min(d1, d2) - time * speed) * (dash_freq + cos(time * 0.8) * 4.0)));\n\n    if (mask < 0.01) return vec4(0.0);\n\n    // Chrome and Warp effect\n    vec2 finalUV = uvW + (uvW - 0.5) * mask * warp_strength;\n    vec4 warpedSrc = texture2D(tex, finalUV);\n    float chrome = max(dot(vec3(d / dyn_thick, sqrt(max(0.0, 1.0 - pow(d/dyn_thick, 2.0))), 0.0), vec3(0.707)), 0.0);\n    \n    return vec4(mix(warpedSrc.rgb, vec3(chrome) * hsv.z, chrome_mix), src.a * mask);\n}",
+    uniformValues:     {
+          "scale": 50,
+          "speed": 5,
+          "dash_freq": 3.47,
+          "thickness": 0.1962,
+          "blur": 0.114,
+          "dark_threshold": 0.45,
+          "warp_strength": 0.03,
+          "chrome_mix": 0.91,
+          "ripple_strength": 0.2
+    },
+  },
+  {
+    id: "timeline-db07a19a-80f5-4860-ae4e-b44157080db3",
+    name: "Psychedelic Snakes with Blob",
+    template: "stage",
+    group: "Organic Motion",
+    description: "Recovered from the project timeline for the Organic Motion stage collection.",
+    code: "// NAME: Psychedelic Snakes with Blob\nuniform float linesCount; // @min 1.0 @max 50.0 @default 15.0\nuniform float snakeSpeed; // @min -10.0 @max 10.0 @default 5.0\nuniform float snakeTiling; // @min 1.0 @max 20.0 @default 3.0\nuniform float lineThickness; // @min 0.01 @max 0.5 @default 0.15\nuniform float zoneThreshold; // @min 0.0 @max 1.0 @default 0.8\nuniform float minZoneThreshold; // @min 0.0 @max 1.0 @default 0.2\nuniform float loopSpeed; // @min -5.0 @max 5.0 @default 1.0\nuniform float pixelSoftness; // @min 0.01 @max 3.0 @default 1.8\nuniform float colorSpeed; // @min 0.0 @max 10.0 @default 2.0\nuniform float psychedelicScale; // @min 1.0 @max 20.0 @default 5.0\nuniform bool showBackground; // @default true\nuniform float blobSize; // @min 0.1 @max 2.0 @default 0.6\nuniform float blobBlur; // @min 0.1 @max 2.0 @default 0.8\n\nfloat getMask(sampler2D tex, vec2 uv, vec2 res, float t, float lc, float lt, float ps, float zt, float st, float ss, float ls) {\n    vec3 lw = vec3(0.299, 0.587, 0.114);\n    float lum = dot(texture2D(tex, uv).rgb, lw);\n    vec2 eps = vec2(3.0) / res;\n    float lumX = dot(texture2D(tex, uv + vec2(eps.x, 0.0)).rgb, lw);\n    float lumY = dot(texture2D(tex, uv + vec2(0.0, eps.y)).rgb, lw);\n    vec2 grad = vec2(lumX - lum, lumY - lum);\n    float angle = atan(grad.y, grad.x + 0.0001);\n    \n    float iso = fract(lum * lc - t * ls);\n    float soft = lt * ps * 1.5;\n    float line = smoothstep(zt - soft, zt, iso) - smoothstep(zt, zt + soft, iso);\n    line *= smoothstep(0.001, 0.02, length(grad));\n    \n    float snake = sin(angle * st * 2.0 + t * ss);\n    return line * smoothstep(-1.2 * ps, 1.2, snake);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    \n    float currentZT = mix(minZoneThreshold, zoneThreshold, sin(time * loopSpeed) * 0.5 + 0.5);\n    \n    float m0 = getMask(tex, uv, resolution, time, linesCount, lineThickness, pixelSoftness, currentZT, snakeTiling, snakeSpeed, loopSpeed);\n    \n    vec2 eps = vec2(4.0) / resolution;\n    float mx = getMask(tex, uv + vec2(eps.x, 0.0), resolution, time, linesCount, lineThickness, pixelSoftness, currentZT, snakeTiling, snakeSpeed, loopSpeed);\n    float my = getMask(tex, uv + vec2(0.0, eps.y), resolution, time, linesCount, lineThickness, pixelSoftness, currentZT, snakeTiling, snakeSpeed, loopSpeed);\n    \n    vec3 n = normalize(vec3(m0 - mx, m0 - my, 0.25));\n    \n    vec3 lightDir = normalize(vec3(0.8, 0.8, 1.0));\n    float diff = max(dot(n, lightDir), 0.0);\n    float diffSoft = diff * 0.6 + 0.4; \n    \n    vec3 viewDir = vec3(0.0, 0.0, 1.0);\n    vec3 halfDir = normalize(lightDir + viewDir);\n    \n    float spec = pow(max(dot(n, halfDir), 0.0), 12.0) * m0 * 0.6;\n    float fresnel = pow(1.0 - max(dot(n, viewDir), 0.0), 2.5) * m0;\n    \n    vec3 darkGradient = vec3(0.02, 0.04, 0.08) * (1.5 - length(uv - 0.5) * 1.5);\n    vec3 bg = showBackground ? mix(source.rgb * 0.3, darkGradient, 0.5) : darkGradient;\n    \n    vec3 lw = vec3(0.299, 0.587, 0.114);\n    float lum = dot(source.rgb, lw);\n    vec2 epsGrad = vec2(3.0) / resolution;\n    float lumX = dot(texture2D(tex, uv + vec2(epsGrad.x, 0.0)).rgb, lw);\n    float lumY = dot(texture2D(tex, uv + vec2(0.0, epsGrad.y)).rgb, lw);\n    vec2 grad = vec2(lumX - lum, lumY - lum);\n    float angle = atan(grad.y, grad.x + 0.0001);\n    \n    float phase = angle * snakeTiling * 2.0 + time * snakeSpeed;\n    \n    float n1 = node_noise(uv * psychedelicScale + time);\n    float n2 = node_noise(uv * psychedelicScale * 2.0 - time * 0.5 + n1 * 3.0);\n    float r1 = node_rand(floor(uv * psychedelicScale * 5.0) + time * 0.1);\n    \n    vec3 trailColor = 0.5 + 0.5 * cos(phase * 0.5 - time * colorSpeed + n2 * 6.28 + vec3(0.0, 2.1, 4.2) + r1 * 1.5);\n    \n    vec3 finalColor = trailColor * diffSoft + spec + fresnel * vec3(0.8, 0.9, 1.0);\n    vec3 mixedColor = mix(bg, finalColor, m0);\n    \n    vec2 centered = uv - 0.5;\n    vec2 symUv = abs(centered);\n    float blobNoise = node_noise(symUv * 5.0 - time * 0.3);\n    float dist = length(centered) + blobNoise * 0.4;\n    float blobMask = smoothstep(blobSize, blobSize - blobBlur, dist);\n    \n    mixedColor = mix(mixedColor, vec3(0.0), blobMask);\n    \n    return vec4(mixedColor, source.a);\n}",
+    uniformValues:     {
+          "linesCount": 1,
+          "snakeSpeed": -10,
+          "snakeTiling": 1,
+          "lineThickness": 0.4069,
+          "zoneThreshold": 0.56,
+          "minZoneThreshold": 0.08,
+          "loopSpeed": -1.9,
+          "pixelSoftness": 0.9967,
+          "colorSpeed": 7.6,
+          "psychedelicScale": 1.95,
+          "showBackground": true,
+          "blobSize": 0.6,
+          "blobBlur": 0.8
+    },
+  },
+  {
+    id: "timeline-37de525c-29f6-498f-941e-9210c69d43c6",
+    name: "Reactive Cloud Perturbations",
+    template: "stage",
+    group: "Organic Motion",
+    description: "Recovered from the project timeline for the Organic Motion stage collection.",
+    code: "// NAME: Reactive Cloud Perturbations\nuniform float speed; // @min 0.0 @max 0.5 @default 0.1\nuniform float density; // @min 0.5 @max 5.0 @default 2.0\nuniform float distortion; // @min 0.0 @max 2.0 @default 0.5\nuniform float contrast; // @min 0.5 @max 2.0 @default 1.25\n\nfloat fbm_reactive(vec2 p, float seed) {\n    float v = 0.0;\n    float a = 0.5;\n    vec2 shift = vec2(seed * 13.17, seed * 1.21);\n    for (int i = 0; i < 5; i++) {\n        v += a * node_noise(p + shift);\n        p *= 2.0;\n        a *= 0.5;\n    }\n    return v;\n}\n\nfloat cosh_shaper(float x, float s) {\n    float y = cos(fract(x) * 3.14159265);\n    return floor(x) + 0.5 - (0.5 * pow(abs(y), 1.0 / s) * sign(y));\n}\n\nvec3 gradient_reactive(float t, vec3 a, vec3 b, vec3 c, vec3 d) {\n    return a + b * cos(6.28318 * (c * t + d));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    vec2 p = (uv * 2.0 - 1.0) * vec2(resolution.x / resolution.y, 1.0);\n    \n    float t = time * speed + 1.0;\n    float mag = length(p);\n    \n    // Use source color to influence the gradient palette\n    vec3 c1 = source.rgb * 0.3;\n    vec3 c2 = vec3(0.4);\n    vec3 c3 = vec3(1.0);\n    vec3 c4 = source.rgb * (sin(t) * 0.1 + 0.4);\n    \n    float d = 0.0;\n    vec3 col = vec3(0.0);\n    float ti = floor(t);\n    float tf = fract(t);\n    \n    // Distort the noise coordinates based on the source pixel color\n    vec2 st = p * density + (source.rg - 0.5) * distortion;\n    \n    for (int i = 0; i < 3; i++) {\n        st *= 2.0;\n        // The noise itself reacts to the source color's intensity\n        float da = fbm_reactive(st * d + source.b * 0.1, ti);\n        float db = fbm_reactive(st * d + source.b * 0.1, ti + 1.0);\n        d = mix(da, db, pow(tf, 0.25));\n        \n        // Accumulate color using the reactive gradient\n        col += gradient_reactive(d * 2.0 - t * 0.5 + mag * float(i), c1, c2, c3, c4) * d;\n    }\n    \n    // Apply the custom shaping function\n    float s = contrast + sin(5.0 * t + mag + d) * 0.25;\n    col.r = cosh_shaper(col.r, s);\n    col.g = cosh_shaper(col.g, s);\n    col.b = cosh_shaper(col.b, s);\n    \n    // Blend with original based on luminance to maintain some image structure\n    float lum = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    vec3 finalCol = mix(source.rgb * col, col, lum);\n    \n    return vec4(finalCol, 1.0);\n}",
+    uniformValues:     {
+          "speed": 0.82,
+          "density": 2,
+          "distortion": 0.76,
+          "contrast": 1.25
+    },
+  },
+  {
+    id: "timeline-cf387759-bb57-4ba9-be8e-c109933bb8a6",
+    name: "Zooming G2rid Blob Wiggle",
+    template: "stage",
+    group: "Organic Motion",
+    description: "Recovered from the project timeline for the Organic Motion stage collection.",
+    code: "// NAME: Zooming G2rid Blob Wiggle\nuniform float edgeThreshold; // @min 0.0 @max 2.0 @default 0.2\nuniform float edgeSoftness; // @min 0.01 @max 1.0 @default 0.3\nuniform float tintAmount; // @min 0.0 @max 1.0 @default 0.85\nuniform float edgeWidth; // @min 0.5 @max 5.0 @default 1.0\nuniform float darkThreshold; // @min 0.0 @max 1.0 @default 0.2\nuniform float wiggleAmp; // @min 0.0 @max 0.1 @default 0.01\nuniform float wiggleFreq; // @min 1.0 @max 50.0 @default 15.0\nuniform float wiggleSpeed; // @min 0.0 @max 10.0 @default 3.0\nuniform float blobRadius; // @min 0.0 @max 1.0 @default 0.2\nuniform float blobSoftness; // @min 0.01 @max 1.0 @default 0.2\nuniform float blobMoveRadius; // @min 0.0 @max 1.0 @default 0.2\nuniform float blobMoveSpeed; // @min 0.0 @max 10.0 @default 2.0\nuniform vec3 blobColor; // @default 0.0,0.0,0.0\nuniform float gridScale; // @min 10.0 @max 500.0 @default 200.0\nuniform float gridIntensity; // @min 0.0 @max 1.0 @default 0.6\nuniform float gridSpeed; // @min 0.0 @max 5.0 @default 0.5\nuniform float gridDistortion; // @min 0.0 @max 0.5 @default 0.05\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec2 texel = edgeWidth / resolution;\n    vec4 c = texture2D(tex, uv);\n    \n    vec2 symUv = vec2(abs(uv.x - 0.5), uv.y - 0.5);\n    vec2 wiggleOffset = vec2(\n        sin(symUv.y * wiggleFreq + time * wiggleSpeed),\n        cos(symUv.x * wiggleFreq + time * wiggleSpeed)\n    ) * wiggleAmp;\n    \n    if (uv.x > 0.5) wiggleOffset.x = -wiggleOffset.x;\n    \n    vec2 wUv = uv + wiggleOffset;\n    vec4 wc = texture2D(tex, wUv);\n    vec4 n = texture2D(tex, wUv + vec2(0.0, texel.y));\n    vec4 s = texture2D(tex, wUv - vec2(0.0, texel.y));\n    vec4 e = texture2D(tex, wUv + vec2(texel.x, 0.0));\n    vec4 w = texture2D(tex, wUv - vec2(texel.x, 0.0));\n\n    vec4 diff = abs(wc - n) + abs(wc - s) + abs(wc - e) + abs(wc - w);\n    float edge = length(diff.rgb) + diff.a;\n    float isEdge = smoothstep(edgeThreshold, edgeThreshold + edgeSoftness, edge);\n\n    float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));\n    float darkFactor = smoothstep(0.0, darkThreshold, lum);\n\n    float strobo = step(0.5, fract(time * 15.0));\n    vec3 psychColor = mix(vec3(1.0, 0.4, 0.0), vec3(0.7, 0.0, 1.0), strobo);\n    float swirl = sin(uv.x * 15.0 + time * 5.0) * cos(uv.y * 15.0 - time * 4.0);\n    psychColor = clamp(psychColor + swirl * 0.3, 0.0, 1.0);\n\n    vec4 tinted = mix(c, vec4(psychColor, c.a), tintAmount * darkFactor);\n    \n    vec2 aspectUv = symUv * vec2(resolution.x / resolution.y, 1.0);\n    vec2 blobCenter = vec2(0.25 * (resolution.x / resolution.y), 0.0) + vec2(cos(time * blobMoveSpeed), sin(time * blobMoveSpeed)) * blobMoveRadius;\n    float dist = distance(aspectUv, blobCenter);\n    float blob = smoothstep(blobRadius, blobRadius + blobSoftness, dist);\n    \n    tinted.rgb = mix(blobColor, tinted.rgb, blob);\n    \n    vec4 finalColor = mix(tinted, wc, isEdge);\n    \n    // Zooming, Distorted, Symmetrical Grid with Growing Dots\n    float zoom = 1.0 + 0.6 * sin(time * 1.5);\n    vec2 gridUv = vec2(abs(uv.x - 0.5), uv.y);\n    gridUv = (gridUv - vec2(0.25, 0.5)) * zoom + vec2(0.25, 0.5);\n    gridUv.y -= time * gridSpeed; \n    gridUv += vec2(sin(gridUv.y * 15.0 + time), cos(gridUv.x * 15.0 + time)) * gridDistortion; \n    \n    float gridX = sin(gridUv.x * gridScale);\n    float gridY = sin(gridUv.y * gridScale);\n    float dots = (gridX * gridY) * 0.5 + 0.5;\n    \n    float dotSize = 0.5 + 0.45 * sin(time * 3.0);\n    float moire = smoothstep(1.0 - dotSize, 1.0 - dotSize + 0.1, dots);\n    \n    float mask = mix(1.0 - gridIntensity, 1.0 + gridIntensity, moire);\n    finalColor.rgb *= mask;\n    \n    return finalColor;\n}",
+    uniformValues:     {
+          "edgeThreshold": 0.2,
+          "edgeSoftness": 0.3,
+          "tintAmount": 0.85,
+          "edgeWidth": 1,
+          "darkThreshold": 0.2,
+          "wiggleAmp": 0.01,
+          "wiggleFreq": 15,
+          "wiggleSpeed": 3,
+          "blobRadius": 0.2,
+          "blobSoftness": 0.2,
+          "blobMoveRadius": 0.2,
+          "blobMoveSpeed": 2,
+          "blobColor": [
+                0,
+                0,
+                0
+          ],
+          "gridScale": 200,
+          "gridIntensity": 0.6,
+          "gridSpeed": 0.5,
+          "gridDistortion": 0.05
+    },
+  },
+  {
+    id: "timeline-f8fb2407-6ab1-4011-8351-e481bfb5b287",
+    name: "1Customizable Multiverse Aliens (Random Saccade Edition)",
+    template: "stage",
+    group: "Eyes & Entities",
+    description: "Recovered from the project timeline for the Eyes & Entities stage collection.",
+    code: "// NAME: 1Customizable Multiverse Aliens (Random Saccade Edition)\nuniform float lightHeight; // @min 0.01 @max 1.0 @default 0.5\nuniform float lightIntensity; // @min 0.0 @max 10.0 @default 4.5\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.1\nuniform float shininess; // @min 1.0 @max 200.0 @default 120.0\nuniform float detail; // @min 0.1 @max 10.0 @default 5.0\nuniform float blackThreshold; // @min 0.0 @max 1.0 @default 0.05\nuniform float colorSpeed; // @min 0.0 @max 5.0 @default 0.8\nuniform float alienCount; // @min 1.0 @max 5.0 @default 1.0\nuniform float alienSpread; // @min 0.5 @max 4.0 @default 2.0\nuniform float alienSize; // @min 0.1 @max 3.0 @default 1.2\n\n// Position Parameters\nuniform float moveX; // @min -5.0 @max 5.0 @default 0.0\nuniform float moveY; // @min -5.0 @max 5.0 @default 0.0\n\n// Eye Geometry Parameters\nuniform float irisSize; // @min 0.2 @max 0.8 @default 0.45\nuniform float pupilSize; // @min 0.1 @max 0.5 @default 0.2\nuniform float eyeDilation; // @min 0.5 @max 1.5 @default 1.0\nuniform float veinIntensity; // @min 0.0 @max 1.0 @default 0.8\n\n// Random Frenetic Search Parameters\nuniform float lookDownAmount; // @min 0.0 @max 1.5 @default 0.6\nuniform float lookSideAmount; // @min 0.0 @max 1.5 @default 0.8\nuniform float freneticSpeed; // @min 0.0 @max 60.0 @default 35.0\nuniform float twitchIntensity; // @min 0.0 @max 0.5 @default 0.15\n\n// --- 3D UTILITIES ---\nmat2 rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat sdSphere(vec3 p, float s) {\n    return length(p) - s;\n}\n\n// --- RANDOM MOVEMENT LOGIC ---\nfloat hash11(float p) {\n    p = fract(p * 0.1031);\n    p *= p + 33.33;\n    p *= p + p;\n    return fract(p);\n}\n\nvec2 getEyeRotation(float t, float speed, float sideAmt, float downAmt, float twitch) {\n    // 1. Saccades (Rapid eye darts)\n    float dartRate = max(1.0, speed * 0.08); \n    float seedTime = floor(t * dartRate);\n    float smoothT = smoothstep(0.0, 0.2, fract(t * dartRate)); \n    \n    // Random targets for X (Side-to-Side)\n    float prevX = (hash11(seedTime * 12.34) - 0.5) * 2.0;\n    float nextX = (hash11((seedTime + 1.0) * 12.34) - 0.5) * 2.0;\n    float curX = mix(prevX, nextX, smoothT);\n    \n    // Random targets for Y (Up-and-Down)\n    float prevY = (hash11(seedTime * 45.67) - 0.5) * 2.0;\n    float nextY = (hash11((seedTime + 1.0) * 45.67) - 0.5) * 2.0;\n    float curY = mix(prevY, nextY, smoothT);\n    \n    // 2. High-frequency micro twitches\n    float jX = sin(t * speed) * cos(t * speed * 0.61);\n    float jY = cos(t * speed * 0.83) * sin(t * speed * 1.27);\n    \n    float finalX = (curX * sideAmt) + (jX * twitch);\n    float finalY = (curY * downAmt) - (downAmt * 0.3) + (jY * twitch); \n    \n    return vec2(finalX, finalY);\n}\n\n// --- REALISTIC EYE SDF ---\nvec2 singleAlien(vec3 p, float time, float idOffset) {\n    p /= alienSize;\n    \n    // REVERSE UPSIDE DOWN\n    p.y = -p.y;\n    \n    float t = time + idOffset;\n    p.xy *= rot(sin(t * 0.5) * 0.05);\n\n    vec2 eyeRot = getEyeRotation(t, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n    p.xz *= rot(eyeRot.x);\n    p.yz *= rot(eyeRot.y);\n\n    float d = sdSphere(p, 1.0);\n    float mat = 0.0;\n\n    vec3 normP = normalize(p);\n    if (normP.z > 0.0) { \n        float r = length(normP.xy);\n        float pSize = pupilSize * (1.0 + sin(time * 2.0) * 0.05 * eyeDilation);\n        \n        if (r < pSize) {\n            mat = 2.0; // Pupil\n        } else if (r < irisSize) {\n            mat = 1.0; // Iris\n        }\n    }\n\n    return vec2(d * alienSize, mat);\n}\n\nvec2 map(vec3 p, float time) {\n    vec2 res = vec2(1e10, 0.0);\n    float count = floor(alienCount);\n    \n    // FIXED: Using standard integer for loop to prevent WebGL errors\n    for(int i = 0; i < 5; i++) {\n        if (float(i) >= count) break;\n        float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n        \n        // Apply Global Move X and Y here\n        vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n        \n        vec2 d = singleAlien(p - objectPos, time, float(i) * 4.0);\n        if (d.x < res.x) res = d;\n    }\n    return res;\n}\n\nvec3 getNormal(vec3 p, float t) {\n    vec2 e = vec2(0.001, 0.0);\n    return normalize(vec3(\n        map(p + e.xyy, t).x - map(p - e.xyy, t).x,\n        map(p + e.yxy, t).x - map(p - e.yxy, t).x,\n        map(p + e.yyx, t).x - map(p - e.yyx, t).x\n    ));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 base = texture2D(tex, uv);\n    float isNotBlack = smoothstep(blackThreshold, blackThreshold + 0.05, max(max(base.r, base.g), base.b));\n    if (isNotBlack < 0.01) return vec4(0.0, 0.0, 0.0, base.a);\n\n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    \n    vec3 ro = vec3(0.0, 0.0, 4.0); \n    vec3 rd = normalize(vec3(p, -3.5));\n    \n    float tDist = 0.0;\n    vec2 res;\n    for(int i = 0; i < 64; i++) {\n        res = map(ro + rd * tDist, time);\n        if(res.x < 0.001 || tDist > 10.0) break;\n        tDist += res.x;\n    }\n    \n    if(res.x < 0.001) {\n        vec3 pos = ro + rd * tDist;\n        vec3 normal = getNormal(pos, time);\n        vec3 viewDir = -rd;\n        \n        // --- Reconstruct Local Position for Realistic Texturing ---\n        vec3 localPos = pos;\n        float closestI = 0.0;\n        float minDist = 100.0;\n        float count = floor(alienCount);\n        \n        // FIXED: Int loop for reconstruction\n        for(int i = 0; i < 5; i++) {\n            if (float(i) >= count) break;\n            float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n            vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n            float d = length(pos - objectPos);\n            if (d < minDist) { minDist = d; closestI = float(i); }\n        }\n        \n        float xOff = (closestI - (count - 1.0) * 0.5) * alienSpread;\n        // Shift local texture coordinates back by moveX and moveY to match geometry\n        localPos -= vec3(xOff + moveX, moveY, 0.0);\n        localPos /= alienSize;\n        localPos.y = -localPos.y; \n        \n        float t_loc = time + closestI * 4.0;\n        localPos.xy *= rot(sin(t_loc * 0.5) * 0.05);\n        \n        vec2 eyeRot = getEyeRotation(t_loc, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n        localPos.xz *= rot(eyeRot.x);\n        localPos.yz *= rot(eyeRot.y);\n        \n        vec3 localNorm = normalize(localPos);\n        float r = length(localNorm.xy);\n        float angle = atan(localNorm.y, localNorm.x);\n        // ----------------------------------------------------------\n\n        // Lighting Setup\n        vec3 lp = vec3(2.0 * sin(time), 3.0, 5.0 * lightHeight);\n        vec3 lDir = normalize(lp - pos);\n        \n        // Base Material Colors\n        vec3 col = vec3(0.92, 0.88, 0.88); \n        \n        if (res.y == 0.0) { // Sclera & Veins\n            \n            float warp1 = sin(localNorm.z * 15.0) * 0.15 + cos(localNorm.z * 25.0) * 0.05;\n            float warp2 = cos(localNorm.z * 20.0) * 0.25 - sin(localNorm.z * 40.0) * 0.1;\n            \n            float mainVeins = sin((angle + warp1) * 12.0);\n            mainVeins = smoothstep(0.95, 1.0, mainVeins); \n            \n            float secVeins = sin((angle + warp2) * 26.0);\n            secVeins = smoothstep(0.98, 1.0, secVeins); \n            \n            float veinMask = max(mainVeins, secVeins * 0.6);\n            \n            float breakup = smoothstep(0.0, 0.5, sin(localNorm.z * 50.0 + angle * 5.0) * 0.5 + 0.5);\n            veinMask *= mix(0.4, 1.0, breakup);\n\n            float veinFade = smoothstep(irisSize - 0.02, irisSize + 0.5, r);\n            vec3 bloodCol = vec3(0.7, 0.05, 0.05);\n            \n            col = mix(col, bloodCol, veinMask * veinFade * veinIntensity);\n            \n        } else if (res.y == 1.0) { // Iris\n            float f = abs(sin(angle * 20.0 + detail));\n            vec3 irisCol = vec3(0.2, 0.4, 0.8); \n            irisCol += 0.5 * sin(vec3(0.0, 1.0, 2.0) + time * colorSpeed);\n            col = mix(irisCol * 0.5, irisCol, f);\n            col *= smoothstep(irisSize, irisSize - 0.05, r);\n        } else if (res.y == 2.0) { // Pupil\n            col = vec3(0.02);\n        }\n        \n        // Lighting Calculations\n        float diff = max(dot(normal, lDir), 0.0);\n        float spec = pow(max(dot(normal, normalize(lDir + viewDir)), 0.0), shininess);\n        float glint = pow(max(dot(normal, normalize(vec3(1.0, 1.0, 1.0))), 0.0), 300.0) * 2.0;\n        \n        vec3 finalCol = col * (ambient + diff * lightIntensity * 0.5);\n        finalCol += (spec + glint) * lightIntensity * 0.3;\n        \n        return vec4(finalCol * isNotBlack, base.a);\n    }\n\n    return vec4(0.0, 0.0, 0.0, base.a);\n}",
+    uniformValues:     {
+          "lightHeight": 0.5,
+          "lightIntensity": 4.5,
+          "ambient": 0.56,
+          "shininess": 120,
+          "detail": 5,
+          "blackThreshold": 0.05,
+          "colorSpeed": 0.8,
+          "alienCount": 1,
+          "alienSpread": 1.41,
+          "alienSize": 0.912,
+          "moveX": 0,
+          "moveY": -0.1,
+          "irisSize": 0.632,
+          "pupilSize": 0.5,
+          "eyeDilation": 0.65,
+          "veinIntensity": 0.57,
+          "lookDownAmount": 0.225,
+          "lookSideAmount": 0.405,
+          "freneticSpeed": 45.6,
+          "twitchIntensity": 0.04
+    },
+  },
+  {
+    id: "timeline-ab8007e7-6dbf-43a6-ab72-452e57f05a54",
+    name: "1dxCustomizable Multiverse Aliens (Random Saccade Edition)",
+    template: "stage",
+    group: "Eyes & Entities",
+    description: "Recovered from the project timeline for the Eyes & Entities stage collection.",
+    code: "// NAME: 1dxCustomizable Multiverse Aliens (Random Saccade Edition)\nuniform float lightHeight; // @min 0.01 @max 1.0 @default 0.5\nuniform float lightIntensity; // @min 0.0 @max 10.0 @default 4.5\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.1\nuniform float shininess; // @min 1.0 @max 200.0 @default 120.0\nuniform float detail; // @min 0.1 @max 10.0 @default 5.0\nuniform float blackThreshold; // @min 0.0 @max 1.0 @default 0.05\nuniform float colorSpeed; // @min 0.0 @max 5.0 @default 0.8\nuniform float alienCount; // @min 1.0 @max 5.0 @default 1.0\nuniform float alienSpread; // @min 0.5 @max 4.0 @default 2.0\nuniform float alienSize; // @min 0.1 @max 3.0 @default 1.2\n\n// Position Parameters\nuniform float moveX; // @min -5.0 @max 5.0 @default 0.0\nuniform float moveY; // @min -5.0 @max 5.0 @default 0.0\n\n// Eye Geometry Parameters\nuniform float irisSize; // @min 0.2 @max 0.8 @default 0.45\nuniform float pupilSize; // @min 0.1 @max 0.5 @default 0.2\nuniform float eyeDilation; // @min 0.5 @max 1.5 @default 1.0\nuniform float veinIntensity; // @min 0.0 @max 1.0 @default 0.8\n\n// Random Frenetic Search Parameters\nuniform float lookDownAmount; // @min 0.0 @max 1.5 @default 0.6\nuniform float lookSideAmount; // @min 0.0 @max 1.5 @default 0.8\nuniform float freneticSpeed; // @min 0.0 @max 60.0 @default 35.0\nuniform float twitchIntensity; // @min 0.0 @max 0.5 @default 0.15\n\n// --- 3D UTILITIES ---\nmat2 rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat sdSphere(vec3 p, float s) {\n    return length(p) - s;\n}\n\n// --- RANDOM MOVEMENT LOGIC ---\nfloat hash11(float p) {\n    p = fract(p * 0.1031);\n    p *= p + 33.33;\n    p *= p + p;\n    return fract(p);\n}\n\nvec2 getEyeRotation(float t, float speed, float sideAmt, float downAmt, float twitch) {\n    // 1. Saccades (Rapid eye darts)\n    float dartRate = max(1.0, speed * 0.08); \n    float seedTime = floor(t * dartRate);\n    float smoothT = smoothstep(0.0, 0.2, fract(t * dartRate)); \n    \n    // Random targets for X (Side-to-Side)\n    float prevX = (hash11(seedTime * 12.34) - 0.5) * 2.0;\n    float nextX = (hash11((seedTime + 1.0) * 12.34) - 0.5) * 2.0;\n    float curX = mix(prevX, nextX, smoothT);\n    \n    // Random targets for Y (Up-and-Down)\n    float prevY = (hash11(seedTime * 45.67) - 0.5) * 2.0;\n    float nextY = (hash11((seedTime + 1.0) * 45.67) - 0.5) * 2.0;\n    float curY = mix(prevY, nextY, smoothT);\n    \n    // 2. High-frequency micro twitches\n    float jX = sin(t * speed) * cos(t * speed * 0.61);\n    float jY = cos(t * speed * 0.83) * sin(t * speed * 1.27);\n    \n    float finalX = (curX * sideAmt) + (jX * twitch);\n    float finalY = (curY * downAmt) - (downAmt * 0.3) + (jY * twitch); \n    \n    return vec2(finalX, finalY);\n}\n\n// --- REALISTIC EYE SDF ---\nvec2 singleAlien(vec3 p, float time, float idOffset) {\n    p /= alienSize;\n    \n    // REVERSE UPSIDE DOWN\n    p.y = -p.y;\n    \n    float t = time + idOffset;\n    p.xy *= rot(sin(t * 0.5) * 0.05);\n\n    vec2 eyeRot = getEyeRotation(t, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n    p.xz *= rot(eyeRot.x);\n    p.yz *= rot(eyeRot.y);\n\n    float d = sdSphere(p, 1.0);\n    float mat = 0.0;\n\n    vec3 normP = normalize(p);\n    if (normP.z > 0.0) { \n        float r = length(normP.xy);\n        float pSize = pupilSize * (1.0 + sin(time * 2.0) * 0.05 * eyeDilation);\n        \n        if (r < pSize) {\n            mat = 2.0; // Pupil\n        } else if (r < irisSize) {\n            mat = 1.0; // Iris\n        }\n    }\n\n    return vec2(d * alienSize, mat);\n}\n\nvec2 map(vec3 p, float time) {\n    vec2 res = vec2(1e10, 0.0);\n    float count = floor(alienCount);\n    \n    // FIXED: Using standard integer for loop to prevent WebGL errors\n    for(int i = 0; i < 5; i++) {\n        if (float(i) >= count) break;\n        float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n        \n        // Apply Global Move X and Y here\n        vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n        \n        vec2 d = singleAlien(p - objectPos, time, float(i) * 4.0);\n        if (d.x < res.x) res = d;\n    }\n    return res;\n}\n\nvec3 getNormal(vec3 p, float t) {\n    vec2 e = vec2(0.001, 0.0);\n    return normalize(vec3(\n        map(p + e.xyy, t).x - map(p - e.xyy, t).x,\n        map(p + e.yxy, t).x - map(p - e.yxy, t).x,\n        map(p + e.yyx, t).x - map(p - e.yyx, t).x\n    ));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 base = texture2D(tex, uv);\n    float isNotBlack = smoothstep(blackThreshold, blackThreshold + 0.05, max(max(base.r, base.g), base.b));\n    if (isNotBlack < 0.01) return vec4(0.0, 0.0, 0.0, base.a);\n\n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    \n    vec3 ro = vec3(0.0, 0.0, 4.0); \n    vec3 rd = normalize(vec3(p, -3.5));\n    \n    float tDist = 0.0;\n    vec2 res;\n    for(int i = 0; i < 64; i++) {\n        res = map(ro + rd * tDist, time);\n        if(res.x < 0.001 || tDist > 10.0) break;\n        tDist += res.x;\n    }\n    \n    if(res.x < 0.001) {\n        vec3 pos = ro + rd * tDist;\n        vec3 normal = getNormal(pos, time);\n        vec3 viewDir = -rd;\n        \n        // --- Reconstruct Local Position for Realistic Texturing ---\n        vec3 localPos = pos;\n        float closestI = 0.0;\n        float minDist = 100.0;\n        float count = floor(alienCount);\n        \n        // FIXED: Int loop for reconstruction\n        for(int i = 0; i < 5; i++) {\n            if (float(i) >= count) break;\n            float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n            vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n            float d = length(pos - objectPos);\n            if (d < minDist) { minDist = d; closestI = float(i); }\n        }\n        \n        float xOff = (closestI - (count - 1.0) * 0.5) * alienSpread;\n        // Shift local texture coordinates back by moveX and moveY to match geometry\n        localPos -= vec3(xOff + moveX, moveY, 0.0);\n        localPos /= alienSize;\n        localPos.y = -localPos.y; \n        \n        float t_loc = time + closestI * 4.0;\n        localPos.xy *= rot(sin(t_loc * 0.5) * 0.05);\n        \n        vec2 eyeRot = getEyeRotation(t_loc, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n        localPos.xz *= rot(eyeRot.x);\n        localPos.yz *= rot(eyeRot.y);\n        \n        vec3 localNorm = normalize(localPos);\n        float r = length(localNorm.xy);\n        float angle = atan(localNorm.y, localNorm.x);\n        // ----------------------------------------------------------\n\n        // Lighting Setup\n        vec3 lp = vec3(2.0 * sin(time), 3.0, 5.0 * lightHeight);\n        vec3 lDir = normalize(lp - pos);\n        \n        // Base Material Colors\n        vec3 col = vec3(0.92, 0.88, 0.88); \n        \n        if (res.y == 0.0) { // Sclera & Veins\n            \n            float warp1 = sin(localNorm.z * 15.0) * 0.15 + cos(localNorm.z * 25.0) * 0.05;\n            float warp2 = cos(localNorm.z * 20.0) * 0.25 - sin(localNorm.z * 40.0) * 0.1;\n            \n            float mainVeins = sin((angle + warp1) * 12.0);\n            mainVeins = smoothstep(0.95, 1.0, mainVeins); \n            \n            float secVeins = sin((angle + warp2) * 26.0);\n            secVeins = smoothstep(0.98, 1.0, secVeins); \n            \n            float veinMask = max(mainVeins, secVeins * 0.6);\n            \n            float breakup = smoothstep(0.0, 0.5, sin(localNorm.z * 50.0 + angle * 5.0) * 0.5 + 0.5);\n            veinMask *= mix(0.4, 1.0, breakup);\n\n            float veinFade = smoothstep(irisSize - 0.02, irisSize + 0.5, r);\n            vec3 bloodCol = vec3(0.7, 0.05, 0.05);\n            \n            col = mix(col, bloodCol, veinMask * veinFade * veinIntensity);\n            \n        } else if (res.y == 1.0) { // Iris\n            float f = abs(sin(angle * 20.0 + detail));\n            vec3 irisCol = vec3(0.2, 0.4, 0.8); \n            irisCol += 0.5 * sin(vec3(0.0, 1.0, 2.0) + time * colorSpeed);\n            col = mix(irisCol * 0.5, irisCol, f);\n            col *= smoothstep(irisSize, irisSize - 0.05, r);\n        } else if (res.y == 2.0) { // Pupil\n            col = vec3(0.02);\n        }\n        \n        // Lighting Calculations\n        float diff = max(dot(normal, lDir), 0.0);\n        float spec = pow(max(dot(normal, normalize(lDir + viewDir)), 0.0), shininess);\n        float glint = pow(max(dot(normal, normalize(vec3(1.0, 1.0, 1.0))), 0.0), 300.0) * 2.0;\n        \n        vec3 finalCol = col * (ambient + diff * lightIntensity * 0.5);\n        finalCol += (spec + glint) * lightIntensity * 0.3;\n        \n        return vec4(finalCol * isNotBlack, base.a);\n    }\n\n    return vec4(0.0, 0.0, 0.0, base.a);\n}",
+    uniformValues:     {
+          "lightHeight": 0.5,
+          "lightIntensity": 4.5,
+          "ambient": 0.56,
+          "shininess": 120,
+          "detail": 5,
+          "blackThreshold": 0.05,
+          "colorSpeed": 0.8,
+          "alienCount": 1,
+          "alienSpread": 1.41,
+          "alienSize": 0.912,
+          "moveX": 1.4,
+          "moveY": -0.1,
+          "irisSize": 0.584,
+          "pupilSize": 0.372,
+          "eyeDilation": 1.31,
+          "veinIntensity": 0.57,
+          "lookDownAmount": 0.225,
+          "lookSideAmount": 0.405,
+          "freneticSpeed": 4.8,
+          "twitchIntensity": 0.08
+    },
+  },
+  {
+    id: "timeline-9679fb0b-1940-4b61-ad92-73b59ed9a1aa",
+    name: "1sxCustomizable Multiverse Aliens (Random Saccade Edition)",
+    template: "stage",
+    group: "Eyes & Entities",
+    description: "Recovered from the project timeline for the Eyes & Entities stage collection.",
+    code: "// NAME: 1sxCustomizable Multiverse Aliens (Random Saccade Edition)\nuniform float lightHeight; // @min 0.01 @max 1.0 @default 0.5\nuniform float lightIntensity; // @min 0.0 @max 10.0 @default 4.5\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.1\nuniform float shininess; // @min 1.0 @max 200.0 @default 120.0\nuniform float detail; // @min 0.1 @max 10.0 @default 5.0\nuniform float blackThreshold; // @min 0.0 @max 1.0 @default 0.05\nuniform float colorSpeed; // @min 0.0 @max 5.0 @default 0.8\nuniform float alienCount; // @min 1.0 @max 5.0 @default 1.0\nuniform float alienSpread; // @min 0.5 @max 4.0 @default 2.0\nuniform float alienSize; // @min 0.1 @max 3.0 @default 1.2\n\n// Position Parameters\nuniform float moveX; // @min -5.0 @max 5.0 @default 0.0\nuniform float moveY; // @min -5.0 @max 5.0 @default 0.0\n\n// Eye Geometry Parameters\nuniform float irisSize; // @min 0.2 @max 0.8 @default 0.45\nuniform float pupilSize; // @min 0.1 @max 0.5 @default 0.2\nuniform float eyeDilation; // @min 0.5 @max 1.5 @default 1.0\nuniform float veinIntensity; // @min 0.0 @max 1.0 @default 0.8\n\n// Random Frenetic Search Parameters\nuniform float lookDownAmount; // @min 0.0 @max 1.5 @default 0.6\nuniform float lookSideAmount; // @min 0.0 @max 1.5 @default 0.8\nuniform float freneticSpeed; // @min 0.0 @max 60.0 @default 35.0\nuniform float twitchIntensity; // @min 0.0 @max 0.5 @default 0.15\n\n// --- 3D UTILITIES ---\nmat2 rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat sdSphere(vec3 p, float s) {\n    return length(p) - s;\n}\n\n// --- RANDOM MOVEMENT LOGIC ---\nfloat hash11(float p) {\n    p = fract(p * 0.1031);\n    p *= p + 33.33;\n    p *= p + p;\n    return fract(p);\n}\n\nvec2 getEyeRotation(float t, float speed, float sideAmt, float downAmt, float twitch) {\n    // 1. Saccades (Rapid eye darts)\n    float dartRate = max(1.0, speed * 0.08); \n    float seedTime = floor(t * dartRate);\n    float smoothT = smoothstep(0.0, 0.2, fract(t * dartRate)); \n    \n    // Random targets for X (Side-to-Side)\n    float prevX = (hash11(seedTime * 12.34) - 0.5) * 2.0;\n    float nextX = (hash11((seedTime + 1.0) * 12.34) - 0.5) * 2.0;\n    float curX = mix(prevX, nextX, smoothT);\n    \n    // Random targets for Y (Up-and-Down)\n    float prevY = (hash11(seedTime * 45.67) - 0.5) * 2.0;\n    float nextY = (hash11((seedTime + 1.0) * 45.67) - 0.5) * 2.0;\n    float curY = mix(prevY, nextY, smoothT);\n    \n    // 2. High-frequency micro twitches\n    float jX = sin(t * speed) * cos(t * speed * 0.61);\n    float jY = cos(t * speed * 0.83) * sin(t * speed * 1.27);\n    \n    float finalX = (curX * sideAmt) + (jX * twitch);\n    float finalY = (curY * downAmt) - (downAmt * 0.3) + (jY * twitch); \n    \n    return vec2(finalX, finalY);\n}\n\n// --- REALISTIC EYE SDF ---\nvec2 singleAlien(vec3 p, float time, float idOffset) {\n    p /= alienSize;\n    \n    // REVERSE UPSIDE DOWN\n    p.y = -p.y;\n    \n    float t = time + idOffset;\n    p.xy *= rot(sin(t * 0.5) * 0.05);\n\n    vec2 eyeRot = getEyeRotation(t, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n    p.xz *= rot(eyeRot.x);\n    p.yz *= rot(eyeRot.y);\n\n    float d = sdSphere(p, 1.0);\n    float mat = 0.0;\n\n    vec3 normP = normalize(p);\n    if (normP.z > 0.0) { \n        float r = length(normP.xy);\n        float pSize = pupilSize * (1.0 + sin(time * 2.0) * 0.05 * eyeDilation);\n        \n        if (r < pSize) {\n            mat = 2.0; // Pupil\n        } else if (r < irisSize) {\n            mat = 1.0; // Iris\n        }\n    }\n\n    return vec2(d * alienSize, mat);\n}\n\nvec2 map(vec3 p, float time) {\n    vec2 res = vec2(1e10, 0.0);\n    float count = floor(alienCount);\n    \n    // FIXED: Using standard integer for loop to prevent WebGL errors\n    for(int i = 0; i < 5; i++) {\n        if (float(i) >= count) break;\n        float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n        \n        // Apply Global Move X and Y here\n        vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n        \n        vec2 d = singleAlien(p - objectPos, time, float(i) * 4.0);\n        if (d.x < res.x) res = d;\n    }\n    return res;\n}\n\nvec3 getNormal(vec3 p, float t) {\n    vec2 e = vec2(0.001, 0.0);\n    return normalize(vec3(\n        map(p + e.xyy, t).x - map(p - e.xyy, t).x,\n        map(p + e.yxy, t).x - map(p - e.yxy, t).x,\n        map(p + e.yyx, t).x - map(p - e.yyx, t).x\n    ));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 base = texture2D(tex, uv);\n    float isNotBlack = smoothstep(blackThreshold, blackThreshold + 0.05, max(max(base.r, base.g), base.b));\n    if (isNotBlack < 0.01) return vec4(0.0, 0.0, 0.0, base.a);\n\n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    \n    vec3 ro = vec3(0.0, 0.0, 4.0); \n    vec3 rd = normalize(vec3(p, -3.5));\n    \n    float tDist = 0.0;\n    vec2 res;\n    for(int i = 0; i < 64; i++) {\n        res = map(ro + rd * tDist, time);\n        if(res.x < 0.001 || tDist > 10.0) break;\n        tDist += res.x;\n    }\n    \n    if(res.x < 0.001) {\n        vec3 pos = ro + rd * tDist;\n        vec3 normal = getNormal(pos, time);\n        vec3 viewDir = -rd;\n        \n        // --- Reconstruct Local Position for Realistic Texturing ---\n        vec3 localPos = pos;\n        float closestI = 0.0;\n        float minDist = 100.0;\n        float count = floor(alienCount);\n        \n        // FIXED: Int loop for reconstruction\n        for(int i = 0; i < 5; i++) {\n            if (float(i) >= count) break;\n            float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n            vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n            float d = length(pos - objectPos);\n            if (d < minDist) { minDist = d; closestI = float(i); }\n        }\n        \n        float xOff = (closestI - (count - 1.0) * 0.5) * alienSpread;\n        // Shift local texture coordinates back by moveX and moveY to match geometry\n        localPos -= vec3(xOff + moveX, moveY, 0.0);\n        localPos /= alienSize;\n        localPos.y = -localPos.y; \n        \n        float t_loc = time + closestI * 4.0;\n        localPos.xy *= rot(sin(t_loc * 0.5) * 0.05);\n        \n        vec2 eyeRot = getEyeRotation(t_loc, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n        localPos.xz *= rot(eyeRot.x);\n        localPos.yz *= rot(eyeRot.y);\n        \n        vec3 localNorm = normalize(localPos);\n        float r = length(localNorm.xy);\n        float angle = atan(localNorm.y, localNorm.x);\n        // ----------------------------------------------------------\n\n        // Lighting Setup\n        vec3 lp = vec3(2.0 * sin(time), 3.0, 5.0 * lightHeight);\n        vec3 lDir = normalize(lp - pos);\n        \n        // Base Material Colors\n        vec3 col = vec3(0.92, 0.88, 0.88); \n        \n        if (res.y == 0.0) { // Sclera & Veins\n            \n            float warp1 = sin(localNorm.z * 15.0) * 0.15 + cos(localNorm.z * 25.0) * 0.05;\n            float warp2 = cos(localNorm.z * 20.0) * 0.25 - sin(localNorm.z * 40.0) * 0.1;\n            \n            float mainVeins = sin((angle + warp1) * 12.0);\n            mainVeins = smoothstep(0.95, 1.0, mainVeins); \n            \n            float secVeins = sin((angle + warp2) * 26.0);\n            secVeins = smoothstep(0.98, 1.0, secVeins); \n            \n            float veinMask = max(mainVeins, secVeins * 0.6);\n            \n            float breakup = smoothstep(0.0, 0.5, sin(localNorm.z * 50.0 + angle * 5.0) * 0.5 + 0.5);\n            veinMask *= mix(0.4, 1.0, breakup);\n\n            float veinFade = smoothstep(irisSize - 0.02, irisSize + 0.5, r);\n            vec3 bloodCol = vec3(0.7, 0.05, 0.05);\n            \n            col = mix(col, bloodCol, veinMask * veinFade * veinIntensity);\n            \n        } else if (res.y == 1.0) { // Iris\n            float f = abs(sin(angle * 20.0 + detail));\n            vec3 irisCol = vec3(0.2, 0.4, 0.8); \n            irisCol += 0.5 * sin(vec3(0.0, 1.0, 2.0) + time * colorSpeed);\n            col = mix(irisCol * 0.5, irisCol, f);\n            col *= smoothstep(irisSize, irisSize - 0.05, r);\n        } else if (res.y == 2.0) { // Pupil\n            col = vec3(0.02);\n        }\n        \n        // Lighting Calculations\n        float diff = max(dot(normal, lDir), 0.0);\n        float spec = pow(max(dot(normal, normalize(lDir + viewDir)), 0.0), shininess);\n        float glint = pow(max(dot(normal, normalize(vec3(1.0, 1.0, 1.0))), 0.0), 300.0) * 2.0;\n        \n        vec3 finalCol = col * (ambient + diff * lightIntensity * 0.5);\n        finalCol += (spec + glint) * lightIntensity * 0.3;\n        \n        return vec4(finalCol * isNotBlack, base.a);\n    }\n\n    return vec4(0.0, 0.0, 0.0, base.a);\n}",
+    uniformValues:     {
+          "lightHeight": 0.5,
+          "lightIntensity": 4.5,
+          "ambient": 0.56,
+          "shininess": 120,
+          "detail": 5,
+          "blackThreshold": 0.05,
+          "colorSpeed": 0.8,
+          "alienCount": 1,
+          "alienSpread": 1.41,
+          "alienSize": 0.912,
+          "moveX": -1.4,
+          "moveY": -0.1,
+          "irisSize": 0.584,
+          "pupilSize": 0.372,
+          "eyeDilation": 1.31,
+          "veinIntensity": 0.57,
+          "lookDownAmount": 0.225,
+          "lookSideAmount": 0.405,
+          "freneticSpeed": 60,
+          "twitchIntensity": 0
+    },
+  },
+  {
+    id: "timeline-dd496758-29fe-4144-a5bc-30f843e30101",
+    name: "3Customizable Multiverse Aliens (Random Saccade Edition)",
+    template: "stage",
+    group: "Eyes & Entities",
+    description: "Recovered from the project timeline for the Eyes & Entities stage collection.",
+    code: "// NAME: 3Customizable Multiverse Aliens (Random Saccade Edition)\nuniform float lightHeight; // @min 0.01 @max 1.0 @default 0.5\nuniform float lightIntensity; // @min 0.0 @max 10.0 @default 4.5\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.1\nuniform float shininess; // @min 1.0 @max 200.0 @default 120.0\nuniform float detail; // @min 0.1 @max 10.0 @default 5.0\nuniform float blackThreshold; // @min 0.0 @max 1.0 @default 0.05\nuniform float colorSpeed; // @min 0.0 @max 5.0 @default 0.8\nuniform float alienCount; // @min 1.0 @max 5.0 @default 1.0\nuniform float alienSpread; // @min 0.5 @max 4.0 @default 2.0\nuniform float alienSize; // @min 0.1 @max 3.0 @default 1.2\n\n// Position Parameters\nuniform float moveX; // @min -5.0 @max 5.0 @default 0.0\nuniform float moveY; // @min -5.0 @max 5.0 @default 0.0\n\n// Eye Geometry Parameters\nuniform float irisSize; // @min 0.2 @max 0.8 @default 0.45\nuniform float pupilSize; // @min 0.1 @max 0.5 @default 0.2\nuniform float eyeDilation; // @min 0.5 @max 1.5 @default 1.0\nuniform float veinIntensity; // @min 0.0 @max 1.0 @default 0.8\n\n// Random Frenetic Search Parameters\nuniform float lookDownAmount; // @min 0.0 @max 1.5 @default 0.6\nuniform float lookSideAmount; // @min 0.0 @max 1.5 @default 0.8\nuniform float freneticSpeed; // @min 0.0 @max 60.0 @default 35.0\nuniform float twitchIntensity; // @min 0.0 @max 0.5 @default 0.15\n\n// --- 3D UTILITIES ---\nmat2 rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat sdSphere(vec3 p, float s) {\n    return length(p) - s;\n}\n\n// --- RANDOM MOVEMENT LOGIC ---\nfloat hash11(float p) {\n    p = fract(p * 0.1031);\n    p *= p + 33.33;\n    p *= p + p;\n    return fract(p);\n}\n\nvec2 getEyeRotation(float t, float speed, float sideAmt, float downAmt, float twitch) {\n    // 1. Saccades (Rapid eye darts)\n    float dartRate = max(1.0, speed * 0.08); \n    float seedTime = floor(t * dartRate);\n    float smoothT = smoothstep(0.0, 0.2, fract(t * dartRate)); \n    \n    // Random targets for X (Side-to-Side)\n    float prevX = (hash11(seedTime * 12.34) - 0.5) * 2.0;\n    float nextX = (hash11((seedTime + 1.0) * 12.34) - 0.5) * 2.0;\n    float curX = mix(prevX, nextX, smoothT);\n    \n    // Random targets for Y (Up-and-Down)\n    float prevY = (hash11(seedTime * 45.67) - 0.5) * 2.0;\n    float nextY = (hash11((seedTime + 1.0) * 45.67) - 0.5) * 2.0;\n    float curY = mix(prevY, nextY, smoothT);\n    \n    // 2. High-frequency micro twitches\n    float jX = sin(t * speed) * cos(t * speed * 0.61);\n    float jY = cos(t * speed * 0.83) * sin(t * speed * 1.27);\n    \n    float finalX = (curX * sideAmt) + (jX * twitch);\n    float finalY = (curY * downAmt) - (downAmt * 0.3) + (jY * twitch); \n    \n    return vec2(finalX, finalY);\n}\n\n// --- REALISTIC EYE SDF ---\nvec2 singleAlien(vec3 p, float time, float idOffset) {\n    p /= alienSize;\n    \n    // REVERSE UPSIDE DOWN\n    p.y = -p.y;\n    \n    float t = time + idOffset;\n    p.xy *= rot(sin(t * 0.5) * 0.05);\n\n    vec2 eyeRot = getEyeRotation(t, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n    p.xz *= rot(eyeRot.x);\n    p.yz *= rot(eyeRot.y);\n\n    float d = sdSphere(p, 1.0);\n    float mat = 0.0;\n\n    vec3 normP = normalize(p);\n    if (normP.z > 0.0) { \n        float r = length(normP.xy);\n        float pSize = pupilSize * (1.0 + sin(time * 2.0) * 0.05 * eyeDilation);\n        \n        if (r < pSize) {\n            mat = 2.0; // Pupil\n        } else if (r < irisSize) {\n            mat = 1.0; // Iris\n        }\n    }\n\n    return vec2(d * alienSize, mat);\n}\n\nvec2 map(vec3 p, float time) {\n    vec2 res = vec2(1e10, 0.0);\n    float count = floor(alienCount);\n    \n    // FIXED: Using standard integer for loop to prevent WebGL errors\n    for(int i = 0; i < 5; i++) {\n        if (float(i) >= count) break;\n        float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n        \n        // Apply Global Move X and Y here\n        vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n        \n        vec2 d = singleAlien(p - objectPos, time, float(i) * 4.0);\n        if (d.x < res.x) res = d;\n    }\n    return res;\n}\n\nvec3 getNormal(vec3 p, float t) {\n    vec2 e = vec2(0.001, 0.0);\n    return normalize(vec3(\n        map(p + e.xyy, t).x - map(p - e.xyy, t).x,\n        map(p + e.yxy, t).x - map(p - e.yxy, t).x,\n        map(p + e.yyx, t).x - map(p - e.yyx, t).x\n    ));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 base = texture2D(tex, uv);\n    float isNotBlack = smoothstep(blackThreshold, blackThreshold + 0.05, max(max(base.r, base.g), base.b));\n    if (isNotBlack < 0.01) return vec4(0.0, 0.0, 0.0, base.a);\n\n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    \n    vec3 ro = vec3(0.0, 0.0, 4.0); \n    vec3 rd = normalize(vec3(p, -3.5));\n    \n    float tDist = 0.0;\n    vec2 res;\n    for(int i = 0; i < 64; i++) {\n        res = map(ro + rd * tDist, time);\n        if(res.x < 0.001 || tDist > 10.0) break;\n        tDist += res.x;\n    }\n    \n    if(res.x < 0.001) {\n        vec3 pos = ro + rd * tDist;\n        vec3 normal = getNormal(pos, time);\n        vec3 viewDir = -rd;\n        \n        // --- Reconstruct Local Position for Realistic Texturing ---\n        vec3 localPos = pos;\n        float closestI = 0.0;\n        float minDist = 100.0;\n        float count = floor(alienCount);\n        \n        // FIXED: Int loop for reconstruction\n        for(int i = 0; i < 5; i++) {\n            if (float(i) >= count) break;\n            float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n            vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n            float d = length(pos - objectPos);\n            if (d < minDist) { minDist = d; closestI = float(i); }\n        }\n        \n        float xOff = (closestI - (count - 1.0) * 0.5) * alienSpread;\n        // Shift local texture coordinates back by moveX and moveY to match geometry\n        localPos -= vec3(xOff + moveX, moveY, 0.0);\n        localPos /= alienSize;\n        localPos.y = -localPos.y; \n        \n        float t_loc = time + closestI * 4.0;\n        localPos.xy *= rot(sin(t_loc * 0.5) * 0.05);\n        \n        vec2 eyeRot = getEyeRotation(t_loc, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n        localPos.xz *= rot(eyeRot.x);\n        localPos.yz *= rot(eyeRot.y);\n        \n        vec3 localNorm = normalize(localPos);\n        float r = length(localNorm.xy);\n        float angle = atan(localNorm.y, localNorm.x);\n        // ----------------------------------------------------------\n\n        // Lighting Setup\n        vec3 lp = vec3(2.0 * sin(time), 3.0, 5.0 * lightHeight);\n        vec3 lDir = normalize(lp - pos);\n        \n        // Base Material Colors\n        vec3 col = vec3(0.92, 0.88, 0.88); \n        \n        if (res.y == 0.0) { // Sclera & Veins\n            \n            float warp1 = sin(localNorm.z * 15.0) * 0.15 + cos(localNorm.z * 25.0) * 0.05;\n            float warp2 = cos(localNorm.z * 20.0) * 0.25 - sin(localNorm.z * 40.0) * 0.1;\n            \n            float mainVeins = sin((angle + warp1) * 12.0);\n            mainVeins = smoothstep(0.95, 1.0, mainVeins); \n            \n            float secVeins = sin((angle + warp2) * 26.0);\n            secVeins = smoothstep(0.98, 1.0, secVeins); \n            \n            float veinMask = max(mainVeins, secVeins * 0.6);\n            \n            float breakup = smoothstep(0.0, 0.5, sin(localNorm.z * 50.0 + angle * 5.0) * 0.5 + 0.5);\n            veinMask *= mix(0.4, 1.0, breakup);\n\n            float veinFade = smoothstep(irisSize - 0.02, irisSize + 0.5, r);\n            vec3 bloodCol = vec3(0.7, 0.05, 0.05);\n            \n            col = mix(col, bloodCol, veinMask * veinFade * veinIntensity);\n            \n        } else if (res.y == 1.0) { // Iris\n            float f = abs(sin(angle * 20.0 + detail));\n            vec3 irisCol = vec3(0.2, 0.4, 0.8); \n            irisCol += 0.5 * sin(vec3(0.0, 1.0, 2.0) + time * colorSpeed);\n            col = mix(irisCol * 0.5, irisCol, f);\n            col *= smoothstep(irisSize, irisSize - 0.05, r);\n        } else if (res.y == 2.0) { // Pupil\n            col = vec3(0.02);\n        }\n        \n        // Lighting Calculations\n        float diff = max(dot(normal, lDir), 0.0);\n        float spec = pow(max(dot(normal, normalize(lDir + viewDir)), 0.0), shininess);\n        float glint = pow(max(dot(normal, normalize(vec3(1.0, 1.0, 1.0))), 0.0), 300.0) * 2.0;\n        \n        vec3 finalCol = col * (ambient + diff * lightIntensity * 0.5);\n        finalCol += (spec + glint) * lightIntensity * 0.3;\n        \n        return vec4(finalCol * isNotBlack, base.a);\n    }\n\n    return vec4(0.0, 0.0, 0.0, base.a);\n}",
+    uniformValues:     {
+          "lightHeight": 0.5,
+          "lightIntensity": 4.5,
+          "ambient": 0.56,
+          "shininess": 120,
+          "detail": 5,
+          "blackThreshold": 0.05,
+          "colorSpeed": 0.8,
+          "alienCount": 3.28,
+          "alienSpread": 1.41,
+          "alienSize": 0.912,
+          "moveX": 0,
+          "moveY": -0.1,
+          "irisSize": 0.584,
+          "pupilSize": 0.372,
+          "eyeDilation": 1.31,
+          "veinIntensity": 0.57,
+          "lookDownAmount": 0.225,
+          "lookSideAmount": 0.405,
+          "freneticSpeed": 4.8,
+          "twitchIntensity": 0.08
+    },
+  },
+  {
+    id: "timeline-1f793961-f643-4e28-84c3-abf66f6cf66f",
+    name: "4Customizable Multiverse Aliens (Random Saccade Edition)",
+    template: "stage",
+    group: "Eyes & Entities",
+    description: "Recovered from the project timeline for the Eyes & Entities stage collection.",
+    code: "// NAME: 4Customizable Multiverse Aliens (Random Saccade Edition)\nuniform float lightHeight; // @min 0.01 @max 1.0 @default 0.5\nuniform float lightIntensity; // @min 0.0 @max 10.0 @default 4.5\nuniform float ambient; // @min 0.0 @max 1.0 @default 0.1\nuniform float shininess; // @min 1.0 @max 200.0 @default 120.0\nuniform float detail; // @min 0.1 @max 10.0 @default 5.0\nuniform float blackThreshold; // @min 0.0 @max 1.0 @default 0.05\nuniform float colorSpeed; // @min 0.0 @max 5.0 @default 0.8\nuniform float alienCount; // @min 1.0 @max 5.0 @default 1.0\nuniform float alienSpread; // @min 0.5 @max 4.0 @default 2.0\nuniform float alienSize; // @min 0.1 @max 3.0 @default 1.2\n\n// Position Parameters\nuniform float moveX; // @min -5.0 @max 5.0 @default 0.0\nuniform float moveY; // @min -5.0 @max 5.0 @default 0.0\n\n// Eye Geometry Parameters\nuniform float irisSize; // @min 0.2 @max 0.8 @default 0.45\nuniform float pupilSize; // @min 0.1 @max 0.5 @default 0.2\nuniform float eyeDilation; // @min 0.5 @max 1.5 @default 1.0\nuniform float veinIntensity; // @min 0.0 @max 1.0 @default 0.8\n\n// Random Frenetic Search Parameters\nuniform float lookDownAmount; // @min 0.0 @max 1.5 @default 0.6\nuniform float lookSideAmount; // @min 0.0 @max 1.5 @default 0.8\nuniform float freneticSpeed; // @min 0.0 @max 60.0 @default 35.0\nuniform float twitchIntensity; // @min 0.0 @max 0.5 @default 0.15\n\n// --- 3D UTILITIES ---\nmat2 rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat sdSphere(vec3 p, float s) {\n    return length(p) - s;\n}\n\n// --- RANDOM MOVEMENT LOGIC ---\nfloat hash11(float p) {\n    p = fract(p * 0.1031);\n    p *= p + 33.33;\n    p *= p + p;\n    return fract(p);\n}\n\nvec2 getEyeRotation(float t, float speed, float sideAmt, float downAmt, float twitch) {\n    // 1. Saccades (Rapid eye darts)\n    float dartRate = max(1.0, speed * 0.08); \n    float seedTime = floor(t * dartRate);\n    float smoothT = smoothstep(0.0, 0.2, fract(t * dartRate)); \n    \n    // Random targets for X (Side-to-Side)\n    float prevX = (hash11(seedTime * 12.34) - 0.5) * 2.0;\n    float nextX = (hash11((seedTime + 1.0) * 12.34) - 0.5) * 2.0;\n    float curX = mix(prevX, nextX, smoothT);\n    \n    // Random targets for Y (Up-and-Down)\n    float prevY = (hash11(seedTime * 45.67) - 0.5) * 2.0;\n    float nextY = (hash11((seedTime + 1.0) * 45.67) - 0.5) * 2.0;\n    float curY = mix(prevY, nextY, smoothT);\n    \n    // 2. High-frequency micro twitches\n    float jX = sin(t * speed) * cos(t * speed * 0.61);\n    float jY = cos(t * speed * 0.83) * sin(t * speed * 1.27);\n    \n    float finalX = (curX * sideAmt) + (jX * twitch);\n    float finalY = (curY * downAmt) - (downAmt * 0.3) + (jY * twitch); \n    \n    return vec2(finalX, finalY);\n}\n\n// --- REALISTIC EYE SDF ---\nvec2 singleAlien(vec3 p, float time, float idOffset) {\n    p /= alienSize;\n    \n    // REVERSE UPSIDE DOWN\n    p.y = -p.y;\n    \n    float t = time + idOffset;\n    p.xy *= rot(sin(t * 0.5) * 0.05);\n\n    vec2 eyeRot = getEyeRotation(t, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n    p.xz *= rot(eyeRot.x);\n    p.yz *= rot(eyeRot.y);\n\n    float d = sdSphere(p, 1.0);\n    float mat = 0.0;\n\n    vec3 normP = normalize(p);\n    if (normP.z > 0.0) { \n        float r = length(normP.xy);\n        float pSize = pupilSize * (1.0 + sin(time * 2.0) * 0.05 * eyeDilation);\n        \n        if (r < pSize) {\n            mat = 2.0; // Pupil\n        } else if (r < irisSize) {\n            mat = 1.0; // Iris\n        }\n    }\n\n    return vec2(d * alienSize, mat);\n}\n\nvec2 map(vec3 p, float time) {\n    vec2 res = vec2(1e10, 0.0);\n    float count = floor(alienCount);\n    \n    // FIXED: Using standard integer for loop to prevent WebGL errors\n    for(int i = 0; i < 5; i++) {\n        if (float(i) >= count) break;\n        float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n        \n        // Apply Global Move X and Y here\n        vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n        \n        vec2 d = singleAlien(p - objectPos, time, float(i) * 4.0);\n        if (d.x < res.x) res = d;\n    }\n    return res;\n}\n\nvec3 getNormal(vec3 p, float t) {\n    vec2 e = vec2(0.001, 0.0);\n    return normalize(vec3(\n        map(p + e.xyy, t).x - map(p - e.xyy, t).x,\n        map(p + e.yxy, t).x - map(p - e.yxy, t).x,\n        map(p + e.yyx, t).x - map(p - e.yyx, t).x\n    ));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 base = texture2D(tex, uv);\n    float isNotBlack = smoothstep(blackThreshold, blackThreshold + 0.05, max(max(base.r, base.g), base.b));\n    if (isNotBlack < 0.01) return vec4(0.0, 0.0, 0.0, base.a);\n\n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    \n    vec3 ro = vec3(0.0, 0.0, 4.0); \n    vec3 rd = normalize(vec3(p, -3.5));\n    \n    float tDist = 0.0;\n    vec2 res;\n    for(int i = 0; i < 64; i++) {\n        res = map(ro + rd * tDist, time);\n        if(res.x < 0.001 || tDist > 10.0) break;\n        tDist += res.x;\n    }\n    \n    if(res.x < 0.001) {\n        vec3 pos = ro + rd * tDist;\n        vec3 normal = getNormal(pos, time);\n        vec3 viewDir = -rd;\n        \n        // --- Reconstruct Local Position for Realistic Texturing ---\n        vec3 localPos = pos;\n        float closestI = 0.0;\n        float minDist = 100.0;\n        float count = floor(alienCount);\n        \n        // FIXED: Int loop for reconstruction\n        for(int i = 0; i < 5; i++) {\n            if (float(i) >= count) break;\n            float xOffset = (float(i) - (count - 1.0) * 0.5) * alienSpread;\n            vec3 objectPos = vec3(xOffset + moveX, moveY, 0.0);\n            float d = length(pos - objectPos);\n            if (d < minDist) { minDist = d; closestI = float(i); }\n        }\n        \n        float xOff = (closestI - (count - 1.0) * 0.5) * alienSpread;\n        // Shift local texture coordinates back by moveX and moveY to match geometry\n        localPos -= vec3(xOff + moveX, moveY, 0.0);\n        localPos /= alienSize;\n        localPos.y = -localPos.y; \n        \n        float t_loc = time + closestI * 4.0;\n        localPos.xy *= rot(sin(t_loc * 0.5) * 0.05);\n        \n        vec2 eyeRot = getEyeRotation(t_loc, freneticSpeed, lookSideAmount, lookDownAmount, twitchIntensity);\n        localPos.xz *= rot(eyeRot.x);\n        localPos.yz *= rot(eyeRot.y);\n        \n        vec3 localNorm = normalize(localPos);\n        float r = length(localNorm.xy);\n        float angle = atan(localNorm.y, localNorm.x);\n        // ----------------------------------------------------------\n\n        // Lighting Setup\n        vec3 lp = vec3(2.0 * sin(time), 3.0, 5.0 * lightHeight);\n        vec3 lDir = normalize(lp - pos);\n        \n        // Base Material Colors\n        vec3 col = vec3(0.92, 0.88, 0.88); \n        \n        if (res.y == 0.0) { // Sclera & Veins\n            \n            float warp1 = sin(localNorm.z * 15.0) * 0.15 + cos(localNorm.z * 25.0) * 0.05;\n            float warp2 = cos(localNorm.z * 20.0) * 0.25 - sin(localNorm.z * 40.0) * 0.1;\n            \n            float mainVeins = sin((angle + warp1) * 12.0);\n            mainVeins = smoothstep(0.95, 1.0, mainVeins); \n            \n            float secVeins = sin((angle + warp2) * 26.0);\n            secVeins = smoothstep(0.98, 1.0, secVeins); \n            \n            float veinMask = max(mainVeins, secVeins * 0.6);\n            \n            float breakup = smoothstep(0.0, 0.5, sin(localNorm.z * 50.0 + angle * 5.0) * 0.5 + 0.5);\n            veinMask *= mix(0.4, 1.0, breakup);\n\n            float veinFade = smoothstep(irisSize - 0.02, irisSize + 0.5, r);\n            vec3 bloodCol = vec3(0.7, 0.05, 0.05);\n            \n            col = mix(col, bloodCol, veinMask * veinFade * veinIntensity);\n            \n        } else if (res.y == 1.0) { // Iris\n            float f = abs(sin(angle * 20.0 + detail));\n            vec3 irisCol = vec3(0.2, 0.4, 0.8); \n            irisCol += 0.5 * sin(vec3(0.0, 1.0, 2.0) + time * colorSpeed);\n            col = mix(irisCol * 0.5, irisCol, f);\n            col *= smoothstep(irisSize, irisSize - 0.05, r);\n        } else if (res.y == 2.0) { // Pupil\n            col = vec3(0.02);\n        }\n        \n        // Lighting Calculations\n        float diff = max(dot(normal, lDir), 0.0);\n        float spec = pow(max(dot(normal, normalize(lDir + viewDir)), 0.0), shininess);\n        float glint = pow(max(dot(normal, normalize(vec3(1.0, 1.0, 1.0))), 0.0), 300.0) * 2.0;\n        \n        vec3 finalCol = col * (ambient + diff * lightIntensity * 0.5);\n        finalCol += (spec + glint) * lightIntensity * 0.3;\n        \n        return vec4(finalCol * isNotBlack, base.a);\n    }\n\n    return vec4(0.0, 0.0, 0.0, base.a);\n}",
+    uniformValues:     {
+          "lightHeight": 0.5,
+          "lightIntensity": 4.5,
+          "ambient": 0.56,
+          "shininess": 120,
+          "detail": 5,
+          "blackThreshold": 0.05,
+          "colorSpeed": 0.8,
+          "alienCount": 3.28,
+          "alienSpread": 1.725,
+          "alienSize": 0.39,
+          "moveX": 0,
+          "moveY": 0,
+          "irisSize": 0.584,
+          "pupilSize": 0.372,
+          "eyeDilation": 1.31,
+          "veinIntensity": 0.57,
+          "lookDownAmount": 0.225,
+          "lookSideAmount": 0.405,
+          "freneticSpeed": 4.8,
+          "twitchIntensity": 0.08
+    },
+  },
+  {
+    id: "timeline-7ba11132-1e1e-4458-a857-064372a1b553",
+    name: "Inverted Fractal Edge",
+    template: "stage",
+    group: "Fractals",
+    description: "Recovered from the project timeline for the Fractals stage collection.",
+    code: "// NAME: Inverted Fractal Edge\nuniform float speed; // @min 0.1 @max 2.0 @default 0.5\nuniform float intensity; // @min 0.0 @max 2.0 @default 1.0\nuniform float zoom; // @min 0.2 @max 4.0 @default 1.0\nuniform float symmetry; // @min 0.0 @max 1.0 @default 1.0\nuniform float mask_strength; // @min 0.0 @max 1.0 @default 0.5\nuniform vec3 color_tint; // @default 1.0,1.0,1.0\nuniform float edge_boost; // @min 0.0 @max 5.0 @default 2.5\nuniform float edge_width; // @min 0.5 @max 3.0 @default 1.0\n\nfloat sigm(float x) { return x / (1.0 + abs(x)); }\n\nfloat iter(vec2 p, float t, float m, float stereo) {\n    vec4 a = 3.14159 * vec4(0.1, -0.11, 0.111, -0.1111);\n    vec4 scale = (1.0 / (1.0 + 0.5 * dot(p, p))) * pow(vec4(2.0), -4.0 * fract(vec4(t, t+0.05, t+0.1, t+0.15)));\n    vec4 ms = 0.5 - 0.5 * cos(6.28318 * fract(vec4(t, t+0.05, t+0.1, t+0.15)));\n    vec4 angle = (t + m) * a;\n    vec4 v = ms * sin(1.88 * (t + m) + (m + 25.0 * scale) * ((p.x + stereo/scale) * cos(angle) + p.y * sin(angle)));\n    return sigm(v.x + v.y + v.z + v.w + m);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    float isNotBlack = step(0.01, source.r + source.g + source.b);\n    \n    // Edge Detection\n    vec2 off = edge_width / resolution;\n    vec3 luma = vec3(0.299, 0.587, 0.114);\n    float h = dot(texture2D(tex, uv + vec2(off.x, 0.0)).rgb, luma) - \n              dot(texture2D(tex, uv - vec2(off.x, 0.0)).rgb, luma);\n    float v = dot(texture2D(tex, uv + vec2(0.0, off.y)).rgb, luma) - \n              dot(texture2D(tex, uv - vec2(0.0, off.y)).rgb, luma);\n    float edge = sqrt(h*h + v*v);\n\n    // Fractal Logic\n    vec2 sym_uv = mix(uv, abs(uv - 0.5) + 0.5, symmetry);\n    vec2 p = (sym_uv * 2.0 - 1.0) * vec2(resolution.x / resolution.y, 1.0) / zoom;\n    float blur = 0.5 * dot(p, p);\n    float gt = (time * speed) + 1100.0;\n    float t = 0.04 * gt + 0.05 * sin(0.258 * mod(0.0411 * gt, 1.0));\n    float stereo = sigm(2.0 * (sin(1.325 * t * cos(0.5 * t)) + sin(-0.7 * t * sin(0.77 * t))));\n    p += 0.5 * sin(0.33 * t) * vec2(cos(t), sin(t));\n\n    float p0 = iter(p, t, 0.0, stereo);\n    float p1 = iter(p, t, p0, stereo);\n    float p2 = sigm(p0 / (p1 + blur));\n    float p5 = iter(p, t, sigm(iter(p, t, p2, stereo) / (p2 + blur)), stereo);\n\n    // Base Fractal Color\n    vec3 c = max(vec3(0.0), 0.4 + 0.6 * vec3(sigm(p0 + p1 + p5), sigm(p0 - p1 + p2), sigm(p0 + p1 + p2 + p5))) * color_tint;\n    float mask = sigm(((max(0.0, 0.4 - min(abs(p1), abs(p5))) / 0.4) - 0.5) * 70.0 / (1.0 + 10.0 * blur)) * 0.5 + 0.5;\n    \n    vec3 fractalRGB = c * intensity * mask * (1.0 - 0.4 * blur);\n    \n    // Inverted Edge Color: 1.0 - fractal color\n    vec3 invertedEdge = (vec3(1.0) - c) * edge * edge_boost;\n    \n    vec3 finalRGB = fractalRGB + invertedEdge;\n    \n    float alphaMask = mix(1.0, clamp(source.a * (source.r + source.g + source.b), 0.0, 1.0), mask_strength);\n    return vec4(finalRGB, 1.0) * alphaMask * isNotBlack;\n}",
+    uniformValues:     {
+          "speed": 0.157,
+          "intensity": 1.16,
+          "zoom": 0.884,
+          "symmetry": 0,
+          "mask_strength": 1,
+          "color_tint": [
+                0.49411764705882355,
+                0.16470588235294117,
+                0.027450980392156862
+          ],
+          "edge_boost": 0.55,
+          "edge_width": 0.5
+    },
+  },
+  {
+    id: "timeline-ecc0cbd0-a965-4d78-88b6-e30aa36240c0",
+    name: "Inverted Fractal Edge",
+    template: "stage",
+    group: "Fractals",
+    description: "Recovered from the project timeline for the Fractals stage collection.",
+    code: "// NAME: Inverted Fractal Edge\nuniform float speed; // @min 0.1 @max 2.0 @default 0.5\nuniform float intensity; // @min 0.0 @max 2.0 @default 1.0\nuniform float zoom; // @min 0.2 @max 4.0 @default 1.0\nuniform float symmetry; // @min 0.0 @max 1.0 @default 1.0\nuniform float mask_strength; // @min 0.0 @max 1.0 @default 0.5\nuniform vec3 color_tint; // @default 1.0,1.0,1.0\nuniform float edge_boost; // @min 0.0 @max 5.0 @default 2.5\nuniform float edge_width; // @min 0.5 @max 3.0 @default 1.0\n\nfloat sigm(float x) { return x / (1.0 + abs(x)); }\n\nfloat iter(vec2 p, float t, float m, float stereo) {\n    vec4 a = 3.14159 * vec4(0.1, -0.11, 0.111, -0.1111);\n    vec4 scale = (1.0 / (1.0 + 0.5 * dot(p, p))) * pow(vec4(2.0), -4.0 * fract(vec4(t, t+0.05, t+0.1, t+0.15)));\n    vec4 ms = 0.5 - 0.5 * cos(6.28318 * fract(vec4(t, t+0.05, t+0.1, t+0.15)));\n    vec4 angle = (t + m) * a;\n    vec4 v = ms * sin(1.88 * (t + m) + (m + 25.0 * scale) * ((p.x + stereo/scale) * cos(angle) + p.y * sin(angle)));\n    return sigm(v.x + v.y + v.z + v.w + m);\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    float isNotBlack = step(0.01, source.r + source.g + source.b);\n    \n    // Edge Detection\n    vec2 off = edge_width / resolution;\n    vec3 luma = vec3(0.299, 0.587, 0.114);\n    float h = dot(texture2D(tex, uv + vec2(off.x, 0.0)).rgb, luma) - \n              dot(texture2D(tex, uv - vec2(off.x, 0.0)).rgb, luma);\n    float v = dot(texture2D(tex, uv + vec2(0.0, off.y)).rgb, luma) - \n              dot(texture2D(tex, uv - vec2(0.0, off.y)).rgb, luma);\n    float edge = sqrt(h*h + v*v);\n\n    // Fractal Logic\n    vec2 sym_uv = mix(uv, abs(uv - 0.5) + 0.5, symmetry);\n    vec2 p = (sym_uv * 2.0 - 1.0) * vec2(resolution.x / resolution.y, 1.0) / zoom;\n    float blur = 0.5 * dot(p, p);\n    float gt = (time * speed) + 1100.0;\n    float t = 0.04 * gt + 0.05 * sin(0.258 * mod(0.0411 * gt, 1.0));\n    float stereo = sigm(2.0 * (sin(1.325 * t * cos(0.5 * t)) + sin(-0.7 * t * sin(0.77 * t))));\n    p += 0.5 * sin(0.33 * t) * vec2(cos(t), sin(t));\n\n    float p0 = iter(p, t, 0.0, stereo);\n    float p1 = iter(p, t, p0, stereo);\n    float p2 = sigm(p0 / (p1 + blur));\n    float p5 = iter(p, t, sigm(iter(p, t, p2, stereo) / (p2 + blur)), stereo);\n\n    // Base Fractal Color\n    vec3 c = max(vec3(0.0), 0.4 + 0.6 * vec3(sigm(p0 + p1 + p5), sigm(p0 - p1 + p2), sigm(p0 + p1 + p2 + p5))) * color_tint;\n    float mask = sigm(((max(0.0, 0.4 - min(abs(p1), abs(p5))) / 0.4) - 0.5) * 70.0 / (1.0 + 10.0 * blur)) * 0.5 + 0.5;\n    \n    vec3 fractalRGB = c * intensity * mask * (1.0 - 0.4 * blur);\n    \n    // Inverted Edge Color: 1.0 - fractal color\n    vec3 invertedEdge = (vec3(1.0) - c) * edge * edge_boost;\n    \n    vec3 finalRGB = fractalRGB + invertedEdge;\n    \n    float alphaMask = mix(1.0, clamp(source.a * (source.r + source.g + source.b), 0.0, 1.0), mask_strength);\n    return vec4(finalRGB, 1.0) * alphaMask * isNotBlack;\n}",
+    uniformValues:     {
+          "speed": 0.157,
+          "intensity": 1.16,
+          "zoom": 0.884,
+          "symmetry": 1,
+          "mask_strength": 1,
+          "color_tint": [
+                0.9921568627450981,
+                0.984313725490196,
+                0.996078431372549
+          ],
+          "edge_boost": 0.6,
+          "edge_width": 0.5
+    },
+  },
+  {
+    id: "timeline-78a10799-c7b4-4613-84ac-c91734416f5c",
+    name: "Symmetrical Fractal Path",
+    template: "stage",
+    group: "Fractals",
+    description: "Recovered from the project timeline for the Fractals stage collection.",
+    code: "// NAME: Symmetrical Fractal Path\nuniform float speed; // @min 0.0 @max 2.0 @default 0.6\nuniform float scale; // @min 0.5 @max 10.0 @default 3.5\nuniform float intensity; // @min 0.1 @max 2.0 @default 1.2\nuniform float gridDensity; // @min 5.0 @max 50.0 @default 25.0\nuniform float shakeAmount; // @min 0.0 @max 2.0 @default 0.6\nuniform float dotSize; // @min 0.01 @max 0.5 @default 0.18\nuniform float glowRange; // @min 0.1 @max 1.0 @default 0.7\nuniform float randomness; // @min 0.0 @max 2.0 @default 1.2\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    float aspect = resolution.x / resolution.y;\n    float t = time * speed;\n    \n    // Mirror UV coordinates to ensure 4-way symmetry across the center axes\n    vec2 symUv = abs(uv - 0.5);\n    \n    // Fractal space coordinates with noise-driven drift applied symmetrically\n    vec2 drift = vec2(node_noise(vec2(t * 0.1, 0.42)), node_noise(vec2(0.42, t * 0.1))) * randomness * 0.2;\n    vec2 p = (symUv + drift) * vec2(aspect, 1.0) * scale;\n\n    // Fractal logic with randomized iteration parameters\n    float d = 1.0;\n    vec2 z = p;\n    for (int i = 0; i < 5; i++) {\n        float fi = float(i);\n        float noiseVal = node_noise(vec2(t * 0.2, fi * 1.5));\n        float offset = 0.3 + 0.3 * noiseVal * randomness;\n        z = abs(z) - offset;\n        \n        float ang = t * 0.3 + fi * 0.8 + (noiseVal * 2.0 - 1.0) * randomness;\n        float s = sin(ang);\n        float c = cos(ang);\n        z = mat2(c, -s, s, c) * z;\n        d = min(d, length(z));\n    }\n\n    // Wide range mask with randomized color shifting\n    float mask = smoothstep(glowRange, 0.0, d);\n    float colorNoise = node_noise(vec2(t * 0.5, d * 2.0)) * randomness;\n    vec3 coreCol = 0.5 + 0.5 * cos(t + d * 12.0 + vec3(0.0, 2.0, 4.0) + colorNoise);\n    vec3 blueEdge = vec3(0.1, 0.4, 1.0) * (1.0 + colorNoise);\n    \n    // Mix core color with a blue edge based on distance\n    vec3 fractalCol = mix(blueEdge, coreCol, smoothstep(glowRange * 0.7, 0.0, d));\n    vec3 tintedColor = source.rgb * (vec3(1.0) + fractalCol * 2.5);\n\n    // High-frequency random shake driven by noise and mask\n    float jitter = node_rand(symUv + fract(time));\n    vec2 dynamicShake = vec2(\n        node_noise(vec2(t * 15.0, symUv.y * 20.0)), \n        node_noise(vec2(symUv.x * 20.0, t * 15.0))\n    ) * mask * shakeAmount * jitter * randomness;\n\n    // Gravity Warp: Pull the grid coordinates towards the fractal centers\n    float gravityStrength = exp(-d * 3.0);\n    vec2 gravityWarp = (p - z) * gravityStrength * 0.5;\n    \n    // Calculate grid UVs with randomized shake and gravity distortion\n    vec2 gridUv = symUv * vec2(gridDensity * aspect, gridDensity) + gravityWarp + dynamicShake;\n    \n    // Calculate grid dots\n    vec2 gPos = fract(gridUv) - 0.5;\n    float gridDots = smoothstep(dotSize, dotSize * 0.5, length(gPos));\n    \n    // Mask grid by source brightness and alpha\n    float brightness = clamp(length(source.rgb) * 4.0, 0.0, 1.0);\n    vec3 finalGrid = vec3(gridDots) * source.a * brightness;\n\n    // Final blend\n    vec3 finalRGB = mix(finalGrid, tintedColor, mask * intensity);\n    \n    return vec4(finalRGB, source.a);\n}",
+    uniformValues:     {
+          "speed": 1.46,
+          "scale": 1.64,
+          "intensity": 1,
+          "gridDensity": 50,
+          "shakeAmount": 2,
+          "dotSize": 0.1521,
+          "glowRange": 0.28,
+          "randomness": 0.34
+    },
+  },
+  {
+    id: "timeline-31c5f796-8b5c-4272-9d3b-f2b1a7c49723",
+    name: "Psych Sections Inverted Border Black Distorted",
+    template: "stage",
+    group: "Masks & Contrast",
+    description: "Recovered from the project timeline for the Masks & Contrast stage collection.",
+    code: "// NAME: Psych Sections Inverted Border Black Distorted\nuniform float dark_distance; // @min 0.0 @max 10.0 @default 2.0\nuniform float colorrangeeffect; // @min 0.0 @max 1.0 @default 0.5\nuniform float speed; // @min 0.1 @max 5.0 @default 1.0\nuniform float border_width; // @min 0.01 @max 0.5 @default 0.15\nuniform float distortion_amount; // @min 0.0 @max 1.0 @default 0.1\n\n#define PI 3.141592654\n\nmat2 rot(float x) {\n    return mat2(cos(x), sin(x), -sin(x), cos(x));\n}\n\nvec2 foldRotate(in vec2 p, in float s) {\n    float a = PI / s - atan(p.x, p.y);\n    float n = PI * 2.0 / s;\n    return p * rot(floor(a / n) * n);\n}\n\nvec2 tex_func(vec2 p, float z, float t, float bw) {\n    p = foldRotate(p, 8.0 + sin(t * 0.5) * 4.0);\n    vec2 q = (fract(p / 10.0) - 0.5) * 10.0;\n    \n    for (int i = 0; i < 3; ++i) {\n        q = abs(q) - (0.25 + sin(t * 0.8 + float(i)) * 0.1);\n        q *= rot(PI * 0.25 + t * 0.3);\n        q = abs(q) - vec2(1.0 + cos(t * 1.1) * 0.5, 1.5 + sin(t * 0.7) * 0.5);\n        q *= rot(PI * 0.25 * z + t * 0.6);\n        q = foldRotate(q, 3.0 + sin(t * 0.4) * 2.0);  \n    }\n    \n    vec2 d = abs(q) - vec2(1.0);\n    float sd = min(max(d.x, d.y), 0.0) + length(max(d, 0.0));\n    \n    float val = 1.0 / (1.0 + abs(sd));\n    float fill = smoothstep(0.9, 1.0, val);\n    float border = smoothstep(0.9 - bw, 0.9, val) - fill;\n    \n    return vec2(fill, max(0.0, border));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    float t = time * speed;\n    \n    vec2 p_uv_base = (uv * 2.0 - 1.0) * vec2(resolution.x / resolution.y, 1.0) * 2.0;\n    p_uv_base.x = abs(p_uv_base.x);\n    \n    vec2 anim_offset = vec2(sin(p_uv_base.y * 4.0 + t), cos(p_uv_base.x * 4.0 + t)) * 0.15;\n    \n    vec2 uv_offset = anim_offset;\n    uv_offset.x *= sign(uv.x - 0.5); // Make distortion symmetrical\n    vec2 distorted_uv = uv + uv_offset * distortion_amount;\n    \n    vec4 source = texture2D(tex, distorted_uv);\n    \n    vec2 texel = dark_distance / resolution;\n    float min_lum = 1.0;\n    \n    for(int x = -1; x <= 1; x+=2) {\n        for(int y = -1; y <= 1; y+=2) {\n            vec4 s = texture2D(tex, distorted_uv + vec2(float(x), float(y)) * texel);\n            min_lum = min(min_lum, dot(s.rgb, vec3(0.299, 0.587, 0.114)));\n        }\n    }\n    \n    float mask = smoothstep(0.1, 0.9, min_lum);\n    if (mask <= 0.0) {\n        return vec4(0.0, 0.0, 0.0, source.a);\n    }\n    \n    vec2 p_uv = p_uv_base + anim_offset;\n    p_uv *= rot(t * 0.2 + length(p_uv) * 0.5);\n    \n    vec3 col = vec3(0.0);\n    float border_mask = 0.0;\n    float INTERVAL = 3.0;\n    \n    vec3 cycleColor = 0.5 + 0.5 * cos(t * 0.8 + vec3(0.0, 2.094, 4.188));\n    cycleColor = mix(cycleColor, vec3(1.0, 0.2, 0.8), colorrangeeffect * 0.5);\n    \n    for(int i = 0; i < 4; i++) {\n        float ii = float(4 - i);\n        \n        float t2 = ii * INTERVAL - mod(t + INTERVAL * 0.5, INTERVAL);\n        vec2 res2 = tex_func(p_uv * max(0.0, t2), 4.45, t, border_width);\n        col = mix(col, vec3((12.0 - t2) / 12.0) * cycleColor * 2.0, res2.x);\n        border_mask = max(border_mask, res2.y * (0.5 + 0.5 * sin(t * 5.0 + t2 * 2.0)));\n        \n        float t4 = ii * INTERVAL - mod(t, INTERVAL);\n        vec2 res4 = tex_func(p_uv * max(0.0, t4), 4.45, t, border_width);\n        col = mix(col, vec3((12.0 - t4) / 12.0) * cycleColor * 2.0, res4.x);\n        border_mask = max(border_mask, res4.y * (0.5 + 0.5 * cos(t * 4.0 + t4 * 2.0)));\n    }\n    \n    vec3 border_color = vec3(0.5) + 0.5 * sin(t * 3.0 + vec3(1.0, 2.0, 3.0));\n    col = mix(col, border_color, border_mask);\n    \n    col = 1.0 - col;\n    \n    return vec4(mix(vec3(0.0), col, mask), source.a);\n}",
+    uniformValues:     {
+          "dark_distance": 0.1,
+          "colorrangeeffect": 0.68,
+          "speed": 0.884,
+          "border_width": 0.4951,
+          "distortion_amount": 0.03
+    },
+  },
+  {
+    id: "timeline-ab627e42-bd3d-48f8-9905-cc8073557e1d",
+    name: "Psychedelic Black Preserve Range",
+    template: "stage",
+    group: "Masks & Contrast",
+    description: "Recovered from the project timeline for the Masks & Contrast stage collection.",
+    code: "// NAME: Psychedelic Black Preserve Range\nuniform float intensity; // @min 0.0 @max 2.0 @default 1.0\nuniform float thresholdMin; // @min 0.0 @max 1.0 @default 0.2\nuniform float thresholdMax; // @min 0.0 @max 1.0 @default 0.8\nuniform float pixeldistance; // @min 0.0 @max 1.0 @default 0.5\nuniform float pixelDistLoopSpeed; // @min 0.0 @max 5.0 @default 1.0\nuniform float speedThreshold; // @min 0.00 @max 2.0 @default 1.0\nuniform float blurStrength; // @min 0.0 @max 2.0 @default 0.5\nuniform float distColorIntensity; // @min 0.0 @max 1.0 @default 0.8\nuniform float distColorFreq; // @min 0.1 @max 5.0 @default 2.0\nuniform float isolationThreshold; // @min 0.0 @max 1.0 @default 0.2\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    float luma = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    \n    if (luma < 0.02) return vec4(0.0, 0.0, 0.0, source.a);\n\n    vec2 texel = 1.0 / resolution;\n    float minDiff = 1.0;\n    for(int i = -2; i <= 2; i += 2) {\n        for(int j = -2; j <= 2; j += 2) {\n            if(i == 0 && j == 0) continue;\n            vec4 neighbor = texture2D(tex, uv + vec2(float(i), float(j)) * texel * 4.0);\n            minDiff = min(minDiff, distance(source.rgb, neighbor.rgb));\n        }\n    }\n    \n    if (minDiff > isolationThreshold) {\n        vec3 psych = 0.5 + 0.5 * cos(time * 5.0 + uv.xyx * 15.0 + vec3(0.0, 2.0, 4.0));\n        return vec4(mix(1.0 - source.rgb, psych, 0.6), source.a);\n    }\n\n    float oscillation = abs(mod(time * speedThreshold, 2.0) - 1.0);\n    float currentThreshold = mix(thresholdMin, thresholdMax, oscillation);\n    float currentPixelDist = abs(mod(pixeldistance + time * pixelDistLoopSpeed, 2.0) - 1.0);\n    float distMult = currentPixelDist * 5.0 + 0.1;\n    float minDist = 100.0;\n    \n    for(int i = -4; i <= 4; i++) {\n        for(int j = -4; j <= 4; j++) {\n            float d2 = float(i * i + j * j);\n            if (d2 <= 16.0) {\n                vec4 s = texture2D(tex, uv + vec2(float(i), float(j)) * texel * distMult);\n                if (dot(s.rgb, vec3(0.299, 0.587, 0.114)) < currentThreshold && s.a > 0.5) {\n                    minDist = min(minDist, sqrt(d2));\n                }\n            }\n        }\n    }\n    \n    if (minDist <= 4.0) {\n        float blurAmount = smoothstep(0.0, 4.0, minDist) * blurStrength;\n        vec3 col = vec3(0.0);\n        for(int i = -2; i <= 2; i++) {\n            for(int j = -2; j <= 2; j++) {\n                vec2 offset = vec2(float(i), float(j)) * texel * blurAmount * 10.0;\n                vec3 shift = vec3(sin(time * 3.0 + float(i)), cos(time * 2.0 + float(j)), sin(time * 4.0)) * 0.5 + 0.5;\n                col += texture2D(tex, uv + offset).rgb * shift * intensity;\n            }\n        }\n        vec3 distColor = 0.5 + 0.5 * cos(time * 3.0 - minDist * distColorFreq + vec3(0.0, 2.0, 4.0));\n        return vec4(mix(col / 25.0, distColor, distColorIntensity), source.a * (1.0 - smoothstep(0.0, 4.0, minDist)));\n    }\n    \n    return (luma >= currentThreshold) ? vec4(0.0, 0.0, 0.0, source.a) : source;\n}",
+    uniformValues:     {
+          "intensity": 1.18,
+          "thresholdMin": 0.2,
+          "thresholdMax": 0.04,
+          "pixeldistance": 0.07,
+          "pixelDistLoopSpeed": 2.15,
+          "speedThreshold": 0.68,
+          "blurStrength": 0.02,
+          "distColorIntensity": 0.06,
+          "distColorFreq": 0.394,
+          "isolationThreshold": 0.15
+    },
+  },
+  {
+    id: "timeline-cc495c1a-a47a-4004-9f0f-60ed94f1a897",
+    name: "Randomized Psychedelic Masked",
+    template: "stage",
+    group: "Masks & Contrast",
+    description: "Recovered from the project timeline for the Masks & Contrast stage collection.",
+    code: "// NAME: Randomized Psychedelic Masked\nuniform float velocity; // @min 0.1 @max 4.0 @default 1.0\nuniform float phaseSpeed; // @min 0.05 @max 2.0 @default 0.3\nuniform float intensity; // @min 0.0 @max 1.0 @default 0.8\nuniform float darkThreshold; // @min 0.0 @max 1.0 @default 0.1\nuniform float darkSoftness; // @min 0.01 @max 0.5 @default 0.2\n\nmat2 rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\nfloat fbm(vec2 p) {\n    float v = 0.0, a = 0.5;\n    for (int i = 0; i < 4; i++) {\n        v += a * node_noise(p);\n        p = rot(0.5) * p * 2.1;\n        a *= 0.5;\n    }\n    return v;\n}\n\nvec2 kalei(vec2 p, float sides) {\n    float a = atan(p.y, p.x);\n    float r = length(p);\n    float seg = 6.28318 / sides;\n    a = abs(mod(a, seg) - seg * 0.5);\n    return vec2(cos(a), sin(a)) * r;\n}\n\nvec3 pal(float t, vec3 d) {\n    return 0.5 + 0.5 * cos(6.28318 * (vec3(1.0) * t + d));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 texCol = texture2D(tex, uv);\n    \n    // Masking logic: preserve dark pixels\n    float lum = dot(texCol.rgb, vec3(0.299, 0.587, 0.114));\n    float mask = smoothstep(darkThreshold, darkThreshold + darkSoftness, lum);\n    \n    vec2 aspect = vec2(resolution.x / resolution.y, 1.0);\n    vec2 p = (uv - 0.5) * aspect;\n    float t = time * velocity;\n    float pt = time * phaseSpeed;\n\n    // Randomize phase weights using noise at different seeds\n    float w0 = smoothstep(0.2, 0.8, node_noise(vec2(pt * 0.7, 1.1)));\n    float w1 = smoothstep(0.2, 0.8, node_noise(vec2(pt * 0.8, 2.2)));\n    float w2 = smoothstep(0.2, 0.8, node_noise(vec2(pt * 0.9, 3.3)));\n    float w3 = smoothstep(0.2, 0.8, node_noise(vec2(pt * 1.0, 4.4)));\n    float totalW = w0 + w1 + w2 + w3 + 0.001;\n\n    // Distort coordinates for the psychedelic effect\n    vec2 dp = p + 0.04 * vec2(fbm(p * 2.0 + t * 0.4), fbm(p * 2.0 - t * 0.3));\n    float r = length(dp);\n    float ang = atan(dp.y, dp.x);\n    \n    // Effect 1: Tunnel\n    float tun = 0.5 + 0.5 * sin(8.0 * ang + 15.0 / (r + 0.02) - t * 4.0);\n    // Effect 2: Chrysanthemum\n    vec2 q = kalei(dp, 6.0 + 4.0 * node_noise(vec2(pt, 5.5)));\n    float chr = fbm(q * 8.0 - t * 0.6) * exp(-r * 1.5);\n    // Effect 3: Lattice\n    vec2 lq = dp * rot(t * 0.15);\n    for(int i=0; i<3; i++) { \n        lq = abs(kalei(lq, 5.0)) - 0.35; \n        lq *= rot(0.6); \n    }\n    float lat = exp(-8.0 * abs(lq.x * lq.y));\n    // Effect 4: Flow\n    float flow = fbm(dp * 3.0 + vec2(t * 0.2, -t * 0.1));\n\n    // Color Compositing\n    vec3 c0 = pal(flow, vec3(0.0, 0.1, 0.2));\n    vec3 c1 = pal(tun, vec3(0.1, 0.4, 0.7));\n    vec3 c2 = pal(chr, vec3(0.8, 0.2, 0.3));\n    vec3 c3 = pal(lat + r, vec3(0.6, 0.9, 0.1));\n\n    vec3 col = (c0 * w0 + c1 * w1 + c2 * w2 + c3 * w3) / totalW;\n    col += 0.12 * exp(-2.5 * r) * vec3(1.1, 1.0, 0.9); // Center glow\n    \n    // Post-processing\n    col = 1.0 - exp(-col * 1.6);\n    col *= smoothstep(1.4, 0.2, r); // Vignette\n    col += (node_rand(uv + time) - 0.5) * 0.02; // Subtle grain\n\n    // Final mix: only apply to bright areas of the original image\n    return vec4(mix(texCol.rgb, col, intensity * mask), texCol.a);\n}",
+    uniformValues:     {
+          "velocity": 1,
+          "phaseSpeed": 0.3,
+          "intensity": 0.8,
+          "darkThreshold": 0.1,
+          "darkSoftness": 0.2
+    },
+  },
+  {
+    id: "timeline-b5ece89f-c346-4310-8704-a18c73a87181",
+    name: "New Shader",
+    template: "stage",
+    group: "Experimental",
+    description: "Recovered from the project timeline for the Experimental stage collection.",
+    code: "// NAME: New Shader\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    return source;\n}",
+    uniformValues:     {},
+  },
+  {
+    id: "timeline-2d47a8c1-8cd3-400d-bbcc-0821316be848",
+    name: "Radial Delayed Soft Edge Blur",
+    template: "stage",
+    group: "Experimental",
+    description: "Recovered from the project timeline for the Experimental stage collection.",
+    code: "// NAME: Radial Delayed Soft Edge Blur\nuniform float speed; // @min -10.0 @max 10.0 @default 5.0\nuniform float lineLength; // @min 1.0 @max 10.0 @default 1.0\nuniform float delay; // @min 0.0 @max 5.0 @default 2.0\nuniform float distOffset; // @min 0.0 @max 20.0 @default 10.0\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    // Sample the original image for base color and soft light\n    vec4 baseColor = texture2D(tex, uv);\n    \n    // Random blob generation for time delay\n    float blob = node_noise(uv * 5.0);\n    float localTime = time;\n    if (blob > 0.0) {\n        localTime = time - delay;\n    }\n\n    vec2 off = 1.0 / resolution;\n    \n    // Sample 8 neighboring pixels for edge detection\n    float t00 = texture2D(tex, uv + vec2(-off.x, -off.y)).r;\n    float t10 = texture2D(tex, uv + vec2( 0.0,   -off.y)).r;\n    float t20 = texture2D(tex, uv + vec2( off.x, -off.y)).r;\n    float t01 = texture2D(tex, uv + vec2(-off.x,  0.0)).r;\n    float t21 = texture2D(tex, uv + vec2( off.x,  0.0)).r;\n    float t02 = texture2D(tex, uv + vec2(-off.x,  off.y)).r;\n    float t12 = texture2D(tex, uv + vec2( 0.0,    off.y)).r;\n    float t22 = texture2D(tex, uv + vec2( off.x,  off.y)).r;\n\n    // Apply Sobel operators\n    float gx = (t00 + 2.0 * t01 + t02) - (t20 + 2.0 * t21 + t22);\n    float gy = (t00 + 2.0 * t10 + t20) - (t02 + 2.0 * t12 + t22);\n    \n    // Calculate edge intensity and angle\n    float edge = sqrt(gx * gx + gy * gy);\n    float angle = atan(gy, gx);\n    \n    // Calculate distance from the center to offset the animation phase\n    float dist = distance(uv, vec2(0.5));\n    \n    // Create a moving segment using the local time and distance offset\n    float segment = sin(angle * lineLength + localTime * speed - dist * distOffset);\n    \n    // Soften the segment edges\n    segment = smoothstep(0.7, 0.95, segment);\n    \n    // Soft light base from the original image\n    vec3 softLight = baseColor.rgb * 0.4;\n    \n    // Highlight lines colored based on the original image color\n    vec3 highlight = baseColor.rgb * edge * segment * 2.0;\n    \n    // Combine soft light and animated edges\n    vec3 finalColor = softLight + highlight;\n    \n    return vec4(finalColor, baseColor.a);\n}",
+    uniformValues:     {
+          "speed": 7.6,
+          "lineLength": 1,
+          "delay": 5,
+          "distOffset": 19.6
+    },
+  },
+  {
+    id: "timeline-870fc95e-c382-4cb9-b328-319458f8d8ec",
+    name: "Symmetrical Psytrance",
+    template: "stage",
+    group: "Experimental",
+    description: "Recovered from the project timeline for the Experimental stage collection.",
+    code: "// NAME: Symmetrical Psytrance\nuniform float speed; // @min 0.1 @max 5.0 @default 1.5\nuniform float intensity; // @min 0.0 @max 2.0 @default 1.0\nuniform float pulse_rate; // @min 0.1 @max 10.0 @default 4.0\nuniform float thresholdwhiteloopfrom01to08; // @min 0.0 @max 1.0 @default 0.5\nuniform float randomness; // @min 0.0 @max 2.0 @default 0.8\n\nmat2 rot(float a) {\n    float s = sin(a), c = cos(a);\n    return mat2(c, -s, s, c);\n}\n\n// Modified palette function to randomize color order (frequencies and phases)\nvec3 palette(float t, float seed, float randFactor) {\n    vec3 a = vec3(0.5, 0.5, 0.5);\n    vec3 b = vec3(0.5, 0.5, 0.5);\n    vec3 c = vec3(2.0, 1.0, 0.0);\n    vec3 d = vec3(0.50, 0.20, 0.25);\n    \n    // Inject randomness into the color sequence\n    c += vec3(node_rand(vec2(seed, 1.1)), node_rand(vec2(seed, 1.2)), node_rand(vec2(seed, 1.3))) * randFactor * 4.0;\n    d += vec3(node_rand(vec2(seed, 2.1)), node_rand(vec2(seed, 2.2)), node_rand(vec2(seed, 2.3))) * randFactor * 2.0;\n    \n    return a + b * cos(6.28318 * (c * t + d));\n}\n\nvec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {\n    vec4 source = texture2D(tex, uv);\n    \n    vec2 p = (uv - 0.5) * 2.0;\n    p.x *= resolution.x / resolution.y;\n    \n    // Apply 4-way symmetry to the coordinates\n    p = abs(p);\n    \n    float t = time * speed;\n    \n    // Add noise-based spatial distortion for organic randomness\n    vec2 noiseDist = vec2(node_noise(p * 2.0 + t), node_noise(p * 2.0 - t));\n    p += noiseDist * randomness * 0.3;\n    \n    vec2 p0 = p;\n    vec3 finalColor = vec3(0.0);\n    float loopThresh = mix(0.01, 0.08, thresholdwhiteloopfrom01to08);\n    \n    // Multilayered fractal loop with injected randomness\n    for (int i = 0; i < 4; i++) {\n        float fi = float(i);\n        p = fract(p * 1.5) - 0.5;\n        \n        float d = length(p) * exp(-length(p0));\n        \n        // Randomize color palette offset and order over time\n        float rndOffset = node_rand(vec2(fi, floor(time * 5.0))) * randomness * 0.5;\n        float colorSeed = fi + floor(time * 2.0); // Seed changes every 0.5s\n        vec3 col = palette(length(p0) + fi * 0.4 + t * 0.4 + rndOffset, colorSeed, randomness);\n        \n        d = sin(d * 10.0 + t * 2.0) / 10.0;\n        d = abs(d);\n        d = pow(loopThresh / d, 1.2);\n        \n        float pulse = mix(0.3, 1.0, sin(time * pulse_rate + fi * 1.5) * 0.5 + 0.5);\n        \n        // High-frequency random jitter on intensity\n        float jitter = 1.0 + node_rand(p * time) * randomness * 0.5;\n        \n        finalColor += col * d * pulse * intensity * jitter;\n        \n        // Randomize rotation per iteration\n        p *= rot(t * 0.3 + fi + node_noise(p0 * fi + t) * randomness);\n    }\n    \n    vec4 effect = vec4(finalColor, 1.0);\n    \n    float brightness = dot(source.rgb, vec3(0.299, 0.587, 0.114));\n    float animThresholdWhite = mix(0.1, 0.8, sin(time * speed) * 0.5 + 0.5);\n    float whiteMask = smoothstep(animThresholdWhite - 0.05, animThresholdWhite + 0.05, brightness);\n    \n    float blendAlpha = source.a * (1.0 - whiteMask);\n    \n    return mix(effect, source, blendAlpha);\n}",
+    uniformValues:     {
+          "speed": 0.786,
+          "intensity": 0.06,
+          "pulse_rate": 10,
+          "thresholdwhiteloopfrom01to08": 1,
+          "randomness": 2
+    },
+  },
 ];
