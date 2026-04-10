@@ -4,6 +4,7 @@ import {
   ASSET_DB_NAME,
   ASSET_DB_VERSION,
   ASSET_STORE_NAME,
+  DEFAULT_SHADERS,
   PROJECT_LIBRARY_STORAGE_KEY,
   PROJECT_STORAGE_PREFIX,
   UI_STORAGE_KEY,
@@ -12,6 +13,7 @@ import { restoreTransport, snapshotTransport } from './clock';
 import type {
   ProjectDocument,
   ProjectLibraryEntry,
+  SavedShader,
   ShaderUniformValueMap,
   UiPreferences,
 } from '../types';
@@ -65,16 +67,117 @@ export function loadProjectDocument(sessionId: string): ProjectDocument | null {
   }
 }
 
-export function saveProjectDocument(project: ProjectDocument): void {
-  const snapshot = {
+function sortSerializableValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sortSerializableValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nestedValue]) => [key, sortSerializableValue(nestedValue)]),
+    );
+  }
+
+  return value;
+}
+
+function stableSerialize(value: unknown): string {
+  return JSON.stringify(sortSerializableValue(value));
+}
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function isUnmodifiedDefaultPreset(shader: SavedShader): boolean {
+  const defaultPreset = DEFAULT_SHADERS[shader.id];
+  if (!defaultPreset) {
+    return false;
+  }
+
+  const defaultUniformValues = defaultPreset.uniformValues ?? {};
+  const shaderUniformValues = shader.uniformValues ?? {};
+  const shaderLastValidUniformValues = shader.lastValidUniformValues ?? shaderUniformValues;
+
+  return (
+    shader.name === defaultPreset.name &&
+    shader.code === defaultPreset.code &&
+    normalizeOptionalText(shader.description) === normalizeOptionalText(defaultPreset.description) &&
+    (shader.template ?? defaultPreset.template) === defaultPreset.template &&
+    (shader.group ?? defaultPreset.group) === defaultPreset.group &&
+    (shader.inputAssetId ?? null) === null &&
+    stableSerialize(shaderUniformValues) === stableSerialize(defaultUniformValues) &&
+    (shader.lastValidCode ?? shader.code) === defaultPreset.code &&
+    stableSerialize(shaderLastValidUniformValues) === stableSerialize(defaultUniformValues) &&
+    !shader.isTemporary &&
+    !shader.isDirty &&
+    !shader.sourceShaderId &&
+    !shader.ownerTimelineStepId &&
+    !shader.pendingAiJobCount &&
+    !shader.hasUnreadAiResult &&
+    !shader.compileError
+  );
+}
+
+function createProjectSnapshot(project: ProjectDocument): ProjectDocument {
+  return {
     ...project,
     playback: {
       ...project.playback,
       transport: snapshotTransport(project.playback.transport),
     },
+    studio: {
+      ...project.studio,
+      savedShaders: project.studio.savedShaders.filter((shader) => !isUnmodifiedDefaultPreset(shader)),
+    },
   };
+}
 
-  localStorage.setItem(getProjectStorageKey(project.sessionId), JSON.stringify(snapshot));
+function createEmergencyProjectSnapshot(project: ProjectDocument): ProjectDocument {
+  const compactSnapshot = createProjectSnapshot(project);
+
+  return {
+    ...compactSnapshot,
+    studio: {
+      ...compactSnapshot.studio,
+      shaderChatHistory: [],
+      shaderVersions: compactSnapshot.studio.shaderVersions.slice(-1),
+      savedShaders: compactSnapshot.studio.savedShaders.map((shader) => ({
+        ...shader,
+        versions:
+          shader.id === compactSnapshot.studio.activeShaderId ? shader.versions?.slice(-1) : undefined,
+        lastValidCode: shader.lastValidCode === shader.code ? undefined : shader.lastValidCode,
+        lastValidUniformValues:
+          stableSerialize(shader.lastValidUniformValues ?? shader.uniformValues ?? {}) ===
+          stableSerialize(shader.uniformValues ?? {})
+            ? undefined
+            : shader.lastValidUniformValues,
+      })),
+    },
+  };
+}
+
+export function saveProjectDocument(project: ProjectDocument): void {
+  const storageKey = getProjectStorageKey(project.sessionId);
+  const snapshot = createProjectSnapshot(project);
+
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(snapshot));
+  } catch (error) {
+    const fallbackSnapshot = createEmergencyProjectSnapshot(project);
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(fallbackSnapshot));
+      console.warn(
+        'Project snapshot exceeded localStorage quota. Saved a compact fallback snapshot instead.',
+      );
+    } catch (fallbackError) {
+      console.warn('Unable to persist project document.', fallbackError ?? error);
+    }
+  }
 }
 
 export function loadProjectLibrary(): ProjectLibraryEntry[] {
