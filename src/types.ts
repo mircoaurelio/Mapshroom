@@ -5,6 +5,7 @@ export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
 export type ShaderProvider = 'openai' | 'google';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
+export type ShaderTemplate = 'stage' | 'drawing' | 'sculpture';
 export type TimelineTransitionEffect = 'cut' | 'mix' | 'wipe' | 'radial' | 'glitch';
 export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix' | 'double';
 export type TimelineEditorViewMode = 'simple' | 'advanced';
@@ -37,6 +38,7 @@ export interface SavedShader {
   versions?: ShaderVersion[];
   lastValidCode?: string;
   description?: string;
+  template?: ShaderTemplate;
   group?: string;
   uniformValues?: ShaderUniformValueMap;
   lastValidUniformValues?: ShaderUniformValueMap;
@@ -121,6 +123,7 @@ export interface ShaderDefinition {
   name: string;
   code: string;
   description: string;
+  template: ShaderTemplate;
   group: string;
 }
 
