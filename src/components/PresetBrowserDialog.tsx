@@ -402,7 +402,6 @@ export function PresetBrowserDialog({
   onSelect,
   onClose,
 }: PresetBrowserDialogProps) {
-  const [pendingId, setPendingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [activeTemplate, setActiveTemplate] = useState<ShaderTemplate>('stage');
   const [loadedPreview, setLoadedPreview] = useState<{
@@ -472,7 +471,6 @@ export function PresetBrowserDialog({
   const image = assetUrl && loadedPreview?.assetUrl === assetUrl ? loadedPreview.image : null;
   const previewNamespace = assetUrl ?? '__no_asset__';
   const handleClose = () => {
-    setPendingId(null);
     onClose();
   };
   const requestPreview = (preset: SavedShader) => {
@@ -551,10 +549,6 @@ export function PresetBrowserDialog({
       items: [...items].sort((left, right) => left.name.localeCompare(right.name)),
     }));
 
-  const pendingPreset = pendingId
-    ? presets.find((p) => p.id === pendingId)
-    : null;
-
   return (
     <div
       className="dialog-backdrop"
@@ -577,95 +571,66 @@ export function PresetBrowserDialog({
         </header>
 
         <div className="dialog-body preset-browser-body">
-          {pendingPreset ? (
-            <div className="preset-confirm">
-              <p>
-                Load <strong>{pendingPreset.name}</strong>?
-              </p>
-              <p className="preset-confirm-note">
-                This will replace your current shader and clear the chat history.
-              </p>
-              <div className="button-row">
-                <button
-                  type="button"
-                  className="primary-button"
-                  onClick={() => {
-                    onSelect(pendingPreset.id);
-                    handleClose();
-                  }}
-                >
-                  Load Preset
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setPendingId(null)}
-                >
-                  Cancel
-                </button>
-              </div>
+          <div className="preset-browser-toolbar">
+            <div className="field-inline-label">
+              <span>Preset Browser</span>
+              <small>{filteredPresets.length} results</small>
             </div>
-          ) : (
-            <>
-              <div className="preset-browser-toolbar">
-                <div className="field-inline-label">
-                  <span>Preset Browser</span>
-                  <small>{filteredPresets.length} results</small>
-                </div>
-                <input
-                  className="text-field preset-browser-search"
-                  placeholder="Search presets..."
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-                <div className="preset-category-row" role="tablist" aria-label="Preset templates">
-                  {TEMPLATE_ORDER.map((template) => (
-                    <button
-                      key={template}
-                      type="button"
-                      className={`preset-category-chip ${
-                        template === selectedTemplate ? 'preset-category-chip-active' : ''
-                      }`}
-                      onClick={() => setActiveTemplate(template)}
-                    >
-                      {TEMPLATE_LABELS[template]}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <input
+              className="text-field preset-browser-search"
+              placeholder="Search presets..."
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <div className="preset-category-row" role="tablist" aria-label="Preset templates">
+              {TEMPLATE_ORDER.map((template) => (
+                <button
+                  key={template}
+                  type="button"
+                  className={`preset-category-chip ${
+                    template === selectedTemplate ? 'preset-category-chip-active' : ''
+                  }`}
+                  onClick={() => setActiveTemplate(template)}
+                >
+                  {TEMPLATE_LABELS[template]}
+                </button>
+              ))}
+            </div>
+          </div>
 
-              {groupedPresets.length === 0 ? (
-                <p className="empty-copy">No presets match this filter.</p>
-              ) : (
-                <div className="preset-group-stack">
-                  {groupedPresets.map(({ group, items }) => (
-                    <section className="preset-group" key={group}>
-                      <div className="preset-group-header">
-                        <strong className="preset-group-title">{group}</strong>
-                        <span className="preset-group-count">{items.length}</span>
-                      </div>
-                      <div className="preset-preview-grid">
-                        {items.map((preset) => (
-                          <PreviewCard
-                            key={preset.id}
-                            preset={preset}
-                            isActive={preset.id === activeShaderId}
-                            image={image}
-                            previewSrc={
-                              previewSources[
-                                `${previewNamespace}\u0000${preset.id}\u0000${getRenderableShaderCode(preset)}\u0000${getUniformValuesPreviewSignature(getRenderableShaderUniformValues(preset))}`
-                              ] ?? null
-                            }
-                            onRequestPreview={() => requestPreview(preset)}
-                            onSelect={() => setPendingId(preset.id)}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
-            </>
+          {groupedPresets.length === 0 ? (
+            <p className="empty-copy">No presets match this filter.</p>
+          ) : (
+            <div className="preset-group-stack">
+              {groupedPresets.map(({ group, items }) => (
+                <section className="preset-group" key={group}>
+                  <div className="preset-group-header">
+                    <strong className="preset-group-title">{group}</strong>
+                    <span className="preset-group-count">{items.length}</span>
+                  </div>
+                  <div className="preset-preview-grid">
+                    {items.map((preset) => (
+                      <PreviewCard
+                        key={preset.id}
+                        preset={preset}
+                        isActive={preset.id === activeShaderId}
+                        image={image}
+                        previewSrc={
+                          previewSources[
+                            `${previewNamespace}\u0000${preset.id}\u0000${getRenderableShaderCode(preset)}\u0000${getUniformValuesPreviewSignature(getRenderableShaderUniformValues(preset))}`
+                          ] ?? null
+                        }
+                        onRequestPreview={() => requestPreview(preset)}
+                        onSelect={() => {
+                          onSelect(preset.id);
+                          handleClose();
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           )}
         </div>
       </section>

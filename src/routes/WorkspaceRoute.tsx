@@ -2217,32 +2217,56 @@ export function WorkspaceRoute() {
       return;
     }
 
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
-        activeShaderId: shader.id,
-        activeShaderName: shader.name,
-        activeShaderCode: shader.code,
-        shaderChatHistory: [],
-        shaderVersions: getShaderVersionTrail(shader),
-        uniformValues: getSyncedShaderUniformValues(shader.code, shader.uniformValues),
-        savedShaders: currentProject.studio.savedShaders.map((item) =>
-          item.id === shader.id
-            ? {
-                ...item,
-                hasUnreadAiResult: false,
-              }
-            : item,
-        ),
-      },
-    }));
-    setEditingTimelineStepId(shader.isTemporary ? shader.ownerTimelineStepId ?? null : null);
+    const nextEditingStepId = shader.isTemporary ? shader.ownerTimelineStepId ?? null : null;
+
+    updateProject((currentProject) => {
+      const currentShader =
+        currentProject.studio.savedShaders.find((item) => item.id === shaderId) ?? shader;
+      const nextStep = currentShader.isTemporary ? null : createTimelineShaderStep(currentShader.id);
+
+      return {
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          activeShaderId: currentShader.id,
+          activeShaderName: currentShader.name,
+          activeShaderCode: currentShader.code,
+          shaderChatHistory: [],
+          shaderVersions: getShaderVersionTrail(currentShader),
+          uniformValues: getSyncedShaderUniformValues(
+            currentShader.code,
+            currentShader.uniformValues,
+          ),
+          savedShaders: currentProject.studio.savedShaders.map((item) =>
+            item.id === currentShader.id
+              ? {
+                  ...item,
+                  hasUnreadAiResult: false,
+                }
+              : item,
+          ),
+        },
+        timeline: nextStep
+          ? {
+              stub: {
+                ...currentProject.timeline.stub,
+                shaderSequence: {
+                  ...currentProject.timeline.stub.shaderSequence,
+                  enabled: true,
+                  focusedStepId: nextStep.id,
+                  steps: [...currentProject.timeline.stub.shaderSequence.steps, nextStep],
+                },
+              },
+            }
+          : currentProject.timeline,
+      };
+    });
+    setEditingTimelineStepId(nextEditingStepId);
     clearGeneratedShaderRetry();
     setStatusMessage(
       shader.isTemporary
         ? `Editing linked timeline shader "${shader.name}".`
-        : `Shader preset "${shader.name}" loaded.`,
+        : `Loaded preset "${shader.name}" and added it to the timeline.`,
     );
     setPreferLiveShaderCompilePreview(false);
     setCompilerError(shader.compileError ?? '');
