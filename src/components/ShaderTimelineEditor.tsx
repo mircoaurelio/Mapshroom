@@ -12,12 +12,8 @@ import {
 } from '../lib/shaderPreview';
 import { getAssetBlob } from '../lib/storage';
 import {
-  normalizeTimelineStepAssetSettings,
-  TIMELINE_ASSET_BLEND_MODE_OPTIONS,
-  TIMELINE_ASSET_FIT_MODE_OPTIONS,
-  TIMELINE_ASSET_QUALITY_OPTIONS,
-} from '../lib/timelineAssetSettings';
-import { useAssetPreviewUrls } from '../lib/useAssetPreviewUrls';
+  useAssetPreviewUrls,
+} from '../lib/useAssetPreviewUrls';
 import {
   getRenderableShaderCode,
   getRenderableShaderUniformValues,
@@ -32,7 +28,6 @@ import type {
   TimelineSequenceMode,
   TimelineStagePreviewMode,
   TimelineStub,
-  TimelineStepAssetSettings,
 } from '../types';
 
 const timelineEditorAssetUrlCache = new Map<string, string>();
@@ -75,6 +70,7 @@ interface ShaderTimelineEditorProps {
   ) => void;
   onPinnedStepToggle: (stepId: string) => void;
   onAssignStepAsset: (stepId: string, assetId: string | null) => void;
+  onImportAsset: () => void;
   onAddStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
@@ -115,8 +111,6 @@ function getTimelineShaderPreviewKey(
   const renderUniformValues = getRenderableShaderUniformValues(shader);
   return `${previewNamespace}\u0000${overlayPreviewNamespace}\u0000${shader.id}\u0000${renderCode}\u0000${getUniformValuesPreviewSignature(renderUniformValues)}`;
 }
-
-type AssetPickerTab = 'choose' | 'settings';
 
 function ViewModeIcon({ mode }: { mode: TimelineEditorViewMode }) {
   if (mode === 'simple') {
@@ -294,6 +288,7 @@ export function ShaderTimelineEditor({
   onStepChange,
   onPinnedStepToggle,
   onAssignStepAsset,
+  onImportAsset,
   onAddStepsWithShaders,
   onDuplicateStep,
   onRemoveStep,
@@ -324,7 +319,6 @@ export function ShaderTimelineEditor({
   const addMenuRef = useRef<HTMLDivElement | null>(null);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [assetPickerStepId, setAssetPickerStepId] = useState<string | null>(null);
-  const [assetPickerTab, setAssetPickerTab] = useState<AssetPickerTab>('choose');
   const [assetPickerPreviewAssetId, setAssetPickerPreviewAssetId] = useState<string | null>(null);
   const [selectedAddShaderIds, setSelectedAddShaderIds] = useState<string[]>([]);
   const [cardScale, setCardScale] = useState(1);
@@ -644,14 +638,10 @@ export function ShaderTimelineEditor({
   const assetPickerAssignedAsset =
     assetPickerShader?.inputAssetId ? assetMap.get(assetPickerShader.inputAssetId) ?? null : null;
   const assetPickerPreviewUrls = useAssetPreviewUrls(assets, assetPickerStep !== null, null, null);
-  const assetPickerSettings = normalizeTimelineStepAssetSettings(assetPickerStep?.assetSettings);
   const assetPickerPreviewAsset =
     assetPickerPreviewAssetId !== null ? assetMap.get(assetPickerPreviewAssetId) ?? null : null;
   const assetPickerPreviewUrl = assetPickerPreviewAsset
     ? assetPickerPreviewUrls[assetPickerPreviewAsset.id] ?? null
-    : null;
-  const assetPickerAssignedPreviewUrl = assetPickerAssignedAsset
-    ? assetPickerPreviewUrls[assetPickerAssignedAsset.id] ?? null
     : null;
 
   useEffect(() => {
@@ -667,27 +657,20 @@ export function ShaderTimelineEditor({
 
   useEffect(() => {
     if (!assetPickerStep) {
-      setAssetPickerTab('choose');
       setAssetPickerPreviewAssetId(null);
       return;
     }
 
-    setAssetPickerTab('choose');
     setAssetPickerPreviewAssetId(assetPickerShader?.inputAssetId ?? assets[0]?.id ?? null);
   }, [assetPickerStep?.id]);
 
-  const updateAssetPickerSettings = (patch: Partial<TimelineStepAssetSettings>) => {
-    if (!assetPickerStep) {
+  useEffect(() => {
+    if (!assetPickerStep || assetPickerPreviewAssetId) {
       return;
     }
 
-    onStepChange(assetPickerStep.id, {
-      assetSettings: {
-        ...assetPickerSettings,
-        ...patch,
-      },
-    });
-  };
+    setAssetPickerPreviewAssetId(assetPickerShader?.inputAssetId ?? assets.at(-1)?.id ?? null);
+  }, [assetPickerPreviewAssetId, assetPickerShader?.inputAssetId, assetPickerStep, assets]);
 
   const toggleAddShaderSelection = (shaderId: string) => {
     setSelectedAddShaderIds((currentIds) =>
@@ -1055,6 +1038,7 @@ export function ShaderTimelineEditor({
                       }
                       onClick={(event) => {
                         event.stopPropagation();
+                        onEditStep(step.id);
                         setAssetPickerStepId(step.id);
                       }}
                     >
@@ -1226,81 +1210,64 @@ export function ShaderTimelineEditor({
               </button>
             </header>
 
-            <div className="timeline-asset-dialog-tabs" role="tablist" aria-label="Asset dialog tabs">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={assetPickerTab === 'choose'}
-                className={`secondary-button ${
-                  assetPickerTab === 'choose' ? 'timeline-add-trigger-active' : ''
-                }`}
-                onClick={() => setAssetPickerTab('choose')}
-              >
-                Choose Asset
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={assetPickerTab === 'settings'}
-                className={`secondary-button ${
-                  assetPickerTab === 'settings' ? 'timeline-add-trigger-active' : ''
-                }`}
-                onClick={() => setAssetPickerTab('settings')}
-              >
-                Asset Settings
-              </button>
-            </div>
-
             <div className="dialog-body timeline-asset-dialog-body">
-              {assetPickerTab === 'choose' ? (
-                <>
-                  <div className="asset-browser-preview-column">
-                    <div className="asset-browser-preview-shell timeline-asset-preview-shell">
-                      {assetPickerPreviewAsset && assetPickerPreviewUrl ? (
-                        assetPickerPreviewAsset.kind === 'video' ? (
-                          <video
-                            className="asset-browser-preview-media"
-                            src={assetPickerPreviewUrl}
-                            muted
-                            playsInline
-                            loop
-                            autoPlay
-                          />
-                        ) : (
-                          <img
-                            className="asset-browser-preview-media"
-                            src={assetPickerPreviewUrl}
-                            alt={assetPickerPreviewAsset.name}
-                          />
-                        )
-                      ) : (
-                        <div className="asset-browser-preview-placeholder">
-                          Hover or pick an asset to preview it here.
-                        </div>
-                      )}
+              <div className="asset-browser-preview-column">
+                <div className="asset-browser-preview-shell timeline-asset-preview-shell">
+                  {assetPickerPreviewAsset && assetPickerPreviewUrl ? (
+                    assetPickerPreviewAsset.kind === 'video' ? (
+                      <video
+                        className="asset-browser-preview-media"
+                        src={assetPickerPreviewUrl}
+                        muted
+                        playsInline
+                        loop
+                        autoPlay
+                      />
+                    ) : (
+                      <img
+                        className="asset-browser-preview-media"
+                        src={assetPickerPreviewUrl}
+                        alt={assetPickerPreviewAsset.name}
+                      />
+                    )
+                  ) : (
+                    <div className="asset-browser-preview-placeholder">
+                      Hover or pick an asset to preview it here.
                     </div>
+                  )}
+                </div>
 
-                    <div className="stack gap-sm">
-                      <div className="field-inline-label">
-                        <span>Step Media</span>
-                        <small>
-                          {assetPickerAssignedAsset
-                            ? `${assetPickerAssignedAsset.kind} assigned`
-                            : 'Live stage asset'}
-                        </small>
-                      </div>
-                      <p className="helper-copy">
-                        Choose which library asset should feed <strong>{assetPickerShader.name}</strong>.
-                        Selecting a card assigns it immediately and opens the settings tab.
-                      </p>
-                    </div>
+                <div className="stack gap-sm">
+                  <div className="field-inline-label">
+                    <span>Step Media</span>
+                    <small>
+                      {assetPickerAssignedAsset
+                        ? `${assetPickerAssignedAsset.kind} assigned`
+                        : 'Live stage asset'}
+                    </small>
+                  </div>
+                  <p className="helper-copy">
+                    Choose which library asset should feed <strong>{assetPickerShader.name}</strong>.
+                    Step fit, blend, size, and clip controls now live in the main inspector panel.
+                  </p>
+                </div>
+              </div>
+
+              <div className="asset-browser-gallery-shell">
+                <div className="timeline-step-asset-picker-header">
+                  <div className="field-inline-label">
+                    <span>Library Assets</span>
+                    <small>{assets.length} items</small>
                   </div>
 
-                  <div className="asset-browser-gallery-shell">
-                    <div className="field-inline-label">
-                      <span>Library Assets</span>
-                      <small>{assets.length} items</small>
-                    </div>
+                  <div className="timeline-step-asset-picker-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={onImportAsset}
+                    >
+                      Import Media
+                    </button>
 
                     <button
                       type="button"
@@ -1310,287 +1277,73 @@ export function ShaderTimelineEditor({
                       onClick={() => {
                         onAssignStepAsset(assetPickerStep.id, null);
                         setAssetPickerPreviewAssetId(null);
+                        setAssetPickerStepId(null);
                       }}
                     >
                       Use Live Stage Asset
                     </button>
+                  </div>
+                </div>
 
-                    {assets.length === 0 ? (
-                      <p className="empty-copy">Import an image or video first.</p>
-                    ) : (
-                      <div className="asset-browser-preview-grid timeline-asset-preview-grid">
-                        {assets.map((assetRecord) => {
-                          const previewUrl = assetPickerPreviewUrls[assetRecord.id] ?? null;
-                          const isSelected = assetPickerShader.inputAssetId === assetRecord.id;
+                {assets.length === 0 ? (
+                  <p className="empty-copy">Import an image or video first.</p>
+                ) : (
+                  <div className="asset-browser-preview-grid timeline-asset-preview-grid">
+                    {assets.map((assetRecord) => {
+                      const previewUrl = assetPickerPreviewUrls[assetRecord.id] ?? null;
+                      const isSelected = assetPickerShader.inputAssetId === assetRecord.id;
 
-                          return (
-                            <button
-                              key={assetRecord.id}
-                              type="button"
-                              className={`asset-browser-preview-card ${
-                                isSelected ? 'asset-browser-preview-card-active' : ''
-                              }`}
-                              onMouseEnter={() => setAssetPickerPreviewAssetId(assetRecord.id)}
-                              onFocus={() => setAssetPickerPreviewAssetId(assetRecord.id)}
-                              onClick={() => {
-                                onAssignStepAsset(assetPickerStep.id, assetRecord.id);
-                                setAssetPickerPreviewAssetId(assetRecord.id);
-                                setAssetPickerTab('settings');
-                              }}
-                            >
-                              <div className="asset-browser-preview-card-media-shell">
-                                {previewUrl ? (
-                                  assetRecord.kind === 'video' ? (
-                                    <video
-                                      className="asset-browser-preview-card-media"
-                                      src={previewUrl}
-                                      muted
-                                      playsInline
-                                      preload="metadata"
-                                    />
-                                  ) : (
-                                    <img
-                                      className="asset-browser-preview-card-media"
-                                      src={previewUrl}
-                                      alt={assetRecord.name}
-                                    />
-                                  )
-                                ) : (
-                                  <div className="asset-browser-preview-card-placeholder">
-                                    Loading {assetRecord.kind}
-                                  </div>
-                                )}
+                      return (
+                        <button
+                          key={assetRecord.id}
+                          type="button"
+                          className={`asset-browser-preview-card ${
+                            isSelected ? 'asset-browser-preview-card-active' : ''
+                          }`}
+                          onMouseEnter={() => setAssetPickerPreviewAssetId(assetRecord.id)}
+                          onFocus={() => setAssetPickerPreviewAssetId(assetRecord.id)}
+                          onClick={() => {
+                            onAssignStepAsset(assetPickerStep.id, assetRecord.id);
+                            setAssetPickerPreviewAssetId(assetRecord.id);
+                            setAssetPickerStepId(null);
+                          }}
+                        >
+                          <div className="asset-browser-preview-card-media-shell">
+                            {previewUrl ? (
+                              assetRecord.kind === 'video' ? (
+                                <video
+                                  className="asset-browser-preview-card-media"
+                                  src={previewUrl}
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                              ) : (
+                                <img
+                                  className="asset-browser-preview-card-media"
+                                  src={previewUrl}
+                                  alt={assetRecord.name}
+                                />
+                              )
+                            ) : (
+                              <div className="asset-browser-preview-card-placeholder">
+                                Loading {assetRecord.kind}
                               </div>
-                              <span className="asset-browser-preview-card-meta">
-                                <strong>{assetRecord.name}</strong>
-                                <small>
-                                  {assetRecord.kind}
-                                  {isSelected ? ' | assigned' : ''}
-                                </small>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                            )}
+                          </div>
+                          <span className="asset-browser-preview-card-meta">
+                            <strong>{assetRecord.name}</strong>
+                            <small>
+                              {assetRecord.kind}
+                              {isSelected ? ' | assigned' : ''}
+                            </small>
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="asset-browser-preview-column">
-                    <div className="asset-browser-preview-shell timeline-asset-preview-shell">
-                      {assetPickerAssignedAsset && assetPickerAssignedPreviewUrl ? (
-                        assetPickerAssignedAsset.kind === 'video' ? (
-                          <video
-                            className="asset-browser-preview-media"
-                            src={assetPickerAssignedPreviewUrl}
-                            muted
-                            playsInline
-                            loop
-                            autoPlay
-                          />
-                        ) : (
-                          <img
-                            className="asset-browser-preview-media"
-                            src={assetPickerAssignedPreviewUrl}
-                            alt={assetPickerAssignedAsset.name}
-                          />
-                        )
-                      ) : (
-                        <div className="asset-browser-preview-placeholder">
-                          This step is using the live stage asset. Choose a library asset first to apply
-                          clip timing and media-specific blend settings.
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="stack gap-sm">
-                      <div className="field-inline-label">
-                        <span>Assigned Source</span>
-                        <small>
-                          {assetPickerAssignedAsset
-                            ? `${assetPickerAssignedAsset.name} | ${assetPickerAssignedAsset.kind}`
-                            : 'Live stage asset'}
-                        </small>
-                      </div>
-                      <p className="helper-copy">
-                        Placement, mix, quality, and clip timing are saved on this timeline step.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="timeline-asset-settings-grid">
-                    <label className="field">
-                      <span>Size X</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0.1}
-                        max={4}
-                        step={0.05}
-                        value={assetPickerSettings.scaleX}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({ scaleX: Number(event.target.value) })
-                        }
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Size Y</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0.1}
-                        max={4}
-                        step={0.05}
-                        value={assetPickerSettings.scaleY}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({ scaleY: Number(event.target.value) })
-                        }
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Offset X</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={-1.5}
-                        max={1.5}
-                        step={0.05}
-                        value={assetPickerSettings.offsetX}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({ offsetX: Number(event.target.value) })
-                        }
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Offset Y</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={-1.5}
-                        max={1.5}
-                        step={0.05}
-                        value={assetPickerSettings.offsetY}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({ offsetY: Number(event.target.value) })
-                        }
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Transparency</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={assetPickerSettings.opacity}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({ opacity: Number(event.target.value) })
-                        }
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Blend</span>
-                      <select
-                        className="select-field"
-                        value={assetPickerSettings.blendMode}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({
-                            blendMode: event.target.value as TimelineStepAssetSettings['blendMode'],
-                          })
-                        }
-                      >
-                        {TIMELINE_ASSET_BLEND_MODE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span>Fit</span>
-                      <select
-                        className="select-field"
-                        value={assetPickerSettings.fitMode}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({
-                            fitMode: event.target.value as TimelineStepAssetSettings['fitMode'],
-                          })
-                        }
-                      >
-                        {TIMELINE_ASSET_FIT_MODE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span>Quality</span>
-                      <select
-                        className="select-field"
-                        value={assetPickerSettings.quality}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({
-                            quality: event.target.value as TimelineStepAssetSettings['quality'],
-                          })
-                        }
-                      >
-                        {TIMELINE_ASSET_QUALITY_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="field">
-                      <span>Clip Start</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        disabled={assetPickerAssignedAsset?.kind !== 'video'}
-                        value={assetPickerSettings.clipStartSeconds}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({
-                            clipStartSeconds: Number(event.target.value),
-                          })
-                        }
-                      />
-                    </label>
-
-                    <label className="field">
-                      <span>Time Length</span>
-                      <input
-                        className="text-field"
-                        type="number"
-                        min={0.1}
-                        step={0.1}
-                        placeholder="Auto"
-                        disabled={assetPickerAssignedAsset?.kind !== 'video'}
-                        value={assetPickerSettings.clipDurationSeconds ?? ''}
-                        onChange={(event) =>
-                          updateAssetPickerSettings({
-                            clipDurationSeconds: event.target.value.trim()
-                              ? Number(event.target.value)
-                              : null,
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                </>
-              )}
+                )}
+              </div>
             </div>
           </section>
         </div>

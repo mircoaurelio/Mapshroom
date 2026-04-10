@@ -25,6 +25,7 @@ import {
   ShaderVersionTrailSection,
   StudioPanel,
 } from '../components/StudioPanel';
+import { TimelineStepAssetPanel } from '../components/TimelineStepAssetPanel';
 import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { UniformPanel } from '../components/UniformPanel';
@@ -383,6 +384,7 @@ function sanitizeAiMessage(message: string): string {
 }
 
 type DesktopResizeTarget = 'left' | 'right' | 'right-split';
+type FilePickerSource = 'library' | 'timeline-picker';
 
 const DESKTOP_PANE_MIN_WIDTH = 180;
 const DESKTOP_PANE_MAX_WIDTH = 520;
@@ -753,6 +755,7 @@ export function WorkspaceRoute() {
   const location = useLocation();
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const filePickerSourceRef = useRef<FilePickerSource>('library');
   const stageViewportRef = useRef<HTMLElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
@@ -1325,7 +1328,10 @@ export function WorkspaceRoute() {
     setStatusMessage(`Stored asset "${activeAsset.name}" could not be restored. Load it again.`);
   }, [activeAsset, activeAssetResolution.status]);
 
-  const openFilePicker = () => fileInputRef.current?.click();
+  const openFilePicker = (source: FilePickerSource = 'library') => {
+    filePickerSourceRef.current = source;
+    fileInputRef.current?.click();
+  };
 
   const beginDesktopResize = (target: DesktopResizeTarget, clientX: number, clientY: number) => {
     resizeStateRef.current = {
@@ -1341,6 +1347,8 @@ export function WorkspaceRoute() {
   };
 
   const handleFileSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+    const filePickerSource = filePickerSourceRef.current;
+    filePickerSourceRef.current = 'library';
     const files = Array.from(event.target.files ?? []);
     if (!files.length) {
       return;
@@ -1379,8 +1387,16 @@ export function WorkspaceRoute() {
 
     updateProject((currentProject) => {
       const nextAssets = [...currentProject.library.assets, ...uploadedAssets];
-      const nextActiveId = uploadedAssets[0]?.id ?? currentProject.library.activeAssetId;
-      const shouldAutoPlay = currentProject.library.assets.length === 0;
+      const currentActiveId =
+        currentProject.playback.activeAssetId ?? currentProject.library.activeAssetId;
+      const preserveCurrentActiveAsset =
+        filePickerSource === 'timeline-picker' && Boolean(currentActiveId);
+      const nextActiveId = preserveCurrentActiveAsset
+        ? currentActiveId
+        : uploadedAssets[0]?.id ??
+          currentProject.library.activeAssetId ??
+          currentProject.playback.activeAssetId;
+      const shouldAutoPlay = currentProject.library.assets.length === 0 && Boolean(nextActiveId);
 
       return {
         ...currentProject,
@@ -1399,7 +1415,11 @@ export function WorkspaceRoute() {
       };
     });
 
-    setStatusMessage(`${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`);
+    setStatusMessage(
+      filePickerSource === 'timeline-picker'
+        ? `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added to the library.`
+        : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`,
+    );
     event.target.value = '';
   };
 
@@ -3387,6 +3407,26 @@ ${errorSnapshot}`,
           isLinked: Boolean(activeTimelineDraft),
         }
       : undefined;
+  const inspectorTimelineStepId =
+    editingTimelineStepId ?? project.timeline.stub.shaderSequence.focusedStepId ?? null;
+  const inspectorTimelineStep =
+    inspectorTimelineStepId
+      ? project.timeline.stub.shaderSequence.steps.find((step) => step.id === inspectorTimelineStepId) ??
+        null
+      : null;
+  const inspectorTimelineStepIndex = inspectorTimelineStep
+    ? project.timeline.stub.shaderSequence.steps.findIndex((step) => step.id === inspectorTimelineStep.id)
+    : -1;
+  const inspectorTimelineShader = inspectorTimelineStep
+    ? project.studio.savedShaders.find((shader) => shader.id === inspectorTimelineStep.shaderId) ?? null
+    : null;
+  const inspectorTimelineAssignedAsset =
+    inspectorTimelineShader?.inputAssetId
+      ? project.library.assets.find((asset) => asset.id === inspectorTimelineShader.inputAssetId) ?? null
+      : null;
+  const inspectorTimelineAssetSettings = inspectorTimelineStep
+    ? normalizeTimelineStepAssetSettings(inspectorTimelineStep.assetSettings)
+    : null;
   const handleActiveShaderCodeChange = (value: string) => {
     clearGeneratedShaderRetry();
     setCompilerError('');
@@ -3529,6 +3569,33 @@ ${errorSnapshot}`,
     />
   );
 
+  const timelineStepAssetPanel = (
+    <TimelineStepAssetPanel
+      stepLabel={
+        inspectorTimelineStepIndex >= 0 ? `Timeline Step ${inspectorTimelineStepIndex + 1}` : null
+      }
+      shaderName={inspectorTimelineShader?.name ?? null}
+      assignedAsset={inspectorTimelineAssignedAsset}
+      settings={inspectorTimelineAssetSettings}
+      onSettingsChange={
+        inspectorTimelineStep && inspectorTimelineAssetSettings
+          ? (patch) =>
+              handleTimelineStepChange(inspectorTimelineStep.id, {
+                assetSettings: {
+                  ...inspectorTimelineAssetSettings,
+                  ...patch,
+                },
+              })
+          : null
+      }
+      onUseLiveStageAsset={
+        inspectorTimelineStep && inspectorTimelineShader?.inputAssetId
+          ? () => handleTimelineAssignStepAsset(inspectorTimelineStep.id, null)
+          : null
+      }
+    />
+  );
+
   const timelineBar = (
     <TimelineBar
       assets={project.library.assets}
@@ -3556,6 +3623,7 @@ ${errorSnapshot}`,
       onSequenceStepChange={handleTimelineStepChange}
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
+      onImportSequenceAsset={() => openFilePicker('timeline-picker')}
       onSequenceDurationChange={handleTimelineDurationChange}
       onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
@@ -3745,7 +3813,6 @@ ${errorSnapshot}`,
                     >
                       <div className="workspace-pane-scroll">
                         {desktopSlidersPanel}
-                        {mappingPanel}
                       </div>
                     </aside>
 
@@ -3794,6 +3861,8 @@ ${errorSnapshot}`,
             >
               <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
                 {aiPanel}
+                {timelineStepAssetPanel}
+                {mappingPanel}
                 {desktopShaderToolsPanel}
                 {desktopHistoryPanel}
                 {desktopCodePanel}
@@ -3809,6 +3878,7 @@ ${errorSnapshot}`,
                 <div className="workspace-sidebar-scroll">
                   {aiPanel}
                   {studioPanel}
+                  {timelineStepAssetPanel}
                   {mappingPanel}
                 </div>
               </aside>
@@ -3827,7 +3897,7 @@ ${errorSnapshot}`,
         assetUrl={activeAssetUrl}
         assets={project.library.assets}
         activeAssetId={activeAsset?.id ?? null}
-        onLoadAsset={openFilePicker}
+        onLoadAsset={() => openFilePicker('library')}
         onSelectAsset={handleAssetSelect}
         onRemoveAsset={handleAssetRemove}
         onClose={() => setIsAssetLibraryOpen(false)}
@@ -3842,7 +3912,7 @@ ${errorSnapshot}`,
           activePanel={mobilePanel}
           onOpenProjects={() => setIsProjectDialogOpen(true)}
           onOpenShare={handleOpenShareDialog}
-          onLoadAsset={openFilePicker}
+          onLoadAsset={() => openFilePicker('library')}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
           onOpenTimeline={handleOpenMobileTimeline}
           onToggleMapping={handleMobileToggleMapping}
@@ -3851,7 +3921,12 @@ ${errorSnapshot}`,
           onPanelChange={handleMobilePanelChange}
           panels={{
             studio: mobileShaderPanel,
-            mapping: mappingPanel,
+            mapping: (
+              <>
+                {timelineStepAssetPanel}
+                {mappingPanel}
+              </>
+            ),
           }}
         />
       ) : null}
@@ -3883,6 +3958,7 @@ ${errorSnapshot}`,
         onSequenceStepChange={handleTimelineStepChange}
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
+        onImportSequenceAsset={() => openFilePicker('timeline-picker')}
         onSequenceDurationChange={handleTimelineDurationChange}
         onAddSequenceStepsWithShaders={handleTimelineAddStepsWithShaders}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}
