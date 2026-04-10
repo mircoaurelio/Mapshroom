@@ -103,16 +103,22 @@ vec2 getTimelineOverlayUv(
     vec2 fitScale = vec2(1.0);
     if (fitMode < 0.5) {
         if (safeAspect > baseAspect) {
-            fitScale.x = baseAspect / safeAspect;
+            fitScale.x = safeAspect / baseAspect;
         } else {
-            fitScale.y = safeAspect / baseAspect;
+            fitScale.y = baseAspect / safeAspect;
         }
     } else if (fitMode < 1.5) {
         if (safeAspect > baseAspect) {
-            fitScale.y = safeAspect / baseAspect;
+            fitScale.y = baseAspect / safeAspect;
         } else {
-            fitScale.x = baseAspect / safeAspect;
+            fitScale.x = safeAspect / baseAspect;
         }
+    } else if (fitMode < 2.5) {
+        fitScale = vec2(1.0);
+    } else if (fitMode < 3.5) {
+        fitScale.y = baseAspect / safeAspect;
+    } else {
+        fitScale.x = safeAspect / baseAspect;
     }
 
     vec2 centered = uv - 0.5;
@@ -240,8 +246,8 @@ uniform float u_timeline_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
 uniform float u_timeline_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
-uniform float u_timeline_overlay_blend_mode; // @min 0.0 @max 3.0 @default 0.0
-uniform float u_timeline_overlay_fit_mode; // @min 0.0 @max 2.0 @default 0.0
+uniform float u_timeline_overlay_blend_mode; // @min 0.0 @max 3.0 @default 3.0
+uniform float u_timeline_overlay_fit_mode; // @min 0.0 @max 4.0 @default 0.0
 uniform float u_timeline_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
 uniform float u_timeline_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
 
@@ -298,8 +304,8 @@ uniform float u_timeline_from_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_from_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_from_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
 uniform float u_timeline_from_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
-uniform float u_timeline_from_overlay_blend_mode; // @min 0.0 @max 3.0 @default 0.0
-uniform float u_timeline_from_overlay_fit_mode; // @min 0.0 @max 2.0 @default 0.0
+uniform float u_timeline_from_overlay_blend_mode; // @min 0.0 @max 3.0 @default 3.0
+uniform float u_timeline_from_overlay_fit_mode; // @min 0.0 @max 4.0 @default 0.0
 uniform float u_timeline_from_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
 uniform float u_timeline_from_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
 uniform float u_timeline_to_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
@@ -307,8 +313,8 @@ uniform float u_timeline_to_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_to_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_to_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
 uniform float u_timeline_to_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
-uniform float u_timeline_to_overlay_blend_mode; // @min 0.0 @max 3.0 @default 0.0
-uniform float u_timeline_to_overlay_fit_mode; // @min 0.0 @max 2.0 @default 0.0
+uniform float u_timeline_to_overlay_blend_mode; // @min 0.0 @max 3.0 @default 3.0
+uniform float u_timeline_to_overlay_fit_mode; // @min 0.0 @max 4.0 @default 0.0
 uniform float u_timeline_to_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
 uniform float u_timeline_to_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
 
