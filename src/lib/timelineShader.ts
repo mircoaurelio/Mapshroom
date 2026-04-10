@@ -88,12 +88,139 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
 
 function buildTimelineOverlayComposer(): string {
   return `
-vec4 applyTimelineOverlay(vec4 baseColor, vec4 overlayColor) {
-    float overlayMix = clamp(overlayColor.a * 0.5, 0.0, 1.0);
-    return vec4(
-        mix(baseColor.rgb, overlayColor.rgb, overlayMix),
-        max(baseColor.a, overlayMix)
+vec2 getTimelineOverlayUv(
+    vec2 uv,
+    vec2 resolution,
+    float aspectRatio,
+    float scaleX,
+    float scaleY,
+    float offsetX,
+    float offsetY,
+    float fitMode
+) {
+    float baseAspect = resolution.x / max(resolution.y, 1.0);
+    float safeAspect = max(aspectRatio, 0.0001);
+    vec2 fitScale = vec2(1.0);
+    if (fitMode < 0.5) {
+        if (safeAspect > baseAspect) {
+            fitScale.x = baseAspect / safeAspect;
+        } else {
+            fitScale.y = safeAspect / baseAspect;
+        }
+    } else if (fitMode < 1.5) {
+        if (safeAspect > baseAspect) {
+            fitScale.y = safeAspect / baseAspect;
+        } else {
+            fitScale.x = baseAspect / safeAspect;
+        }
+    }
+
+    vec2 centered = uv - 0.5;
+    vec2 transformed = centered / (fitScale * vec2(max(scaleX, 0.05), max(scaleY, 0.05)));
+    transformed -= vec2(offsetX, offsetY);
+    return transformed + 0.5;
+}
+
+float getTimelineOverlayMask(vec2 uv) {
+    return step(0.0, uv.x) * step(0.0, uv.y) * step(uv.x, 1.0) * step(uv.y, 1.0);
+}
+
+vec4 sampleTimelineOverlayColor(
+    sampler2D overlayImage,
+    vec2 uv,
+    vec2 resolution,
+    float quality
+) {
+    vec4 center = texture2D(overlayImage, uv);
+    if (quality < 0.5) {
+        return center;
+    }
+
+    vec2 pixel = 1.0 / max(resolution, vec2(1.0));
+    vec4 north = texture2D(overlayImage, uv + vec2(0.0, -pixel.y));
+    vec4 south = texture2D(overlayImage, uv + vec2(0.0, pixel.y));
+    vec4 east = texture2D(overlayImage, uv + vec2(pixel.x, 0.0));
+    vec4 west = texture2D(overlayImage, uv + vec2(-pixel.x, 0.0));
+    vec4 smoothColor = (center * 4.0 + north + south + east + west) / 8.0;
+
+    if (quality < 1.5) {
+        return smoothColor;
+    }
+
+    vec4 northEast = texture2D(overlayImage, uv + vec2(pixel.x, -pixel.y));
+    vec4 northWest = texture2D(overlayImage, uv + vec2(-pixel.x, -pixel.y));
+    vec4 southEast = texture2D(overlayImage, uv + vec2(pixel.x, pixel.y));
+    vec4 southWest = texture2D(overlayImage, uv + vec2(-pixel.x, pixel.y));
+    vec4 wideBlur = (smoothColor * 4.0 + northEast + northWest + southEast + southWest) / 8.0;
+    vec3 sharpened = clamp(center.rgb * 1.35 - wideBlur.rgb * 0.35, 0.0, 1.0);
+    return vec4(sharpened, max(center.a, smoothColor.a));
+}
+
+vec3 blendTimelineOverlay(
+    vec3 baseColor,
+    vec3 overlayColor,
+    float blendMode,
+    float amount
+) {
+    if (blendMode < 0.5) {
+        return mix(baseColor, overlayColor, amount);
+    }
+    if (blendMode < 1.5) {
+        vec3 screenColor = 1.0 - (1.0 - baseColor) * (1.0 - overlayColor);
+        return mix(baseColor, screenColor, amount);
+    }
+    if (blendMode < 2.5) {
+        vec3 addedColor = min(baseColor + overlayColor, vec3(1.0));
+        return mix(baseColor, addedColor, amount);
+    }
+
+    vec3 multipliedColor = baseColor * overlayColor;
+    return mix(baseColor, multipliedColor, amount);
+}
+
+vec4 applyTimelineOverlay(
+    vec4 baseColor,
+    sampler2D overlayImage,
+    vec2 uv,
+    vec2 resolution,
+    float aspectRatio,
+    float scaleX,
+    float scaleY,
+    float offsetX,
+    float offsetY,
+    float opacity,
+    float blendMode,
+    float fitMode,
+    float quality
+) {
+    if (opacity <= 0.001) {
+        return baseColor;
+    }
+
+    vec2 overlayUv = getTimelineOverlayUv(
+        uv,
+        resolution,
+        aspectRatio,
+        scaleX,
+        scaleY,
+        offsetX,
+        offsetY,
+        fitMode
     );
+    float overlayMask = getTimelineOverlayMask(overlayUv);
+    if (overlayMask <= 0.001) {
+        return baseColor;
+    }
+
+    vec4 overlayColor = sampleTimelineOverlayColor(overlayImage, overlayUv, resolution, quality);
+    float overlayMix = clamp(overlayColor.a * opacity * overlayMask, 0.0, 1.0);
+    vec3 compositedColor = blendTimelineOverlay(
+        baseColor.rgb,
+        overlayColor.rgb,
+        blendMode,
+        overlayMix
+    );
+    return vec4(clamp(compositedColor, 0.0, 1.0), max(baseColor.a, overlayMix));
 }`;
 }
 
@@ -108,6 +235,15 @@ export function buildTimelineOverlayShaderCode({
   return `// NAME: Timeline Overlay
 uniform bool u_timeline_has_overlay; // @default false
 uniform sampler2D u_timeline_overlay_image;
+uniform float u_timeline_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
+uniform float u_timeline_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_overlay_blend_mode; // @min 0.0 @max 3.0 @default 0.0
+uniform float u_timeline_overlay_fit_mode; // @min 0.0 @max 2.0 @default 0.0
+uniform float u_timeline_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
+uniform float u_timeline_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
 
 ${baseCode}
 
@@ -119,8 +255,21 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
         return baseColor;
     }
 
-    vec4 overlayColor = texture2D(u_timeline_overlay_image, uv);
-    return applyTimelineOverlay(baseColor, overlayColor);
+    return applyTimelineOverlay(
+        baseColor,
+        u_timeline_overlay_image,
+        uv,
+        resolution,
+        u_timeline_overlay_aspect_ratio,
+        u_timeline_overlay_scale_x,
+        u_timeline_overlay_scale_y,
+        u_timeline_overlay_offset_x,
+        u_timeline_overlay_offset_y,
+        u_timeline_overlay_opacity,
+        u_timeline_overlay_blend_mode,
+        u_timeline_overlay_fit_mode,
+        u_timeline_overlay_quality
+    );
 }`;
 }
 
@@ -144,6 +293,24 @@ uniform bool u_timeline_from_has_overlay; // @default false
 uniform bool u_timeline_to_has_overlay; // @default false
 uniform sampler2D u_timeline_from_overlay_image;
 uniform sampler2D u_timeline_to_overlay_image;
+uniform float u_timeline_from_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
+uniform float u_timeline_from_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_from_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_from_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_from_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_from_overlay_blend_mode; // @min 0.0 @max 3.0 @default 0.0
+uniform float u_timeline_from_overlay_fit_mode; // @min 0.0 @max 2.0 @default 0.0
+uniform float u_timeline_from_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
+uniform float u_timeline_from_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
+uniform float u_timeline_to_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
+uniform float u_timeline_to_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_to_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_to_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_to_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_to_overlay_blend_mode; // @min 0.0 @max 3.0 @default 0.0
+uniform float u_timeline_to_overlay_fit_mode; // @min 0.0 @max 2.0 @default 0.0
+uniform float u_timeline_to_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
+uniform float u_timeline_to_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
 
 ${leftCode}
 
@@ -157,12 +324,38 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     vec4 fromColor = timeline_from_processColor(tex, uv, time, resolution);
     vec4 toColor = timeline_to_processColor(tex, uv, time, resolution);
     if (u_timeline_from_has_overlay) {
-        vec4 fromOverlayColor = texture2D(u_timeline_from_overlay_image, uv);
-        fromColor = applyTimelineOverlay(fromColor, fromOverlayColor);
+        fromColor = applyTimelineOverlay(
+            fromColor,
+            u_timeline_from_overlay_image,
+            uv,
+            resolution,
+            u_timeline_from_overlay_aspect_ratio,
+            u_timeline_from_overlay_scale_x,
+            u_timeline_from_overlay_scale_y,
+            u_timeline_from_overlay_offset_x,
+            u_timeline_from_overlay_offset_y,
+            u_timeline_from_overlay_opacity,
+            u_timeline_from_overlay_blend_mode,
+            u_timeline_from_overlay_fit_mode,
+            u_timeline_from_overlay_quality
+        );
     }
     if (u_timeline_to_has_overlay) {
-        vec4 toOverlayColor = texture2D(u_timeline_to_overlay_image, uv);
-        toColor = applyTimelineOverlay(toColor, toOverlayColor);
+        toColor = applyTimelineOverlay(
+            toColor,
+            u_timeline_to_overlay_image,
+            uv,
+            resolution,
+            u_timeline_to_overlay_aspect_ratio,
+            u_timeline_to_overlay_scale_x,
+            u_timeline_to_overlay_scale_y,
+            u_timeline_to_overlay_offset_x,
+            u_timeline_to_overlay_offset_y,
+            u_timeline_to_overlay_opacity,
+            u_timeline_to_overlay_blend_mode,
+            u_timeline_to_overlay_fit_mode,
+            u_timeline_to_overlay_quality
+        );
     }
     float progress = clamp(u_transition_progress, 0.0, 1.0);
     return mixTimelineTransition(fromColor, toColor, uv, progress);

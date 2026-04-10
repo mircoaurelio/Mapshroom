@@ -4,6 +4,7 @@ import type {
   TimelineSequenceMode,
   TimelineTransitionEffect,
 } from '../types';
+import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings';
 
 export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
   value: TimelineSequenceMode;
@@ -61,6 +62,7 @@ export function createTimelineShaderStep(shaderId: string): TimelineStub['shader
     durationSeconds: 8,
     transitionDurationSeconds: 0.75,
     transitionEffect: 'mix',
+    assetSettings: normalizeTimelineStepAssetSettings(),
   };
 }
 

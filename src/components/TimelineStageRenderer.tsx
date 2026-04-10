@@ -11,6 +11,13 @@ import {
   resolveShaderTimelineState,
 } from '../lib/timeline';
 import {
+  createTimelineAssetSourceKey,
+  getTimelineAssetBlendModeIndex,
+  getTimelineAssetFitModeIndex,
+  getTimelineAssetQualityIndex,
+  normalizeTimelineStepAssetSettings,
+} from '../lib/timelineAssetSettings';
+import {
   buildTimelineOverlayShaderCode,
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
@@ -22,6 +29,7 @@ import type {
   StageTransform,
   TimelineStub,
   AssetRecord,
+  TimelineStepAssetSettings,
 } from '../types';
 import {
   StageRenderer,
@@ -42,6 +50,7 @@ const timelineAssetUrlCache = new Map<string, string>();
 
 type TimelineRenderLayerKind = 'single' | 'transition';
 type ResolvedTimelineState = NonNullable<ReturnType<typeof resolveShaderTimelineState>>;
+type TimelineSequenceStep = TimelineStub['shaderSequence']['steps'][number];
 
 interface TimelineRenderLayer {
   kind: TimelineRenderLayerKind;
@@ -60,6 +69,7 @@ interface ResolvedShaderLayer {
   uniformValues: ShaderUniformValueMap;
   usedFallback: boolean;
   overlaySource: StageRenderInputSource | null;
+  assetSettings: TimelineStepAssetSettings;
 }
 
 interface PinLayerTransitionState {
@@ -88,6 +98,22 @@ function prefixUniformValueKeys({
 function easeTransitionProgress(progress: number): number {
   const clamped = Math.max(0, Math.min(1, progress));
   return clamped * clamped * (3 - 2 * clamped);
+}
+
+function buildOverlayUniformValues(
+  namespace: string,
+  settings: TimelineStepAssetSettings,
+): ShaderUniformValueMap {
+  return {
+    [`${namespace}_opacity`]: settings.opacity,
+    [`${namespace}_scale_x`]: settings.scaleX,
+    [`${namespace}_scale_y`]: settings.scaleY,
+    [`${namespace}_offset_x`]: settings.offsetX,
+    [`${namespace}_offset_y`]: settings.offsetY,
+    [`${namespace}_blend_mode`]: getTimelineAssetBlendModeIndex(settings.blendMode),
+    [`${namespace}_fit_mode`]: getTimelineAssetFitModeIndex(settings.fitMode),
+    [`${namespace}_quality`]: getTimelineAssetQualityIndex(settings.quality),
+  };
 }
 
 function createTimelineRandomSeedToken(): string {
@@ -384,20 +410,21 @@ export function TimelineStageRenderer({
     () => availableShaders.find((shader) => shader.id === activeShaderId) ?? null,
     [activeShaderId, availableShaders],
   );
-  const focusedSequenceShader = useMemo(() => {
+  const focusedSequenceStep = useMemo(() => {
     const focusedStepId = shaderSequence.focusedStepId ?? null;
     if (!focusedStepId) {
       return null;
     }
 
-    const focusedStep =
-      shaderSequence.steps.find((step) => step.id === focusedStepId) ?? null;
-    if (!focusedStep) {
+    return shaderSequence.steps.find((step) => step.id === focusedStepId) ?? null;
+  }, [shaderSequence.focusedStepId, shaderSequence.steps]);
+  const focusedSequenceShader = useMemo(() => {
+    if (!focusedSequenceStep) {
       return null;
     }
 
-    return availableShaders.find((shader) => shader.id === focusedStep.shaderId) ?? null;
-  }, [availableShaders, shaderSequence.focusedStepId, shaderSequence.steps]);
+    return availableShaders.find((shader) => shader.id === focusedSequenceStep.shaderId) ?? null;
+  }, [availableShaders, focusedSequenceStep]);
   const pinnedSequenceStep = useMemo(() => {
     if (!pinnedStepId) {
       return null;
@@ -592,50 +619,68 @@ export function TimelineStageRenderer({
 
   const resolveShaderOverlaySource = useCallback((
     shader: SavedShader | null | undefined,
+    step: TimelineSequenceStep | null | undefined,
+    scope: string,
   ): StageRenderInputSource | null => {
     const inputAssetId = shader?.inputAssetId ?? null;
     if (!inputAssetId) {
       return null;
     }
+    const assetSettings = normalizeTimelineStepAssetSettings(step?.assetSettings);
 
     if (asset && inputAssetId === asset.id) {
       return {
+        sourceKey: createTimelineAssetSourceKey(asset.id, scope, assetSettings),
         assetId: asset.id,
         assetName: asset.name,
         kind: asset.kind,
         url: assetUrl,
         status: assetUrlStatus ?? (assetUrl ? 'ready' : 'loading'),
+        clipStartSeconds: asset.kind === 'video' ? assetSettings.clipStartSeconds : 0,
+        clipDurationSeconds: asset.kind === 'video' ? assetSettings.clipDurationSeconds : null,
+        quality: assetSettings.quality,
       };
     }
 
     const sourceAsset = assetMap.get(inputAssetId) ?? null;
     if (!sourceAsset) {
       return {
+        sourceKey: createTimelineAssetSourceKey(inputAssetId, scope, assetSettings),
         assetId: inputAssetId,
         assetName: 'Assigned asset',
         kind: 'image',
         url: null,
         status: 'missing',
+        clipStartSeconds: 0,
+        clipDurationSeconds: null,
+        quality: assetSettings.quality,
       };
     }
 
     const resolvedSource = resolvedInputSources[inputAssetId];
 
     return {
+      sourceKey: createTimelineAssetSourceKey(sourceAsset.id, scope, assetSettings),
       assetId: sourceAsset.id,
       assetName: sourceAsset.name,
       kind: sourceAsset.kind,
       url: resolvedSource?.url ?? null,
       status: resolvedSource?.status ?? 'loading',
+      clipStartSeconds: sourceAsset.kind === 'video' ? assetSettings.clipStartSeconds : 0,
+      clipDurationSeconds: sourceAsset.kind === 'video' ? assetSettings.clipDurationSeconds : null,
+      quality: assetSettings.quality,
     };
   }, [asset, assetMap, assetUrl, assetUrlStatus, resolvedInputSources]);
 
   const resolveShaderLayer = useCallback((
     shader: SavedShader | null | undefined,
+    step: TimelineSequenceStep | null | undefined,
+    scope: string,
   ): ResolvedShaderLayer => {
     const targetShader = shader ?? activeSavedShader;
     const isActiveShader = targetShader?.id === activeShaderId;
-    const overlaySource = resolveShaderOverlaySource(targetShader);
+    const assetSettings = normalizeTimelineStepAssetSettings(step?.assetSettings);
+    const overlaySource = resolveShaderOverlaySource(targetShader, step, scope);
 
     if (isActiveShader) {
       return {
@@ -644,6 +689,7 @@ export function TimelineStageRenderer({
         usedFallback:
           !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
         overlaySource,
+        assetSettings,
       };
     }
 
@@ -653,6 +699,7 @@ export function TimelineStageRenderer({
         uniformValues: previewActiveUniformValues,
         usedFallback: false,
         overlaySource: null,
+        assetSettings,
       };
     }
 
@@ -661,6 +708,7 @@ export function TimelineStageRenderer({
       uniformValues: getRenderableShaderUniformValues(targetShader),
       usedFallback: hasShaderCompileError(targetShader),
       overlaySource,
+      assetSettings,
     };
   }, [
     activeSavedShader,
@@ -691,6 +739,7 @@ export function TimelineStageRenderer({
       }),
       uniformValues: {
         u_timeline_has_overlay: true,
+        ...buildOverlayUniformValues('u_timeline_overlay', layer.assetSettings),
         ...prefixUniformValueKeys({
           sourceValues: layer.uniformValues,
           namespace: 'timeline_base',
@@ -704,14 +753,22 @@ export function TimelineStageRenderer({
   const buildTimelineRenderLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): TimelineRenderLayer => {
-    const currentLayer = resolveShaderLayer(state.currentShader);
+    const currentLayer = resolveShaderLayer(
+      state.currentShader,
+      state.currentStep,
+      `step:${state.currentStep.id}:current`,
+    );
 
     if (
       state.isTransitioning &&
       state.nextShader &&
       state.transitionEffect !== 'cut'
     ) {
-      const nextLayer = resolveShaderLayer(state.nextShader);
+      const nextLayer = resolveShaderLayer(
+        state.nextShader,
+        state.nextStep,
+        `step:${state.nextStep?.id ?? state.currentStep.id}:next`,
+      );
 
       return {
         kind: 'transition',
@@ -724,6 +781,8 @@ export function TimelineStageRenderer({
           u_transition_progress: easeTransitionProgress(state.transitionProgress),
           u_timeline_from_has_overlay: Boolean(currentLayer.overlaySource),
           u_timeline_to_has_overlay: Boolean(nextLayer.overlaySource),
+          ...buildOverlayUniformValues('u_timeline_from_overlay', currentLayer.assetSettings),
+          ...buildOverlayUniformValues('u_timeline_to_overlay', nextLayer.assetSettings),
           ...prefixUniformValueKeys({
             sourceValues: currentLayer.uniformValues,
             namespace: 'timeline_from',
@@ -751,8 +810,16 @@ export function TimelineStageRenderer({
       return null;
     }
 
-    const currentLayer = resolveShaderLayer(state.currentShader);
-    const nextLayer = resolveShaderLayer(state.nextShader);
+    const currentLayer = resolveShaderLayer(
+      state.currentShader,
+      state.currentStep,
+      `step:${state.currentStep.id}:preload-current`,
+    );
+    const nextLayer = resolveShaderLayer(
+      state.nextShader,
+      state.nextStep,
+      `step:${state.nextStep?.id ?? state.currentStep.id}:preload-next`,
+    );
     const shaderCode = buildTimelineTransitionShaderCode({
       fromCode: currentLayer.shaderCode,
       toCode: nextLayer.shaderCode,
@@ -766,6 +833,8 @@ export function TimelineStageRenderer({
         u_transition_progress: PRELOAD_TRANSITION_PROGRESS,
         u_timeline_from_has_overlay: Boolean(currentLayer.overlaySource),
         u_timeline_to_has_overlay: Boolean(nextLayer.overlaySource),
+        ...buildOverlayUniformValues('u_timeline_from_overlay', currentLayer.assetSettings),
+        ...buildOverlayUniformValues('u_timeline_to_overlay', nextLayer.assetSettings),
         ...prefixUniformValueKeys({
           sourceValues: currentLayer.uniformValues,
           namespace: 'timeline_from',
@@ -790,7 +859,13 @@ export function TimelineStageRenderer({
       return null;
     }
 
-    const nextLayer = buildSingleShaderLayer(resolveShaderLayer(state.nextShader));
+    const nextLayer = buildSingleShaderLayer(
+      resolveShaderLayer(
+        state.nextShader,
+        state.nextStep,
+        `step:${state.nextStep?.id ?? state.currentStep.id}:preload-single`,
+      ),
+    );
     return {
       shaderCode: nextLayer.shaderCode,
       uniformDefinitions: parseUniforms(nextLayer.shaderCode),
@@ -833,7 +908,13 @@ export function TimelineStageRenderer({
 
     if (workspaceFocusedPreviewEnabled) {
       const focusedTargetShader = focusedSequenceShader ?? activeSavedShader;
-      const focusedLayer = buildSingleShaderLayer(resolveShaderLayer(focusedTargetShader));
+      const focusedLayer = buildSingleShaderLayer(
+        resolveShaderLayer(
+          focusedTargetShader,
+          focusedSequenceStep,
+          focusedSequenceStep ? `step:${focusedSequenceStep.id}:focused` : 'shader:focused',
+        ),
+      );
       baseLayers.push(focusedLayer);
       if (shaderSequence.focusedStepId) {
         visibleStepIds.add(shaderSequence.focusedStepId);
@@ -842,7 +923,9 @@ export function TimelineStageRenderer({
         visibleShaderIds.add(focusedTargetShader.id);
       }
     } else if (!timelineState) {
-      const fallbackLayer = buildSingleShaderLayer(resolveShaderLayer(activeSavedShader));
+      const fallbackLayer = buildSingleShaderLayer(
+        resolveShaderLayer(activeSavedShader, null, 'shader:fallback'),
+      );
       baseLayers.push(fallbackLayer);
       if (activeSavedShader) {
         visibleShaderIds.add(activeSavedShader.id);
@@ -868,7 +951,13 @@ export function TimelineStageRenderer({
       !visibleStepIds.has(pinnedSequenceStep.id) &&
       !visibleShaderIds.has(pinnedSequenceShader.id)
     ) {
-      pinnedLayer = buildSingleShaderLayer(resolveShaderLayer(pinnedSequenceShader));
+      pinnedLayer = buildSingleShaderLayer(
+        resolveShaderLayer(
+          pinnedSequenceShader,
+          pinnedSequenceStep,
+          `step:${pinnedSequenceStep.id}:pinned`,
+        ),
+      );
     }
 
     return {
@@ -881,6 +970,7 @@ export function TimelineStageRenderer({
     buildSingleShaderLayer,
     buildTimelineRenderLayer,
     focusedSequenceShader,
+    focusedSequenceStep,
     pinnedSequenceShader,
     pinnedSequenceStep,
     resolveShaderLayer,
