@@ -25,6 +25,7 @@ import {
   ShaderVersionTrailSection,
   StudioPanel,
 } from '../components/StudioPanel';
+import { TimelineExportDialog } from '../components/TimelineExportDialog';
 import { TimelineStepAssetPanel } from '../components/TimelineStepAssetPanel';
 import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
@@ -780,6 +781,7 @@ export function WorkspaceRoute() {
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [timelineAssetPickerRequest, setTimelineAssetPickerRequest] = useState<{
@@ -3807,6 +3809,7 @@ ${errorSnapshot}`,
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           onOpenProjects={() => setIsProjectDialogOpen(true)}
           onOpenShare={handleOpenShareDialog}
+          onOpenExport={() => setIsExportDialogOpen(true)}
           onOpenAssets={() => setIsAssetLibraryOpen(true)}
           onOpenSettings={() => setIsApiSettingsOpen(true)}
           onPlayToggle={handlePlayToggle}
@@ -4039,6 +4042,46 @@ ${errorSnapshot}`,
         }}
         onCopy={() => {
           void handleCopyShareLink();
+        }}
+      />
+
+      <TimelineExportDialog
+        open={isExportDialogOpen}
+        projectName={project.name}
+        activeAsset={activeAsset}
+        activeAssetUrl={activeAssetUrl}
+        activeAssetUrlStatus={activeAssetResolution.status}
+        assets={project.library.assets}
+        activeShaderId={project.studio.activeShaderId}
+        activeShaderName={project.studio.activeShaderName}
+        activeShaderCode={project.studio.activeShaderCode}
+        activeUniformValues={project.studio.uniformValues}
+        savedShaders={project.studio.savedShaders}
+        timeline={project.timeline.stub}
+        pinnedStepId={pinnedTimelineStepId}
+        stageTransform={project.mapping.stageTransform}
+        durationSeconds={timelineDurationSeconds}
+        forceActiveShaderPreview={
+          timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
+          editingTimelineStepId !== null
+        }
+        onClose={() => setIsExportDialogOpen(false)}
+        onExportRequested={() => {
+          updateProject((currentProject) => ({
+            ...currentProject,
+            export: {
+              stub: {
+                ...currentProject.export.stub,
+                enabled: true,
+                lastRequestedAt: new Date().toISOString(),
+              },
+            },
+          }));
+        }}
+        onExportCompleted={({ filename, bytes }) => {
+          setStatusMessage(
+            `Downloaded ${filename} (${(bytes / (1024 * 1024)).toFixed(1)} MB).`,
+          );
         }}
       />
 
