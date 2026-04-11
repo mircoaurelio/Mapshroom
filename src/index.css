@@ -3611,6 +3611,77 @@ a {
   background: #000;
 }
 
+.timeline-export-dialog {
+  width: min(56rem, calc(100vw - 1.5rem));
+}
+
+.timeline-export-dialog-body {
+  display: grid;
+  gap: 1rem;
+}
+
+.timeline-export-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.timeline-export-size-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.timeline-export-progress-section {
+  padding-bottom: 0;
+}
+
+.timeline-export-progress-bar {
+  position: relative;
+  width: 100%;
+  height: 0.6rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.timeline-export-progress-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d6fb5a 0%, #f7b538 100%);
+}
+
+.timeline-export-status-card {
+  min-height: 100%;
+}
+
+.timeline-export-render-host {
+  position: fixed;
+  top: -10000px;
+  left: -10000px;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.timeline-export-render-shell {
+  display: block;
+  background: #000;
+}
+
+.timeline-export-render-shell .stage-shell,
+.timeline-export-render-shell .stage-media-surface,
+.timeline-export-render-shell .stage-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.dialog-note-danger,
+.dialog-error-copy {
+  color: #ff9f9f;
+}
+
 @media (max-width: 1200px) {
   .workspace-body:not(.workspace-body-desktop-grid) {
     grid-template-columns: minmax(0, 1fr) 320px;

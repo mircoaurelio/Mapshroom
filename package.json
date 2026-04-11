@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.48.0",
+    "mp4-muxer": "^5.2.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.9.6"

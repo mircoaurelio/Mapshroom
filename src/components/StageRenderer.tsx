@@ -34,6 +34,8 @@ interface StageRendererProps {
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
+  onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
+  onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
 }
 
@@ -98,6 +100,17 @@ interface StageTextureSourceState {
   lastVideoTextureTime: number | null;
   aspectRatio: number | null;
   status: 'loading' | 'ready' | 'error';
+}
+
+export interface StageRendererState {
+  renderStatus: string;
+  hasBufferedMedia: boolean;
+  hasRequiredInputSource: boolean;
+  hasLoadingInputSource: boolean;
+  hasMissingOnlyInputSources: boolean;
+  showEmptyState: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
 }
 
 function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: string) {
@@ -484,6 +497,8 @@ export function StageRenderer({
   stageTransform,
   transport,
   isOutputOnly = false,
+  onCanvasReady,
+  onRenderStateChange,
   onCompilerError,
 }: StageRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -505,6 +520,8 @@ export function StageRenderer({
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
+  const onCanvasReadyRef = useRef(onCanvasReady);
+  const onRenderStateChangeRef = useRef(onRenderStateChange);
   const defaultInputSource = useMemo<StageRenderInputSource | null>(
     () =>
       asset
@@ -536,6 +553,14 @@ export function StageRenderer({
   useEffect(() => {
     onCompilerErrorRef.current = onCompilerError;
   }, [onCompilerError]);
+
+  useEffect(() => {
+    onCanvasReadyRef.current = onCanvasReady;
+  }, [onCanvasReady]);
+
+  useEffect(() => {
+    onRenderStateChangeRef.current = onRenderStateChange;
+  }, [onRenderStateChange]);
 
   const resolvedRenderLayers = useMemo<StageRenderLayer[]>(
     () =>
@@ -1149,6 +1174,35 @@ export function StageRenderer({
     : hasLoadingInputSource && !hasBufferedMedia
       ? 'Restoring the stored asset from this device...'
       : 'The assigned asset is no longer available on this device. Load it again.';
+
+  useEffect(() => {
+    onCanvasReadyRef.current?.(canvasRef.current);
+
+    return () => {
+      onCanvasReadyRef.current?.(null);
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    onRenderStateChangeRef.current?.({
+      renderStatus,
+      hasBufferedMedia,
+      hasRequiredInputSource,
+      hasLoadingInputSource,
+      hasMissingOnlyInputSources,
+      showEmptyState,
+      canvasWidth: canvas?.width ?? 0,
+      canvasHeight: canvas?.height ?? 0,
+    });
+  }, [
+    hasBufferedMedia,
+    hasLoadingInputSource,
+    hasMissingOnlyInputSources,
+    hasRequiredInputSource,
+    renderStatus,
+    showEmptyState,
+  ]);
 
   return (
     <div

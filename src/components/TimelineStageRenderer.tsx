@@ -33,6 +33,7 @@ import type {
 } from '../types';
 import {
   StageRenderer,
+  type StageRendererState,
   type StageRenderInputSource,
   type StageRenderLayer,
 } from './StageRenderer';
@@ -222,6 +223,8 @@ interface TimelineStageRendererProps {
   forceActiveShaderPreview?: boolean;
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
+  onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
+  onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
 }
 
@@ -243,6 +246,8 @@ export function TimelineStageRenderer({
   forceActiveShaderPreview = false,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
+  onCanvasReady,
+  onRenderStateChange,
   onCompilerError,
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
@@ -1284,6 +1289,8 @@ export function TimelineStageRenderer({
       stageTransform={stageTransform}
       transport={transport}
       isOutputOnly={isOutputOnly}
+      onCanvasReady={onCanvasReady}
+      onRenderStateChange={onRenderStateChange}
       onCompilerError={(message) => {
         if (!onCompilerError) {
           return;
