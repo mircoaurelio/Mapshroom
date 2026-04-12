@@ -98,6 +98,8 @@ interface StageTextureSourceState {
   video: HTMLVideoElement | null;
   textureUploadPending: boolean;
   lastVideoTextureTime: number | null;
+  videoFrameCallbackId: number | null;
+  supportsVideoFrameCallback: boolean;
   aspectRatio: number | null;
   status: 'loading' | 'ready' | 'error';
 }
@@ -111,6 +113,20 @@ export interface StageRendererState {
   showEmptyState: boolean;
   canvasWidth: number;
   canvasHeight: number;
+}
+
+const MIN_VIDEO_PLAYBACK_RATE = 0.25;
+const MAX_VIDEO_PLAYBACK_RATE = 4;
+const VIDEO_DRIFT_CORRECTION_THRESHOLD_SECONDS = 0.05;
+const VIDEO_HARD_SEEK_THRESHOLD_SECONDS = 0.45;
+const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
+
+function clampVideoPlaybackRate(playbackRate: number) {
+  if (!Number.isFinite(playbackRate) || playbackRate <= 0) {
+    return 1;
+  }
+
+  return Math.min(MAX_VIDEO_PLAYBACK_RATE, Math.max(MIN_VIDEO_PLAYBACK_RATE, playbackRate));
 }
 
 function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: string) {
@@ -231,6 +247,7 @@ function disposeVideoElement(video: HTMLVideoElement | null | undefined) {
   }
 
   video.pause();
+  video.removeAttribute('src');
   video.src = '';
   video.load();
 }
@@ -292,24 +309,77 @@ function syncVideoToTransport(
   transport: PlaybackTransport,
   nowMs = performance.now(),
   forceSeek = false,
-) {
+): boolean {
   video.loop = transport.loop;
+  const basePlaybackRate = clampVideoPlaybackRate(transport.playbackRate);
+  let videoTimeChanged = false;
 
   if (video.duration > 0) {
     const absoluteTime = getTransportTimeSeconds(transport, nowMs);
     const targetTime = getClippedVideoTime(source, absoluteTime, video.duration, transport.loop);
+    const driftSeconds = targetTime - video.currentTime;
 
-    if (forceSeek || Math.abs(video.currentTime - targetTime) > 0.08) {
+    if (forceSeek || Math.abs(driftSeconds) > VIDEO_HARD_SEEK_THRESHOLD_SECONDS) {
       video.currentTime = targetTime;
+      videoTimeChanged = true;
+    } else if (transport.isPlaying && Math.abs(driftSeconds) > VIDEO_DRIFT_CORRECTION_THRESHOLD_SECONDS) {
+      const correctedPlaybackRate = clampVideoPlaybackRate(
+        basePlaybackRate + driftSeconds * VIDEO_DRIFT_PLAYBACK_RATE_GAIN,
+      );
+      if (Math.abs(video.playbackRate - correctedPlaybackRate) > 0.01) {
+        video.playbackRate = correctedPlaybackRate;
+      }
+    } else if (Math.abs(video.playbackRate - basePlaybackRate) > 0.01) {
+      video.playbackRate = basePlaybackRate;
     }
+  } else if (Math.abs(video.playbackRate - basePlaybackRate) > 0.01) {
+    video.playbackRate = basePlaybackRate;
   }
 
   if (transport.isPlaying) {
-    void video.play().catch(() => {});
+    if (video.paused) {
+      void video.play().catch(() => {});
+    }
+    return videoTimeChanged;
+  }
+
+  if (!video.paused) {
+    video.pause();
+  }
+
+  return videoTimeChanged;
+}
+
+function cancelVideoFrameCallback(state: StageTextureSourceState) {
+  if (
+    !state.video ||
+    state.videoFrameCallbackId === null ||
+    !state.supportsVideoFrameCallback ||
+    typeof state.video.cancelVideoFrameCallback !== 'function'
+  ) {
     return;
   }
 
-  video.pause();
+  state.video.cancelVideoFrameCallback(state.videoFrameCallbackId);
+  state.videoFrameCallbackId = null;
+}
+
+function requestNextVideoFrame(state: StageTextureSourceState) {
+  if (
+    !state.video ||
+    state.videoFrameCallbackId !== null ||
+    !state.supportsVideoFrameCallback ||
+    typeof state.video.requestVideoFrameCallback !== 'function'
+  ) {
+    return;
+  }
+
+  state.videoFrameCallbackId = state.video.requestVideoFrameCallback((_now, metadata) => {
+    state.videoFrameCallbackId = null;
+    state.textureUploadPending = true;
+    state.lastVideoTextureTime = metadata.mediaTime;
+    requestNextVideoFrame(state);
+  });
 }
 
 function disposeTextureSourceState(
@@ -320,6 +390,7 @@ function disposeTextureSourceState(
     return;
   }
 
+  cancelVideoFrameCallback(state);
   if (state.video) {
     disposeVideoElement(state.video);
   }
@@ -354,6 +425,8 @@ function createTextureSourceState(
     video: null,
     textureUploadPending: true,
     lastVideoTextureTime: null,
+    videoFrameCallbackId: null,
+    supportsVideoFrameCallback: false,
     aspectRatio: null,
     status: 'loading',
   };
@@ -393,6 +466,8 @@ function createTextureSourceState(
   video.muted = true;
   video.playsInline = true;
   video.preload = 'auto';
+  video.crossOrigin = 'anonymous';
+  state.supportsVideoFrameCallback = typeof video.requestVideoFrameCallback === 'function';
   video.onloadeddata = () => {
     state.image = null;
     state.video = video;
@@ -408,9 +483,15 @@ function createTextureSourceState(
     if (transport.isPlaying) {
       void video.play().catch(() => {});
     }
+    requestNextVideoFrame(state);
     onReady(state.source.sourceKey, state.aspectRatio, source.assetName || 'Video asset');
   };
+  video.onseeked = () => {
+    state.textureUploadPending = true;
+    requestNextVideoFrame(state);
+  };
   video.onerror = () => {
+    cancelVideoFrameCallback(state);
     state.video = null;
     state.status = 'error';
     onError(state.source.sourceKey, 'Unable to load video asset');
@@ -428,7 +509,10 @@ function updateTextureSourceStateTransport(
     return;
   }
 
-  syncVideoToTransport(state.video, state.source, transport, performance.now(), true);
+  state.textureUploadPending =
+    syncVideoToTransport(state.video, state.source, transport, performance.now(), true) ||
+    state.textureUploadPending;
+  requestNextVideoFrame(state);
 }
 
 function bindTextureSourceState(
@@ -453,15 +537,28 @@ function bindTextureSourceState(
         state.video.duration,
         transport.loop,
       );
-      if (Math.abs(state.video.currentTime - targetTime) > 0.25) {
+      const driftSeconds = targetTime - state.video.currentTime;
+      const basePlaybackRate = clampVideoPlaybackRate(transport.playbackRate);
+      if (Math.abs(driftSeconds) > VIDEO_HARD_SEEK_THRESHOLD_SECONDS) {
         state.video.currentTime = targetTime;
+        state.textureUploadPending = true;
+      } else if (Math.abs(driftSeconds) > VIDEO_DRIFT_CORRECTION_THRESHOLD_SECONDS) {
+        const correctedPlaybackRate = clampVideoPlaybackRate(
+          basePlaybackRate + driftSeconds * VIDEO_DRIFT_PLAYBACK_RATE_GAIN,
+        );
+        if (Math.abs(state.video.playbackRate - correctedPlaybackRate) > 0.01) {
+          state.video.playbackRate = correctedPlaybackRate;
+        }
+      } else if (Math.abs(state.video.playbackRate - basePlaybackRate) > 0.01) {
+        state.video.playbackRate = basePlaybackRate;
       }
     }
 
     const shouldUploadVideoFrame =
       state.textureUploadPending ||
-      state.lastVideoTextureTime === null ||
-      Math.abs(state.video.currentTime - state.lastVideoTextureTime) > 0.001;
+      (!state.supportsVideoFrameCallback &&
+        (state.lastVideoTextureTime === null ||
+          Math.abs(state.video.currentTime - state.lastVideoTextureTime) > 0.001));
 
     if (shouldUploadVideoFrame) {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, state.video);
@@ -515,6 +612,7 @@ export function StageRenderer({
   const rafRef = useRef<number | null>(null);
   const mediaAspectRatioRef = useRef<number | null>(null);
   const transportRef = useRef(transport);
+  const preserveDrawingBufferRef = useRef(Boolean(onCanvasReady));
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
   const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
@@ -677,7 +775,11 @@ export function StageRenderer({
       return;
     }
 
-    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
+    const programCache = programCacheRef.current;
+    const textureSources = textureSourcesRef.current;
+    const gl = canvas.getContext('webgl', {
+      preserveDrawingBuffer: preserveDrawingBufferRef.current,
+    });
     if (!gl) {
       onCompilerErrorRef.current?.('WebGL is not available in this browser.');
       return;
@@ -704,15 +806,15 @@ export function StageRenderer({
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
-      programCacheRef.current.forEach(({ program }) => {
+      programCache.forEach(({ program }) => {
         gl.deleteProgram(program);
       });
-      programCacheRef.current.clear();
+      programCache.clear();
       compiledLayersRef.current = [];
-      textureSourcesRef.current.forEach((state) => {
+      textureSources.forEach((state) => {
         disposeTextureSourceState(gl, state);
       });
-      textureSourcesRef.current.clear();
+      textureSources.clear();
       if (positionBufferRef.current) {
         gl.deleteBuffer(positionBufferRef.current);
       }
