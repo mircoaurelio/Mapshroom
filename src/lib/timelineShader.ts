@@ -162,6 +162,16 @@ vec4 sampleTimelineOverlayColor(
     return vec4(sharpened, max(center.a, smoothColor.a));
 }
 
+float getTimelineOverlayLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+float getTimelineSourceMask(sampler2D sourceImage, vec2 uv) {
+    vec4 sourceColor = texture2D(sourceImage, uv);
+    float sourceLuma = getTimelineOverlayLuminance(sourceColor.rgb);
+    return clamp(sourceColor.a * smoothstep(0.02, 0.12, sourceLuma), 0.0, 1.0);
+}
+
 vec3 blendTimelineOverlay(
     vec3 baseColor,
     vec3 overlayColor,
@@ -186,6 +196,7 @@ vec3 blendTimelineOverlay(
 
 vec4 applyTimelineOverlay(
     vec4 baseColor,
+    sampler2D sourceImage,
     sampler2D overlayImage,
     vec2 uv,
     vec2 resolution,
@@ -220,6 +231,14 @@ vec4 applyTimelineOverlay(
 
     vec4 overlayColor = sampleTimelineOverlayColor(overlayImage, overlayUv, resolution, quality);
     float overlayMix = clamp(overlayColor.a * opacity * overlayMask, 0.0, 1.0);
+    if (blendMode > 3.5) {
+        float sourceMask = getTimelineSourceMask(sourceImage, uv);
+        float overlayBrightness = smoothstep(0.08, 0.35, getTimelineOverlayLuminance(overlayColor.rgb));
+        float maskedRevealMix = overlayMix * sourceMask * overlayBrightness;
+        vec3 maskedRevealColor = mix(baseColor.rgb, overlayColor.rgb, maskedRevealMix);
+        return vec4(clamp(maskedRevealColor, 0.0, 1.0), max(baseColor.a, maskedRevealMix));
+    }
+
     vec3 compositedColor = blendTimelineOverlay(
         baseColor.rgb,
         overlayColor.rgb,
@@ -246,7 +265,7 @@ uniform float u_timeline_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
 uniform float u_timeline_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
-uniform float u_timeline_overlay_blend_mode; // @min 0.0 @max 3.0 @default 3.0
+uniform float u_timeline_overlay_blend_mode; // @min 0.0 @max 4.0 @default 4.0
 uniform float u_timeline_overlay_fit_mode; // @min 0.0 @max 4.0 @default 0.0
 uniform float u_timeline_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
 uniform float u_timeline_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
@@ -263,6 +282,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
 
     return applyTimelineOverlay(
         baseColor,
+        tex,
         u_timeline_overlay_image,
         uv,
         resolution,
@@ -304,7 +324,7 @@ uniform float u_timeline_from_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_from_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_from_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
 uniform float u_timeline_from_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
-uniform float u_timeline_from_overlay_blend_mode; // @min 0.0 @max 3.0 @default 3.0
+uniform float u_timeline_from_overlay_blend_mode; // @min 0.0 @max 4.0 @default 4.0
 uniform float u_timeline_from_overlay_fit_mode; // @min 0.0 @max 4.0 @default 0.0
 uniform float u_timeline_from_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
 uniform float u_timeline_from_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
@@ -313,7 +333,7 @@ uniform float u_timeline_to_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_to_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_to_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
 uniform float u_timeline_to_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
-uniform float u_timeline_to_overlay_blend_mode; // @min 0.0 @max 3.0 @default 3.0
+uniform float u_timeline_to_overlay_blend_mode; // @min 0.0 @max 4.0 @default 4.0
 uniform float u_timeline_to_overlay_fit_mode; // @min 0.0 @max 4.0 @default 0.0
 uniform float u_timeline_to_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
 uniform float u_timeline_to_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
@@ -332,6 +352,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     if (u_timeline_from_has_overlay) {
         fromColor = applyTimelineOverlay(
             fromColor,
+            tex,
             u_timeline_from_overlay_image,
             uv,
             resolution,
@@ -349,6 +370,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     if (u_timeline_to_has_overlay) {
         toColor = applyTimelineOverlay(
             toColor,
+            tex,
             u_timeline_to_overlay_image,
             uv,
             resolution,
