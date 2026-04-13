@@ -13,6 +13,7 @@ export const TIMELINE_ASSET_BLEND_MODE_OPTIONS: Array<{
   { value: 'screen', label: 'Screen' },
   { value: 'add', label: 'Add' },
   { value: 'multiply', label: 'Multiply' },
+  { value: 'maskedReveal', label: 'Masked Reveal' },
 ];
 
 export const TIMELINE_ASSET_FIT_MODE_OPTIONS: Array<{
@@ -41,7 +42,7 @@ export const DEFAULT_TIMELINE_STEP_ASSET_SETTINGS: TimelineStepAssetSettings = {
   offsetX: 0,
   offsetY: 0,
   opacity: 0.85,
-  blendMode: 'multiply',
+  blendMode: 'maskedReveal',
   fitMode: 'cover',
   quality: 'balanced',
   clipStartSeconds: 0,

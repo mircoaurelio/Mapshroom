@@ -12,7 +12,13 @@ import type {
   TimelineTransitionEffect,
 } from '../types';
 
-const COMPACT_TIMELINE_ASSET_BLEND_MODES = ['mix', 'screen', 'add', 'multiply'] as const;
+const COMPACT_TIMELINE_ASSET_BLEND_MODES = [
+  'mix',
+  'screen',
+  'add',
+  'multiply',
+  'maskedReveal',
+] as const;
 const COMPACT_TIMELINE_ASSET_FIT_MODES = [
   'cover',
   'contain',

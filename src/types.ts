@@ -10,7 +10,7 @@ export type TimelineTransitionEffect = 'cut' | 'mix' | 'wipe' | 'radial' | 'glit
 export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix' | 'double';
 export type TimelineEditorViewMode = 'simple' | 'advanced';
 export type TimelineStagePreviewMode = 'timeline' | 'focused';
-export type TimelineAssetBlendMode = 'mix' | 'screen' | 'add' | 'multiply';
+export type TimelineAssetBlendMode = 'mix' | 'screen' | 'add' | 'multiply' | 'maskedReveal';
 export type TimelineAssetFitMode = 'cover' | 'contain' | 'stretch' | 'fitWidth' | 'fitHeight';
 export type TimelineAssetQuality = 'draft' | 'balanced' | 'high';
 
