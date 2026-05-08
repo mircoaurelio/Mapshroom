@@ -120,6 +120,7 @@ const MAX_VIDEO_PLAYBACK_RATE = 4;
 const VIDEO_DRIFT_CORRECTION_THRESHOLD_SECONDS = 0.05;
 const VIDEO_HARD_SEEK_THRESHOLD_SECONDS = 0.45;
 const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
+const MIN_STAGE_SCALE = 0.05;
 
 function clampVideoPlaybackRate(playbackRate: number) {
   if (!Number.isFinite(playbackRate) || playbackRate <= 0) {
@@ -598,6 +599,7 @@ export function StageRenderer({
   onRenderStateChange,
   onCompilerError,
 }: StageRendererProps) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaSurfaceRef = useRef<HTMLDivElement | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
@@ -618,6 +620,7 @@ export function StageRenderer({
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
+  const [shellSize, setShellSize] = useState({ width: 1, height: 1 });
   const onCanvasReadyRef = useRef(onCanvasReady);
   const onRenderStateChangeRef = useRef(onRenderStateChange);
   const defaultInputSource = useMemo<StageRenderInputSource | null>(
@@ -819,6 +822,32 @@ export function StageRenderer({
         gl.deleteBuffer(positionBufferRef.current);
       }
       glRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    const updateShellSize = () => {
+      const rect = shell.getBoundingClientRect();
+      setShellSize({
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height),
+      });
+    };
+
+    updateShellSize();
+
+    const resizeObserver = new ResizeObserver(updateShellSize);
+    resizeObserver.observe(shell);
+    window.addEventListener('resize', updateShellSize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateShellSize);
     };
   }, []);
 
@@ -1252,14 +1281,15 @@ export function StageRenderer({
   }, [defaultInputSource]);
 
   const mediaSurfaceStyle = useMemo<CSSProperties>(
-    () => ({
-      left: `${stageTransform.widthAdjust * -0.5}px`,
-      top: `${stageTransform.heightAdjust * -0.5}px`,
-      width: `calc(100% + ${stageTransform.widthAdjust}px)`,
-      height: `calc(100% + ${stageTransform.heightAdjust}px)`,
-      transform: `translate(${stageTransform.offsetX}px, ${stageTransform.offsetY}px)`,
-    }),
-    [stageTransform],
+    () => {
+      const scaleX = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / shellSize.width);
+      const scaleY = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.heightAdjust / shellSize.height);
+
+      return {
+        transform: `translate(${stageTransform.offsetX}px, ${stageTransform.offsetY}px) scale(${scaleX}, ${scaleY})`,
+      };
+    },
+    [shellSize.height, shellSize.width, stageTransform],
   );
 
   const hasRequiredInputSource = requiredInputSources.length > 0;
@@ -1308,6 +1338,7 @@ export function StageRenderer({
 
   return (
     <div
+      ref={shellRef}
       className={`stage-shell ${isOutputOnly ? 'stage-shell-output' : ''}`}
       title={isOutputOnly ? undefined : renderStatus}
     >
