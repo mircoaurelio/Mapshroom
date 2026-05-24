@@ -816,7 +816,9 @@ export function WorkspaceRoute() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
+  const [presetSelectionAddsToTimeline, setPresetSelectionAddsToTimeline] = useState(false);
   const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
+  const [studioPreviewOverride, setStudioPreviewOverride] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [timelineAssetPickerRequest, setTimelineAssetPickerRequest] = useState<{
     stepId: string | null;
@@ -1056,6 +1058,7 @@ export function WorkspaceRoute() {
     setIsProjectDialogOpen(false);
     setEditingTimelineStepId(null);
     setPreviewShaderId(null);
+    setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
     setStatusMessage('Created a new project.');
@@ -1633,6 +1636,7 @@ export function WorkspaceRoute() {
 
   const handleTimelineStagePreviewModeChange = useCallback(
     (stagePreviewMode: TimelineStagePreviewMode) => {
+      setStudioPreviewOverride(false);
       updateProject((currentProject) => ({
         ...currentProject,
         timeline: {
@@ -2256,7 +2260,10 @@ export function WorkspaceRoute() {
     );
   };
 
-  const selectShader = (shaderId: string) => {
+  const selectShader = (
+    shaderId: string,
+    options: { addToTimeline?: boolean } = {},
+  ) => {
     if (!project) {
       return;
     }
@@ -2267,11 +2274,15 @@ export function WorkspaceRoute() {
     }
 
     const nextEditingStepId = shader.isTemporary ? shader.ownerTimelineStepId ?? null : null;
+    const shouldAddToTimeline = Boolean(options.addToTimeline && !shader.isTemporary);
 
     updateProject((currentProject) => {
       const currentShader =
         currentProject.studio.savedShaders.find((item) => item.id === shaderId) ?? shader;
-      const nextStep = currentShader.isTemporary ? null : createTimelineShaderStep(currentShader.id);
+      const nextStep =
+        shouldAddToTimeline && !currentShader.isTemporary
+          ? createTimelineShaderStep(currentShader.id)
+          : null;
 
       return {
         ...currentProject,
@@ -2312,11 +2323,14 @@ export function WorkspaceRoute() {
     });
     setEditingTimelineStepId(nextEditingStepId);
     setPreviewShaderId(null);
+    setStudioPreviewOverride(!shouldAddToTimeline && !shader.isTemporary);
     clearGeneratedShaderRetry();
     setStatusMessage(
       shader.isTemporary
         ? `Editing linked timeline shader "${shader.name}".`
-        : `Loaded preset "${shader.name}" and added it to the timeline.`,
+        : shouldAddToTimeline
+          ? `Loaded preset "${shader.name}" and added it to the timeline.`
+          : `Loaded preset "${shader.name}" in the console preview.`,
     );
     setPreferLiveShaderCompilePreview(false);
     setCompilerError(shader.compileError ?? '');
@@ -3323,6 +3337,7 @@ ${errorSnapshot}`,
     clearGeneratedShaderRetry();
     setCompilerError(nextCompilerError);
     setPreferLiveShaderCompilePreview(false);
+    setStudioPreviewOverride(false);
     setEditingTimelineStepId(stepId);
 
     if (isMobile && options?.focusStudioOnMobile !== false) {
@@ -3722,6 +3737,7 @@ ${errorSnapshot}`,
         transport={project.playback.transport}
         forceActiveShaderPreview={
           Boolean(previewShader) ||
+          studioPreviewOverride ||
           (timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
             editingTimelineStepId !== null)
         }
@@ -4110,6 +4126,8 @@ ${errorSnapshot}`,
         presets={timelineSelectableShaders}
         activeShaderId={project.studio.activeShaderId}
         assetUrl={activeAssetUrl}
+        addSelectionToTimeline={presetSelectionAddsToTimeline}
+        onAddSelectionToTimelineChange={setPresetSelectionAddsToTimeline}
         onPreviewStart={(shaderId) => setPreviewShaderId(shaderId)}
         onPreviewEnd={(shaderId) =>
           setPreviewShaderId((currentShaderId) =>

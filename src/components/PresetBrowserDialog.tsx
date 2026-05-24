@@ -82,9 +82,11 @@ interface PresetBrowserDialogProps {
   presets: SavedShader[];
   activeShaderId: string;
   assetUrl: string | null;
+  addSelectionToTimeline: boolean;
+  onAddSelectionToTimelineChange: (enabled: boolean) => void;
   onPreviewStart?: (shaderId: string) => void;
   onPreviewEnd?: (shaderId: string) => void;
-  onSelect: (shaderId: string) => void;
+  onSelect: (shaderId: string, options?: { addToTimeline?: boolean }) => void;
   onClose: () => void;
 }
 
@@ -538,6 +540,8 @@ export function PresetBrowserDialog({
   presets,
   activeShaderId,
   assetUrl,
+  addSelectionToTimeline,
+  onAddSelectionToTimelineChange,
   onPreviewStart,
   onPreviewEnd,
   onSelect,
@@ -760,6 +764,19 @@ export function PresetBrowserDialog({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
+            <button
+              type="button"
+              className={`preset-timeline-toggle ${
+                addSelectionToTimeline ? 'preset-timeline-toggle-active' : ''
+              }`}
+              aria-pressed={addSelectionToTimeline}
+              onClick={() => onAddSelectionToTimelineChange(!addSelectionToTimeline)}
+            >
+              <span className="preset-timeline-toggle-dot" aria-hidden="true" />
+              <span>
+                {addSelectionToTimeline ? 'Timeline write on' : 'Console preview only'}
+              </span>
+            </button>
             <div className="preset-category-row" role="tablist" aria-label="Preset templates">
               {TEMPLATE_ORDER.map((template) => (
                 <button
@@ -807,7 +824,7 @@ export function PresetBrowserDialog({
                         onPreviewStart={() => onPreviewStart?.(preset.id)}
                         onPreviewEnd={() => onPreviewEnd?.(preset.id)}
                         onSelect={() => {
-                          onSelect(preset.id);
+                          onSelect(preset.id, { addToTimeline: addSelectionToTimeline });
                           handleClose();
                         }}
                       />

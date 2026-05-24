@@ -1290,7 +1290,7 @@ a {
   margin: 0;
   padding: 0.75rem;
   overflow: hidden;
-  color: rgba(228, 228, 231, 0.9);
+  color: rgba(74, 222, 128, 0.88);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.8rem;
   line-height: 1.6;
@@ -1305,36 +1305,37 @@ a {
 }
 
 .glsl-token-comment {
-  color: #64748b;
+  color: #4ade80;
+  opacity: 0.58;
   font-style: italic;
 }
 
 .glsl-token-preprocessor {
-  color: #f59e0b;
+  color: #bbf7d0;
 }
 
 .glsl-token-keyword {
-  color: #c084fc;
+  color: #86efac;
 }
 
 .glsl-token-type {
-  color: #38bdf8;
+  color: #5eead4;
 }
 
 .glsl-token-uniform {
-  color: #fbbf24;
+  color: #bef264;
 }
 
 .glsl-token-function {
-  color: #34d399;
+  color: #22c55e;
 }
 
 .glsl-token-number {
-  color: #fb7185;
+  color: #a7f3d0;
 }
 
 .glsl-token-operator {
-  color: #94a3b8;
+  color: #65a30d;
 }
 
 .code-editor-dialog-panel {
@@ -1589,6 +1590,46 @@ a {
 
 .preset-browser-search {
   min-height: 34px;
+}
+
+.preset-timeline-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 32px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(113, 113, 122, 0.38);
+  border-radius: 999px;
+  background: rgba(39, 39, 42, 0.58);
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.preset-timeline-toggle:hover {
+  border-color: rgba(248, 113, 113, 0.42);
+  color: var(--text-bright);
+}
+
+.preset-timeline-toggle-active {
+  border-color: rgba(248, 113, 113, 0.58);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+}
+
+.preset-timeline-toggle-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgba(161, 161, 170, 0.7);
+}
+
+.preset-timeline-toggle-active .preset-timeline-toggle-dot {
+  background: #ef4444;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.65);
 }
 
 .preset-category-row {
