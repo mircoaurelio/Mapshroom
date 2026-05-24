@@ -1,4 +1,11 @@
-import { useDeferredValue, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import {
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MutableRefObject,
+} from 'react';
 import type { SavedShader, ShaderTemplate, ShaderUniformValueMap } from '../types';
 import {
   buildFragmentShaderSource,
@@ -60,6 +67,7 @@ const PREVIEW_SOURCE_MAX_EDGE = 256;
 const PREVIEW_RENDER_MAX_EDGE = 180;
 const PREVIEW_FALLBACK_BG = '#050506';
 const PREVIEW_IMAGE_QUALITY = 0.68;
+const FAVORITE_PRESETS_STORAGE_KEY = 'mapshroom-v3:favorite-shaders';
 
 interface PreviewRenderer {
   canvas: HTMLCanvasElement;
@@ -141,6 +149,20 @@ function createPreviewSource(image: HTMLImageElement) {
   context.imageSmoothingQuality = 'low';
   context.drawImage(image, 0, 0, nextWidth, nextHeight);
   return canvas;
+}
+
+function loadFavoritePresetIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(FAVORITE_PRESETS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveFavoritePresetIds(ids: Set<string>) {
+  localStorage.setItem(FAVORITE_PRESETS_STORAGE_KEY, JSON.stringify([...ids].sort()));
 }
 
 function createPreviewMessageDataUrl(message: string) {
@@ -352,8 +374,10 @@ function PreviewCard({
   isActive,
   image,
   previewSrc,
+  isFavorite,
   onRequestPreview,
   onRenderAnimatedPreview,
+  onToggleFavorite,
   onPreviewStart,
   onPreviewEnd,
   onSelect,
@@ -362,13 +386,15 @@ function PreviewCard({
   isActive: boolean;
   image: HTMLCanvasElement | null;
   previewSrc: string | null;
+  isFavorite: boolean;
   onRequestPreview: () => void;
   onRenderAnimatedPreview: (timeSeconds: number) => string | null;
+  onToggleFavorite: () => void;
   onPreviewStart: () => void;
   onPreviewEnd: () => void;
   onSelect: () => void;
 }) {
-  const cardRef = useRef<HTMLButtonElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [animatedPreviewSrc, setAnimatedPreviewSrc] = useState<string | null>(null);
@@ -434,16 +460,26 @@ function PreviewCard({
     setIsPreviewing(false);
     onPreviewEnd();
   };
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    onSelect();
+  };
 
   return (
-    <button
+    <article
       ref={cardRef}
-      type="button"
       className={`preset-preview-card ${isActive ? 'preset-preview-card-active' : ''}`}
+      role="button"
+      tabIndex={0}
       onPointerEnter={handlePreviewStart}
       onPointerLeave={handlePreviewEnd}
       onFocus={handlePreviewStart}
       onBlur={handlePreviewEnd}
+      onKeyDown={handleKeyDown}
       onClick={onSelect}
     >
       <div className="preset-preview-shell">
@@ -464,13 +500,36 @@ function PreviewCard({
       <div className="preset-preview-meta">
         <div className="preset-preview-header">
           <span className="preset-preview-name">{preset.name}</span>
-          <span className="preset-preview-tag">{isActive ? 'Active' : presetGroup}</span>
+          <span className="preset-preview-header-actions">
+            <button
+              type="button"
+              className={`preset-favorite-button ${
+                isFavorite ? 'preset-favorite-button-active' : ''
+              }`}
+              aria-label={
+                isFavorite
+                  ? `Remove ${preset.name} from favorites`
+                  : `Add ${preset.name} to favorites`
+              }
+              aria-pressed={isFavorite}
+              title={isFavorite ? 'Remove favorite' : 'Add favorite'}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleFavorite();
+              }}
+            >
+              ★
+            </button>
+            <span className="preset-preview-tag">
+              {isActive ? 'Active' : isFavorite ? 'Favorite' : presetGroup}
+            </span>
+          </span>
         </div>
         <p className="preset-preview-copy">
           {preset.description ?? 'Shader preset ready to load into the stage.'}
         </p>
       </div>
-    </button>
+    </article>
   );
 }
 
@@ -491,6 +550,9 @@ export function PresetBrowserDialog({
     image: HTMLCanvasElement;
   } | null>(null);
   const [previewSources, setPreviewSources] = useState<Record<string, string>>({});
+  const [favoritePresetIds, setFavoritePresetIds] = useState<Set<string>>(() =>
+    loadFavoritePresetIds(),
+  );
   const deferredQuery = useDeferredValue(query);
   const previewRendererRef = useRef<PreviewRenderer | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
@@ -606,6 +668,18 @@ export function PresetBrowserDialog({
       timeSeconds,
     );
   };
+  const toggleFavoritePreset = (presetId: string) => {
+    setFavoritePresetIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (nextIds.has(presetId)) {
+        nextIds.delete(presetId);
+      } else {
+        nextIds.add(presetId);
+      }
+      saveFavoritePresetIds(nextIds);
+      return nextIds;
+    });
+  };
   const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'sculpture';
   const normalizedQuery = deferredQuery.trim().toLowerCase();
   const filteredPresets = presets.filter((preset) => {
@@ -642,7 +716,15 @@ export function PresetBrowserDialog({
     .sort(([left], [right]) => sortGroups(selectedTemplate, left, right))
     .map(([group, items]) => ({
       group,
-      items: [...items].sort((left, right) => left.name.localeCompare(right.name)),
+      items: [...items].sort((left, right) => {
+        const leftIsFavorite = favoritePresetIds.has(left.id);
+        const rightIsFavorite = favoritePresetIds.has(right.id);
+        if (leftIsFavorite !== rightIsFavorite) {
+          return leftIsFavorite ? -1 : 1;
+        }
+
+        return left.name.localeCompare(right.name);
+      }),
     }));
 
   return (
@@ -710,6 +792,7 @@ export function PresetBrowserDialog({
                         key={preset.id}
                         preset={preset}
                         isActive={preset.id === activeShaderId}
+                        isFavorite={favoritePresetIds.has(preset.id)}
                         image={image}
                         previewSrc={
                           previewSources[
@@ -720,6 +803,7 @@ export function PresetBrowserDialog({
                         onRenderAnimatedPreview={(timeSeconds) =>
                           renderAnimatedPreview(preset, timeSeconds)
                         }
+                        onToggleFavorite={() => toggleFavoritePreset(preset.id)}
                         onPreviewStart={() => onPreviewStart?.(preset.id)}
                         onPreviewEnd={() => onPreviewEnd?.(preset.id)}
                         onSelect={() => {

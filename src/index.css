@@ -1250,6 +1250,93 @@ a {
   background: #080809;
 }
 
+.code-editor-shell {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #080809;
+  overflow: hidden;
+}
+
+.code-editor-shell-expanded {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+}
+
+.code-editor-shell .code-editor {
+  position: relative;
+  z-index: 1;
+  display: block;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: #f4f4f5;
+  tab-size: 2;
+  outline: none;
+  box-shadow: none;
+  -webkit-text-fill-color: transparent;
+}
+
+.code-editor-shell .code-editor::selection {
+  background: rgba(52, 211, 153, 0.28);
+  -webkit-text-fill-color: transparent;
+}
+
+.code-editor-highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0.75rem;
+  overflow: hidden;
+  color: rgba(228, 228, 231, 0.9);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  pointer-events: none;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.code-editor-highlight-expanded {
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.glsl-token-comment {
+  color: #64748b;
+  font-style: italic;
+}
+
+.glsl-token-preprocessor {
+  color: #f59e0b;
+}
+
+.glsl-token-keyword {
+  color: #c084fc;
+}
+
+.glsl-token-type {
+  color: #38bdf8;
+}
+
+.glsl-token-uniform {
+  color: #fbbf24;
+}
+
+.glsl-token-function {
+  color: #34d399;
+}
+
+.glsl-token-number {
+  color: #fb7185;
+}
+
+.glsl-token-operator {
+  color: #94a3b8;
+}
+
 .code-editor-dialog-panel {
   width: min(100%, 1120px);
   height: min(92vh, 820px);
@@ -1580,6 +1667,7 @@ a {
   background: var(--bg-panel-soft);
   text-align: left;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .preset-grid-library {
@@ -1682,6 +1770,41 @@ a {
   justify-content: space-between;
   gap: 0.65rem;
   align-items: flex-start;
+}
+
+.preset-preview-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.preset-favorite-button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  padding: 0;
+  border: 1px solid rgba(244, 244, 245, 0.14);
+  border-radius: 999px;
+  color: var(--text-dim);
+  background: rgba(5, 5, 6, 0.62);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.preset-favorite-button:hover,
+.preset-favorite-button:focus-visible {
+  color: #fde68a;
+  border-color: rgba(253, 230, 138, 0.55);
+  outline: none;
+}
+
+.preset-favorite-button-active {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.55);
+  background: rgba(251, 191, 36, 0.12);
 }
 
 .preset-preview-name {

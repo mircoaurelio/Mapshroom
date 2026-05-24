@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect, useState, type UIEvent as ReactUIEvent } from 'react';
 import type {
   SavedShader,
   ShaderUniformMap,
@@ -106,6 +106,190 @@ function SaveIcon() {
       <path d="M7 3.75v4.5h5.5v-4.5" />
       <path d="M7.25 17v-4.75h5.5V17" />
     </svg>
+  );
+}
+
+const GLSL_TYPES = new Set([
+  'bool',
+  'float',
+  'int',
+  'mat2',
+  'mat3',
+  'mat4',
+  'sampler2D',
+  'vec2',
+  'vec3',
+  'vec4',
+  'void',
+]);
+
+const GLSL_KEYWORDS = new Set([
+  'break',
+  'const',
+  'continue',
+  'discard',
+  'do',
+  'else',
+  'false',
+  'for',
+  'if',
+  'in',
+  'inout',
+  'out',
+  'precision',
+  'return',
+  'struct',
+  'true',
+  'uniform',
+  'varying',
+  'while',
+]);
+
+const GLSL_BUILTINS = new Set([
+  'abs',
+  'acos',
+  'asin',
+  'atan',
+  'ceil',
+  'clamp',
+  'cos',
+  'cross',
+  'distance',
+  'dot',
+  'exp',
+  'floor',
+  'fract',
+  'length',
+  'log',
+  'max',
+  'min',
+  'mix',
+  'mod',
+  'normalize',
+  'pow',
+  'reflect',
+  'sin',
+  'smoothstep',
+  'sqrt',
+  'step',
+  'tan',
+  'texture2D',
+]);
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function wrapToken(className: string, value: string): string {
+  return `<span class="${className}">${escapeHtml(value)}</span>`;
+}
+
+function getUniformNames(shaderCode: string): Set<string> {
+  const names = new Set<string>();
+  for (const match of shaderCode.matchAll(/\buniform\s+\w+\s+([A-Za-z_]\w*)/g)) {
+    names.add(match[1]);
+  }
+  return names;
+}
+
+function highlightGlslCodePart(value: string, uniformNames: Set<string>): string {
+  const tokenPattern = /[A-Za-z_]\w*|\d*\.\d+(?:[eE][+-]?\d+)?|\d+(?:[eE][+-]?\d+)?|[{}()[\];,.+\-*\/%=<>!&|?:]/g;
+  let output = '';
+  let cursor = 0;
+  for (const match of value.matchAll(tokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    output += escapeHtml(value.slice(cursor, index));
+
+    if (GLSL_TYPES.has(token)) {
+      output += wrapToken('glsl-token-type', token);
+    } else if (GLSL_KEYWORDS.has(token)) {
+      output += wrapToken('glsl-token-keyword', token);
+    } else if (uniformNames.has(token)) {
+      output += wrapToken('glsl-token-uniform', token);
+    } else if (GLSL_BUILTINS.has(token)) {
+      output += wrapToken('glsl-token-function', token);
+    } else if (/^\d/.test(token) || token.startsWith('.')) {
+      output += wrapToken('glsl-token-number', token);
+    } else if (/^[{}()[\];,.+\-*\/%=<>!&|?:]$/.test(token)) {
+      output += wrapToken('glsl-token-operator', token);
+    } else {
+      output += escapeHtml(token);
+    }
+
+    cursor = index + token.length;
+  }
+
+  return output + escapeHtml(value.slice(cursor));
+}
+
+function highlightGlslCode(shaderCode: string): string {
+  const uniformNames = getUniformNames(shaderCode);
+  return shaderCode
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith('#')) {
+        return wrapToken('glsl-token-preprocessor', line);
+      }
+
+      const commentIndex = line.indexOf('//');
+      if (commentIndex >= 0) {
+        return `${highlightGlslCodePart(line.slice(0, commentIndex), uniformNames)}${wrapToken(
+          'glsl-token-comment',
+          line.slice(commentIndex),
+        )}`;
+      }
+
+      return highlightGlslCodePart(line, uniformNames);
+    })
+    .join('\n');
+}
+
+function GlslCodeEditor({
+  value,
+  expanded = false,
+  autoFocus = false,
+  onChange,
+}: {
+  value: string;
+  expanded?: boolean;
+  autoFocus?: boolean;
+  onChange: (value: string) => void;
+}) {
+  const highlightRef = useRef<HTMLPreElement | null>(null);
+  const highlightedCode = useMemo(() => highlightGlslCode(value), [value]);
+  const handleScroll = (event: ReactUIEvent<HTMLTextAreaElement>) => {
+    if (!highlightRef.current) {
+      return;
+    }
+
+    highlightRef.current.scrollTop = event.currentTarget.scrollTop;
+    highlightRef.current.scrollLeft = event.currentTarget.scrollLeft;
+  };
+
+  return (
+    <div className={`code-editor-shell ${expanded ? 'code-editor-shell-expanded' : ''}`}>
+      <pre
+        ref={highlightRef}
+        className={`code-editor-highlight ${expanded ? 'code-editor-highlight-expanded' : ''}`}
+        aria-hidden="true"
+        dangerouslySetInnerHTML={{ __html: `${highlightedCode}\n` }}
+      />
+      <textarea
+        className={`code-editor code-editor-semantic ${
+          expanded ? 'code-editor-expanded' : ''
+        }`}
+        value={value}
+        spellCheck={false}
+        autoFocus={autoFocus}
+        onScroll={handleScroll}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
   );
 }
 
@@ -302,12 +486,7 @@ export function ShaderCodeSection({
         <div className="code-collapsed-note">Code editor collapsed.</div>
       ) : (
         <div className="stack gap-md">
-          <textarea
-            className="code-editor"
-            value={shaderCode}
-            spellCheck={false}
-            onChange={(event) => onShaderCodeChange(event.target.value)}
-          />
+          <GlslCodeEditor value={shaderCode} onChange={onShaderCodeChange} />
           {compilerError ? (
             <div className="error-panel">
               {compilerError}
@@ -385,12 +564,11 @@ export function ShaderCodeSection({
             </header>
 
             <div className="code-editor-dialog-body">
-              <textarea
-                className="code-editor code-editor-expanded"
+              <GlslCodeEditor
                 value={shaderCode}
-                spellCheck={false}
+                expanded
                 autoFocus
-                onChange={(event) => onShaderCodeChange(event.target.value)}
+                onChange={onShaderCodeChange}
               />
               {compilerError ? (
                 <div className="error-panel code-editor-dialog-error">
