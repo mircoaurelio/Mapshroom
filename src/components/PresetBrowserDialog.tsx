@@ -708,28 +708,50 @@ export function PresetBrowserDialog({
 
     return haystack.includes(normalizedQuery);
   });
+  const favoritePresets = filteredPresets
+    .filter((preset) => favoritePresetIds.has(preset.id))
+    .sort((left, right) => left.name.localeCompare(right.name));
   const groupedPresets = Array.from(
-    filteredPresets.reduce((groups, preset) => {
-      const group = getPresetGroup(preset);
-      const items = groups.get(group) ?? [];
-      items.push(preset);
-      groups.set(group, items);
-      return groups;
-    }, new Map<string, SavedShader[]>()),
+    filteredPresets
+      .filter((preset) => !favoritePresetIds.has(preset.id))
+      .reduce((groups, preset) => {
+        const group = getPresetGroup(preset);
+        const items = groups.get(group) ?? [];
+        items.push(preset);
+        groups.set(group, items);
+        return groups;
+      }, new Map<string, SavedShader[]>()),
   )
     .sort(([left], [right]) => sortGroups(selectedTemplate, left, right))
     .map(([group, items]) => ({
       group,
-      items: [...items].sort((left, right) => {
-        const leftIsFavorite = favoritePresetIds.has(left.id);
-        const rightIsFavorite = favoritePresetIds.has(right.id);
-        if (leftIsFavorite !== rightIsFavorite) {
-          return leftIsFavorite ? -1 : 1;
-        }
-
-        return left.name.localeCompare(right.name);
-      }),
+      items: [...items].sort((left, right) => left.name.localeCompare(right.name)),
     }));
+  const renderPresetCard = (preset: SavedShader) => (
+    <PreviewCard
+      key={preset.id}
+      preset={preset}
+      isActive={preset.id === activeShaderId}
+      isFavorite={favoritePresetIds.has(preset.id)}
+      image={image}
+      previewSrc={
+        previewSources[
+          `${previewNamespace}\u0000${preset.id}\u0000${getRenderableShaderCode(preset)}\u0000${getUniformValuesPreviewSignature(getRenderableShaderUniformValues(preset))}`
+        ] ?? null
+      }
+      onRequestPreview={() => requestPreview(preset)}
+      onRenderAnimatedPreview={(timeSeconds) =>
+        renderAnimatedPreview(preset, timeSeconds)
+      }
+      onToggleFavorite={() => toggleFavoritePreset(preset.id)}
+      onPreviewStart={() => onPreviewStart?.(preset.id)}
+      onPreviewEnd={() => onPreviewEnd?.(preset.id)}
+      onSelect={() => {
+        onSelect(preset.id, { addToTimeline: addSelectionToTimeline });
+        handleClose();
+      }}
+    />
+  );
 
   return (
     <div
@@ -758,12 +780,25 @@ export function PresetBrowserDialog({
               <span>Preset Browser</span>
               <small>{filteredPresets.length} results</small>
             </div>
-            <input
-              className="text-field preset-browser-search"
-              placeholder="Search presets..."
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
+            <div className="preset-browser-search-shell">
+              <input
+                className="text-field preset-browser-search"
+                placeholder="Search presets..."
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              {query ? (
+                <button
+                  type="button"
+                  className="preset-browser-search-clear"
+                  aria-label="Clear shader search"
+                  title="Clear search"
+                  onClick={() => setQuery('')}
+                >
+                  x
+                </button>
+              ) : null}
+            </div>
             <button
               type="button"
               className={`preset-timeline-toggle ${
@@ -793,10 +828,22 @@ export function PresetBrowserDialog({
             </div>
           </div>
 
-          {groupedPresets.length === 0 ? (
+          {favoritePresets.length === 0 && groupedPresets.length === 0 ? (
             <p className="empty-copy">No presets match this filter.</p>
           ) : (
             <div className="preset-group-stack">
+              {favoritePresets.length > 0 ? (
+                <section className="preset-group preset-group-favorites">
+                  <div className="preset-group-header">
+                    <strong className="preset-group-title">Favorites</strong>
+                    <span className="preset-group-count">{favoritePresets.length}</span>
+                  </div>
+                  <div className="preset-preview-grid">
+                    {favoritePresets.map(renderPresetCard)}
+                  </div>
+                </section>
+              ) : null}
+
               {groupedPresets.map(({ group, items }) => (
                 <section className="preset-group" key={group}>
                   <div className="preset-group-header">
@@ -804,31 +851,7 @@ export function PresetBrowserDialog({
                     <span className="preset-group-count">{items.length}</span>
                   </div>
                   <div className="preset-preview-grid">
-                    {items.map((preset) => (
-                      <PreviewCard
-                        key={preset.id}
-                        preset={preset}
-                        isActive={preset.id === activeShaderId}
-                        isFavorite={favoritePresetIds.has(preset.id)}
-                        image={image}
-                        previewSrc={
-                          previewSources[
-                            `${previewNamespace}\u0000${preset.id}\u0000${getRenderableShaderCode(preset)}\u0000${getUniformValuesPreviewSignature(getRenderableShaderUniformValues(preset))}`
-                          ] ?? null
-                        }
-                        onRequestPreview={() => requestPreview(preset)}
-                        onRenderAnimatedPreview={(timeSeconds) =>
-                          renderAnimatedPreview(preset, timeSeconds)
-                        }
-                        onToggleFavorite={() => toggleFavoritePreset(preset.id)}
-                        onPreviewStart={() => onPreviewStart?.(preset.id)}
-                        onPreviewEnd={() => onPreviewEnd?.(preset.id)}
-                        onSelect={() => {
-                          onSelect(preset.id, { addToTimeline: addSelectionToTimeline });
-                          handleClose();
-                        }}
-                      />
-                    ))}
+                    {items.map(renderPresetCard)}
                   </div>
                 </section>
               ))}

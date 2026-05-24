@@ -1588,8 +1588,33 @@ a {
   gap: 0.7rem;
 }
 
+.preset-browser-search-shell {
+  position: relative;
+}
+
 .preset-browser-search {
   min-height: 34px;
+  padding-right: 2.2rem;
+}
+
+.preset-browser-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 1px solid rgba(63, 63, 70, 0.65);
+  border-radius: 999px;
+  background: rgba(24, 24, 27, 0.88);
+  color: var(--text-dim);
+  font-size: 1rem;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.preset-browser-search-clear:hover {
+  border-color: rgba(52, 211, 153, 0.38);
+  color: #bbf7d0;
 }
 
 .preset-timeline-toggle {
@@ -1672,6 +1697,17 @@ a {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+}
+
+.preset-group-favorites {
+  padding: 0.65rem;
+  border: 1px solid rgba(52, 211, 153, 0.16);
+  border-radius: var(--radius-sm);
+  background: rgba(20, 83, 45, 0.08);
+}
+
+.preset-group-favorites .preset-group-title {
+  color: #bbf7d0;
 }
 
 .preset-group-header {
