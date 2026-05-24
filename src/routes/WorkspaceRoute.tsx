@@ -768,23 +768,6 @@ function getPreferredTimelineStepId(
   return steps[0]?.id ?? null;
 }
 
-function getTimelineStepStartSeconds(
-  steps: ProjectDocument['timeline']['stub']['shaderSequence']['steps'],
-  targetStepId: string,
-): number | null {
-  let cursorSeconds = 0;
-
-  for (const step of steps) {
-    if (step.id === targetStepId) {
-      return cursorSeconds;
-    }
-
-    cursorSeconds += clampTimelineStepDuration(step.durationSeconds);
-  }
-
-  return null;
-}
-
 export function WorkspaceRoute() {
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -3224,6 +3207,7 @@ ${errorSnapshot}`,
       focusStudioOnMobile?: boolean;
       stagePreviewMode?: TimelineStagePreviewMode;
       seekTimeSeconds?: number | null;
+      updateTimelineFocus?: boolean;
     },
   ) {
     let nextStatusMessage = '';
@@ -3280,6 +3264,7 @@ ${errorSnapshot}`,
         ? `Editing linked shader for timeline step ${stepIndex + 1}.`
         : `Linked timeline step ${stepIndex + 1} to its own editable shader.`;
       nextCompilerError = editableShader.compileError ?? '';
+      const shouldUpdateTimelineFocus = options?.updateTimelineFocus !== false;
 
       return pruneTemporaryTimelineShaders(
         {
@@ -3314,7 +3299,9 @@ ${errorSnapshot}`,
                 stagePreviewMode:
                   options?.stagePreviewMode ??
                   currentProject.timeline.stub.shaderSequence.stagePreviewMode,
-                focusedStepId: stepId,
+                focusedStepId: shouldUpdateTimelineFocus
+                  ? stepId
+                  : currentProject.timeline.stub.shaderSequence.focusedStepId,
                 steps: nextSteps,
               },
             },
@@ -3355,19 +3342,12 @@ ${errorSnapshot}`,
 
   const handleTimelineEditStep = useCallback((stepId: string) => {
     const isPinnedStep = pinnedTimelineStepId === stepId;
-    const nextTimeSeconds = isPinnedStep
-      ? null
-      : getTimelineStepStartSeconds(
-          project?.timeline.stub.shaderSequence.steps ?? [],
-          stepId,
-        );
     void selectTimelineStepForEditing(stepId, {
       stagePreviewMode: isPinnedStep ? 'timeline' : 'focused',
-      seekTimeSeconds: nextTimeSeconds,
+      updateTimelineFocus: false,
     });
   }, [
     pinnedTimelineStepId,
-    project?.timeline.stub.shaderSequence.steps,
     selectTimelineStepForEditing,
   ]);
 
@@ -3741,6 +3721,7 @@ ${errorSnapshot}`,
           (timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
             editingTimelineStepId !== null)
         }
+        focusedPreviewStepId={editingTimelineStepId}
         preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
         onCompilerError={applyCompilerFeedback}
       />

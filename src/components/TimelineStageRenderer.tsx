@@ -222,6 +222,7 @@ interface TimelineStageRendererProps {
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   forceActiveShaderPreview?: boolean;
+  focusedPreviewStepId?: string | null;
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
@@ -245,6 +246,7 @@ export function TimelineStageRenderer({
   stageTransform,
   transport,
   forceActiveShaderPreview = false,
+  focusedPreviewStepId = null,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
   onCanvasReady,
@@ -419,14 +421,17 @@ export function TimelineStageRenderer({
     () => availableShaders.find((shader) => shader.id === activeShaderId) ?? null,
     [activeShaderId, availableShaders],
   );
+  const effectiveFocusedStepId =
+    workspaceFocusedPreviewEnabled
+      ? focusedPreviewStepId ?? shaderSequence.focusedStepId ?? null
+      : shaderSequence.focusedStepId ?? null;
   const focusedSequenceStep = useMemo(() => {
-    const focusedStepId = shaderSequence.focusedStepId ?? null;
-    if (!focusedStepId) {
+    if (!effectiveFocusedStepId) {
       return null;
     }
 
-    return shaderSequence.steps.find((step) => step.id === focusedStepId) ?? null;
-  }, [shaderSequence.focusedStepId, shaderSequence.steps]);
+    return shaderSequence.steps.find((step) => step.id === effectiveFocusedStepId) ?? null;
+  }, [effectiveFocusedStepId, shaderSequence.steps]);
   const focusedSequenceShader = useMemo(() => {
     if (!focusedSequenceStep) {
       return null;
