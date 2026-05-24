@@ -57,6 +57,7 @@ const GROUP_ORDER: Record<ShaderTemplate, string[]> = {
 const PREVIEW_WIDTH = 128;
 const PREVIEW_HEIGHT = 96;
 const PREVIEW_SOURCE_MAX_EDGE = 256;
+const PREVIEW_RENDER_MAX_EDGE = 180;
 const PREVIEW_FALLBACK_BG = '#050506';
 const PREVIEW_IMAGE_QUALITY = 0.68;
 
@@ -248,6 +249,7 @@ function renderPreviewToCanvas(
   uniformValues: ShaderUniformValueMap | undefined,
   image: HTMLCanvasElement,
   rendererRef: MutableRefObject<PreviewRenderer | null>,
+  timeSeconds = 1,
 ) {
   const renderer = getPreviewRenderer(rendererRef);
   if (!renderer) {
@@ -255,6 +257,16 @@ function renderPreviewToCanvas(
   }
 
   const { gl, canvas: renderCanvas, quadBuffer, texture, vertexShader } = renderer;
+  const imageAspect = image.width > 0 && image.height > 0 ? image.width / image.height : 4 / 3;
+  const renderWidth =
+    imageAspect >= 1 ? PREVIEW_RENDER_MAX_EDGE : Math.max(1, Math.round(PREVIEW_RENDER_MAX_EDGE * imageAspect));
+  const renderHeight =
+    imageAspect >= 1 ? Math.max(1, Math.round(PREVIEW_RENDER_MAX_EDGE / imageAspect)) : PREVIEW_RENDER_MAX_EDGE;
+  if (renderCanvas.width !== renderWidth || renderCanvas.height !== renderHeight) {
+    renderCanvas.width = renderWidth;
+    renderCanvas.height = renderHeight;
+  }
+
   const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
   if (!fragmentShader) {
     return createPreviewMessageDataUrl('Preview unavailable');
@@ -306,7 +318,7 @@ function renderPreviewToCanvas(
   if (imgLoc !== null) gl.uniform1i(imgLoc, 0);
 
   const timeLoc = gl.getUniformLocation(program, 'u_time');
-  if (timeLoc !== null) gl.uniform1f(timeLoc, 1.0);
+  if (timeLoc !== null) gl.uniform1f(timeLoc, timeSeconds);
 
   const resLoc = gl.getUniformLocation(program, 'u_resolution');
   if (resLoc !== null) gl.uniform2f(resLoc, renderCanvas.width, renderCanvas.height);
@@ -341,6 +353,7 @@ function PreviewCard({
   image,
   previewSrc,
   onRequestPreview,
+  onRenderAnimatedPreview,
   onPreviewStart,
   onPreviewEnd,
   onSelect,
@@ -350,12 +363,15 @@ function PreviewCard({
   image: HTMLCanvasElement | null;
   previewSrc: string | null;
   onRequestPreview: () => void;
+  onRenderAnimatedPreview: (timeSeconds: number) => string | null;
   onPreviewStart: () => void;
   onPreviewEnd: () => void;
   onSelect: () => void;
 }) {
   const cardRef = useRef<HTMLButtonElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [animatedPreviewSrc, setAnimatedPreviewSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (isVisible || !cardRef.current) {
@@ -384,27 +400,60 @@ function PreviewCard({
     }
   }, [image, isVisible, onRequestPreview, previewSrc]);
 
+  useEffect(() => {
+    if (!isPreviewing || !image) {
+      setAnimatedPreviewSrc(null);
+      return;
+    }
+
+    let frameId: number | null = null;
+    let lastFrameMs = 0;
+    const renderAnimatedFrame = (timestampMs: number) => {
+      if (timestampMs - lastFrameMs > 140) {
+        lastFrameMs = timestampMs;
+        setAnimatedPreviewSrc(onRenderAnimatedPreview(timestampMs / 1000));
+      }
+      frameId = requestAnimationFrame(renderAnimatedFrame);
+    };
+
+    frameId = requestAnimationFrame(renderAnimatedFrame);
+    return () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+    };
+  }, [image, isPreviewing, onRenderAnimatedPreview]);
+
   const presetGroup = getPresetGroup(preset);
+  const visiblePreviewSrc = animatedPreviewSrc ?? previewSrc;
+  const handlePreviewStart = () => {
+    setIsPreviewing(true);
+    onPreviewStart();
+  };
+  const handlePreviewEnd = () => {
+    setIsPreviewing(false);
+    onPreviewEnd();
+  };
 
   return (
     <button
       ref={cardRef}
       type="button"
       className={`preset-preview-card ${isActive ? 'preset-preview-card-active' : ''}`}
-      onPointerEnter={onPreviewStart}
-      onPointerLeave={onPreviewEnd}
-      onFocus={onPreviewStart}
-      onBlur={onPreviewEnd}
+      onPointerEnter={handlePreviewStart}
+      onPointerLeave={handlePreviewEnd}
+      onFocus={handlePreviewStart}
+      onBlur={handlePreviewEnd}
       onClick={onSelect}
     >
       <div className="preset-preview-shell">
-        {isVisible && image && previewSrc ? (
+        {isVisible && image && visiblePreviewSrc ? (
           <img
             className="preset-preview-image"
-            src={previewSrc}
+            src={visiblePreviewSrc}
             alt=""
-            width={PREVIEW_WIDTH}
-            height={PREVIEW_HEIGHT}
+            width={image.width}
+            height={image.height}
           />
         ) : (
           <div className="preset-preview-placeholder">
@@ -544,6 +593,19 @@ export function PresetBrowserDialog({
       };
     });
   };
+  const renderAnimatedPreview = (preset: SavedShader, timeSeconds: number) => {
+    if (!image) {
+      return null;
+    }
+
+    return renderPreviewToCanvas(
+      getRenderableShaderCode(preset),
+      getRenderableShaderUniformValues(preset),
+      image,
+      previewRendererRef,
+      timeSeconds,
+    );
+  };
   const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'sculpture';
   const normalizedQuery = deferredQuery.trim().toLowerCase();
   const filteredPresets = presets.filter((preset) => {
@@ -655,6 +717,9 @@ export function PresetBrowserDialog({
                           ] ?? null
                         }
                         onRequestPreview={() => requestPreview(preset)}
+                        onRenderAnimatedPreview={(timeSeconds) =>
+                          renderAnimatedPreview(preset, timeSeconds)
+                        }
                         onPreviewStart={() => onPreviewStart?.(preset.id)}
                         onPreviewEnd={() => onPreviewEnd?.(preset.id)}
                         onSelect={() => {
