@@ -92,6 +92,19 @@ interface CompiledRenderLayer extends StageRenderLayer {
   locations: ProgramLocations;
 }
 
+interface ParallelShaderCompileExtension {
+  COMPLETION_STATUS_KHR: number;
+}
+
+interface PendingProgramBundle {
+  program: WebGLProgram;
+  vertexShader: WebGLShader;
+  fragmentShader: WebGLShader;
+  shaderCode: string;
+  uniformDefinitions: ShaderUniformMap;
+  parallelCompileExtension: ParallelShaderCompileExtension | null;
+}
+
 interface StageTextureSourceState {
   source: StageRenderInputSource;
   texture: WebGLTexture | null;
@@ -153,6 +166,16 @@ function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: strin
     gl.deleteShader(shader);
     throw new Error(error);
   }
+  return shader;
+}
+
+function compileShaderUnchecked(gl: WebGLRenderingContext, type: number, source: string) {
+  const shader = gl.createShader(type);
+  if (!shader) {
+    throw new Error('Unable to allocate shader.');
+  }
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
   return shader;
 }
 
@@ -218,6 +241,137 @@ function createProgramBundle(
   gl.deleteShader(fragmentShader);
 
   return bundle;
+}
+
+function createPendingProgramBundle(
+  gl: WebGLRenderingContext,
+  shaderCode: string,
+  uniformDefinitions: ShaderUniformMap,
+  parallelCompileExtension: ParallelShaderCompileExtension | null,
+): PendingProgramBundle {
+  const vertexShader = compileShaderUnchecked(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+  const fragmentShader = compileShaderUnchecked(
+    gl,
+    gl.FRAGMENT_SHADER,
+    buildFragmentShaderSource(shaderCode),
+  );
+  const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
+    throw new Error('Unable to create the WebGL program.');
+  }
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+
+  return {
+    program,
+    vertexShader,
+    fragmentShader,
+    shaderCode,
+    uniformDefinitions,
+    parallelCompileExtension,
+  };
+}
+
+function resolvePendingProgramBundle(
+  gl: WebGLRenderingContext,
+  pendingBundle: PendingProgramBundle,
+) {
+  if (
+    pendingBundle.parallelCompileExtension &&
+    !gl.getProgramParameter(
+      pendingBundle.program,
+      pendingBundle.parallelCompileExtension.COMPLETION_STATUS_KHR,
+    )
+  ) {
+    return null;
+  }
+
+  const vertexCompiled = gl.getShaderParameter(
+    pendingBundle.vertexShader,
+    gl.COMPILE_STATUS,
+  );
+  const fragmentCompiled = gl.getShaderParameter(
+    pendingBundle.fragmentShader,
+    gl.COMPILE_STATUS,
+  );
+
+  if (!vertexCompiled || !fragmentCompiled) {
+    const error =
+      gl.getShaderInfoLog(pendingBundle.fragmentShader) ||
+      gl.getShaderInfoLog(pendingBundle.vertexShader) ||
+      'Shader compilation failed.';
+    gl.deleteProgram(pendingBundle.program);
+    gl.deleteShader(pendingBundle.vertexShader);
+    gl.deleteShader(pendingBundle.fragmentShader);
+    throw new Error(error);
+  }
+
+  if (!gl.getProgramParameter(pendingBundle.program, gl.LINK_STATUS)) {
+    const error = gl.getProgramInfoLog(pendingBundle.program) || 'GLSL link error.';
+    gl.deleteProgram(pendingBundle.program);
+    gl.deleteShader(pendingBundle.vertexShader);
+    gl.deleteShader(pendingBundle.fragmentShader);
+    throw new Error(error);
+  }
+
+  const bundle = {
+    program: pendingBundle.program,
+    locations: {
+      position: gl.getAttribLocation(pendingBundle.program, 'a_position'),
+      time: gl.getUniformLocation(pendingBundle.program, 'u_time'),
+      image: gl.getUniformLocation(pendingBundle.program, 'u_image'),
+      overlayImage: gl.getUniformLocation(pendingBundle.program, 'u_timeline_overlay_image'),
+      overlayAspectRatio: gl.getUniformLocation(
+        pendingBundle.program,
+        'u_timeline_overlay_aspect_ratio',
+      ),
+      transitionFromImage: gl.getUniformLocation(
+        pendingBundle.program,
+        'u_timeline_from_image',
+      ),
+      transitionToImage: gl.getUniformLocation(pendingBundle.program, 'u_timeline_to_image'),
+      transitionFromOverlayImage: gl.getUniformLocation(
+        pendingBundle.program,
+        'u_timeline_from_overlay_image',
+      ),
+      transitionToOverlayImage: gl.getUniformLocation(
+        pendingBundle.program,
+        'u_timeline_to_overlay_image',
+      ),
+      transitionFromOverlayAspectRatio: gl.getUniformLocation(
+        pendingBundle.program,
+        'u_timeline_from_overlay_aspect_ratio',
+      ),
+      transitionToOverlayAspectRatio: gl.getUniformLocation(
+        pendingBundle.program,
+        'u_timeline_to_overlay_aspect_ratio',
+      ),
+      resolution: gl.getUniformLocation(pendingBundle.program, 'u_resolution'),
+      custom: Object.fromEntries(
+        Object.keys(pendingBundle.uniformDefinitions).map((name) => [
+          name,
+          gl.getUniformLocation(pendingBundle.program, name),
+        ]),
+      ),
+    },
+  };
+
+  gl.deleteShader(pendingBundle.vertexShader);
+  gl.deleteShader(pendingBundle.fragmentShader);
+  return bundle;
+}
+
+function disposePendingProgramBundle(
+  gl: WebGLRenderingContext,
+  pendingBundle: PendingProgramBundle,
+) {
+  gl.deleteProgram(pendingBundle.program);
+  gl.deleteShader(pendingBundle.vertexShader);
+  gl.deleteShader(pendingBundle.fragmentShader);
 }
 
 function initializeTexture(
@@ -618,6 +772,7 @@ export function StageRenderer({
   const programCacheRef = useRef<
     Map<string, { program: WebGLProgram; locations: ProgramLocations }>
   >(new Map());
+  const pendingProgramCacheRef = useRef<Map<string, PendingProgramBundle>>(new Map());
   const compiledLayersRef = useRef<CompiledRenderLayer[]>([]);
   const onCompilerErrorRef = useRef(onCompilerError);
   const textureSourcesRef = useRef<Map<string, StageTextureSourceState>>(new Map());
@@ -809,6 +964,7 @@ export function StageRenderer({
     }
 
     const programCache = programCacheRef.current;
+    const pendingProgramCache = pendingProgramCacheRef.current;
     const textureSources = textureSourcesRef.current;
     const gl = canvas.getContext('webgl', {
       preserveDrawingBuffer: preserveDrawingBufferRef.current,
@@ -843,6 +999,10 @@ export function StageRenderer({
         gl.deleteProgram(program);
       });
       programCache.clear();
+      pendingProgramCache.forEach((pendingBundle) => {
+        disposePendingProgramBundle(gl, pendingBundle);
+      });
+      pendingProgramCache.clear();
       compiledLayersRef.current = [];
       textureSources.forEach((state) => {
         disposeTextureSourceState(gl, state);
@@ -933,11 +1093,23 @@ export function StageRenderer({
       return;
     }
 
+    let disposed = false;
+    let timeoutId: number | null = null;
+    const parallelCompileExtension = gl.getExtension(
+      'KHR_parallel_shader_compile',
+    ) as ParallelShaderCompileExtension | null;
     const requiredLayers = [
       ...resolvedRenderLayersRef.current,
       ...resolvedPreloadLayersRef.current,
     ];
     const requiredShaderCodes = new Set(requiredLayers.map((layer) => layer.shaderCode));
+    const visibleShaderCodes = new Set(
+      resolvedRenderLayersRef.current.map((layer) => layer.shaderCode),
+    );
+    const shaderDefinitionByCode = new Map(
+      requiredLayers.map((layer) => [layer.shaderCode, layer.uniformDefinitions] as const),
+    );
+
     for (const [key, cachedProgram] of programCacheRef.current.entries()) {
       if (requiredShaderCodes.has(key)) {
         continue;
@@ -947,35 +1119,126 @@ export function StageRenderer({
       programCacheRef.current.delete(key);
     }
 
-    const nextCompiledLayers: CompiledRenderLayer[] = [];
-    let firstError = '';
-
-    try {
-      for (const [index, layer] of requiredLayers.entries()) {
-        const key = layer.shaderCode;
-        let cachedProgram = programCacheRef.current.get(key);
-
-        if (!cachedProgram) {
-          cachedProgram = createProgramBundle(gl, layer.shaderCode, layer.uniformDefinitions);
-          programCacheRef.current.set(key, cachedProgram);
-        }
-
-        if (index < resolvedRenderLayersRef.current.length) {
-          nextCompiledLayers.push({
-            ...layer,
-            opacity: Number.isFinite(layer.opacity) ? Number(layer.opacity) : 1,
-            key: `${key}:${index}`,
-            program: cachedProgram.program,
-            locations: cachedProgram.locations,
-          });
-        }
+    for (const [key, pendingBundle] of pendingProgramCacheRef.current.entries()) {
+      if (requiredShaderCodes.has(key)) {
+        continue;
       }
-    } catch (error) {
-      firstError = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
+
+      disposePendingProgramBundle(gl, pendingBundle);
+      pendingProgramCacheRef.current.delete(key);
     }
 
-    compiledLayersRef.current = nextCompiledLayers;
-    onCompilerErrorRef.current?.(firstError ? `GLSL Error: ${firstError}` : '');
+    const syncCompiledRenderLayers = () => {
+      const nextCompiledLayers: CompiledRenderLayer[] = [];
+
+      for (const [index, layer] of resolvedRenderLayersRef.current.entries()) {
+        const cachedProgram = programCacheRef.current.get(layer.shaderCode);
+        if (!cachedProgram) {
+          return false;
+        }
+
+        nextCompiledLayers.push({
+          ...layer,
+          opacity: Number.isFinite(layer.opacity) ? Number(layer.opacity) : 1,
+          key: `${layer.shaderCode}:${index}`,
+          program: cachedProgram.program,
+          locations: cachedProgram.locations,
+        });
+      }
+
+      compiledLayersRef.current = nextCompiledLayers;
+      return true;
+    };
+
+    const scheduleNextTick = () => {
+      if (disposed) {
+        return;
+      }
+
+      timeoutId = window.setTimeout(processShaderQueue, parallelCompileExtension ? 16 : 0);
+    };
+
+    const processShaderQueue = () => {
+      if (disposed) {
+        return;
+      }
+
+      let visibleError = '';
+
+      for (const [key, pendingBundle] of pendingProgramCacheRef.current.entries()) {
+        try {
+          const resolvedProgram = resolvePendingProgramBundle(gl, pendingBundle);
+          if (!resolvedProgram) {
+            continue;
+          }
+
+          pendingProgramCacheRef.current.delete(key);
+          programCacheRef.current.set(key, resolvedProgram);
+        } catch (error) {
+          pendingProgramCacheRef.current.delete(key);
+          if (visibleShaderCodes.has(key)) {
+            visibleError = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
+          }
+        }
+      }
+
+      const missingShaderCode = Array.from(requiredShaderCodes).find(
+        (shaderCode) =>
+          !programCacheRef.current.has(shaderCode) &&
+          !pendingProgramCacheRef.current.has(shaderCode),
+      );
+
+      if (missingShaderCode) {
+        try {
+          const uniformMap = shaderDefinitionByCode.get(missingShaderCode) ?? {};
+          if (parallelCompileExtension) {
+            pendingProgramCacheRef.current.set(
+              missingShaderCode,
+              createPendingProgramBundle(
+                gl,
+                missingShaderCode,
+                uniformMap,
+                parallelCompileExtension,
+              ),
+            );
+          } else {
+            programCacheRef.current.set(
+              missingShaderCode,
+              createProgramBundle(gl, missingShaderCode, uniformMap),
+            );
+          }
+        } catch (error) {
+          if (visibleShaderCodes.has(missingShaderCode)) {
+            visibleError = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
+          }
+        }
+      }
+
+      const visibleShadersReady = syncCompiledRenderLayers();
+      if (visibleError) {
+        onCompilerErrorRef.current?.(`GLSL Error: ${visibleError}`);
+      } else if (visibleShadersReady) {
+        onCompilerErrorRef.current?.('');
+      }
+
+      const hasPendingWork =
+        pendingProgramCacheRef.current.size > 0 ||
+        Array.from(requiredShaderCodes).some(
+          (shaderCode) => !programCacheRef.current.has(shaderCode),
+        );
+      if (hasPendingWork) {
+        scheduleNextTick();
+      }
+    };
+
+    processShaderQueue();
+
+    return () => {
+      disposed = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [renderLayerShaderSignature, shaderCompileNonce]);
 
   useEffect(() => {
