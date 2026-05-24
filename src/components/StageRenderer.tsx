@@ -761,12 +761,26 @@ export function StageRenderer({
     const compiledByKey = new Map(
       compiledLayersRef.current.map((layer) => [layer.key, layer] as const),
     );
+    const programCache = programCacheRef.current;
 
-    compiledLayersRef.current = resolvedRenderLayers.flatMap((layer, index) => {
+    const nextCompiledLayers = resolvedRenderLayers.flatMap((layer, index) => {
       const key = `${layer.shaderCode}:${index}`;
       const existingLayer = compiledByKey.get(key);
       if (!existingLayer) {
-        return [];
+        const cachedProgram = programCache.get(layer.shaderCode);
+        if (!cachedProgram) {
+          return [];
+        }
+
+        return [
+          {
+            ...layer,
+            opacity: Number.isFinite(layer.opacity) ? Number(layer.opacity) : 1,
+            key,
+            program: cachedProgram.program,
+            locations: cachedProgram.locations,
+          },
+        ];
       }
 
       return [
@@ -778,6 +792,10 @@ export function StageRenderer({
         },
       ];
     });
+
+    if (nextCompiledLayers.length > 0 || resolvedRenderLayers.length === 0) {
+      compiledLayersRef.current = nextCompiledLayers;
+    }
   }, [resolvedRenderLayers]);
 
   useEffect(() => {
