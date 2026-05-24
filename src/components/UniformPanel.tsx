@@ -1,6 +1,7 @@
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
-import { hexToRgb, rgbToHex } from '../lib/shader';
+import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 import { PanelSection } from './PanelSection';
+import { ShaderColorInput } from './ShaderColorInput';
 
 interface UniformPanelProps {
   title?: string;
@@ -23,7 +24,7 @@ export function UniformPanel({
 }: UniformPanelProps) {
   return (
     <PanelSection title={title}>
-      <div className="stack gap-md">
+      <div className="stack gap-md" data-slider-key-scope="true">
         {Object.keys(uniformDefinitions).length > 0 ? (
           Object.entries(uniformDefinitions).map(([name, definition]) => {
             const value = uniformValues[name];
@@ -47,6 +48,9 @@ export function UniformPanel({
                     step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
                     value={Number(value)}
                     onChange={(event) => onUniformChange(name, Number(event.target.value))}
+                    onKeyDown={(event) =>
+                      handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
+                    }
                   />
                 ) : null}
                 {definition.type === 'bool' ? (
@@ -59,11 +63,7 @@ export function UniformPanel({
                   </button>
                 ) : null}
                 {definition.type === 'vec3' && Array.isArray(value) ? (
-                  <input
-                    type="color"
-                    value={rgbToHex(value)}
-                    onChange={(event) => onUniformChange(name, hexToRgb(event.target.value))}
-                  />
+                  <ShaderColorInput value={value} onChange={(nextValue) => onUniformChange(name, nextValue)} />
                 ) : null}
               </label>
             );

@@ -7,9 +7,9 @@ export type { ShaderPresetDefinition } from './types';
 export { drawingPresetList, sculpturePresetList, stagePresetList };
 
 export const shaderPresetList: ShaderPresetDefinition[] = [
+  ...sculpturePresetList,
   ...stagePresetList,
   ...drawingPresetList,
-  ...sculpturePresetList,
 ];
 
 export const shaderPresets: Record<string, ShaderPresetDefinition> = Object.fromEntries(

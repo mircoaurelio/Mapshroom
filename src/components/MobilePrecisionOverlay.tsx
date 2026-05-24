@@ -1,3 +1,5 @@
+import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
+
 interface MobilePrecisionOverlayProps {
   precision: number;
   onPrecisionChange: (value: number) => void;
@@ -17,6 +19,7 @@ export function MobilePrecisionOverlay({
           max={40}
           value={precision}
           onChange={(event) => onPrecisionChange(Number(event.target.value))}
+          onKeyDown={(event) => handleVerticalRangeKey(event, onPrecisionChange)}
         />
       </label>
     </div>

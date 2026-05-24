@@ -10,7 +10,7 @@ import {
   getRenderableShaderUniformValues,
 } from '../lib/shaderState';
 
-const TEMPLATE_ORDER: ShaderTemplate[] = ['stage', 'drawing', 'sculpture'];
+const TEMPLATE_ORDER: ShaderTemplate[] = ['sculpture', 'stage', 'drawing'];
 const TEMPLATE_LABELS: Record<ShaderTemplate, string> = {
   stage: 'Stage',
   drawing: 'Drawing',
@@ -31,7 +31,28 @@ const GROUP_ORDER: Record<ShaderTemplate, string[]> = {
     'Experimental',
   ],
   drawing: ['Base', 'Ink Halos', 'Ink Flow', 'Scanner Bands', 'Op Art', 'Crosshatch Ritual'],
-  sculpture: ['Base', 'Relief Halos', 'Chrome Relief', 'Laser Relief', 'Structural Relief', 'Patina Flow'],
+  sculpture: [
+    'Base',
+    'Relief Halos',
+    'Chrome Relief',
+    'Laser Relief',
+    'Structural Relief',
+    'Patina Flow',
+    'Recovered Timeline',
+    'Recovered Online',
+    'Saved',
+    'Halos',
+    'Scanners',
+    'Lights',
+    'Geometry',
+    'Dots & Grids',
+    'Spirals',
+    'Organic Motion',
+    'Eyes & Entities',
+    'Fractals',
+    'Masks & Contrast',
+    'Experimental',
+  ],
 };
 const PREVIEW_WIDTH = 128;
 const PREVIEW_HEIGHT = 96;
@@ -52,6 +73,8 @@ interface PresetBrowserDialogProps {
   presets: SavedShader[];
   activeShaderId: string;
   assetUrl: string | null;
+  onPreviewStart?: (shaderId: string) => void;
+  onPreviewEnd?: (shaderId: string) => void;
   onSelect: (shaderId: string) => void;
   onClose: () => void;
 }
@@ -318,6 +341,8 @@ function PreviewCard({
   image,
   previewSrc,
   onRequestPreview,
+  onPreviewStart,
+  onPreviewEnd,
   onSelect,
 }: {
   preset: SavedShader;
@@ -325,6 +350,8 @@ function PreviewCard({
   image: HTMLCanvasElement | null;
   previewSrc: string | null;
   onRequestPreview: () => void;
+  onPreviewStart: () => void;
+  onPreviewEnd: () => void;
   onSelect: () => void;
 }) {
   const cardRef = useRef<HTMLButtonElement>(null);
@@ -364,6 +391,10 @@ function PreviewCard({
       ref={cardRef}
       type="button"
       className={`preset-preview-card ${isActive ? 'preset-preview-card-active' : ''}`}
+      onPointerEnter={onPreviewStart}
+      onPointerLeave={onPreviewEnd}
+      onFocus={onPreviewStart}
+      onBlur={onPreviewEnd}
       onClick={onSelect}
     >
       <div className="preset-preview-shell">
@@ -399,11 +430,13 @@ export function PresetBrowserDialog({
   presets,
   activeShaderId,
   assetUrl,
+  onPreviewStart,
+  onPreviewEnd,
   onSelect,
   onClose,
 }: PresetBrowserDialogProps) {
   const [query, setQuery] = useState('');
-  const [activeTemplate, setActiveTemplate] = useState<ShaderTemplate>('stage');
+  const [activeTemplate, setActiveTemplate] = useState<ShaderTemplate>('sculpture');
   const [loadedPreview, setLoadedPreview] = useState<{
     assetUrl: string;
     image: HTMLCanvasElement;
@@ -462,7 +495,7 @@ export function PresetBrowserDialog({
     }
 
     const currentTemplate =
-      presets.find((preset) => preset.id === activeShaderId)?.template ?? 'stage';
+      presets.find((preset) => preset.id === activeShaderId)?.template ?? 'sculpture';
     setActiveTemplate(currentTemplate);
   }, [open, presets, activeShaderId]);
 
@@ -471,6 +504,7 @@ export function PresetBrowserDialog({
   const image = assetUrl && loadedPreview?.assetUrl === assetUrl ? loadedPreview.image : null;
   const previewNamespace = assetUrl ?? '__no_asset__';
   const handleClose = () => {
+    onPreviewEnd?.(activeShaderId);
     onClose();
   };
   const requestPreview = (preset: SavedShader) => {
@@ -510,7 +544,7 @@ export function PresetBrowserDialog({
       };
     });
   };
-  const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'stage';
+  const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'sculpture';
   const normalizedQuery = deferredQuery.trim().toLowerCase();
   const filteredPresets = presets.filter((preset) => {
     if (getPresetTemplate(preset) !== selectedTemplate) {
@@ -621,6 +655,8 @@ export function PresetBrowserDialog({
                           ] ?? null
                         }
                         onRequestPreview={() => requestPreview(preset)}
+                        onPreviewStart={() => onPreviewStart?.(preset.id)}
+                        onPreviewEnd={() => onPreviewEnd?.(preset.id)}
                         onSelect={() => {
                           onSelect(preset.id);
                           handleClose();

@@ -1,6 +1,8 @@
 import type { ShaderPresetDefinition } from '../types';
+import { onlineRecoveredStagePresetList } from './onlineRecovered';
 
-export const stagePresetList: ShaderPresetDefinition[] = [
+const recoveredStagePresetListSource: ShaderPresetDefinition[] = [
+  ...onlineRecoveredStagePresetList,
   {
     id: "timeline-498f9868-cd5d-4683-ad68-69278172b106",
     name: "High Contrast Aura",
@@ -1318,3 +1320,9 @@ export const stagePresetList: ShaderPresetDefinition[] = [
     },
   },
 ];
+
+export const stagePresetList: ShaderPresetDefinition[] =
+  recoveredStagePresetListSource.map((preset) => ({
+    ...preset,
+    template: 'sculpture',
+  }));

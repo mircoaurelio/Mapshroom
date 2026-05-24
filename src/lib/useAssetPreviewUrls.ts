@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AssetRecord } from '../types';
+import { getBundledAssetUrl } from './bundledAssets';
 import { getAssetBlob } from './storage';
 
 const assetPreviewUrlCache = new Map<string, string>();
@@ -31,7 +32,7 @@ export function useAssetPreviewUrls(
   useEffect(() => {
     const assetIds = new Set(assets.map((asset) => asset.id));
     const cachedUrls = assets.reduce<Record<string, string>>((collection, asset) => {
-      const cachedUrl = assetPreviewUrlCache.get(asset.id);
+      const cachedUrl = getBundledAssetUrl(asset.id) ?? assetPreviewUrlCache.get(asset.id);
       if (cachedUrl) {
         collection[asset.id] = cachedUrl;
       }
@@ -67,7 +68,9 @@ export function useAssetPreviewUrls(
     }
 
     let disposed = false;
-    const missingAssets = assets.filter((asset) => !assetPreviewUrlCache.has(asset.id));
+    const missingAssets = assets.filter(
+      (asset) => !getBundledAssetUrl(asset.id) && !assetPreviewUrlCache.has(asset.id),
+    );
     if (!missingAssets.length) {
       return;
     }

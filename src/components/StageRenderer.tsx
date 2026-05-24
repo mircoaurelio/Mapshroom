@@ -34,6 +34,7 @@ interface StageRendererProps {
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
+  personalPreviewActive?: boolean;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
@@ -121,6 +122,16 @@ const VIDEO_DRIFT_CORRECTION_THRESHOLD_SECONDS = 0.05;
 const VIDEO_HARD_SEEK_THRESHOLD_SECONDS = 0.45;
 const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
 const MIN_STAGE_SCALE = 0.05;
+const DEFAULT_WHITE_IMAGE_SOURCE: StageRenderInputSource = {
+  sourceKey: 'default:white-16-9',
+  assetId: 'default:white-16-9',
+  assetName: 'Default white 16:9 image',
+  kind: 'image',
+  url:
+    'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1600 900%22%3E%3Crect width=%221600%22 height=%22900%22 fill=%22white%22/%3E%3C/svg%3E',
+  status: 'ready',
+  quality: 'high',
+};
 
 function clampVideoPlaybackRate(playbackRate: number) {
   if (!Number.isFinite(playbackRate) || playbackRate <= 0) {
@@ -595,6 +606,7 @@ export function StageRenderer({
   stageTransform,
   transport,
   isOutputOnly = false,
+  personalPreviewActive = false,
   onCanvasReady,
   onRenderStateChange,
   onCompilerError,
@@ -635,7 +647,7 @@ export function StageRenderer({
             status: assetUrlStatus,
             quality: 'high',
           }
-        : null,
+        : DEFAULT_WHITE_IMAGE_SOURCE,
     [asset, assetUrl, assetUrlStatus],
   );
   const {
@@ -1339,7 +1351,9 @@ export function StageRenderer({
   return (
     <div
       ref={shellRef}
-      className={`stage-shell ${isOutputOnly ? 'stage-shell-output' : ''}`}
+      className={`stage-shell ${isOutputOnly ? 'stage-shell-output' : ''} ${
+        personalPreviewActive ? 'stage-shell-personal-preview' : ''
+      }`}
       title={isOutputOnly ? undefined : renderStatus}
     >
       <div ref={mediaSurfaceRef} className="stage-media-surface" style={mediaSurfaceStyle}>

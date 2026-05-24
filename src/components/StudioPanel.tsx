@@ -13,7 +13,6 @@ import { UniformPanel } from './UniformPanel';
 interface ShaderStudioControlsSectionProps {
   savedShaders: SavedShader[];
   activeShaderId: string;
-  onNewShader: () => void;
   onSaveShader: () => void;
   onBrowsePresets: () => void;
   timelineSelection?: TimelineSelectionInfo;
@@ -74,6 +73,21 @@ function ReloadIcon() {
   );
 }
 
+function ExpandIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M7.5 3.5h-4v4" />
+      <path d="M3.5 3.5 8 8" />
+      <path d="M12.5 3.5h4v4" />
+      <path d="M16.5 3.5 12 8" />
+      <path d="M7.5 16.5h-4v-4" />
+      <path d="M3.5 16.5 8 12" />
+      <path d="M12.5 16.5h4v-4" />
+      <path d="M16.5 16.5 12 12" />
+    </svg>
+  );
+}
+
 function PresetIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -95,16 +109,6 @@ function SaveIcon() {
   );
 }
 
-function NewShaderIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M10 4v12" />
-      <path d="M4 10h12" />
-      <path d="m14.5 4.5 1-2 1 2 2 1-2 1-1 2-1-2-2-1z" />
-    </svg>
-  );
-}
-
 function CollapseIcon({ collapsed }: { collapsed: boolean }) {
   return collapsed ? (
     <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -120,7 +124,6 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 export function ShaderStudioControlsSection({
   savedShaders,
   activeShaderId,
-  onNewShader,
   onSaveShader,
   onBrowsePresets,
   timelineSelection,
@@ -152,14 +155,6 @@ export function ShaderStudioControlsSection({
             >
               <SaveIcon />
               <span>{timelineSelection?.isLinked ? 'Save To Library' : 'Save'}</span>
-            </button>
-            <button
-              type="button"
-              className="secondary-button shader-studio-action-button"
-              onClick={onNewShader}
-            >
-              <NewShaderIcon />
-              <span>New Shader</span>
             </button>
           </div>
         </div>
@@ -205,6 +200,7 @@ export function ShaderCodeSection({
 }: ShaderCodeSectionProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [collapsed, setCollapsed] = useState(false);
+  const [isExpandedEditorOpen, setIsExpandedEditorOpen] = useState(false);
   const copyLabel =
     copyState === 'copied' ? 'Code copied' : copyState === 'error' ? 'Copy failed' : 'Copy code';
 
@@ -221,6 +217,21 @@ export function ShaderCodeSection({
       window.clearTimeout(timeoutId);
     };
   }, [copyState]);
+
+  useEffect(() => {
+    if (!isExpandedEditorOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsExpandedEditorOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpandedEditorOpen]);
 
   const handleCopyCode = async () => {
     try {
@@ -240,6 +251,15 @@ export function ShaderCodeSection({
       title="Code"
       actions={
         <>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Open expanded code editor"
+            title="Open expanded code editor"
+            onClick={() => setIsExpandedEditorOpen(true)}
+          >
+            <ExpandIcon />
+          </button>
           <button
             type="button"
             className="icon-button"
@@ -303,6 +323,92 @@ export function ShaderCodeSection({
           ) : null}
         </div>
       )}
+
+      {isExpandedEditorOpen ? (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsExpandedEditorOpen(false);
+            }
+          }}
+        >
+          <section
+            className="dialog-panel code-editor-dialog-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="expanded-code-editor-title"
+          >
+            <header className="dialog-header">
+              <div>
+                <span className="panel-eyebrow">Shader Source</span>
+                <h2 id="expanded-code-editor-title" className="dialog-title">
+                  Code Editor
+                </h2>
+              </div>
+              <div className="button-row">
+                <button
+                  type="button"
+                  className={`icon-button ${
+                    copyState === 'copied'
+                      ? 'icon-button-success'
+                      : copyState === 'error'
+                        ? 'icon-button-error'
+                        : ''
+                  }`}
+                  aria-label={copyLabel}
+                  title={copyLabel}
+                  onClick={() => {
+                    void handleCopyCode();
+                  }}
+                >
+                  {copyState === 'copied' ? <CheckIcon /> : <CopyIcon />}
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Recompile current code"
+                  title="Recompile current code"
+                  onClick={onReloadShaderCode}
+                >
+                  <ReloadIcon />
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setIsExpandedEditorOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </header>
+
+            <div className="code-editor-dialog-body">
+              <textarea
+                className="code-editor code-editor-expanded"
+                value={shaderCode}
+                spellCheck={false}
+                autoFocus
+                onChange={(event) => onShaderCodeChange(event.target.value)}
+              />
+              {compilerError ? (
+                <div className="error-panel code-editor-dialog-error">
+                  {compilerError}
+                  <button
+                    type="button"
+                    className="fix-error-button"
+                    disabled={aiLoading}
+                    onClick={onFixError}
+                  >
+                    {aiLoading ? 'Fixing...' : 'Fix Error'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </PanelSection>
   );
 }
@@ -310,7 +416,6 @@ export function ShaderCodeSection({
 export function StudioPanel({
   savedShaders,
   activeShaderId,
-  onNewShader,
   onSaveShader,
   uniformDefinitions,
   uniformValues,
@@ -336,7 +441,6 @@ export function StudioPanel({
       <ShaderStudioControlsSection
         savedShaders={savedShaders}
         activeShaderId={activeShaderId}
-        onNewShader={onNewShader}
         onSaveShader={onSaveShader}
         onBrowsePresets={onBrowsePresets}
         timelineSelection={timelineSelection}

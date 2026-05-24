@@ -1,5 +1,6 @@
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
-import { hexToRgb, rgbToHex } from '../lib/shader';
+import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
+import { ShaderColorInput } from './ShaderColorInput';
 
 interface MobileUniformOverlayProps {
   uniformDefinitions: ShaderUniformMap;
@@ -36,7 +37,7 @@ export function MobileUniformOverlay({
         {entries.length === 0 ? (
           <p className="empty-copy">No uniforms declared.</p>
         ) : (
-          <div className="mobile-uniform-overlay-controls">
+          <div className="mobile-uniform-overlay-controls" data-slider-key-scope="true">
             {entries.map(([name, definition]) => {
               const value = uniformValues[name];
               if (value === undefined) return null;
@@ -57,6 +58,9 @@ export function MobileUniformOverlay({
                       step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
                       value={Number(value)}
                       onChange={(event) => onUniformChange(name, Number(event.target.value))}
+                      onKeyDown={(event) =>
+                        handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
+                      }
                     />
                   ) : null}
                   {definition.type === 'bool' ? (
@@ -69,11 +73,7 @@ export function MobileUniformOverlay({
                     </button>
                   ) : null}
                   {definition.type === 'vec3' && Array.isArray(value) ? (
-                    <input
-                      type="color"
-                      value={rgbToHex(value)}
-                      onChange={(event) => onUniformChange(name, hexToRgb(event.target.value))}
-                    />
+                    <ShaderColorInput value={value} onChange={(nextValue) => onUniformChange(name, nextValue)} />
                   ) : null}
                 </label>
               );

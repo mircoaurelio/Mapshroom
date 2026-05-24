@@ -11,11 +11,30 @@ interface WorkspaceToolbarProps {
   onOpenExport: () => void;
   onOpenAssets: () => void;
   onOpenSettings: () => void;
+  onNewShader: () => void;
+  onOpenPresetBrowser: () => void;
   onPlayToggle: () => void;
   onOpenOutput: () => void;
   onToggleWorkspaceMode: () => void;
   onToggleSidebarVisibility: () => void;
   onToggleDesktopSlidersWindow: () => void;
+}
+
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5 3.75v8.5L12 8Z" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5.25 3.5v9" />
+      <path d="M10.75 3.5v9" />
+    </svg>
+  );
 }
 
 export function WorkspaceToolbar({
@@ -28,6 +47,8 @@ export function WorkspaceToolbar({
   onOpenExport,
   onOpenAssets,
   onOpenSettings,
+  onNewShader,
+  onOpenPresetBrowser,
   onPlayToggle,
   onOpenOutput,
   onToggleWorkspaceMode,
@@ -67,6 +88,14 @@ export function WorkspaceToolbar({
     <header className="workspace-toolbar">
       <strong className="toolbar-brand">Mapshroom</strong>
       <div className="toolbar-actions">
+        <button type="button" className="primary-button" onClick={onNewShader}>
+          New Shader
+        </button>
+
+        <button type="button" className="secondary-button" onClick={onOpenPresetBrowser}>
+          Add Shader
+        </button>
+
         <div className="toolbar-menu-shell" ref={viewMenuRef}>
           <button
             type="button"
@@ -127,8 +156,14 @@ export function WorkspaceToolbar({
         <button type="button" className="secondary-button" onClick={onOpenSettings}>
           Settings
         </button>
-        <button type="button" className="secondary-button" onClick={onPlayToggle}>
-          {isPlaying ? 'Pause' : 'Play'}
+        <button
+          type="button"
+          className="icon-button toolbar-transport-button"
+          aria-label={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+          title={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+          onClick={onPlayToggle}
+        >
+          {isPlaying ? <PauseIcon /> : <PlayIcon />}
         </button>
         <button type="button" className="secondary-button" onClick={onOpenOutput}>
           Output

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AssetRecord } from '../types';
+import { getBundledAssetUrl } from './bundledAssets';
 import { getAssetBlob } from './storage';
 
 const assetObjectUrlCache = new Map<string, string>();
@@ -23,13 +24,14 @@ export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResu
   });
   const assetId = asset?.id ?? null;
   const assetKind = asset?.kind ?? null;
+  const bundledUrl = assetId ? getBundledAssetUrl(assetId) : null;
   const cachedUrl = assetId ? assetObjectUrlCache.get(assetId) ?? null : null;
 
   useEffect(() => {
     let disposed = false;
     let retryTimeoutId: number | null = null;
 
-    if (!assetId || !assetKind || cachedUrl) {
+    if (!assetId || !assetKind || bundledUrl || cachedUrl) {
       return undefined;
     }
 
@@ -71,12 +73,19 @@ export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResu
         window.clearTimeout(retryTimeoutId);
       }
     };
-  }, [assetId, assetKind, cachedUrl]);
+  }, [assetId, assetKind, bundledUrl, cachedUrl]);
 
   if (!assetId || !assetKind) {
     return {
       url: null,
       status: 'idle',
+    };
+  }
+
+  if (bundledUrl) {
+    return {
+      url: bundledUrl,
+      status: 'ready',
     };
   }
 

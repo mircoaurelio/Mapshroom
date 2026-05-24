@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
@@ -19,12 +19,12 @@ import {
   getRenderableShaderUniformValues,
   hasShaderCompileError,
 } from '../lib/shaderState';
+import { getBundledAssetUrl } from '../lib/bundledAssets';
 import type {
   AssetRecord,
   AssetKind,
   SavedShader,
   ShaderUniformValueMap,
-  TimelineEditorViewMode,
   TimelineSequenceMode,
   TimelineStagePreviewMode,
   TimelineStub,
@@ -51,18 +51,16 @@ interface ShaderTimelineEditorProps {
   sequence: TimelineStub['shaderSequence'];
   totalDurationSeconds: number;
   onModeChange: (mode: TimelineSequenceMode) => void;
-  onEditorViewChange: (editorView: TimelineEditorViewMode) => void;
   previewMode: TimelineStagePreviewMode;
   onPreviewModeChange: (previewMode: TimelineStagePreviewMode) => void;
   isPlaying: boolean;
   onPlayToggle: () => void;
-  onReset: () => void;
   onToggleSingleStepLoop: () => void;
-  onToggleRandomChoice: () => void;
   onSharedTransitionChange: (patch: {
     sharedTransitionEnabled?: boolean;
     sharedTransitionEffect?: TimelineStub['shaderSequence']['sharedTransitionEffect'];
     sharedTransitionDurationSeconds?: number;
+    sharedSectionDurationSeconds?: number;
   }) => void;
   onStepChange: (
     stepId: string,
@@ -74,28 +72,10 @@ interface ShaderTimelineEditorProps {
   assetPickerRequestStepId: string | null;
   assetPickerRequestToken: number;
   onAssetPickerRequestHandled: () => void;
-  onAddStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
   onEditStep: (stepId: string) => void;
 }
-
-const EDITOR_VIEW_OPTIONS: Array<{
-  value: TimelineEditorViewMode;
-  label: string;
-  title: string;
-}> = [
-  {
-    value: 'simple',
-    label: 'Simple view',
-    title: 'Simple timeline view',
-  },
-  {
-    value: 'advanced',
-    label: 'Advanced view',
-    title: 'Advanced timeline view',
-  },
-];
 
 function formatStepDuration(seconds: number): string {
   return `${roundTimelineSeconds(seconds).toFixed(2)}s`;
@@ -113,28 +93,6 @@ function getTimelineShaderPreviewKey(
   const renderCode = getRenderableShaderCode(shader);
   const renderUniformValues = getRenderableShaderUniformValues(shader);
   return `${previewNamespace}\u0000${overlayPreviewNamespace}\u0000${shader.id}\u0000${renderCode}\u0000${getUniformValuesPreviewSignature(renderUniformValues)}`;
-}
-
-function ViewModeIcon({ mode }: { mode: TimelineEditorViewMode }) {
-  if (mode === 'simple') {
-    return (
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <rect x="2.5" y="3.5" width="11" height="9" rx="1.5" />
-        <path d="M4.5 10.5h7" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M3 4.5h10" />
-      <path d="M3 8h10" />
-      <path d="M3 11.5h10" />
-      <circle cx="6" cy="4.5" r="1.2" />
-      <circle cx="10" cy="8" r="1.2" />
-      <circle cx="7.5" cy="11.5" r="1.2" />
-    </svg>
-  );
 }
 
 function DuplicateIcon() {
@@ -207,14 +165,19 @@ function RepeatSingleIcon() {
   );
 }
 
-function RandomChoiceIcon() {
+function PlayIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M2.75 4h2.2l4.2 8h4.1" />
-      <path d="M2.75 12h2.2l1.35-2.55" />
-      <path d="M10 4h3.3" />
-      <path d="m11.75 2.5 1.75 1.5-1.75 1.5" />
-      <path d="m11.75 10.5 1.75 1.5-1.75 1.5" />
+      <path d="M5 3.75v8.5L12 8Z" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5.25 3.5v9" />
+      <path d="M10.75 3.5v9" />
     </svg>
   );
 }
@@ -238,34 +201,6 @@ function TimelinePreviewIcon() {
   );
 }
 
-function SharedMixIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M3 5.25h3.5l2.1 2.75h4.4" />
-      <path d="M3 10.75h3.5l2.1-2.75h4.4" />
-      <path d="m11.25 3.75 1.75 1.5-1.75 1.5" />
-      <path d="m11.25 9.25 1.75 1.5-1.75 1.5" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 3.25v9.5" />
-      <path d="M3.25 8h9.5" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="m4.5 6.5 3.5 3 3.5-3" />
-    </svg>
-  );
-}
-
 export function ShaderTimelineEditor({
   assets,
   assetKind,
@@ -279,14 +214,11 @@ export function ShaderTimelineEditor({
   sequence,
   totalDurationSeconds,
   onModeChange,
-  onEditorViewChange,
   previewMode,
   onPreviewModeChange,
   isPlaying,
   onPlayToggle,
-  onReset,
   onToggleSingleStepLoop,
-  onToggleRandomChoice,
   onSharedTransitionChange,
   onStepChange,
   onPinnedStepToggle,
@@ -295,7 +227,6 @@ export function ShaderTimelineEditor({
   assetPickerRequestStepId,
   assetPickerRequestToken,
   onAssetPickerRequestHandled,
-  onAddStepsWithShaders,
   onDuplicateStep,
   onRemoveStep,
   onEditStep,
@@ -322,12 +253,8 @@ export function ShaderTimelineEditor({
   >({});
   const previewRendererRef = useRef<ShaderPreviewRenderer | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
-  const addMenuRef = useRef<HTMLDivElement | null>(null);
-  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [assetPickerStepId, setAssetPickerStepId] = useState<string | null>(null);
   const [assetPickerPreviewAssetId, setAssetPickerPreviewAssetId] = useState<string | null>(null);
-  const [selectedAddShaderIds, setSelectedAddShaderIds] = useState<string[]>([]);
-  const [cardScale, setCardScale] = useState(1);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
@@ -335,10 +262,6 @@ export function ShaderTimelineEditor({
   const assetMap = useMemo(
     () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
     [assets],
-  );
-  const addableShaders = useMemo(
-    () => savedShaders.filter((shader) => !shader.isTemporary),
-    [savedShaders],
   );
   const sequenceShaders = useMemo(() => {
     const nextShaders = new Map<string, SavedShader>();
@@ -369,58 +292,14 @@ export function ShaderTimelineEditor({
     () => referencedAssignedAssetIds.join('\u0001'),
     [referencedAssignedAssetIds],
   );
-  const isAdvancedView = sequence.editorView === 'advanced';
-  const sharedTransitionLocked =
-    sequence.mode === 'randomMix' || sequence.mode === 'double';
+  const isAdvancedView = true;
   const usesSharedTransition =
-    sharedTransitionLocked || sequence.sharedTransitionEnabled;
-  const flowStripStyle = useMemo(
-    () =>
-      ({
-        '--timeline-card-width-scale': `${cardScale.toFixed(2)}`,
-        '--timeline-card-width': `${Math.round(220 * cardScale)}px`,
-        '--timeline-card-simple-width': `${Math.round(192 * cardScale)}px`,
-        '--timeline-card-padding-y': `${(0.22 + cardScale * 0.33).toFixed(2)}rem`,
-        '--timeline-card-padding-x': `${(0.24 + cardScale * 0.36).toFixed(2)}rem`,
-        '--timeline-card-gap': `${(0.16 + cardScale * 0.29).toFixed(2)}rem`,
-        '--timeline-card-preview-height': `${Math.round(46 + cardScale * 42)}px`,
-        '--timeline-card-select-height': `${Math.round(22 + cardScale * 4)}px`,
-      }) as CSSProperties,
-    [cardScale],
-  );
-
-  useEffect(() => {
-    setSelectedAddShaderIds((currentIds) => {
-      const validShaderIds = new Set(addableShaders.map((shader) => shader.id));
-      return currentIds.filter((shaderId) => validShaderIds.has(shaderId));
-    });
-  }, [addableShaders]);
-
-  useEffect(() => {
-    if (!isAddMenuOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!addMenuRef.current?.contains(event.target as Node)) {
-        setIsAddMenuOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsAddMenuOpen(false);
-      }
-    };
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isAddMenuOpen]);
+    sequence.mode === 'randomMix' || sequence.mode === 'double';
+  const usesSharedSectionDuration =
+    sequence.mode === 'random' ||
+    sequence.mode === 'randomMix' ||
+    sequence.mode === 'double' ||
+    sequence.randomChoiceEnabled;
 
   useEffect(
     () => () => {
@@ -474,7 +353,8 @@ export function ShaderTimelineEditor({
           return collection;
         }
 
-        collection[assetId] = timelineEditorAssetUrlCache.get(assetId) ?? null;
+        collection[assetId] =
+          getBundledAssetUrl(assetId) ?? timelineEditorAssetUrlCache.get(assetId) ?? null;
         return collection;
       },
       {},
@@ -486,6 +366,9 @@ export function ShaderTimelineEditor({
       .map((assetId) => assetMap.get(assetId) ?? null)
       .filter((assetRecord): assetRecord is AssetRecord => {
         if (!assetRecord) {
+          return false;
+        }
+        if (getBundledAssetUrl(assetRecord.id)) {
           return false;
         }
 
@@ -523,7 +406,11 @@ export function ShaderTimelineEditor({
             continue;
           }
 
-          nextValue[assetId] = timelineEditorAssetUrlCache.get(assetId) ?? nextValue[assetId] ?? null;
+          nextValue[assetId] =
+            getBundledAssetUrl(assetId) ??
+            timelineEditorAssetUrlCache.get(assetId) ??
+            nextValue[assetId] ??
+            null;
         }
 
         return nextValue;
@@ -632,7 +519,6 @@ export function ShaderTimelineEditor({
         : previewStatus === 'error'
           ? 'No preview'
           : 'Render...';
-  const selectedAddShaderCount = selectedAddShaderIds.length;
   const enabledStepCount = sequence.steps.filter((step) => !step.disabled).length;
   const assetPickerStep =
     assetPickerStepId !== null
@@ -690,14 +576,6 @@ export function ShaderTimelineEditor({
     setAssetPickerPreviewAssetId(assetPickerShader?.inputAssetId ?? assets.at(-1)?.id ?? null);
   }, [assetPickerPreviewAssetId, assetPickerShader?.inputAssetId, assetPickerStep, assets]);
 
-  const toggleAddShaderSelection = (shaderId: string) => {
-    setSelectedAddShaderIds((currentIds) =>
-      currentIds.includes(shaderId)
-        ? currentIds.filter((currentId) => currentId !== shaderId)
-        : [...currentIds, shaderId],
-    );
-  };
-
   return (
     <section className="timeline-sequence-editor">
       <div className="timeline-sequence-toolbar">
@@ -710,23 +588,6 @@ export function ShaderTimelineEditor({
         </div>
 
         <div className="timeline-sequence-toolbar-actions">
-          <div className="timeline-view-mode-switch" role="group" aria-label="Timeline editor view">
-            {EDITOR_VIEW_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`icon-button timeline-view-button ${
-                  sequence.editorView === option.value ? 'timeline-view-button-active' : ''
-                }`}
-                aria-label={option.label}
-                title={option.title}
-                onClick={() => onEditorViewChange(option.value)}
-              >
-                <ViewModeIcon mode={option.value} />
-              </button>
-              ))}
-          </div>
-
           <button
             type="button"
             className={`icon-button timeline-toggle-icon-button ${
@@ -749,46 +610,24 @@ export function ShaderTimelineEditor({
             {previewMode === 'focused' ? <SinglePreviewIcon /> : <TimelinePreviewIcon />}
           </button>
 
-          <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
-            {TIMELINE_SEQUENCE_MODE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={sequence.mode === option.value}
-                className={`timeline-mode-button ${
-                  sequence.mode === option.value ? 'timeline-mode-button-active' : ''
-                }`}
-                onClick={() => onModeChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
           <div className="timeline-shared-transition-toolbar">
-            <button
-              type="button"
-              className={`toggle-chip timeline-shared-transition-toggle ${
-                usesSharedTransition ? 'toggle-chip-active' : ''
-              }`}
-              disabled={sharedTransitionLocked}
-              title={
-                sequence.mode === 'double'
-                  ? 'Double Mix keeps one shared transition while two random shader streams move at different speeds.'
-                  : sharedTransitionLocked
-                    ? 'Random Mix uses one shared transition for the whole sequence.'
-                    : 'Use the same mix effect and time for every transition.'
-              }
-              onClick={() =>
-                onSharedTransitionChange({
-                  sharedTransitionEnabled: !sequence.sharedTransitionEnabled,
-                })
-              }
-            >
-              <SharedMixIcon />
-              <span>Shared Mix</span>
-            </button>
+            {usesSharedSectionDuration ? (
+              <label className="field timeline-compact-field timeline-shared-transition-field">
+                <span>Section Time</span>
+                <input
+                  className="text-field"
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={sequence.sharedSectionDurationSeconds}
+                  onChange={(event) =>
+                    onSharedTransitionChange({
+                      sharedSectionDurationSeconds: Number(event.target.value),
+                    })
+                  }
+                />
+              </label>
+            ) : null}
 
             {usesSharedTransition ? (
               <>
@@ -813,7 +652,7 @@ export function ShaderTimelineEditor({
                 </label>
 
                 <label className="field timeline-compact-field timeline-shared-transition-field">
-                  <span>Time</span>
+                  <span>Mix Time</span>
                   <input
                     className="text-field"
                     type="number"
@@ -831,88 +670,21 @@ export function ShaderTimelineEditor({
             ) : null}
           </div>
 
-          <label className="field timeline-compact-field timeline-card-size-field">
-            <span>Cards</span>
-            <input
-              className="timeline-card-size-slider"
-              type="range"
-              min={0.35}
-              max={1}
-              step={0.05}
-              value={cardScale}
-              aria-label="Timeline shader card size"
-              title="Timeline shader card size"
-              onChange={(event) => setCardScale(Number(event.target.value))}
-            />
-          </label>
-
-          <div className="timeline-add-toolbar" ref={addMenuRef}>
-            <button
-              type="button"
-              className={`secondary-button timeline-add-trigger ${
-                isAddMenuOpen ? 'timeline-add-trigger-active' : ''
-              }`}
-              aria-haspopup="dialog"
-              aria-expanded={isAddMenuOpen}
-              onClick={() => setIsAddMenuOpen((currentValue) => !currentValue)}
-            >
-              <span>Add Shader</span>
-              {selectedAddShaderCount > 0 ? (
-                <span className="timeline-add-count">{selectedAddShaderCount}</span>
-              ) : null}
-              <ChevronDownIcon />
-            </button>
-
-            <button
-              type="button"
-              className="icon-button timeline-add-submit-button"
-              aria-label="Add selected shaders to timeline"
-              title="Add selected shaders to timeline"
-              disabled={selectedAddShaderCount === 0}
-              onClick={() => {
-                if (selectedAddShaderCount === 0) {
-                  return;
-                }
-                onAddStepsWithShaders(selectedAddShaderIds);
-                setSelectedAddShaderIds([]);
-                setIsAddMenuOpen(false);
-              }}
-            >
-              <PlusIcon />
-            </button>
-
-            {isAddMenuOpen ? (
-              <div className="timeline-add-popover" role="dialog" aria-label="Select shaders to add">
-                <div className="timeline-add-popover-copy">
-                  <strong>Pick shaders</strong>
-                  <span>Choose one or more shaders to append to the timeline.</span>
-                </div>
-
-                <div className="timeline-add-option-list">
-                  {addableShaders.map((shader) => {
-                    const isSelected = selectedAddShaderIds.includes(shader.id);
-                    return (
-                      <label
-                        key={shader.id}
-                        className={`timeline-add-option ${
-                          isSelected ? 'timeline-add-option-active' : ''
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleAddShaderSelection(shader.id)}
-                        />
-                        <span className="timeline-add-option-copy">
-                          <strong>{shader.name}</strong>
-                          <small>{shader.group ?? 'Shader'}</small>
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
+          <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
+            {TIMELINE_SEQUENCE_MODE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={sequence.mode === option.value}
+                className={`timeline-mode-button ${
+                  sequence.mode === option.value ? 'timeline-mode-button-active' : ''
+                }`}
+                onClick={() => onModeChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
 
           <div className="timeline-sequence-playback-actions">
@@ -930,22 +702,12 @@ export function ShaderTimelineEditor({
 
             <button
               type="button"
-              className={`icon-button timeline-toggle-icon-button ${
-                sequence.randomChoiceEnabled ? 'timeline-toggle-icon-button-active' : ''
-              }`}
-              aria-label="Random timeline choice"
-              title="Random timeline choice"
-              onClick={onToggleRandomChoice}
+              className="icon-button timeline-toggle-icon-button"
+              aria-label={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+              title={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+              onClick={onPlayToggle}
             >
-              <RandomChoiceIcon />
-            </button>
-
-            <button type="button" className="secondary-button" onClick={onPlayToggle}>
-              {isPlaying ? 'Pause' : 'Play'}
-            </button>
-
-            <button type="button" className="secondary-button" onClick={onReset}>
-              Reset
+              {isPlaying ? <PauseIcon /> : <PlayIcon />}
             </button>
           </div>
 
@@ -956,7 +718,6 @@ export function ShaderTimelineEditor({
         className="timeline-flow-strip"
         role="list"
         aria-label="Shader timeline flow"
-        style={flowStripStyle}
       >
         {sequence.steps.map((step) => {
           const shader = shaderMap.get(step.shaderId);

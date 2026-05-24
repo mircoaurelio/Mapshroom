@@ -8,6 +8,8 @@ interface ProjectLibraryDialogProps {
   savedProjects: ProjectLibraryEntry[];
   onClose: () => void;
   onSaveProject: (name: string) => void;
+  onSaveAsNewProject: (name: string) => void;
+  onCreateNewProject: () => void;
   onOpenProject: (sessionId: string) => void;
 }
 
@@ -30,6 +32,8 @@ export function ProjectLibraryDialog({
   savedProjects,
   onClose,
   onSaveProject,
+  onSaveAsNewProject,
+  onCreateNewProject,
   onOpenProject,
 }: ProjectLibraryDialogProps) {
   const [projectNameDraft, setProjectNameDraft] = useState(currentProjectName);
@@ -84,10 +88,24 @@ export function ProjectLibraryDialog({
               <div className="project-dialog-actions">
                 <button
                   type="button"
+                  className="secondary-button"
+                  onClick={onCreateNewProject}
+                >
+                  New Project
+                </button>
+                <button
+                  type="button"
                   className="primary-button"
                   onClick={() => onSaveProject(projectNameDraft)}
                 >
                   Save Project
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => onSaveAsNewProject(projectNameDraft)}
+                >
+                  Save As New Project
                 </button>
               </div>
             </div>
@@ -102,6 +120,9 @@ export function ProjectLibraryDialog({
                     <div className="project-library-card-copy">
                       <div className="project-library-card-title-row">
                         <strong>{entry.name}</strong>
+                        {entry.bundled ? (
+                          <span className="project-library-card-badge">Starter</span>
+                        ) : null}
                         {entry.sessionId === activeSessionId ? (
                           <span className="project-library-card-badge">Current</span>
                         ) : null}

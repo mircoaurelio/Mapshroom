@@ -66,6 +66,7 @@ interface CompactSharedTimelinePayload {
   z?: 1;
   se?: TimelineTransitionEffect;
   sd?: number;
+  ss?: number;
   s: CompactSharedTimelineStepPayload[];
 }
 
@@ -298,6 +299,7 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
       z: project.timeline.stub.shaderSequence.sharedTransitionEnabled ? 1 : undefined,
       se: project.timeline.stub.shaderSequence.sharedTransitionEffect,
       sd: project.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
+      ss: project.timeline.stub.shaderSequence.sharedSectionDurationSeconds,
       s: project.timeline.stub.shaderSequence.steps
         .filter((step) => sharedShaderIds.includes(step.shaderId))
         .map((step) => ({
@@ -456,6 +458,8 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
             payload.t.se ?? baseProject.timeline.stub.shaderSequence.sharedTransitionEffect,
           sharedTransitionDurationSeconds:
             payload.t.sd ?? baseProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
+          sharedSectionDurationSeconds:
+            payload.t.ss ?? baseProject.timeline.stub.shaderSequence.sharedSectionDurationSeconds,
           steps: timelineSteps,
         },
       },

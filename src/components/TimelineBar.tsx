@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
@@ -11,17 +12,18 @@ import {
   clampTimelineStepDuration,
   clampTransitionDuration,
   getShaderTimelineDuration,
+  getTimelinePlaybackSteps,
   isTimelineStepEnabled,
   roundTimelineSeconds,
   resolveShaderTimelineState,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
+import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 import type {
   AssetRecord,
   AssetKind,
   PlaybackTransport,
   SavedShader,
-  TimelineEditorViewMode,
   TimelineSequenceMode,
   TimelineStagePreviewMode,
   TimelineStub,
@@ -47,16 +49,14 @@ interface TimelineBarProps {
   onSeek: (seconds: number) => void;
   onPlayToggle: () => void;
   onStop: () => void;
-  onReset: () => void;
   onToggleSingleStepLoop: () => void;
-  onToggleRandomChoice: () => void;
   onSequenceModeChange: (mode: TimelineSequenceMode) => void;
-  onSequenceEditorViewChange: (editorView: TimelineEditorViewMode) => void;
   onSequenceStagePreviewModeChange: (stagePreviewMode: TimelineStagePreviewMode) => void;
   onSequenceSharedTransitionChange: (patch: {
     sharedTransitionEnabled?: boolean;
     sharedTransitionEffect?: TimelineTransitionEffect;
     sharedTransitionDurationSeconds?: number;
+    sharedSectionDurationSeconds?: number;
   }) => void;
   onSequenceStepChange: (
     stepId: string,
@@ -69,7 +69,6 @@ interface TimelineBarProps {
   assetPickerRequestToken: number;
   onAssetPickerRequestHandled: () => void;
   onSequenceDurationChange: (durationSeconds: number) => void;
-  onAddSequenceStepsWithShaders: (shaderIds: string[]) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
   onEditSequenceStep: (stepId: string) => void;
@@ -268,7 +267,9 @@ function getTimelineTransitionSegments({
   sequence: TimelineStub['shaderSequence'];
   stepSegments: TimelineStepSegment[];
 }): TimelineTransitionSegment[] {
-  const totalDurationSeconds = getShaderTimelineDuration(sequence.steps);
+  const totalDurationSeconds = getShaderTimelineDuration(
+    stepSegments.map((segment) => segment.step),
+  );
   if (sequence.mode === 'double' || stepSegments.length <= 1 || totalDurationSeconds <= 0) {
     return [];
   }
@@ -326,11 +327,8 @@ export function TimelineBar({
   onSeek,
   onPlayToggle,
   onStop,
-  onReset,
   onToggleSingleStepLoop,
-  onToggleRandomChoice,
   onSequenceModeChange,
-  onSequenceEditorViewChange,
   onSequenceStagePreviewModeChange,
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
@@ -341,7 +339,6 @@ export function TimelineBar({
   assetPickerRequestToken,
   onAssetPickerRequestHandled,
   onSequenceDurationChange,
-  onAddSequenceStepsWithShaders,
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
   onEditSequenceStep,
@@ -503,6 +500,7 @@ export function TimelineBar({
       sharedTransitionEnabled: sequence.sharedTransitionEnabled,
       sharedTransitionEffect: sequence.sharedTransitionEffect,
       sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
+      sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
       steps: sequence.steps,
       timeSeconds: transportTimeSeconds,
       loop: transport.loop,
@@ -514,6 +512,7 @@ export function TimelineBar({
     sequence.randomChoiceEnabled,
     sequence.sharedTransitionEnabled,
     sequence.singleStepLoopEnabled,
+    sequence.sharedSectionDurationSeconds,
     sequence.sharedTransitionDurationSeconds,
     sequence.sharedTransitionEffect,
     sequence.steps,
@@ -530,10 +529,28 @@ export function TimelineBar({
     () => getMarkerStops(markers, safeDurationSeconds),
     [markers, safeDurationSeconds],
   );
-  const stepSegments = useMemo(() => getTimelineStepSegments(sequence.steps), [sequence.steps]);
+  const playbackDisplaySteps = useMemo(
+    () =>
+      getTimelinePlaybackSteps({
+        mode: sequence.mode,
+        randomChoiceEnabled: sequence.randomChoiceEnabled,
+        steps: sequence.steps,
+        sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
+      }),
+    [
+      sequence.mode,
+      sequence.randomChoiceEnabled,
+      sequence.sharedSectionDurationSeconds,
+      sequence.steps,
+    ],
+  );
+  const stepSegments = useMemo(
+    () => getTimelineStepSegments(playbackDisplaySteps),
+    [playbackDisplaySteps],
+  );
   const displayStepSegments = useMemo(
-    () => getTimelineDisplayStepSegments(sequence.steps),
-    [sequence.steps],
+    () => getTimelineDisplayStepSegments(playbackDisplaySteps),
+    [playbackDisplaySteps],
   );
   const transitionSegments = useMemo(
     () => getTimelineTransitionSegments({ sequence, stepSegments }),
@@ -591,6 +608,13 @@ export function TimelineBar({
       setScrubValue(null);
     }
     onSeek(nextTimeSeconds);
+  };
+
+  const handleScrubKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    handleVerticalRangeKey(event, (nextTimeSeconds) => {
+      setScrubValue(null);
+      onSeek(nextTimeSeconds);
+    });
   };
 
   const handleMarkerJump = (timeSeconds: number) => {
@@ -754,6 +778,7 @@ export function TimelineBar({
               rangeScrubActiveRef.current = true;
             }}
             onChange={handleScrubChange}
+            onKeyDown={handleScrubKeyDown}
             onPointerUp={clearRangeScrub}
             onPointerCancel={clearRangeScrub}
             onBlur={clearRangeScrub}
@@ -1067,14 +1092,11 @@ export function TimelineBar({
         sequence={sequence}
         totalDurationSeconds={durationSeconds}
         onModeChange={onSequenceModeChange}
-        onEditorViewChange={onSequenceEditorViewChange}
         previewMode={sequence.stagePreviewMode}
         onPreviewModeChange={onSequenceStagePreviewModeChange}
         isPlaying={transport.isPlaying}
         onPlayToggle={onPlayToggle}
-        onReset={onReset}
         onToggleSingleStepLoop={onToggleSingleStepLoop}
-        onToggleRandomChoice={onToggleRandomChoice}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
         onPinnedStepToggle={onSequencePinnedStepToggle}
@@ -1083,7 +1105,6 @@ export function TimelineBar({
         assetPickerRequestStepId={assetPickerRequestStepId}
         assetPickerRequestToken={assetPickerRequestToken}
         onAssetPickerRequestHandled={onAssetPickerRequestHandled}
-        onAddStepsWithShaders={onAddSequenceStepsWithShaders}
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
         onEditStep={onEditSequenceStep}

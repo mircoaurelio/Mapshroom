@@ -1,4 +1,5 @@
 import type { StageTransform } from '../types';
+import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 import { type MappingAction, MappingPad } from './MappingPad';
 import { PanelSection } from './PanelSection';
 
@@ -46,6 +47,7 @@ export function MappingPanel({
                 max={40}
                 value={stageTransform.precision}
                 onChange={(event) => onPrecisionChange(Number(event.target.value))}
+                onKeyDown={(event) => handleVerticalRangeKey(event, onPrecisionChange)}
               />
             </label>
           ) : null}

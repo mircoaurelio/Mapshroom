@@ -21,6 +21,7 @@ import {
   buildTimelineOverlayShaderCode,
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
+import { getBundledAssetUrl } from '../lib/bundledAssets';
 import { getAssetBlob } from '../lib/storage';
 import type {
   PlaybackTransport,
@@ -300,7 +301,7 @@ export function TimelineStageRenderer({
   const shaderSequence = timeline.shaderSequence ?? {
     enabled: false,
     mode: 'sequence',
-    editorView: 'simple',
+    editorView: 'advanced',
     stagePreviewMode: 'timeline',
     focusedStepId: null,
     pinnedStepId: null,
@@ -347,7 +348,7 @@ export function TimelineStageRenderer({
         return collection;
       }
 
-      const cachedUrl = timelineAssetUrlCache.get(assetId) ?? null;
+      const cachedUrl = getBundledAssetUrl(assetId) ?? timelineAssetUrlCache.get(assetId) ?? null;
       collection[assetId] = {
         url: cachedUrl,
         status: cachedUrl ? 'ready' : 'loading',
@@ -361,6 +362,9 @@ export function TimelineStageRenderer({
       .map((assetId) => assetMap.get(assetId) ?? null)
       .filter((assetRecord): assetRecord is AssetRecord => {
         if (!assetRecord) {
+          return false;
+        }
+        if (getBundledAssetUrl(assetRecord.id)) {
           return false;
         }
 
@@ -392,7 +396,7 @@ export function TimelineStageRenderer({
         const nextValue = referencedInputAssetIds.reduce<
           Record<string, { url: string | null; status: AssetObjectUrlStatus }>
         >((collection, assetId) => {
-          const cachedUrl = timelineAssetUrlCache.get(assetId) ?? null;
+          const cachedUrl = getBundledAssetUrl(assetId) ?? timelineAssetUrlCache.get(assetId) ?? null;
           const assetRecord = assetMap.get(assetId);
           const resolvedEntry = entries.find(([entryAssetId]) => entryAssetId === assetId);
           const resolvedUrl = resolvedEntry?.[1] ?? cachedUrl;
@@ -515,6 +519,7 @@ export function TimelineStageRenderer({
       sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled ?? false,
       sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
       sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+      sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
       steps: shaderSequence.steps,
       timeSeconds: transportTimeSeconds,
       loop: transport.loop,
@@ -528,6 +533,7 @@ export function TimelineStageRenderer({
     shaderSequence.mode,
     shaderSequence.randomChoiceEnabled,
     shaderSequence.sharedTransitionEnabled,
+    shaderSequence.sharedSectionDurationSeconds,
     shaderSequence.sharedTransitionDurationSeconds,
     shaderSequence.sharedTransitionEffect,
     shaderSequence.singleStepLoopEnabled,
@@ -559,6 +565,7 @@ export function TimelineStageRenderer({
         sharedTransitionEnabled: true,
         sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
         sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+        sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
         steps: shaderSequence.steps,
         timeSeconds: secondaryTimelineTimeSeconds,
         loop: transport.loop,
@@ -1156,6 +1163,7 @@ export function TimelineStageRenderer({
             sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
             sharedTransitionDurationSeconds:
               shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+            sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
             steps: shaderSequence.steps,
             timeSeconds,
             loop: transport.loop,
@@ -1173,6 +1181,7 @@ export function TimelineStageRenderer({
       shaderSequence.mode,
       shaderSequence.randomChoiceEnabled,
       shaderSequence.sharedTransitionEnabled,
+      shaderSequence.sharedSectionDurationSeconds,
       shaderSequence.sharedTransitionDurationSeconds,
       shaderSequence.sharedTransitionEffect,
       shaderSequence.singleStepLoopEnabled,
@@ -1201,6 +1210,7 @@ export function TimelineStageRenderer({
                 sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
                 sharedTransitionDurationSeconds:
                   shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+                sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
                 steps: shaderSequence.steps,
                 timeSeconds,
                 loop: transport.loop,
@@ -1215,6 +1225,7 @@ export function TimelineStageRenderer({
       secondaryTimelineResolution.randomSeedSalt,
       shaderSequence.focusedStepId,
       shaderSequence.mode,
+      shaderSequence.sharedSectionDurationSeconds,
       shaderSequence.sharedTransitionDurationSeconds,
       shaderSequence.sharedTransitionEffect,
       shaderSequence.singleStepLoopEnabled,
@@ -1289,6 +1300,7 @@ export function TimelineStageRenderer({
       stageTransform={stageTransform}
       transport={transport}
       isOutputOnly={isOutputOnly}
+      personalPreviewActive={workspaceFocusedPreviewEnabled}
       onCanvasReady={onCanvasReady}
       onRenderStateChange={onRenderStateChange}
       onCompilerError={(message) => {

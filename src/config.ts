@@ -1,6 +1,10 @@
 import type { ProjectDocument, StageTransform, UiPreferences } from './types';
 import { shaderPresetList, shaderPresets } from './shaders/presets';
 import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
+import {
+  DEFAULT_BUNDLED_ASSET_ID,
+  DEFAULT_BUNDLED_ASSETS,
+} from './lib/bundledAssets';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
@@ -63,8 +67,8 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
     sessionId,
     name: 'Untitled Project',
     library: {
-      assets: [],
-      activeAssetId: null,
+      assets: DEFAULT_BUNDLED_ASSETS,
+      activeAssetId: DEFAULT_BUNDLED_ASSET_ID,
     },
     studio: {
       activeShaderId: defaultShader.id,
@@ -93,9 +97,9 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
       stageTransform: { ...DEFAULT_STAGE_TRANSFORM },
     },
     playback: {
-      activeAssetId: null,
+      activeAssetId: DEFAULT_BUNDLED_ASSET_ID,
       transport: {
-        isPlaying: false,
+        isPlaying: true,
         currentTimeSeconds: 0,
         anchorTimestampMs: null,
         playbackRate: 1,
@@ -126,7 +130,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
         shaderSequence: {
           enabled: false,
           mode: 'sequence',
-          editorView: 'simple',
+          editorView: 'advanced',
           stagePreviewMode: 'timeline',
           focusedStepId: firstTimelineStepId,
           pinnedStepId: null,
@@ -135,6 +139,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           sharedTransitionEnabled: false,
           sharedTransitionEffect: 'mix',
           sharedTransitionDurationSeconds: 0.75,
+          sharedSectionDurationSeconds: 8,
           steps: [
             {
               id: firstTimelineStepId,

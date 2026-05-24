@@ -9,6 +9,11 @@ import {
   PROJECT_STORAGE_PREFIX,
   UI_STORAGE_KEY,
 } from '../config';
+import {
+  BUNDLED_PROJECT_LIBRARY_ENTRIES,
+  createBundledProjectDocument,
+  isBundledProjectSessionId,
+} from './bundledProjects';
 import { restoreTransport, snapshotTransport } from './clock';
 import type {
   ProjectDocument,
@@ -44,6 +49,11 @@ export function persistActiveSessionId(sessionId: string): void {
 }
 
 export function loadProjectDocument(sessionId: string): ProjectDocument | null {
+  const bundledProject = createBundledProjectDocument(sessionId);
+  if (bundledProject) {
+    return bundledProject;
+  }
+
   const raw = localStorage.getItem(getProjectStorageKey(sessionId));
   if (!raw) {
     return null;
@@ -183,7 +193,7 @@ export function saveProjectDocument(project: ProjectDocument): void {
 export function loadProjectLibrary(): ProjectLibraryEntry[] {
   const raw = localStorage.getItem(PROJECT_LIBRARY_STORAGE_KEY);
   if (!raw) {
-    return [];
+    return BUNDLED_PROJECT_LIBRARY_ENTRIES;
   }
 
   try {
@@ -192,7 +202,7 @@ export function loadProjectLibrary(): ProjectLibraryEntry[] {
       return [];
     }
 
-    return parsed
+    const persistedEntries = parsed
       .filter(
         (entry): entry is ProjectLibraryEntry =>
           Boolean(
@@ -203,10 +213,12 @@ export function loadProjectLibrary(): ProjectLibraryEntry[] {
               typeof entry.updatedAt === 'string',
           ),
       )
+      .filter((entry) => !isBundledProjectSessionId(entry.sessionId))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    return [...BUNDLED_PROJECT_LIBRARY_ENTRIES, ...persistedEntries];
   } catch (error) {
     console.warn('Unable to parse project library.', error);
-    return [];
+    return BUNDLED_PROJECT_LIBRARY_ENTRIES;
   }
 }
 

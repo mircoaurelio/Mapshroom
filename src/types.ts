@@ -1,5 +1,5 @@
 export type AssetKind = 'image' | 'video';
-export type AssetSourceType = 'uploaded' | 'generated';
+export type AssetSourceType = 'uploaded' | 'generated' | 'bundled';
 export type ShaderUniformType = 'float' | 'int' | 'vec3' | 'bool';
 export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
@@ -117,6 +117,7 @@ export interface TimelineStub {
     sharedTransitionEnabled: boolean;
     sharedTransitionEffect: TimelineTransitionEffect;
     sharedTransitionDurationSeconds: number;
+    sharedSectionDurationSeconds: number;
     steps: Array<{
       id: string;
       shaderId: string;
@@ -164,6 +165,7 @@ export interface ProjectLibraryEntry {
   name: string;
   createdAt: string;
   updatedAt: string;
+  bundled?: boolean;
 }
 
 export interface ProjectDocument {
