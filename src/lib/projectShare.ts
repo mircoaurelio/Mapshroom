@@ -394,7 +394,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
             quality: COMPACT_TIMELINE_ASSET_QUALITIES[step.aq ?? 1],
             clipStartSeconds: step.acs,
             clipDurationSeconds: step.acd,
-            useStepAssetAsShaderBase: Boolean(step.aub),
+            useStepAssetAsShaderBase: step.aub ? true : undefined,
             pinnedCompositeMode: step.apc ? 'stackOnTop' : undefined,
             pinnedStackMaskMode: step.psm ? 'nonBlack' : undefined,
             pinnedStackMaskThreshold: step.pst,

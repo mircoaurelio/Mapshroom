@@ -65,7 +65,7 @@ export const DEFAULT_TIMELINE_STEP_ASSET_SETTINGS: TimelineStepAssetSettings = {
   quality: 'balanced',
   clipStartSeconds: 0,
   clipDurationSeconds: null,
-  useStepAssetAsShaderBase: false,
+  useStepAssetAsShaderBase: true,
   pinnedCompositeMode: 'stackOnTop',
   pinnedStackMaskMode: 'nonBlack',
   pinnedStackMaskThreshold: 0.04,
@@ -157,7 +157,9 @@ export function normalizeTimelineStepAssetSettings(
       nextSettings.clipStartSeconds ?? DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.clipStartSeconds,
     ),
     clipDurationSeconds: clampTimelineAssetClipDurationSeconds(nextSettings.clipDurationSeconds),
-    useStepAssetAsShaderBase: Boolean(nextSettings.useStepAssetAsShaderBase),
+    useStepAssetAsShaderBase:
+      nextSettings.useStepAssetAsShaderBase ??
+      DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.useStepAssetAsShaderBase,
     pinnedCompositeMode: resolvedPinnedCompositeMode,
     pinnedStackMaskMode: resolvedPinnedStackMaskMode,
     pinnedStackMaskThreshold: clampTimelinePinnedStackMaskThreshold(
