@@ -87,6 +87,7 @@ export function OutputRoute() {
         activeUniformValues={project.studio.uniformValues}
         savedShaders={project.studio.savedShaders}
         timeline={project.timeline?.stub ?? FALLBACK_TIMELINE_STUB}
+        pinnedStepId={project.timeline?.stub?.shaderSequence?.pinnedStepId ?? null}
         stageTransform={project.mapping.stageTransform}
         transport={project.playback.transport}
         isOutputOnly

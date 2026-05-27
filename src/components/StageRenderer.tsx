@@ -31,10 +31,14 @@ interface StageRendererProps {
   uniformValues: ShaderUniformValueMap;
   renderLayers?: StageRenderLayer[];
   preloadLayers?: StageRenderLayer[];
+  warmupSources?: StageRenderInputSource[];
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
   personalPreviewActive?: boolean;
+  showPinnedIndicator?: boolean;
+  pinnedIndicatorLabel?: string | null;
+  onPinnedIndicatorClick?: () => void;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
@@ -67,6 +71,8 @@ export interface StageRenderLayer {
     from: StageRenderInputSource | null;
     to: StageRenderInputSource | null;
   } | null;
+  compositeMode?: 'blend' | 'stackOnTop';
+  requiresCompositeBase?: boolean;
 }
 
 interface ProgramLocations {
@@ -81,6 +87,7 @@ interface ProgramLocations {
   transitionToOverlayImage: WebGLUniformLocation | null;
   transitionFromOverlayAspectRatio: WebGLUniformLocation | null;
   transitionToOverlayAspectRatio: WebGLUniformLocation | null;
+  baseImage: WebGLUniformLocation | null;
   resolution: WebGLUniformLocation | null;
   custom: Record<string, WebGLUniformLocation | null>;
 }
@@ -135,6 +142,64 @@ const VIDEO_DRIFT_CORRECTION_THRESHOLD_SECONDS = 0.05;
 const VIDEO_HARD_SEEK_THRESHOLD_SECONDS = 0.45;
 const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
 const MIN_STAGE_SCALE = 0.05;
+
+interface StageRenderTarget {
+  framebuffer: WebGLFramebuffer;
+  texture: WebGLTexture;
+  width: number;
+  height: number;
+}
+
+function ensureStageRenderTarget(
+  gl: WebGLRenderingContext,
+  currentTarget: StageRenderTarget | null,
+  width: number,
+  height: number,
+): StageRenderTarget {
+  if (
+    currentTarget &&
+    currentTarget.width === width &&
+    currentTarget.height === height
+  ) {
+    return currentTarget;
+  }
+
+  if (currentTarget) {
+    gl.deleteFramebuffer(currentTarget.framebuffer);
+    gl.deleteTexture(currentTarget.texture);
+  }
+
+  const texture = gl.createTexture();
+  const framebuffer = gl.createFramebuffer();
+  if (!texture || !framebuffer) {
+    throw new Error('Unable to create the stage render target.');
+  }
+
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER,
+    gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D,
+    texture,
+    0,
+  );
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+
+  return {
+    framebuffer,
+    texture,
+    width,
+    height,
+  };
+}
 const DEFAULT_WHITE_IMAGE_SOURCE: StageRenderInputSource = {
   sourceKey: 'default:white-16-9',
   assetId: 'default:white-16-9',
@@ -230,6 +295,7 @@ function createProgramBundle(
         program,
         'u_timeline_to_overlay_aspect_ratio',
       ),
+      baseImage: gl.getUniformLocation(program, 'u_timeline_base_image'),
       resolution: gl.getUniformLocation(program, 'u_resolution'),
       custom: Object.fromEntries(
         Object.keys(uniformDefinitions).map((name) => [name, gl.getUniformLocation(program, name)]),
@@ -350,6 +416,7 @@ function resolvePendingProgramBundle(
         pendingBundle.program,
         'u_timeline_to_overlay_aspect_ratio',
       ),
+      baseImage: gl.getUniformLocation(pendingBundle.program, 'u_timeline_base_image'),
       resolution: gl.getUniformLocation(pendingBundle.program, 'u_resolution'),
       custom: Object.fromEntries(
         Object.keys(pendingBundle.uniformDefinitions).map((name) => [
@@ -757,10 +824,14 @@ export function StageRenderer({
   uniformValues,
   renderLayers,
   preloadLayers,
+  warmupSources,
   stageTransform,
   transport,
   isOutputOnly = false,
   personalPreviewActive = false,
+  showPinnedIndicator = false,
+  pinnedIndicatorLabel = null,
+  onPinnedIndicatorClick,
   onCanvasReady,
   onRenderStateChange,
   onCompilerError,
@@ -780,6 +851,7 @@ export function StageRenderer({
   const renderWarningRef = useRef<string | null>(null);
   const rafRef = useRef<number | null>(null);
   const mediaAspectRatioRef = useRef<number | null>(null);
+  const compositeRenderTargetRef = useRef<StageRenderTarget | null>(null);
   const transportRef = useRef(transport);
   const preserveDrawingBufferRef = useRef(Boolean(onCanvasReady));
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
@@ -874,9 +946,12 @@ export function StageRenderer({
       registerSource(layer.transitionOverlaySources?.from);
       registerSource(layer.transitionOverlaySources?.to);
     }
+    for (const source of warmupSources ?? []) {
+      registerSource(source);
+    }
 
     return Array.from(sources.values());
-  }, [defaultInputSource, resolvedPreloadLayers, resolvedRenderLayers]);
+  }, [defaultInputSource, resolvedPreloadLayers, resolvedRenderLayers, warmupSources]);
   const requiredInputSourceSignature = useMemo(
     () =>
       requiredInputSources
@@ -1397,11 +1472,17 @@ export function StageRenderer({
         const shaderTime = transportTime;
 
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.clearColor(0, 0, 0, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
 
-        for (const layer of compiledLayers) {
+        const blendBaseLayerIndex = compiledLayers.findIndex((layer) => layer.requiresCompositeBase);
+        let compositeBaseTexture: WebGLTexture | null = null;
+
+        const drawCompiledLayer = (
+          layer: CompiledRenderLayer,
+          options: {
+            compositeBaseTexture: WebGLTexture | null;
+            passLayerCount: number;
+          },
+        ) => {
           const primarySource =
             layer.inputSource ??
             defaultInputSource ??
@@ -1445,6 +1526,11 @@ export function StageRenderer({
           gl.useProgram(layer.program);
           if (layer.locations.image) {
             gl.uniform1i(layer.locations.image, 0);
+          }
+          if (layer.locations.baseImage && options.compositeBaseTexture) {
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, options.compositeBaseTexture);
+            gl.uniform1i(layer.locations.baseImage, 1);
           }
           if (layer.locations.overlayImage) {
             bindTextureSourceState(
@@ -1538,7 +1624,13 @@ export function StageRenderer({
           gl.enableVertexAttribArray(layer.locations.position);
           gl.vertexAttribPointer(layer.locations.position, 2, gl.FLOAT, false, 0, 0);
 
-          if (compiledLayers.length > 1 || layer.opacity < 0.999) {
+          if (layer.requiresCompositeBase && options.compositeBaseTexture) {
+            gl.disable(gl.BLEND);
+          } else if (layer.compositeMode === 'stackOnTop') {
+            gl.enable(gl.BLEND);
+            gl.blendEquation(gl.FUNC_ADD);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          } else if (options.passLayerCount > 1 || layer.opacity < 0.999) {
             gl.enable(gl.BLEND);
             gl.blendEquation(gl.FUNC_ADD);
             gl.blendColor(layer.opacity, layer.opacity, layer.opacity, layer.opacity);
@@ -1548,6 +1640,43 @@ export function StageRenderer({
           }
 
           gl.drawArrays(gl.TRIANGLES, 0, 6);
+        };
+
+        if (blendBaseLayerIndex > 0) {
+          compositeRenderTargetRef.current = ensureStageRenderTarget(
+            gl,
+            compositeRenderTargetRef.current,
+            canvas.width,
+            canvas.height,
+          );
+          gl.bindFramebuffer(gl.FRAMEBUFFER, compositeRenderTargetRef.current.framebuffer);
+          gl.viewport(0, 0, canvas.width, canvas.height);
+          gl.clearColor(0, 0, 0, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+
+          for (let index = 0; index < blendBaseLayerIndex; index += 1) {
+            drawCompiledLayer(compiledLayers[index], {
+              compositeBaseTexture: null,
+              passLayerCount: blendBaseLayerIndex,
+            });
+          }
+
+          compositeBaseTexture = compositeRenderTargetRef.current.texture;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        const canvasLayerStart = blendBaseLayerIndex >= 0 ? blendBaseLayerIndex : 0;
+        const canvasLayerCount = compiledLayers.length - canvasLayerStart;
+
+        for (let index = canvasLayerStart; index < compiledLayers.length; index += 1) {
+          drawCompiledLayer(compiledLayers[index], {
+            compositeBaseTexture,
+            passLayerCount: canvasLayerCount,
+          });
         }
 
         gl.disable(gl.BLEND);
@@ -1640,6 +1769,33 @@ export function StageRenderer({
       <div ref={mediaSurfaceRef} className="stage-media-surface" style={mediaSurfaceStyle}>
         <canvas ref={canvasRef} className="stage-canvas" />
       </div>
+      {showPinnedIndicator && !isOutputOnly ? (
+        <button
+          type="button"
+          className="stage-pinned-indicator"
+          title={
+            pinnedIndicatorLabel
+              ? `Edit pinned step: ${pinnedIndicatorLabel}`
+              : 'Edit pinned step'
+          }
+          aria-label={
+            pinnedIndicatorLabel
+              ? `Edit pinned step: ${pinnedIndicatorLabel}`
+              : 'Edit pinned step'
+          }
+          onClick={(event) => {
+            event.stopPropagation();
+            onPinnedIndicatorClick?.();
+          }}
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true" className="stage-pinned-indicator-icon">
+            <path d="M5.1 3.1h5.8" />
+            <path d="m10.4 3.3-.9 3.1 2 1.9H4.5l2-1.9-.9-3.1" />
+            <path d="M8 8.3v4.6" />
+            <path d="M6.8 12.9h2.4" />
+          </svg>
+        </button>
+      ) : null}
       {showEmptyState ? (
         <div className="stage-empty">
           <p className="stage-empty-eyebrow">NO SIGNAL</p>

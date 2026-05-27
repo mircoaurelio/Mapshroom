@@ -56,7 +56,7 @@ import {
   clampTransitionDuration,
   createTimelineShaderStep,
   getShaderTimelineDuration,
-  getTimelinePlaybackSteps,
+  getEffectiveTimelinePlaybackSteps,
   isTimelineStepEnabled,
   roundTimelineSeconds,
   scaleTimelineStepDurations,
@@ -812,6 +812,10 @@ export function WorkspaceRoute() {
   });
   const [desktopStageKeyboardArmed, setDesktopStageKeyboardArmed] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
+  const [timelineScrollToStepRequest, setTimelineScrollToStepRequest] = useState<{
+    stepId: string;
+    token: number;
+  } | null>(null);
   const [activeAssetDurationSeconds, setActiveAssetDurationSeconds] = useState<number | null>(null);
   const [savedProjects, setSavedProjects] = useState<ProjectLibraryEntry[]>(() => loadProjectLibrary());
   const [shareLinkState, setShareLinkState] = useState<ProjectShareLinkResult | null>(null);
@@ -1827,7 +1831,20 @@ export function WorkspaceRoute() {
           : shader,
       );
       const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
-        item.id === stepId ? { ...item, shaderId: editableShader.id } : item,
+        item.id === stepId
+          ? {
+              ...item,
+              shaderId: editableShader.id,
+              ...(nextInputAssetId
+                ? {}
+                : {
+                    assetSettings: normalizeTimelineStepAssetSettings({
+                      ...item.assetSettings,
+                      useStepAssetAsShaderBase: false,
+                    }),
+                  }),
+            }
+          : item,
       );
       const shouldSyncActiveShader =
         editingTimelineStepId === stepId ||
@@ -3341,15 +3358,27 @@ ${errorSnapshot}`,
   }
 
   const handleTimelineEditStep = useCallback((stepId: string) => {
-    const isPinnedStep = pinnedTimelineStepId === stepId;
     void selectTimelineStepForEditing(stepId, {
-      stagePreviewMode: isPinnedStep ? 'timeline' : 'focused',
+      stagePreviewMode: 'focused',
       updateTimelineFocus: false,
     });
-  }, [
-    pinnedTimelineStepId,
-    selectTimelineStepForEditing,
-  ]);
+  }, [selectTimelineStepForEditing]);
+
+  const handlePinnedIndicatorClick = useCallback(() => {
+    if (!pinnedTimelineStepId) {
+      return;
+    }
+
+    handleTimelineEditStep(pinnedTimelineStepId);
+    setTimelineScrollToStepRequest({
+      stepId: pinnedTimelineStepId,
+      token: performance.now(),
+    });
+
+    if (isMobile) {
+      setIsMobileTimelineOpen(true);
+    }
+  }, [handleTimelineEditStep, isMobile, pinnedTimelineStepId]);
 
   if (!project) {
     return (
@@ -3388,7 +3417,14 @@ ${errorSnapshot}`,
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
   const previewShader =
     previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
-  const playableTimelineSteps = timelineStub.shaderSequence.steps.filter(isTimelineStepEnabled);
+  const timelinePlaybackSteps = getEffectiveTimelinePlaybackSteps({
+    mode: timelineStub.shaderSequence.mode,
+    randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
+    steps: timelineStub.shaderSequence.steps,
+    sharedSectionDurationSeconds: timelineStub.shaderSequence.sharedSectionDurationSeconds,
+    pinnedStepId: pinnedTimelineStepId,
+  });
+  const playableTimelineSteps = timelinePlaybackSteps.filter(isTimelineStepEnabled);
   const timelineMarkers = timelineSequenceEnabled
     ? timelineStub.shaderSequence.mode === 'random'
       ? playableTimelineSteps.map((_, index) => `Pick ${index + 1}`)
@@ -3416,12 +3452,6 @@ ${errorSnapshot}`,
         ...timelineStub.tracks,
       ]
     : timelineStub.tracks;
-  const timelinePlaybackSteps = getTimelinePlaybackSteps({
-    mode: timelineStub.shaderSequence.mode,
-    randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
-    steps: timelineStub.shaderSequence.steps,
-    sharedSectionDurationSeconds: timelineStub.shaderSequence.sharedSectionDurationSeconds,
-  });
   const timelineDurationSeconds = timelineSequenceEnabled
     ? getShaderTimelineDuration(timelinePlaybackSteps)
     : activeAsset?.kind === 'video' && activeAssetDurationSeconds
@@ -3626,6 +3656,9 @@ ${errorSnapshot}`,
           ? () => handleTimelineAssignStepAsset(inspectorTimelineStep.id, null)
           : null
       }
+      isPinnedStep={
+        inspectorTimelineStep ? pinnedTimelineStepId === inspectorTimelineStep.id : false
+      }
     />
   );
 
@@ -3666,6 +3699,7 @@ ${errorSnapshot}`,
       onRemoveSequenceStep={handleTimelineRemoveStep}
       onResizeSequenceBoundary={handleTimelineResizeBoundary}
       onEditSequenceStep={handleTimelineEditStep}
+      scrollToStepRequest={timelineScrollToStepRequest}
     />
   );
 
@@ -3723,6 +3757,7 @@ ${errorSnapshot}`,
         }
         focusedPreviewStepId={editingTimelineStepId}
         preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
+        onPinnedIndicatorClick={handlePinnedIndicatorClick}
         onCompilerError={applyCompilerFeedback}
       />
 
@@ -4018,6 +4053,7 @@ ${errorSnapshot}`,
         onRemoveSequenceStep={handleTimelineRemoveStep}
         onResizeSequenceBoundary={handleTimelineResizeBoundary}
         onEditSequenceStep={handleTimelineEditStep}
+        scrollToStepRequest={timelineScrollToStepRequest}
         onClose={() => setIsMobileTimelineOpen(false)}
       />
 

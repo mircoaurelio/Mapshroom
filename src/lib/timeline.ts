@@ -85,6 +85,41 @@ export function getTimelinePlaybackSteps({
   );
 }
 
+export function excludePinnedStepFromTimelinePlayback(
+  steps: TimelineStub['shaderSequence']['steps'],
+  pinnedStepId: string | null,
+): TimelineStub['shaderSequence']['steps'] {
+  if (!pinnedStepId) {
+    return steps;
+  }
+
+  return steps.filter((step) => step.id !== pinnedStepId);
+}
+
+export function getEffectiveTimelinePlaybackSteps({
+  mode,
+  randomChoiceEnabled,
+  steps,
+  sharedSectionDurationSeconds,
+  pinnedStepId,
+}: {
+  mode: TimelineSequenceMode;
+  randomChoiceEnabled: boolean;
+  steps: TimelineStub['shaderSequence']['steps'];
+  sharedSectionDurationSeconds: number;
+  pinnedStepId: string | null;
+}): TimelineStub['shaderSequence']['steps'] {
+  return excludePinnedStepFromTimelinePlayback(
+    getTimelinePlaybackSteps({
+      mode,
+      randomChoiceEnabled,
+      steps,
+      sharedSectionDurationSeconds,
+    }),
+    pinnedStepId,
+  );
+}
+
 export function clampTransitionDuration(
   durationSeconds: number,
   transitionDurationSeconds: number,

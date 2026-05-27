@@ -2,6 +2,8 @@ import type {
   TimelineAssetBlendMode,
   TimelineAssetFitMode,
   TimelineAssetQuality,
+  TimelinePinnedCompositeMode,
+  TimelinePinnedStackMaskMode,
   TimelineStepAssetSettings,
 } from '../types';
 
@@ -36,6 +38,22 @@ export const TIMELINE_ASSET_QUALITY_OPTIONS: Array<{
   { value: 'high', label: 'High' },
 ];
 
+export const TIMELINE_PINNED_COMPOSITE_MODE_OPTIONS: Array<{
+  value: TimelinePinnedCompositeMode;
+  label: string;
+}> = [
+  { value: 'blend', label: 'Transparent overlay' },
+  { value: 'stackOnTop', label: 'Stack on top' },
+];
+
+export const TIMELINE_PINNED_STACK_MASK_OPTIONS: Array<{
+  value: TimelinePinnedStackMaskMode;
+  label: string;
+}> = [
+  { value: 'all', label: 'All pixels' },
+  { value: 'nonBlack', label: 'Non-black only' },
+];
+
 export const DEFAULT_TIMELINE_STEP_ASSET_SETTINGS: TimelineStepAssetSettings = {
   scaleX: 1,
   scaleY: 1,
@@ -47,6 +65,10 @@ export const DEFAULT_TIMELINE_STEP_ASSET_SETTINGS: TimelineStepAssetSettings = {
   quality: 'balanced',
   clipStartSeconds: 0,
   clipDurationSeconds: null,
+  useStepAssetAsShaderBase: false,
+  pinnedCompositeMode: 'stackOnTop',
+  pinnedStackMaskMode: 'nonBlack',
+  pinnedStackMaskThreshold: 0.04,
 };
 
 function clampFinite(value: number, fallback: number, min: number, max: number): number {
@@ -67,6 +89,10 @@ export function clampTimelineAssetOffset(value: number): number {
 
 export function clampTimelineAssetOpacity(value: number): number {
   return Math.round(clampFinite(value, 0.85, 0, 1) * 100) / 100;
+}
+
+export function clampTimelinePinnedStackMaskThreshold(value: number): number {
+  return Math.round(clampFinite(value, 0.04, 0, 0.5) * 1000) / 1000;
 }
 
 export function clampTimelineAssetClipStartSeconds(value: number): number {
@@ -96,6 +122,21 @@ export function normalizeTimelineStepAssetSettings(
   const quality = TIMELINE_ASSET_QUALITY_OPTIONS.some((option) => option.value === nextSettings.quality)
     ? (nextSettings.quality as TimelineAssetQuality)
     : DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.quality;
+  const pinnedCompositeMode = TIMELINE_PINNED_COMPOSITE_MODE_OPTIONS.some(
+    (option) => option.value === nextSettings.pinnedCompositeMode,
+  )
+    ? (nextSettings.pinnedCompositeMode as TimelinePinnedCompositeMode)
+    : DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.pinnedCompositeMode;
+  const pinnedStackMaskMode = TIMELINE_PINNED_STACK_MASK_OPTIONS.some(
+    (option) => option.value === nextSettings.pinnedStackMaskMode,
+  )
+    ? (nextSettings.pinnedStackMaskMode as TimelinePinnedStackMaskMode)
+    : DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.pinnedStackMaskMode;
+  const resolvedPinnedCompositeMode =
+    pinnedCompositeMode === 'blend'
+      ? DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.pinnedCompositeMode
+      : pinnedCompositeMode;
+  const resolvedPinnedStackMaskMode = pinnedStackMaskMode;
 
   return {
     scaleX: clampTimelineAssetScale(nextSettings.scaleX ?? DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.scaleX),
@@ -116,6 +157,13 @@ export function normalizeTimelineStepAssetSettings(
       nextSettings.clipStartSeconds ?? DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.clipStartSeconds,
     ),
     clipDurationSeconds: clampTimelineAssetClipDurationSeconds(nextSettings.clipDurationSeconds),
+    useStepAssetAsShaderBase: Boolean(nextSettings.useStepAssetAsShaderBase),
+    pinnedCompositeMode: resolvedPinnedCompositeMode,
+    pinnedStackMaskMode: resolvedPinnedStackMaskMode,
+    pinnedStackMaskThreshold: clampTimelinePinnedStackMaskThreshold(
+      nextSettings.pinnedStackMaskThreshold ??
+        DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.pinnedStackMaskThreshold,
+    ),
   };
 }
 

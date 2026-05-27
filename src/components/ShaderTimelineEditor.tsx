@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
   roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
@@ -75,6 +76,7 @@ interface ShaderTimelineEditorProps {
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
   onEditStep: (stepId: string) => void;
+  scrollToStepRequest?: { stepId: string; token: number } | null;
 }
 
 function formatStepDuration(seconds: number): string {
@@ -230,7 +232,9 @@ export function ShaderTimelineEditor({
   onDuplicateStep,
   onRemoveStep,
   onEditStep,
+  scrollToStepRequest = null,
 }: ShaderTimelineEditorProps) {
+  const flowStripRef = useRef<HTMLDivElement>(null);
   const title =
     sequence.mode === 'randomMix'
       ? 'Random Mix'
@@ -576,6 +580,52 @@ export function ShaderTimelineEditor({
     setAssetPickerPreviewAssetId(assetPickerShader?.inputAssetId ?? assets.at(-1)?.id ?? null);
   }, [assetPickerPreviewAssetId, assetPickerShader?.inputAssetId, assetPickerStep, assets]);
 
+  useEffect(() => {
+    const strip = flowStripRef.current;
+    if (!strip) {
+      return;
+    }
+
+    return bindHorizontalWheelScroll(strip);
+  }, []);
+
+  useEffect(() => {
+    if (!scrollToStepRequest?.stepId) {
+      return;
+    }
+
+    const stepId = scrollToStepRequest.stepId;
+    let cancelled = false;
+    let frameId = 0;
+    let retryTimeoutId = 0;
+
+    const scrollToStep = () => {
+      if (cancelled) {
+        return;
+      }
+
+      const stepElement = flowStripRef.current?.querySelector<HTMLElement>(
+        `[data-timeline-step-id="${stepId}"]`,
+      );
+      stepElement?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    };
+
+    frameId = requestAnimationFrame(() => {
+      scrollToStep();
+      retryTimeoutId = window.setTimeout(scrollToStep, 120);
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frameId);
+      window.clearTimeout(retryTimeoutId);
+    };
+  }, [scrollToStepRequest]);
+
   return (
     <section className="timeline-sequence-editor">
       <div className="timeline-sequence-toolbar">
@@ -715,6 +765,7 @@ export function ShaderTimelineEditor({
       </div>
 
       <div
+        ref={flowStripRef}
         className="timeline-flow-strip"
         role="list"
         aria-label="Shader timeline flow"
@@ -755,10 +806,13 @@ export function ShaderTimelineEditor({
                 } ${isDisabledStep ? 'timeline-step-card-disabled' : ''} ${
                   isPinnedStep ? 'timeline-step-card-pinned' : ''
                 }`}
+                data-timeline-step-id={step.id}
                 role="button"
                 tabIndex={0}
                 aria-pressed={step.id === editingStepId}
-                onClick={() => onEditStep(step.id)}
+                onClick={() => {
+                  onEditStep(step.id);
+                }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();

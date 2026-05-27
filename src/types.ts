@@ -13,6 +13,8 @@ export type TimelineStagePreviewMode = 'timeline' | 'focused';
 export type TimelineAssetBlendMode = 'mix' | 'screen' | 'add' | 'multiply' | 'maskedReveal';
 export type TimelineAssetFitMode = 'cover' | 'contain' | 'stretch' | 'fitWidth' | 'fitHeight';
 export type TimelineAssetQuality = 'draft' | 'balanced' | 'high';
+export type TimelinePinnedCompositeMode = 'blend' | 'stackOnTop';
+export type TimelinePinnedStackMaskMode = 'all' | 'nonBlack';
 
 export interface AssetRecord {
   id: string;
@@ -94,6 +96,10 @@ export interface TimelineStepAssetSettings {
   quality: TimelineAssetQuality;
   clipStartSeconds: number;
   clipDurationSeconds: number | null;
+  useStepAssetAsShaderBase: boolean;
+  pinnedCompositeMode: TimelinePinnedCompositeMode;
+  pinnedStackMaskMode: TimelinePinnedStackMaskMode;
+  pinnedStackMaskThreshold: number;
 }
 
 export interface TimelineStub {

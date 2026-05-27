@@ -12,7 +12,7 @@ import {
   clampTimelineStepDuration,
   clampTransitionDuration,
   getShaderTimelineDuration,
-  getTimelinePlaybackSteps,
+  getEffectiveTimelinePlaybackSteps,
   isTimelineStepEnabled,
   roundTimelineSeconds,
   resolveShaderTimelineState,
@@ -72,6 +72,7 @@ interface TimelineBarProps {
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
   onEditSequenceStep: (stepId: string) => void;
+  scrollToStepRequest?: { stepId: string; token: number } | null;
   onResizeSequenceBoundary: (
     leftStepId: string,
     rightStepId: string,
@@ -342,6 +343,7 @@ export function TimelineBar({
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
   onEditSequenceStep,
+  scrollToStepRequest = null,
   onResizeSequenceBoundary,
   variant = 'desktop',
 }: TimelineBarProps) {
@@ -486,8 +488,25 @@ export function TimelineBar({
   }, [onResizeSequenceBoundary, onSequenceSharedTransitionChange, onSequenceStepChange, usesSharedTransition]);
 
   const transportTimeSeconds = getTransportTimeSeconds(transport, nowMs);
+  const playbackDisplaySteps = useMemo(
+    () =>
+      getEffectiveTimelinePlaybackSteps({
+        mode: sequence.mode,
+        randomChoiceEnabled: sequence.randomChoiceEnabled,
+        steps: sequence.steps,
+        sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
+        pinnedStepId,
+      }),
+    [
+      pinnedStepId,
+      sequence.mode,
+      sequence.randomChoiceEnabled,
+      sequence.sharedSectionDurationSeconds,
+      sequence.steps,
+    ],
+  );
   const timelineState = useMemo(() => {
-    if (sequence.steps.length === 0) {
+    if (playbackDisplaySteps.length === 0) {
       return null;
     }
 
@@ -501,11 +520,12 @@ export function TimelineBar({
       sharedTransitionEffect: sequence.sharedTransitionEffect,
       sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
       sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
-      steps: sequence.steps,
+      steps: playbackDisplaySteps,
       timeSeconds: transportTimeSeconds,
       loop: transport.loop,
     });
   }, [
+    playbackDisplaySteps,
     savedShaders,
     sequence.focusedStepId,
     sequence.mode,
@@ -515,7 +535,6 @@ export function TimelineBar({
     sequence.sharedSectionDurationSeconds,
     sequence.sharedTransitionDurationSeconds,
     sequence.sharedTransitionEffect,
-    sequence.steps,
     transport.loop,
     transportTimeSeconds,
   ]);
@@ -528,21 +547,6 @@ export function TimelineBar({
   const markerStops = useMemo(
     () => getMarkerStops(markers, safeDurationSeconds),
     [markers, safeDurationSeconds],
-  );
-  const playbackDisplaySteps = useMemo(
-    () =>
-      getTimelinePlaybackSteps({
-        mode: sequence.mode,
-        randomChoiceEnabled: sequence.randomChoiceEnabled,
-        steps: sequence.steps,
-        sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
-      }),
-    [
-      sequence.mode,
-      sequence.randomChoiceEnabled,
-      sequence.sharedSectionDurationSeconds,
-      sequence.steps,
-    ],
   );
   const stepSegments = useMemo(
     () => getTimelineStepSegments(playbackDisplaySteps),
@@ -653,7 +657,7 @@ export function TimelineBar({
       startX: event.clientX,
       leftDurationSeconds: clampTimelineStepDuration(leftSegment.step.durationSeconds),
       rightDurationSeconds: clampTimelineStepDuration(rightSegment.step.durationSeconds),
-      totalDurationSeconds: getShaderTimelineDuration(sequence.steps),
+      totalDurationSeconds: getShaderTimelineDuration(playbackDisplaySteps),
       trackWidth,
       pointerId: event.pointerId,
       handleElement: event.currentTarget,
@@ -681,7 +685,7 @@ export function TimelineBar({
       stepStartRatio: stepSegment.startRatio,
       stepEndRatio: segment.endRatio,
       baseDurationSeconds: clampTimelineStepDuration(stepSegment.step.durationSeconds),
-      totalDurationSeconds: getShaderTimelineDuration(sequence.steps),
+      totalDurationSeconds: getShaderTimelineDuration(playbackDisplaySteps),
       trackWidth,
       trackLeft,
       pointerId: event.pointerId,
@@ -822,6 +826,7 @@ export function TimelineBar({
                 : null;
               const hasAssignedAsset = Boolean(shader?.inputAssetId);
               const isCurrent = !segment.isDisabled && timelineState?.currentStep.id === segment.step.id;
+              const isEditing = segment.step.id === editingStepId;
               const isNext =
                 !segment.isDisabled &&
                 timelineState?.isTransitioning &&
@@ -832,10 +837,9 @@ export function TimelineBar({
                   key={segment.step.id}
                   className={`timeline-segment-block ${
                     isCurrent ? 'timeline-segment-block-current' : ''
-                  } ${isNext ? 'timeline-segment-block-next' : ''} ${
-                    segment.isDisabled ? 'timeline-segment-block-disabled' : ''
-                  }`}
-                  data-focused={segment.step.id === sequence.focusedStepId ? 'true' : 'false'}
+                  } ${isEditing ? 'timeline-segment-block-editing' : ''} ${
+                    isNext ? 'timeline-segment-block-next' : ''
+                  } ${segment.isDisabled ? 'timeline-segment-block-disabled' : ''}`}
                   role="button"
                   tabIndex={0}
                   style={{
@@ -1108,6 +1112,7 @@ export function TimelineBar({
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
         onEditStep={onEditSequenceStep}
+        scrollToStepRequest={scrollToStepRequest}
       />
     </div>
   );

@@ -51,6 +51,10 @@ interface CompactSharedTimelineStepPayload {
   aq?: number;
   acs?: number;
   acd?: number;
+  aub?: 1;
+  apc?: 1;
+  psm?: 1;
+  pst?: number;
 }
 
 interface CompactSharedTimelinePayload {
@@ -319,6 +323,13 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
           aq: COMPACT_TIMELINE_ASSET_QUALITIES.indexOf(step.assetSettings.quality),
           acs: step.assetSettings.clipStartSeconds > 0 ? step.assetSettings.clipStartSeconds : undefined,
           acd: step.assetSettings.clipDurationSeconds ?? undefined,
+          aub: step.assetSettings.useStepAssetAsShaderBase ? 1 : undefined,
+          apc: step.assetSettings.pinnedCompositeMode === 'stackOnTop' ? 1 : undefined,
+          psm: step.assetSettings.pinnedStackMaskMode === 'nonBlack' ? 1 : undefined,
+          pst:
+            step.assetSettings.pinnedStackMaskThreshold !== 0.04
+              ? step.assetSettings.pinnedStackMaskThreshold
+              : undefined,
         })),
     },
     h: timelineShaders.map((shader) => {
@@ -383,6 +394,10 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
             quality: COMPACT_TIMELINE_ASSET_QUALITIES[step.aq ?? 1],
             clipStartSeconds: step.acs,
             clipDurationSeconds: step.acd,
+            useStepAssetAsShaderBase: Boolean(step.aub),
+            pinnedCompositeMode: step.apc ? 'stackOnTop' : undefined,
+            pinnedStackMaskMode: step.psm ? 'nonBlack' : undefined,
+            pinnedStackMaskThreshold: step.pst,
           }),
         }))
     : [

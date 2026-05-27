@@ -249,6 +249,197 @@ vec4 applyTimelineOverlay(
 }`;
 }
 
+export function buildTimelinePinMediaOverlayShaderCode(): string {
+  return buildTimelinePinStackMediaOverlayShaderCode();
+}
+
+function buildPinOverlayUniformBlock(): string {
+  return `uniform bool u_timeline_has_overlay; // @default false
+uniform sampler2D u_timeline_overlay_image;
+uniform float u_timeline_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
+uniform float u_timeline_overlay_scale_x; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_overlay_scale_y; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_overlay_offset_x; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_overlay_offset_y; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_overlay_fit_mode; // @min 0.0 @max 4.0 @default 0.0
+uniform float u_timeline_overlay_quality; // @min 0.0 @max 2.0 @default 1.0
+uniform float u_timeline_overlay_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
+uniform float u_timeline_pin_key_black; // @min 0.0 @max 1.0 @default 0.0
+uniform float u_timeline_pin_key_threshold; // @min 0.0 @max 0.5 @default 0.04`;
+}
+
+function buildPinStackKeyComposer(): string {
+  return `
+float getTimelinePinStackKeyMask(vec3 rgb, float sourceAlpha) {
+    if (u_timeline_pin_key_black < 0.5) {
+        return 1.0;
+    }
+
+    float luma = getTimelineOverlayLuminance(rgb);
+    float rgbPeak = max(max(rgb.r, rgb.g), rgb.b);
+    float edge0 = clamp(u_timeline_pin_key_threshold, 0.0, 0.45);
+    float edge1 = clamp(edge0 + max(0.015, edge0 * 0.85), edge0 + 0.001, 0.5);
+    float rgbMask = max(
+        smoothstep(edge0, edge1, luma),
+        smoothstep(edge0, edge1, rgbPeak)
+    );
+    float hasTransparency = 1.0 - step(0.999, sourceAlpha);
+    float alphaMask = smoothstep(edge0, edge1 + 0.1, sourceAlpha) * hasTransparency;
+    return clamp(max(rgbMask, alphaMask), 0.0, 1.0);
+}`;
+}
+
+function buildSamplePinnedOverlayColorBody(): string {
+  return `
+    vec2 overlayUv = getTimelineOverlayUv(
+        uv,
+        resolution,
+        u_timeline_overlay_aspect_ratio,
+        u_timeline_overlay_scale_x,
+        u_timeline_overlay_scale_y,
+        u_timeline_overlay_offset_x,
+        u_timeline_overlay_offset_y,
+        u_timeline_overlay_fit_mode
+    );
+    float overlayMask = getTimelineOverlayMask(overlayUv);
+    if (overlayMask <= 0.001) {
+        return vec4(0.0);
+    }
+
+    vec4 overlayColor = sampleTimelineOverlayColor(
+        u_timeline_overlay_image,
+        overlayUv,
+        resolution,
+        u_timeline_overlay_quality
+    );
+    if (u_timeline_pin_key_black < 0.5) {
+        float alpha = overlayColor.a * u_timeline_overlay_opacity;
+        return vec4(overlayColor.rgb, alpha);
+    }
+
+    float keyMask = getTimelinePinStackKeyMask(overlayColor.rgb, overlayColor.a);
+    float alpha = u_timeline_overlay_opacity * keyMask;
+    return vec4(overlayColor.rgb, alpha);`;
+}
+
+export function buildTimelinePinStackMediaOverlayShaderCode(): string {
+  const overlayComposer = buildTimelineOverlayComposer();
+  const pinStackKeyComposer = buildPinStackKeyComposer();
+
+  return `// NAME: Timeline Pin Stack Overlay
+${buildPinOverlayUniformBlock()}
+
+${overlayComposer}
+
+${pinStackKeyComposer}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    if (!u_timeline_has_overlay) {
+        return vec4(0.0);
+    }
+    ${buildSamplePinnedOverlayColorBody()}
+}`;
+}
+
+export function buildTimelinePinAlphaOverlayShaderCode(): string {
+  const overlayComposer = buildTimelineOverlayComposer();
+
+  return `// NAME: Timeline Pin Alpha Overlay
+uniform sampler2D u_timeline_base_image;
+${buildPinOverlayUniformBlock()}
+
+${overlayComposer}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec4 baseColor = texture2D(u_timeline_base_image, vec2(uv.x, 1.0 - uv.y));
+    if (!u_timeline_has_overlay) {
+        return baseColor;
+    }
+
+    vec2 overlayUv = getTimelineOverlayUv(
+        uv,
+        resolution,
+        u_timeline_overlay_aspect_ratio,
+        u_timeline_overlay_scale_x,
+        u_timeline_overlay_scale_y,
+        u_timeline_overlay_offset_x,
+        u_timeline_overlay_offset_y,
+        u_timeline_overlay_fit_mode
+    );
+    float overlayMask = getTimelineOverlayMask(overlayUv);
+    if (overlayMask <= 0.001) {
+        return baseColor;
+    }
+
+    vec4 overlayColor = sampleTimelineOverlayColor(
+        u_timeline_overlay_image,
+        overlayUv,
+        resolution,
+        u_timeline_overlay_quality
+    );
+    float alpha = overlayColor.a * u_timeline_overlay_opacity;
+
+    vec3 compositedRgb = mix(baseColor.rgb, overlayColor.rgb, alpha);
+    return vec4(clamp(compositedRgb, 0.0, 1.0), max(baseColor.a, alpha));
+}`;
+}
+
+export function buildTimelinePinShaderAlphaOverlayShaderCode(shaderCode: string): string {
+  const pinCode = namespaceShaderCode(shaderCode, 'timeline_pin');
+
+  return `// NAME: Timeline Pin Shader Alpha Overlay
+uniform sampler2D u_timeline_base_image;
+uniform float u_timeline_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
+
+${pinCode}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec4 baseColor = texture2D(u_timeline_base_image, vec2(uv.x, 1.0 - uv.y));
+    vec4 pinColor = timeline_pin_processColor(tex, uv, time, resolution);
+    float alpha = clamp(pinColor.a * u_timeline_overlay_opacity, 0.0, 1.0);
+    vec3 compositedRgb = mix(baseColor.rgb, pinColor.rgb, alpha);
+    return vec4(clamp(compositedRgb, 0.0, 1.0), max(baseColor.a, alpha));
+}`;
+}
+
+export function buildTimelinePinStackShaderOutputShaderCode(shaderCode: string): string {
+  const pinCode = namespaceShaderCode(shaderCode, 'timeline_pin');
+  const overlayComposer = buildTimelineOverlayComposer();
+  const pinStackKeyComposer = buildPinStackKeyComposer();
+
+  return `// NAME: Timeline Pin Stack Shader
+uniform float u_timeline_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
+uniform float u_timeline_pin_key_black; // @min 0.0 @max 1.0 @default 0.0
+uniform float u_timeline_pin_key_threshold; // @min 0.0 @max 0.5 @default 0.04
+
+${pinCode}
+
+${overlayComposer}
+
+${pinStackKeyComposer}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec4 pinColor = timeline_pin_processColor(tex, uv, time, resolution);
+    if (u_timeline_pin_key_black < 0.5) {
+        float alpha = u_timeline_overlay_opacity * max(pinColor.a, 1.0);
+        return vec4(pinColor.rgb, alpha);
+    }
+
+    float rgbPeak = max(max(pinColor.r, pinColor.g), pinColor.b);
+    float keyMask = getTimelinePinStackKeyMask(pinColor.rgb, pinColor.a);
+    float alpha = u_timeline_overlay_opacity * max(keyMask, step(0.004, rgbPeak));
+    return vec4(pinColor.rgb, alpha);
+}`;
+}
+
+export function buildTimelinePinBlendCompositeShaderCode(): string {
+  return buildTimelinePinAlphaOverlayShaderCode();
+}
+
+export function buildTimelinePinShaderBlendCompositeShaderCode(shaderCode: string): string {
+  return buildTimelinePinShaderAlphaOverlayShaderCode(shaderCode);
+}
+
 export function buildTimelineOverlayShaderCode({
   shaderCode,
 }: {
@@ -315,6 +506,8 @@ export function buildTimelineTransitionShaderCode({
 
   return `// NAME: Timeline Transition
 uniform float u_transition_progress; // @min 0.0 @max 1.0 @default 0.0
+uniform sampler2D u_timeline_from_image;
+uniform sampler2D u_timeline_to_image;
 uniform bool u_timeline_from_has_overlay; // @default false
 uniform bool u_timeline_to_has_overlay; // @default false
 uniform sampler2D u_timeline_from_overlay_image;
@@ -347,8 +540,8 @@ ${overlayComposer}
 ${transitionMixer}
 
 vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec4 fromColor = timeline_from_processColor(tex, uv, time, resolution);
-    vec4 toColor = timeline_to_processColor(tex, uv, time, resolution);
+    vec4 fromColor = timeline_from_processColor(u_timeline_from_image, uv, time, resolution);
+    vec4 toColor = timeline_to_processColor(u_timeline_to_image, uv, time, resolution);
     if (u_timeline_from_has_overlay) {
         fromColor = applyTimelineOverlay(
             fromColor,

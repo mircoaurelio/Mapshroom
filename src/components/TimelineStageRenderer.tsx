@@ -8,6 +8,7 @@ import {
 } from '../lib/shaderState';
 import {
   clampTimelineStepDuration,
+  excludePinnedStepFromTimelinePlayback,
   resolveShaderTimelineState,
 } from '../lib/timeline';
 import {
@@ -19,6 +20,8 @@ import {
 } from '../lib/timelineAssetSettings';
 import {
   buildTimelineOverlayShaderCode,
+  buildTimelinePinStackShaderOutputShaderCode,
+  buildTimelinePinShaderAlphaOverlayShaderCode,
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
 import { getBundledAssetUrl } from '../lib/bundledAssets';
@@ -49,6 +52,72 @@ const DOUBLE_SECONDARY_VARIANT_COUNT = 5;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
 const timelineAssetUrlCache = new Map<string, string>();
+const timelineDecodedAssetIds = new Set<string>();
+
+function getStageRenderLayerWarmupKey(
+  layer: Pick<
+    StageRenderLayer,
+    'shaderCode' | 'inputSource' | 'overlaySource' | 'transitionOverlaySources'
+  >,
+): string {
+  return [
+    layer.shaderCode,
+    layer.inputSource?.sourceKey ?? '',
+    layer.overlaySource?.sourceKey ?? '',
+    layer.transitionOverlaySources?.from?.sourceKey ?? '',
+    layer.transitionOverlaySources?.to?.sourceKey ?? '',
+  ].join('|');
+}
+
+function registerResolvedShaderLayerSources(
+  layer: ResolvedShaderLayer,
+  sources: Map<string, StageRenderInputSource>,
+) {
+  if (layer.inputSource) {
+    sources.set(layer.inputSource.sourceKey, layer.inputSource);
+  }
+
+  if (layer.overlaySource) {
+    sources.set(layer.overlaySource.sourceKey, layer.overlaySource);
+  }
+}
+
+function isTimelineStepMediaResolved(
+  shader: SavedShader | null | undefined,
+  resolvedInputSources: Record<string, { url: string | null; status: AssetObjectUrlStatus }>,
+): boolean {
+  const assetId = shader?.inputAssetId ?? null;
+  if (!assetId) {
+    return true;
+  }
+
+  const resolved = resolvedInputSources[assetId];
+  if (!resolved || resolved.status !== 'ready' || !resolved.url) {
+    return false;
+  }
+
+  return timelineDecodedAssetIds.has(assetId);
+}
+
+function timelinePlaybackStateNeedsDeferredMedia(
+  state: ResolvedTimelineState,
+  resolvedInputSources: Record<string, { url: string | null; status: AssetObjectUrlStatus }>,
+): boolean {
+  if (!isTimelineStepMediaResolved(state.currentShader, resolvedInputSources)) {
+    return true;
+  }
+
+  if (
+    state.isTransitioning &&
+    state.nextShader &&
+    state.nextStep &&
+    !isTimelineStepMediaResolved(state.nextShader, resolvedInputSources)
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 type TimelineRenderLayerKind = 'single' | 'transition';
 type ResolvedTimelineState = NonNullable<ReturnType<typeof resolveShaderTimelineState>>;
@@ -59,7 +128,10 @@ interface TimelineRenderLayer {
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
   usedFallback: boolean;
+  inputSource?: StageRenderInputSource | null;
   overlaySource?: StageRenderInputSource | null;
+  compositeMode?: StageRenderLayer['compositeMode'];
+  requiresCompositeBase?: boolean;
   transitionOverlaySources?: {
     from: StageRenderInputSource | null;
     to: StageRenderInputSource | null;
@@ -70,8 +142,13 @@ interface ResolvedShaderLayer {
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
   usedFallback: boolean;
+  inputSource: StageRenderInputSource | null;
   overlaySource: StageRenderInputSource | null;
   assetSettings: TimelineStepAssetSettings;
+}
+
+interface ResolveShaderLayerOptions {
+  preferStepSnapshot?: boolean;
 }
 
 interface PinLayerTransitionState {
@@ -115,6 +192,17 @@ function buildOverlayUniformValues(
     [`${namespace}_blend_mode`]: getTimelineAssetBlendModeIndex(settings.blendMode),
     [`${namespace}_fit_mode`]: getTimelineAssetFitModeIndex(settings.fitMode),
     [`${namespace}_quality`]: getTimelineAssetQualityIndex(settings.quality),
+  };
+}
+
+function buildPinnedCompositeUniformValues(
+  settings: TimelineStepAssetSettings,
+  keyBlack: boolean,
+): ShaderUniformValueMap {
+  return {
+    ...buildOverlayUniformValues('u_timeline_overlay', settings),
+    u_timeline_pin_key_black: keyBlack ? 1 : 0,
+    u_timeline_pin_key_threshold: settings.pinnedStackMaskThreshold,
   };
 }
 
@@ -225,6 +313,7 @@ interface TimelineStageRendererProps {
   focusedPreviewStepId?: string | null;
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
+  onPinnedIndicatorClick?: () => void;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
@@ -249,21 +338,20 @@ export function TimelineStageRenderer({
   focusedPreviewStepId = null,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
+  onPinnedIndicatorClick,
   onCanvasReady,
   onRenderStateChange,
   onCompilerError,
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
   const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
-  const [pinLayerTransition, setPinLayerTransition] = useState<PinLayerTransitionState | null>(
-    null,
-  );
+  const pinLayerTransitionRef = useRef<PinLayerTransitionState | null>(null);
   const [doubleModeRandomSeedToken, setDoubleModeRandomSeedToken] = useState(() =>
     createTimelineRandomSeedToken(),
   );
   const previousDoubleModeRef = useRef(false);
   const hasMountedPinLayerRef = useRef(false);
-  const previousPinnedLayerKeyRef = useRef<string | null>(null);
+  const previousPinnedStepIdRef = useRef<string | null>(null);
   const latestPinnedLayerSnapshotRef = useRef<{
     key: string | null;
     layer: TimelineRenderLayer | null;
@@ -278,11 +366,14 @@ export function TimelineStageRenderer({
   const [resolvedInputSources, setResolvedInputSources] = useState<
     Record<string, { url: string | null; status: AssetObjectUrlStatus }>
   >({});
+  const [decodedAssetVersion, setDecodedAssetVersion] = useState(0);
+  const lastReadyTimelineStateRef = useRef<ResolvedTimelineState | null>(null);
   const assetMap = useMemo(
     () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
     [assets],
   );
   const workspaceFocusedPreviewEnabled = forceActiveShaderPreview && !isOutputOnly;
+  const workspacePersonalPreviewActive = forceActiveShaderPreview && !isOutputOnly;
   const availableShaders = useMemo(() => {
     const liveShader = {
       ...savedShaders.find((shader) => shader.id === activeShaderId),
@@ -318,19 +409,39 @@ export function TimelineStageRenderer({
     shaderSequence.mode === 'double' ? `double-primary:${doubleModeRandomSeedToken}` : '';
   const doubleSecondaryRandomSeedBase =
     shaderSequence.mode === 'double' ? `double-secondary:${doubleModeRandomSeedToken}` : '';
-  const sequenceEnabled = shaderSequence.steps.length > 0;
-  const shouldResolveLiveTimelineState = sequenceEnabled && !workspaceFocusedPreviewEnabled;
-  const referencedInputAssetIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          savedShaders
-            .map((shader) => shader.inputAssetId ?? null)
-            .filter((assetId): assetId is string => Boolean(assetId)),
-        ),
-      ),
-    [savedShaders],
+  const playbackTimelineSteps = useMemo(
+    () => excludePinnedStepFromTimelinePlayback(shaderSequence.steps, pinnedStepId),
+    [pinnedStepId, shaderSequence.steps],
   );
+  const sequenceEnabled = playbackTimelineSteps.length > 0;
+  const shouldResolveLiveTimelineState = sequenceEnabled && !workspaceFocusedPreviewEnabled;
+  const referencedInputAssetIds = useMemo(() => {
+    const shaderById = new Map(savedShaders.map((shader) => [shader.id, shader]));
+    const assetIds = new Set<string>();
+
+    for (const shader of savedShaders) {
+      if (shader.inputAssetId) {
+        assetIds.add(shader.inputAssetId);
+      }
+    }
+
+    for (const step of shaderSequence.steps) {
+      const stepShader = shaderById.get(step.shaderId);
+      if (stepShader?.inputAssetId) {
+        assetIds.add(stepShader.inputAssetId);
+      }
+    }
+
+    if (pinnedStepId) {
+      const pinnedStep = shaderSequence.steps.find((step) => step.id === pinnedStepId);
+      const pinnedShader = pinnedStep ? shaderById.get(pinnedStep.shaderId) : null;
+      if (pinnedShader?.inputAssetId) {
+        assetIds.add(pinnedShader.inputAssetId);
+      }
+    }
+
+    return Array.from(assetIds);
+  }, [pinnedStepId, savedShaders, shaderSequence.steps]);
   const referencedInputAssetSignature = useMemo(
     () => referencedInputAssetIds.join('\u0001'),
     [referencedInputAssetIds],
@@ -417,6 +528,73 @@ export function TimelineStageRenderer({
       disposed = true;
     };
   }, [assetMap, referencedInputAssetIds, referencedInputAssetSignature]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    for (const assetId of referencedInputAssetIds) {
+      if (timelineDecodedAssetIds.has(assetId)) {
+        continue;
+      }
+
+      const resolved = resolvedInputSources[assetId];
+      const assetRecord = assetMap.get(assetId);
+      if (!resolved?.url || !assetRecord) {
+        continue;
+      }
+
+      if (assetRecord.kind === 'image') {
+        const image = new Image();
+        image.decoding = 'async';
+        image.crossOrigin = 'anonymous';
+        image.onload = () => {
+          if (disposed) {
+            return;
+          }
+
+          timelineDecodedAssetIds.add(assetId);
+          setDecodedAssetVersion((currentValue) => currentValue + 1);
+        };
+        image.onerror = () => {
+          if (disposed) {
+            return;
+          }
+
+          timelineDecodedAssetIds.add(assetId);
+          setDecodedAssetVersion((currentValue) => currentValue + 1);
+        };
+        image.src = resolved.url;
+        continue;
+      }
+
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.crossOrigin = 'anonymous';
+      video.onloadeddata = () => {
+        if (disposed) {
+          return;
+        }
+
+        timelineDecodedAssetIds.add(assetId);
+        setDecodedAssetVersion((currentValue) => currentValue + 1);
+      };
+      video.onerror = () => {
+        if (disposed) {
+          return;
+        }
+
+        timelineDecodedAssetIds.add(assetId);
+        setDecodedAssetVersion((currentValue) => currentValue + 1);
+      };
+      video.src = resolved.url;
+    }
+
+    return () => {
+      disposed = true;
+    };
+  }, [assetMap, referencedInputAssetIds, referencedInputAssetSignature, resolvedInputSources]);
   const activeSavedShader = useMemo(
     () => availableShaders.find((shader) => shader.id === activeShaderId) ?? null,
     [activeShaderId, availableShaders],
@@ -525,7 +703,7 @@ export function TimelineStageRenderer({
       sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
       sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
       sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
-      steps: shaderSequence.steps,
+      steps: playbackTimelineSteps,
       timeSeconds: transportTimeSeconds,
       loop: transport.loop,
       randomSeedSalt: doublePrimaryRandomSeedSalt,
@@ -534,6 +712,7 @@ export function TimelineStageRenderer({
     availableShaders,
     doublePrimaryRandomSeedSalt,
     shouldResolveLiveTimelineState,
+    playbackTimelineSteps,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
     shaderSequence.randomChoiceEnabled,
@@ -542,10 +721,22 @@ export function TimelineStageRenderer({
     shaderSequence.sharedTransitionDurationSeconds,
     shaderSequence.sharedTransitionEffect,
     shaderSequence.singleStepLoopEnabled,
-    shaderSequence.steps,
     transport.loop,
     transportTimeSeconds,
   ]);
+
+  const renderTimelineState = useMemo(() => {
+    if (!timelineState) {
+      return null;
+    }
+
+    if (timelinePlaybackStateNeedsDeferredMedia(timelineState, resolvedInputSources)) {
+      return lastReadyTimelineStateRef.current;
+    }
+
+    lastReadyTimelineStateRef.current = timelineState;
+    return timelineState;
+  }, [decodedAssetVersion, resolvedInputSources, timelineState]);
 
   const secondaryTimelineResolution = useMemo(() => {
     if (!shouldResolveLiveTimelineState || shaderSequence.mode !== 'double') {
@@ -571,7 +762,7 @@ export function TimelineStageRenderer({
         sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
         sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
         sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
-        steps: shaderSequence.steps,
+        steps: playbackTimelineSteps,
         timeSeconds: secondaryTimelineTimeSeconds,
         loop: transport.loop,
         randomSeedSalt: nextSeedSalt,
@@ -606,7 +797,7 @@ export function TimelineStageRenderer({
     shaderSequence.sharedTransitionDurationSeconds,
     shaderSequence.sharedTransitionEffect,
     shaderSequence.singleStepLoopEnabled,
-    shaderSequence.steps,
+    playbackTimelineSteps,
     timelineState,
     transport.loop,
   ]);
@@ -693,11 +884,18 @@ export function TimelineStageRenderer({
     shader: SavedShader | null | undefined,
     step: TimelineSequenceStep | null | undefined,
     scope: string,
+    options?: ResolveShaderLayerOptions,
   ): ResolvedShaderLayer => {
     const targetShader = shader ?? activeSavedShader;
-    const isActiveShader = targetShader?.id === activeShaderId;
+    const isActiveShader =
+      !options?.preferStepSnapshot && targetShader?.id === activeShaderId;
     const assetSettings = normalizeTimelineStepAssetSettings(step?.assetSettings);
-    const overlaySource = resolveShaderOverlaySource(targetShader, step, scope);
+    const assignedSource = resolveShaderOverlaySource(targetShader, step, scope);
+    const useAssignedAssetAsBase = Boolean(
+      assetSettings.useStepAssetAsShaderBase && assignedSource,
+    );
+    const overlaySource = useAssignedAssetAsBase ? null : assignedSource;
+    const inputSource = useAssignedAssetAsBase ? assignedSource : null;
 
     if (isActiveShader) {
       return {
@@ -705,6 +903,7 @@ export function TimelineStageRenderer({
         uniformValues: previewActiveUniformValues,
         usedFallback:
           !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
+        inputSource,
         overlaySource,
         assetSettings,
       };
@@ -715,6 +914,7 @@ export function TimelineStageRenderer({
         shaderCode: previewActiveShaderCode,
         uniformValues: previewActiveUniformValues,
         usedFallback: false,
+        inputSource: null,
         overlaySource: null,
         assetSettings,
       };
@@ -724,6 +924,7 @@ export function TimelineStageRenderer({
       shaderCode: getRenderableShaderCode(targetShader),
       uniformValues: getRenderableShaderUniformValues(targetShader),
       usedFallback: hasShaderCompileError(targetShader),
+      inputSource,
       overlaySource,
       assetSettings,
     };
@@ -739,12 +940,24 @@ export function TimelineStageRenderer({
   const buildSingleShaderLayer = useCallback((
     layer: ResolvedShaderLayer,
   ): TimelineRenderLayer => {
+    if (layer.inputSource) {
+      return {
+        kind: 'single',
+        shaderCode: layer.shaderCode,
+        uniformValues: layer.uniformValues,
+        usedFallback: layer.usedFallback,
+        inputSource: layer.inputSource,
+        overlaySource: null,
+      };
+    }
+
     if (!layer.overlaySource) {
       return {
         kind: 'single',
         shaderCode: layer.shaderCode,
         uniformValues: layer.uniformValues,
         usedFallback: layer.usedFallback,
+        inputSource: null,
         overlaySource: null,
       };
     }
@@ -763,9 +976,50 @@ export function TimelineStageRenderer({
         }),
       },
       usedFallback: layer.usedFallback,
+      inputSource: null,
       overlaySource: layer.overlaySource,
     };
   }, []);
+
+  const buildPinnedCompareLayer = useCallback((
+    resolvedLayer: ResolvedShaderLayer,
+  ): TimelineRenderLayer => {
+    const { pinnedCompositeMode, pinnedStackMaskMode } = resolvedLayer.assetSettings;
+    const usesTransparentOverlay = pinnedCompositeMode === 'blend';
+    const keyBlack = pinnedStackMaskMode === 'nonBlack';
+    const pinCompositeSettings = {
+      compositeMode: pinnedCompositeMode,
+      requiresCompositeBase: usesTransparentOverlay,
+    };
+    const applyKeyBlack = !usesTransparentOverlay && keyBlack;
+    const baseLayer = buildSingleShaderLayer(resolvedLayer);
+    const prefixedBaseUniformValues = prefixUniformValueKeys({
+      sourceValues: baseLayer.uniformValues,
+      namespace: 'timeline_pin',
+    });
+
+    if (usesTransparentOverlay) {
+      return {
+        ...baseLayer,
+        shaderCode: buildTimelinePinShaderAlphaOverlayShaderCode(baseLayer.shaderCode),
+        uniformValues: {
+          ...prefixedBaseUniformValues,
+          u_timeline_overlay_opacity: resolvedLayer.assetSettings.opacity,
+        },
+        ...pinCompositeSettings,
+      };
+    }
+
+    return {
+      ...baseLayer,
+      shaderCode: buildTimelinePinStackShaderOutputShaderCode(baseLayer.shaderCode),
+      uniformValues: {
+        ...prefixedBaseUniformValues,
+        ...buildPinnedCompositeUniformValues(resolvedLayer.assetSettings, applyKeyBlack),
+      },
+      ...pinCompositeSettings,
+    };
+  }, [buildSingleShaderLayer]);
 
   const buildTimelineRenderLayer = useCallback((
     state: NonNullable<typeof timelineState>,
@@ -888,6 +1142,7 @@ export function TimelineStageRenderer({
       uniformDefinitions: parseUniforms(nextLayer.shaderCode),
       uniformValues: nextLayer.uniformValues,
       opacity: 1,
+      inputSource: nextLayer.inputSource ?? null,
       overlaySource: nextLayer.overlaySource ?? null,
     };
   }, [buildSingleShaderLayer, resolveShaderLayer]);
@@ -900,9 +1155,50 @@ export function TimelineStageRenderer({
     uniformDefinitions: parseUniforms(layer.shaderCode),
     uniformValues: layer.uniformValues,
     opacity,
+    inputSource: layer.inputSource ?? null,
     overlaySource: layer.overlaySource ?? null,
     transitionOverlaySources: layer.transitionOverlaySources ?? null,
+    compositeMode: layer.compositeMode,
+    requiresCompositeBase: layer.requiresCompositeBase,
   }), []);
+
+  const timelineWarmupSources = useMemo(() => {
+    const sources = new Map<string, StageRenderInputSource>();
+
+    for (const step of shaderSequence.steps) {
+      const stepShader = availableShaders.find((shader) => shader.id === step.shaderId);
+      if (!stepShader) {
+        continue;
+      }
+
+      registerResolvedShaderLayerSources(
+        resolveShaderLayer(stepShader, step, `warmup:step:${step.id}`, {
+          preferStepSnapshot: true,
+        }),
+        sources,
+      );
+    }
+
+    if (pinnedSequenceStep && pinnedSequenceShader) {
+      registerResolvedShaderLayerSources(
+        resolveShaderLayer(
+          pinnedSequenceShader,
+          pinnedSequenceStep,
+          `warmup:step:${pinnedSequenceStep.id}:pinned`,
+          { preferStepSnapshot: true },
+        ),
+        sources,
+      );
+    }
+
+    return Array.from(sources.values());
+  }, [
+    availableShaders,
+    pinnedSequenceShader,
+    pinnedSequenceStep,
+    resolveShaderLayer,
+    shaderSequence.steps,
+  ]);
 
   const visibleTimelineRenderState = useMemo(() => {
     const baseLayers: TimelineRenderLayer[] = [];
@@ -939,7 +1235,7 @@ export function TimelineStageRenderer({
       if (focusedTargetShader) {
         visibleShaderIds.add(focusedTargetShader.id);
       }
-    } else if (!timelineState) {
+    } else if (!renderTimelineState) {
       const fallbackLayer = buildSingleShaderLayer(
         resolveShaderLayer(activeSavedShader, null, 'shader:fallback'),
       );
@@ -948,31 +1244,27 @@ export function TimelineStageRenderer({
         visibleShaderIds.add(activeSavedShader.id);
       }
     } else if (shaderSequence.mode === 'double') {
-      const primaryLayer = buildTimelineRenderLayer(timelineState);
-      const resolvedSecondaryState = secondaryTimelineState ?? timelineState;
+      const primaryLayer = buildTimelineRenderLayer(renderTimelineState);
+      const resolvedSecondaryState = secondaryTimelineState ?? renderTimelineState;
       const secondaryLayer = buildTimelineRenderLayer(resolvedSecondaryState);
 
       baseLayers.push(primaryLayer, secondaryLayer);
-      markStateVisible(timelineState);
+      markStateVisible(renderTimelineState);
       markStateVisible(resolvedSecondaryState);
     } else {
-      const activeLayer = buildTimelineRenderLayer(timelineState);
+      const activeLayer = buildTimelineRenderLayer(renderTimelineState);
       baseLayers.push(activeLayer);
-      markStateVisible(timelineState);
+      markStateVisible(renderTimelineState);
     }
 
     let pinnedLayer: TimelineRenderLayer | null = null;
-    if (
-      pinnedSequenceStep &&
-      pinnedSequenceShader &&
-      !visibleStepIds.has(pinnedSequenceStep.id) &&
-      !visibleShaderIds.has(pinnedSequenceShader.id)
-    ) {
-      pinnedLayer = buildSingleShaderLayer(
+    if (pinnedSequenceStep && pinnedSequenceShader) {
+      pinnedLayer = buildPinnedCompareLayer(
         resolveShaderLayer(
           pinnedSequenceShader,
           pinnedSequenceStep,
           `step:${pinnedSequenceStep.id}:pinned`,
+          { preferStepSnapshot: true },
         ),
       );
     }
@@ -986,6 +1278,7 @@ export function TimelineStageRenderer({
     activeSavedShader,
     buildSingleShaderLayer,
     buildTimelineRenderLayer,
+    buildPinnedCompareLayer,
     focusedSequenceShader,
     focusedSequenceStep,
     pinnedSequenceShader,
@@ -994,84 +1287,92 @@ export function TimelineStageRenderer({
     secondaryTimelineState,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
-    timelineState,
+    renderTimelineState,
+    decodedAssetVersion,
     workspaceFocusedPreviewEnabled,
   ]);
   const visibleTimelineRenderLayers = visibleTimelineRenderState.baseLayers;
   const pinnedTimelineRenderLayer = visibleTimelineRenderState.pinnedLayer;
   const pinnedTimelineRenderLayerKey = visibleTimelineRenderState.pinnedLayerKey;
+  const effectivePinnedStepId = pinnedStepId ?? null;
 
-  useEffect(() => {
-    if (!hasMountedPinLayerRef.current) {
-      hasMountedPinLayerRef.current = true;
-      previousPinnedLayerKeyRef.current = pinnedTimelineRenderLayerKey;
-      return;
-    }
-
-    if (pinnedTimelineRenderLayerKey === previousPinnedLayerKeyRef.current) {
-      return;
-    }
-
+  if (!hasMountedPinLayerRef.current) {
+    hasMountedPinLayerRef.current = true;
+    previousPinnedStepIdRef.current = effectivePinnedStepId;
+  } else if (effectivePinnedStepId !== previousPinnedStepIdRef.current) {
     const previousPinnedLayerSnapshot =
-      latestPinnedLayerSnapshotRef.current.key === previousPinnedLayerKeyRef.current
+      latestPinnedLayerSnapshotRef.current.key === previousPinnedStepIdRef.current
         ? latestPinnedLayerSnapshotRef.current.layer
         : null;
     const now = performance.now();
 
-    setPinTransitionNowMs(now);
-    setPinLayerTransition(
+    pinLayerTransitionRef.current =
       previousPinnedLayerSnapshot || pinnedTimelineRenderLayer
         ? {
-            fromKey: previousPinnedLayerKeyRef.current,
-            toKey: pinnedTimelineRenderLayerKey,
+            fromKey: previousPinnedStepIdRef.current,
+            toKey: effectivePinnedStepId,
             fromLayer: previousPinnedLayerSnapshot,
             toLayer: pinnedTimelineRenderLayer,
             startedAtMs: now,
           }
-        : null,
-    );
-    previousPinnedLayerKeyRef.current = pinnedTimelineRenderLayerKey;
-  }, [pinnedTimelineRenderLayer, pinnedTimelineRenderLayerKey]);
+        : null;
+    previousPinnedStepIdRef.current = effectivePinnedStepId;
+  }
 
-  useEffect(() => {
+  if (!pinLayerTransitionRef.current) {
     if (pinnedTimelineRenderLayerKey && pinnedTimelineRenderLayer) {
       latestPinnedLayerSnapshotRef.current = {
         key: pinnedTimelineRenderLayerKey,
         layer: pinnedTimelineRenderLayer,
       };
-      return;
-    }
-
-    if (!pinLayerTransition) {
+    } else {
       latestPinnedLayerSnapshotRef.current = {
         key: null,
         layer: null,
       };
     }
-  }, [pinLayerTransition, pinnedTimelineRenderLayer, pinnedTimelineRenderLayerKey]);
+  }
+
+  const pinLayerTransition = pinLayerTransitionRef.current;
 
   useEffect(() => {
-    if (!pinLayerTransition) {
+    if (!pinLayerTransitionRef.current) {
       return;
     }
 
+    const activeTransition = pinLayerTransitionRef.current;
     let frameId = 0;
+    let cancelled = false;
+
     const tick = (timestamp: number) => {
+      if (cancelled) {
+        return;
+      }
+
       setPinTransitionNowMs(timestamp);
-      if (timestamp - pinLayerTransition.startedAtMs < PIN_LAYER_FADE_DURATION_MS) {
+      if (timestamp - activeTransition.startedAtMs < PIN_LAYER_FADE_DURATION_MS) {
         frameId = requestAnimationFrame(tick);
         return;
       }
 
-      setPinLayerTransition(null);
+      pinLayerTransitionRef.current = null;
     };
 
+    setPinTransitionNowMs(activeTransition.startedAtMs);
     frameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameId);
-  }, [pinLayerTransition]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frameId);
+    };
+  }, [effectivePinnedStepId]);
 
   const stageRenderLayers = useMemo<StageRenderLayer[]>(() => {
-    if (!pinLayerTransition && !pinnedTimelineRenderLayer) {
+    const activePinLayerTransition = pinLayerTransitionRef.current;
+    const effectivePinTransitionNowMs = activePinLayerTransition
+      ? Math.max(pinTransitionNowMs, activePinLayerTransition.startedAtMs)
+      : pinTransitionNowMs;
+
+    if (!activePinLayerTransition && !pinnedTimelineRenderLayer) {
       const normalizedOpacity =
         visibleTimelineRenderLayers.length > 1 ? 1 / visibleTimelineRenderLayers.length : 1;
 
@@ -1081,29 +1382,42 @@ export function TimelineStageRenderer({
     }
 
     const baseLayerCount = visibleTimelineRenderLayers.length;
-    const pinTargetOpacity = baseLayerCount > 0 ? 1 / (baseLayerCount + 1) : 1;
-
     let transitionFromOpacity = 0;
     let transitionToOpacity = 0;
     let transitionFromLayer: TimelineRenderLayer | null = null;
     let transitionToLayer: TimelineRenderLayer | null = null;
 
-    if (pinLayerTransition) {
+    if (activePinLayerTransition) {
+      transitionFromLayer = activePinLayerTransition.fromLayer;
+      transitionToLayer = activePinLayerTransition.toLayer;
+    } else if (pinnedTimelineRenderLayer) {
+      transitionToLayer = pinnedTimelineRenderLayer;
+    }
+
+    const activePinnedLayer = transitionToLayer ?? pinnedTimelineRenderLayer;
+    const pinnedUsesStackOnTop = activePinnedLayer?.compositeMode === 'stackOnTop';
+    const pinnedUsesBlendComposite = activePinnedLayer?.requiresCompositeBase === true;
+    const pinTargetOpacity =
+      pinnedUsesStackOnTop || pinnedUsesBlendComposite
+        ? 1
+        : baseLayerCount > 0
+          ? 1 / (baseLayerCount + 1)
+          : 1;
+
+    if (activePinLayerTransition) {
       const easedProgress = easeTransitionProgress(
         Math.max(
           0,
           Math.min(
             1,
-            (pinTransitionNowMs - pinLayerTransition.startedAtMs) / PIN_LAYER_FADE_DURATION_MS,
+            (effectivePinTransitionNowMs - activePinLayerTransition.startedAtMs) /
+              PIN_LAYER_FADE_DURATION_MS,
           ),
         ),
       );
-      transitionFromLayer = pinLayerTransition.fromLayer;
-      transitionToLayer = pinLayerTransition.toLayer;
       transitionFromOpacity = transitionFromLayer ? pinTargetOpacity * (1 - easedProgress) : 0;
       transitionToOpacity = transitionToLayer ? pinTargetOpacity * easedProgress : 0;
     } else if (pinnedTimelineRenderLayer) {
-      transitionToLayer = pinnedTimelineRenderLayer;
       transitionToOpacity = pinTargetOpacity;
     }
 
@@ -1120,7 +1434,10 @@ export function TimelineStageRenderer({
       ];
     }
 
-    const currentBaseOpacity = (1 - totalPinnedOpacity) / baseLayerCount;
+    const currentBaseOpacity =
+      pinnedUsesStackOnTop || pinnedUsesBlendComposite
+        ? 1
+        : (1 - totalPinnedOpacity) / baseLayerCount;
 
     const composedLayers: StageRenderLayer[] = [
       ...visibleTimelineRenderLayers.map((layer) =>
@@ -1139,7 +1456,6 @@ export function TimelineStageRenderer({
     return composedLayers;
   }, [
     createStageRenderLayer,
-    pinLayerTransition,
     pinTransitionNowMs,
     pinnedTimelineRenderLayer,
     visibleTimelineRenderLayers,
@@ -1169,7 +1485,7 @@ export function TimelineStageRenderer({
             sharedTransitionDurationSeconds:
               shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
             sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
-            steps: shaderSequence.steps,
+            steps: playbackTimelineSteps,
             timeSeconds,
             loop: transport.loop,
             randomSeedSalt: doublePrimaryRandomSeedSalt,
@@ -1182,6 +1498,7 @@ export function TimelineStageRenderer({
     [
       availableShaders,
       doublePrimaryRandomSeedSalt,
+      playbackTimelineSteps,
       shaderSequence.focusedStepId,
       shaderSequence.mode,
       shaderSequence.randomChoiceEnabled,
@@ -1190,7 +1507,6 @@ export function TimelineStageRenderer({
       shaderSequence.sharedTransitionDurationSeconds,
       shaderSequence.sharedTransitionEffect,
       shaderSequence.singleStepLoopEnabled,
-      shaderSequence.steps,
       timelineState,
       transport.loop,
       transportTimeSeconds,
@@ -1216,7 +1532,7 @@ export function TimelineStageRenderer({
                 sharedTransitionDurationSeconds:
                   shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
                 sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
-                steps: shaderSequence.steps,
+                steps: playbackTimelineSteps,
                 timeSeconds,
                 loop: transport.loop,
                 randomSeedSalt: secondaryTimelineResolution.randomSeedSalt,
@@ -1225,6 +1541,7 @@ export function TimelineStageRenderer({
           }),
     [
       availableShaders,
+      playbackTimelineSteps,
       secondaryTimelineState,
       secondaryTimelineTimeSeconds,
       secondaryTimelineResolution.randomSeedSalt,
@@ -1234,7 +1551,6 @@ export function TimelineStageRenderer({
       shaderSequence.sharedTransitionDurationSeconds,
       shaderSequence.sharedTransitionEffect,
       shaderSequence.singleStepLoopEnabled,
-      shaderSequence.steps,
       transport.loop,
     ],
   );
@@ -1260,13 +1576,19 @@ export function TimelineStageRenderer({
       secondaryLookaheadTimelineStates.forEach(pushStatePreloads);
     }
 
-    const visibleShaderCodes = new Set(stageRenderLayers.map((layer) => layer.shaderCode));
+    const visiblePreloadKeys = new Set(stageRenderLayers.map((layer) => getStageRenderLayerWarmupKey(layer)));
     const dedupedPreloads = new Map<string, StageRenderLayer>();
     for (const candidate of preloadCandidates) {
-      if (!candidate || visibleShaderCodes.has(candidate.shaderCode)) {
+      if (!candidate) {
         continue;
       }
-      dedupedPreloads.set(candidate.shaderCode, candidate);
+
+      const preloadKey = getStageRenderLayerWarmupKey(candidate);
+      if (visiblePreloadKeys.has(preloadKey)) {
+        continue;
+      }
+
+      dedupedPreloads.set(preloadKey, candidate);
     }
 
     return Array.from(dedupedPreloads.values());
@@ -1291,6 +1613,9 @@ export function TimelineStageRenderer({
     [pinLayerTransition, pinnedTimelineRenderLayer, visibleTimelineRenderLayers],
   );
 
+  const showPinnedStageIndicator =
+    !isOutputOnly && Boolean(pinnedSequenceStep && pinnedSequenceShader);
+
   return (
     <StageRenderer
       asset={asset}
@@ -1298,6 +1623,7 @@ export function TimelineStageRenderer({
       assetUrlStatus={assetUrlStatus}
       renderLayers={stageRenderLayers}
       preloadLayers={preloadStageLayers}
+      warmupSources={timelineWarmupSources}
       shaderCode={renderDescriptor.shaderCode}
       shaderCompileNonce={shaderCompileNonce}
       uniformDefinitions={renderDescriptor.uniformDefinitions}
@@ -1305,7 +1631,10 @@ export function TimelineStageRenderer({
       stageTransform={stageTransform}
       transport={transport}
       isOutputOnly={isOutputOnly}
-      personalPreviewActive={workspaceFocusedPreviewEnabled}
+      personalPreviewActive={workspacePersonalPreviewActive}
+      showPinnedIndicator={showPinnedStageIndicator}
+      pinnedIndicatorLabel={pinnedSequenceShader?.name ?? null}
+      onPinnedIndicatorClick={onPinnedIndicatorClick}
       onCanvasReady={onCanvasReady}
       onRenderStateChange={onRenderStateChange}
       onCompilerError={(message) => {

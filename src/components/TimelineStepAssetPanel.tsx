@@ -2,6 +2,8 @@ import {
   TIMELINE_ASSET_BLEND_MODE_OPTIONS,
   TIMELINE_ASSET_FIT_MODE_OPTIONS,
   TIMELINE_ASSET_QUALITY_OPTIONS,
+  TIMELINE_PINNED_COMPOSITE_MODE_OPTIONS,
+  TIMELINE_PINNED_STACK_MASK_OPTIONS,
 } from '../lib/timelineAssetSettings';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
 import type { AssetRecord, TimelineStepAssetSettings } from '../types';
@@ -16,6 +18,7 @@ interface TimelineStepAssetPanelProps {
   onChooseAsset: (() => void) | null;
   onImportAsset: (() => void) | null;
   onUseLiveStageAsset: (() => void) | null;
+  isPinnedStep?: boolean;
 }
 
 export function TimelineStepAssetPanel({
@@ -27,6 +30,7 @@ export function TimelineStepAssetPanel({
   onChooseAsset,
   onImportAsset,
   onUseLiveStageAsset,
+  isPinnedStep = false,
 }: TimelineStepAssetPanelProps) {
   const assignedAssetResolution = useAssetObjectUrl(assignedAsset);
   const assignedAssetUrl = assignedAssetResolution.url;
@@ -40,6 +44,8 @@ export function TimelineStepAssetPanel({
       </PanelSection>
     );
   }
+
+  const showPinnedControls = Boolean(assignedAsset);
 
   return (
     <PanelSection title="Step Asset">
@@ -117,6 +123,109 @@ export function TimelineStepAssetPanel({
             </div>
           ) : null}
         </div>
+
+        {assignedAsset ? (
+          <div className="stack gap-sm">
+            <button
+              type="button"
+              className={`toggle-chip ${settings.useStepAssetAsShaderBase ? 'toggle-chip-active' : ''}`}
+              aria-pressed={settings.useStepAssetAsShaderBase}
+              onClick={() =>
+                onSettingsChange({
+                  useStepAssetAsShaderBase: !settings.useStepAssetAsShaderBase,
+                })
+              }
+            >
+              Use step asset as shader input
+            </button>
+            <p className="helper-copy">
+              {settings.useStepAssetAsShaderBase
+                ? 'The shader runs on this step media. Pinned display settings below control how this step composites over the live timeline when pinned.'
+                : 'When off, the live stage asset stays the shader input and this step media is composited as an overlay.'}
+            </p>
+
+            {showPinnedControls ? (
+              <div className="stack gap-sm timeline-pinned-overlay-settings">
+                <label className="field">
+                  <span>Pinned display</span>
+                  <select
+                    className="select-field"
+                    value={settings.pinnedCompositeMode}
+                    onChange={(event) =>
+                      onSettingsChange({
+                        pinnedCompositeMode:
+                          event.target.value as TimelineStepAssetSettings['pinnedCompositeMode'],
+                      })
+                    }
+                  >
+                    {TIMELINE_PINNED_COMPOSITE_MODE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {settings.pinnedCompositeMode === 'stackOnTop' ? (
+                  <>
+                    <label className="field">
+                      <span>Stack mask</span>
+                      <select
+                        className="select-field"
+                        value={settings.pinnedStackMaskMode}
+                        onChange={(event) =>
+                          onSettingsChange({
+                            pinnedStackMaskMode:
+                              event.target.value as TimelineStepAssetSettings['pinnedStackMaskMode'],
+                          })
+                        }
+                      >
+                        {TIMELINE_PINNED_STACK_MASK_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    {settings.pinnedStackMaskMode === 'nonBlack' ? (
+                      <label className="field">
+                        <span>Black threshold</span>
+                        <input
+                          className="text-field"
+                          type="number"
+                          min={0}
+                          max={0.5}
+                          step={0.005}
+                          value={settings.pinnedStackMaskThreshold}
+                          onChange={(event) =>
+                            onSettingsChange({
+                              pinnedStackMaskThreshold: Number(event.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </>
+                ) : null}
+
+                <p className="helper-copy">
+                  {isPinnedStep
+                    ? settings.pinnedCompositeMode === 'stackOnTop'
+                      ? settings.pinnedStackMaskMode === 'nonBlack'
+                        ? 'Pinned content is stacked on top and black pixels are treated as transparent. Lower Black threshold keeps more dark pixels; raise it to cut more black.'
+                        : settings.useStepAssetAsShaderBase
+                          ? 'Pinned shader output is stacked on top of the live timeline. Use Transparency to control strength.'
+                          : 'Pinned media is stacked on top of the live timeline. Use Transparency to control strength.'
+                      : settings.useStepAssetAsShaderBase
+                        ? 'Pinned shader output is placed over the live timeline with a transparent alpha mix. Use Transparency to control strength.'
+                        : 'Pinned media is placed over the live timeline with a transparent alpha mix. Use Transparency to control strength.'
+                    : 'These pinned compositing settings apply when this step is pinned beside the live timeline.'}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="timeline-asset-settings-grid">
           <label className="field">
@@ -288,6 +397,7 @@ export function TimelineStepAssetPanel({
             />
           </label>
         </div>
+
       </div>
     </PanelSection>
   );

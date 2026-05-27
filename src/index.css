@@ -660,6 +660,63 @@ a {
   text-transform: uppercase;
 }
 
+.stage-pinned-indicator {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem;
+  border: 1px solid rgba(250, 204, 21, 0.42);
+  border-radius: 999px;
+  background: rgba(9, 9, 11, 0.88);
+  color: #facc15;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+  cursor: pointer;
+}
+
+.stage-pinned-indicator:hover {
+  border-color: rgba(250, 204, 21, 0.72);
+  background: rgba(24, 24, 27, 0.94);
+  color: #fde047;
+}
+
+.stage-pinned-indicator:focus-visible {
+  outline: 2px solid rgba(250, 204, 21, 0.85);
+  outline-offset: 2px;
+}
+
+.stage-pinned-indicator-icon {
+  width: 0.72rem;
+  height: 0.72rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stage-pinned-video-control {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 5;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-color: rgba(250, 204, 21, 0.45);
+  background: rgba(9, 9, 11, 0.92);
+  color: #facc15;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.stage-pinned-video-control:hover:not(:disabled) {
+  border-color: rgba(250, 204, 21, 0.75);
+  background: rgba(24, 24, 27, 0.96);
+  color: #fde047;
+}
+
 .stage-mapping-overlay {
   position: absolute;
   right: 1rem;
@@ -2433,9 +2490,14 @@ a {
   white-space: nowrap;
 }
 
-.timeline-segment-block-current {
-  background: rgba(52, 211, 153, 0.22);
-  color: #d1fae5;
+.timeline-segment-block-current:not(.timeline-segment-block-editing) {
+  background: rgba(56, 189, 248, 0.18);
+  color: #e0f2fe;
+}
+
+.timeline-segment-block-editing {
+  box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.82);
+  color: rgba(254, 242, 242, 0.96);
 }
 
 .timeline-segment-block-next {
@@ -2453,11 +2515,6 @@ a {
       rgba(39, 39, 42, 0.32) 16px
     );
   color: rgba(228, 228, 231, 0.55);
-}
-
-.timeline-segment-block[data-focused='true'] {
-  box-shadow: inset 0 0 0 1px rgba(244, 244, 245, 0.18);
-  color: rgba(244, 244, 245, 0.92);
 }
 
 .timeline-segment-block:focus-visible {
@@ -2977,6 +3034,7 @@ a {
   gap: 0.35rem;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
   padding-bottom: 0.28rem;
   scrollbar-width: thin;
   scrollbar-color: #000000 rgba(0, 0, 0, 0.82);
@@ -3041,19 +3099,23 @@ a {
   max-width: var(--timeline-card-simple-width, 192px);
 }
 
-.timeline-step-card-active {
+.timeline-step-card-active:not(.timeline-step-card-editing):not(.timeline-step-card-current) {
   border-color: rgba(52, 211, 153, 0.24);
   background: rgba(52, 211, 153, 0.06);
 }
 
-.timeline-step-card-current {
-  border-color: rgba(52, 211, 153, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.12);
+.timeline-step-card-current:not(.timeline-step-card-editing) {
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.22);
+  background: rgba(56, 189, 248, 0.06);
 }
 
 .timeline-step-card-editing {
-  border-color: rgba(16, 185, 129, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.2);
+  border-color: rgba(239, 68, 68, 0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(239, 68, 68, 0.28),
+    0 0 0 1px rgba(239, 68, 68, 0.35);
+  background: rgba(127, 29, 29, 0.08);
 }
 
 .timeline-step-card-disabled {
@@ -3083,7 +3145,7 @@ a {
   opacity: 0.78;
 }
 
-.timeline-step-card-pinned {
+.timeline-step-card-pinned:not(.timeline-step-card-editing) {
   border-color: rgba(251, 191, 36, 0.32);
   box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.1);
 }
@@ -3213,8 +3275,8 @@ a {
 }
 
 .timeline-step-preview-badge-active {
-  border-color: rgba(52, 211, 153, 0.28);
-  color: #d1fae5;
+  border-color: rgba(56, 189, 248, 0.42);
+  color: #e0f2fe;
 }
 
 .timeline-step-preview-badge-error {
@@ -3927,6 +3989,13 @@ a {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.timeline-pinned-overlay-settings {
+  padding: 0.55rem 0.6rem;
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(251, 191, 36, 0.04);
 }
 
 .timeline-asset-settings-grid {
