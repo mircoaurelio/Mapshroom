@@ -10,6 +10,7 @@ import {
   clampTimelineStepDuration,
   excludePinnedStepFromTimelinePlayback,
   resolveShaderTimelineState,
+  resolveTimelineStepIdForShader,
 } from '../lib/timeline';
 import {
   createTimelineAssetSourceKey,
@@ -314,6 +315,7 @@ interface TimelineStageRendererProps {
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
   onPinnedIndicatorClick?: () => void;
+  onNavigateToTimelineStep?: (stepId: string) => void;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
@@ -339,6 +341,7 @@ export function TimelineStageRenderer({
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
   onPinnedIndicatorClick,
+  onNavigateToTimelineStep,
   onCanvasReady,
   onRenderStateChange,
   onCompilerError,
@@ -1616,6 +1619,48 @@ export function TimelineStageRenderer({
   const showPinnedStageIndicator =
     !isOutputOnly && Boolean(pinnedSequenceStep && pinnedSequenceShader);
 
+  const handleStageDoubleClick = useCallback(() => {
+    if (isOutputOnly || !onNavigateToTimelineStep) {
+      return;
+    }
+
+    let stepId: string | null = null;
+
+    if (workspaceFocusedPreviewEnabled) {
+      stepId =
+        focusedPreviewStepId ??
+        focusedSequenceStep?.id ??
+        shaderSequence.focusedStepId ??
+        null;
+    } else if (renderTimelineState?.currentStep.id) {
+      stepId = renderTimelineState.currentStep.id;
+    } else {
+      stepId = resolveTimelineStepIdForShader(
+        shaderSequence.steps,
+        activeSavedShader,
+        activeShaderId,
+      );
+    }
+
+    if (stepId) {
+      onNavigateToTimelineStep(stepId);
+    }
+  }, [
+    activeSavedShader,
+    activeShaderId,
+    focusedPreviewStepId,
+    focusedSequenceStep,
+    isOutputOnly,
+    onNavigateToTimelineStep,
+    renderTimelineState,
+    shaderSequence.focusedStepId,
+    shaderSequence.steps,
+    workspaceFocusedPreviewEnabled,
+  ]);
+
+  const stageNavigateToTimelineEnabled =
+    !isOutputOnly && Boolean(onNavigateToTimelineStep) && shaderSequence.steps.length > 0;
+
   return (
     <StageRenderer
       asset={asset}
@@ -1635,6 +1680,12 @@ export function TimelineStageRenderer({
       showPinnedIndicator={showPinnedStageIndicator}
       pinnedIndicatorLabel={pinnedSequenceShader?.name ?? null}
       onPinnedIndicatorClick={onPinnedIndicatorClick}
+      onStageDoubleClick={stageNavigateToTimelineEnabled ? handleStageDoubleClick : undefined}
+      stageDoubleClickTitle={
+        stageNavigateToTimelineEnabled
+          ? 'Double-click to locate this shader in the timeline'
+          : null
+      }
       onCanvasReady={onCanvasReady}
       onRenderStateChange={onRenderStateChange}
       onCompilerError={(message) => {

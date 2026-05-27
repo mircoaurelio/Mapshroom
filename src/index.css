@@ -603,6 +603,10 @@ a {
   overflow: hidden;
 }
 
+.stage-media-surface-navigable {
+  cursor: pointer;
+}
+
 .stage-canvas {
   position: relative;
   max-width: 100%;

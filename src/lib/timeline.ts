@@ -489,3 +489,30 @@ export function resolveShaderTimelineState({
 
   return null;
 }
+
+export function resolveTimelineStepIdForShader(
+  steps: TimelineStub['shaderSequence']['steps'],
+  shader: SavedShader | null | undefined,
+  shaderId: string,
+): string | null {
+  if (shader?.ownerTimelineStepId) {
+    const ownerStep = steps.find((step) => step.id === shader.ownerTimelineStepId);
+    if (ownerStep) {
+      return ownerStep.id;
+    }
+  }
+
+  const stepByShaderId = steps.find((step) => step.shaderId === shaderId);
+  if (stepByShaderId) {
+    return stepByShaderId.id;
+  }
+
+  if (shader?.sourceShaderId) {
+    const stepBySource = steps.find((step) => step.shaderId === shader.sourceShaderId);
+    if (stepBySource) {
+      return stepBySource.id;
+    }
+  }
+
+  return null;
+}

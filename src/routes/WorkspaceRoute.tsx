@@ -3380,6 +3380,21 @@ ${errorSnapshot}`,
     }
   }, [handleTimelineEditStep, isMobile, pinnedTimelineStepId]);
 
+  const handleStageNavigateToTimelineStep = useCallback(
+    (stepId: string) => {
+      handleTimelineEditStep(stepId);
+      setTimelineScrollToStepRequest({
+        stepId,
+        token: performance.now(),
+      });
+
+      if (isMobile) {
+        setIsMobileTimelineOpen(true);
+      }
+    },
+    [handleTimelineEditStep, isMobile],
+  );
+
   if (!project) {
     return (
       <div className="loading-screen">
@@ -3758,6 +3773,7 @@ ${errorSnapshot}`,
         focusedPreviewStepId={editingTimelineStepId}
         preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
         onPinnedIndicatorClick={handlePinnedIndicatorClick}
+        onNavigateToTimelineStep={handleStageNavigateToTimelineStep}
         onCompilerError={applyCompilerFeedback}
       />
 

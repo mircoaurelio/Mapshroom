@@ -39,6 +39,8 @@ interface StageRendererProps {
   showPinnedIndicator?: boolean;
   pinnedIndicatorLabel?: string | null;
   onPinnedIndicatorClick?: () => void;
+  onStageDoubleClick?: () => void;
+  stageDoubleClickTitle?: string | null;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
@@ -832,6 +834,8 @@ export function StageRenderer({
   showPinnedIndicator = false,
   pinnedIndicatorLabel = null,
   onPinnedIndicatorClick,
+  onStageDoubleClick,
+  stageDoubleClickTitle = null,
   onCanvasReady,
   onRenderStateChange,
   onCompilerError,
@@ -1766,7 +1770,20 @@ export function StageRenderer({
       }`}
       title={isOutputOnly ? undefined : renderStatus}
     >
-      <div ref={mediaSurfaceRef} className="stage-media-surface" style={mediaSurfaceStyle}>
+      <div
+        ref={mediaSurfaceRef}
+        className={`stage-media-surface${onStageDoubleClick ? ' stage-media-surface-navigable' : ''}`}
+        style={mediaSurfaceStyle}
+        title={onStageDoubleClick ? stageDoubleClickTitle ?? undefined : undefined}
+        onDoubleClick={
+          onStageDoubleClick
+            ? (event) => {
+                event.stopPropagation();
+                onStageDoubleClick();
+              }
+            : undefined
+        }
+      >
         <canvas ref={canvasRef} className="stage-canvas" />
       </div>
       {showPinnedIndicator && !isOutputOnly ? (
