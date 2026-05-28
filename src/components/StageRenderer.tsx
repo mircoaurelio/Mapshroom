@@ -925,6 +925,8 @@ export function StageRenderer({
     () => preloadLayers ?? [],
     [preloadLayers],
   );
+  resolvedRenderLayersRef.current = resolvedRenderLayers;
+  resolvedPreloadLayersRef.current = resolvedPreloadLayers;
   const renderLayerShaderSignature = useMemo(
     () =>
       [...resolvedRenderLayers, ...resolvedPreloadLayers]
@@ -991,7 +993,6 @@ export function StageRenderer({
   }, [defaultInputSource, resolvedRenderLayers]);
 
   useEffect(() => {
-    resolvedRenderLayersRef.current = resolvedRenderLayers;
     const compiledByKey = new Map(
       compiledLayersRef.current.map((layer) => [layer.key, layer] as const),
     );
@@ -1050,7 +1051,7 @@ export function StageRenderer({
         opacity: Number.isFinite(resolvedRenderLayers[index].opacity)
           ? Number(resolvedRenderLayers[index].opacity)
           : 1,
-        key: `${existingLayer.shaderCode}:${index}`,
+        key: `${resolvedRenderLayers[index].shaderCode}:${index}`,
       }));
       return;
     }
@@ -1058,10 +1059,6 @@ export function StageRenderer({
     // Keep the last good frame until every requested layer program is compiled.
     compiledLayersRef.current = [];
   }, [resolvedRenderLayers]);
-
-  useEffect(() => {
-    resolvedPreloadLayersRef.current = resolvedPreloadLayers;
-  }, [resolvedPreloadLayers]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1235,9 +1232,10 @@ export function StageRenderer({
     }
 
     const syncCompiledRenderLayers = () => {
+      const resolvedLayers = resolvedRenderLayersRef.current;
       const nextCompiledLayers: CompiledRenderLayer[] = [];
 
-      for (const [index, layer] of resolvedRenderLayersRef.current.entries()) {
+      for (const [index, layer] of resolvedLayers.entries()) {
         const cachedProgram = programCacheRef.current.get(layer.shaderCode);
         if (!cachedProgram) {
           return false;
@@ -1250,6 +1248,15 @@ export function StageRenderer({
           program: cachedProgram.program,
           locations: cachedProgram.locations,
         });
+      }
+
+      if (
+        nextCompiledLayers.length !== resolvedLayers.length ||
+        nextCompiledLayers.some(
+          (layer, index) => layer.shaderCode !== resolvedLayers[index]?.shaderCode,
+        )
+      ) {
+        return false;
       }
 
       compiledLayersRef.current = nextCompiledLayers;
@@ -1491,8 +1498,19 @@ export function StageRenderer({
       const buffer = positionBufferRef.current;
       const compiledLayers = compiledLayersRef.current;
       const textureSources = textureSourcesRef.current;
+      const resolvedLayers = resolvedRenderLayersRef.current;
 
       if (!gl || !canvas || !buffer || compiledLayers.length === 0) {
+        rafRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      if (
+        compiledLayers.length !== resolvedLayers.length ||
+        compiledLayers.some(
+          (layer, index) => layer.shaderCode !== resolvedLayers[index]?.shaderCode,
+        )
+      ) {
         rafRef.current = requestAnimationFrame(render);
         return;
       }

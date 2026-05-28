@@ -1017,6 +1017,13 @@ export function TimelineStageRenderer({
     };
   }, [buildSingleShaderLayer]);
 
+  const liveTimelineState = timelineState ?? renderTimelineState;
+  const isTimelineTransitionRendering = Boolean(
+    liveTimelineState?.isTransitioning &&
+      liveTimelineState.nextShader &&
+      liveTimelineState.transitionEffect !== 'cut',
+  );
+
   const buildTimelineRenderLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): TimelineRenderLayer => {
@@ -1271,7 +1278,7 @@ export function TimelineStageRenderer({
       if (focusedTargetShader) {
         visibleShaderIds.add(focusedTargetShader.id);
       }
-    } else if (!renderTimelineState) {
+    } else if (!liveTimelineState) {
       const fallbackLayer = buildSingleShaderLayer(
         resolveShaderLayer(activeSavedShader, null, 'shader:fallback'),
       );
@@ -1280,17 +1287,17 @@ export function TimelineStageRenderer({
         visibleShaderIds.add(activeSavedShader.id);
       }
     } else if (shaderSequence.mode === 'double') {
-      const primaryLayer = buildTimelineRenderLayer(renderTimelineState);
-      const resolvedSecondaryState = secondaryTimelineState ?? renderTimelineState;
+      const primaryLayer = buildTimelineRenderLayer(liveTimelineState);
+      const resolvedSecondaryState = secondaryTimelineState ?? liveTimelineState;
       const secondaryLayer = buildTimelineRenderLayer(resolvedSecondaryState);
 
       baseLayers.push(primaryLayer, secondaryLayer);
-      markStateVisible(renderTimelineState);
+      markStateVisible(liveTimelineState);
       markStateVisible(resolvedSecondaryState);
     } else {
-      const activeLayer = buildTimelineRenderLayer(renderTimelineState);
+      const activeLayer = buildTimelineRenderLayer(liveTimelineState);
       baseLayers.push(activeLayer);
-      markStateVisible(renderTimelineState);
+      markStateVisible(liveTimelineState);
     }
 
     let pinnedLayer: TimelineRenderLayer | null = null;
@@ -1323,7 +1330,7 @@ export function TimelineStageRenderer({
     secondaryTimelineState,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
-    renderTimelineState,
+    liveTimelineState,
     decodedAssetVersion,
     workspaceFocusedPreviewEnabled,
   ]);
@@ -1408,7 +1415,10 @@ export function TimelineStageRenderer({
       ? Math.max(pinTransitionNowMs, activePinLayerTransition.startedAtMs)
       : pinTransitionNowMs;
 
-    if (!activePinLayerTransition && !pinnedTimelineRenderLayer) {
+    if (
+      isTimelineTransitionRendering ||
+      (!activePinLayerTransition && !pinnedTimelineRenderLayer)
+    ) {
       const normalizedOpacity =
         visibleTimelineRenderLayers.length > 1 ? 1 / visibleTimelineRenderLayers.length : 1;
 
@@ -1492,6 +1502,7 @@ export function TimelineStageRenderer({
     return composedLayers;
   }, [
     createStageRenderLayer,
+    isTimelineTransitionRendering,
     pinTransitionNowMs,
     pinnedTimelineRenderLayer,
     visibleTimelineRenderLayers,
@@ -1598,10 +1609,10 @@ export function TimelineStageRenderer({
 
     const preloadCandidates: Array<StageRenderLayer | null> = [];
     const pushStatePreloads = (state: ResolvedTimelineState) => {
-      preloadCandidates.push(
-        buildTransitionPreloadLayer(state),
-        buildNextSinglePreloadLayer(state),
-      );
+      preloadCandidates.push(buildTransitionPreloadLayer(state));
+      if (state.transitionEffect === 'cut') {
+        preloadCandidates.push(buildNextSinglePreloadLayer(state));
+      }
     };
 
     pushStatePreloads(timelineState);
