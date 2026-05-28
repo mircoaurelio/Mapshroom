@@ -1020,10 +1020,20 @@ export function TimelineStageRenderer({
 
   const liveTimelineState = timelineState;
   const isTimelineTransitionRendering = Boolean(
-    liveTimelineState?.nextShader &&
+    liveTimelineState?.isTransitioning &&
+      liveTimelineState.nextShader &&
       liveTimelineState.nextStep &&
       liveTimelineState.transitionEffect !== 'cut',
   );
+
+  const resolveTimelineStepLayer = useCallback((
+    shader: SavedShader | null | undefined,
+    step: TimelineSequenceStep | null | undefined,
+    options?: ResolveShaderLayerOptions,
+  ): ResolvedShaderLayer => {
+    const stepScope = step ? `step:${step.id}:current` : 'shader:current';
+    return resolveShaderLayer(shader, step, stepScope, options);
+  }, [resolveShaderLayer]);
 
   const buildTimelineRenderLayer = useCallback((
     state: NonNullable<typeof timelineState>,
@@ -1031,22 +1041,21 @@ export function TimelineStageRenderer({
     const timelineLayerOptions = {
       preferStepSnapshot: shouldResolveLiveTimelineState,
     } satisfies ResolveShaderLayerOptions;
-    const currentLayer = resolveShaderLayer(
+    const currentLayer = resolveTimelineStepLayer(
       state.currentShader,
       state.currentStep,
-      `step:${state.currentStep.id}:current`,
       timelineLayerOptions,
     );
 
     if (
+      state.isTransitioning &&
       state.nextShader &&
       state.nextStep &&
       state.transitionEffect !== 'cut'
     ) {
-      const nextLayer = resolveShaderLayer(
+      const nextLayer = resolveTimelineStepLayer(
         state.nextShader,
         state.nextStep,
-        `step:${state.nextStep?.id ?? state.currentStep.id}:next`,
         timelineLayerOptions,
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
@@ -1066,8 +1075,6 @@ export function TimelineStageRenderer({
           );
         }
         transitionProgress = transitionProgressHoldRef.current.progress;
-      } else {
-        transitionProgressHoldRef.current = { pairKey: '', progress: 0 };
       }
 
       return {
@@ -1118,7 +1125,7 @@ export function TimelineStageRenderer({
     return buildSingleShaderLayer(currentLayer);
   }, [
     buildSingleShaderLayer,
-    resolveShaderLayer,
+    resolveTimelineStepLayer,
     resolvedInputSources,
     shouldResolveLiveTimelineState,
   ]);
@@ -1133,16 +1140,14 @@ export function TimelineStageRenderer({
     const timelineLayerOptions = {
       preferStepSnapshot: shouldResolveLiveTimelineState,
     } satisfies ResolveShaderLayerOptions;
-    const currentLayer = resolveShaderLayer(
+    const currentLayer = resolveTimelineStepLayer(
       state.currentShader,
       state.currentStep,
-      `step:${state.currentStep.id}:preload-current`,
       timelineLayerOptions,
     );
-    const nextLayer = resolveShaderLayer(
+    const nextLayer = resolveTimelineStepLayer(
       state.nextShader,
       state.nextStep,
-      `step:${state.nextStep?.id ?? state.currentStep.id}:preload-next`,
       timelineLayerOptions,
     );
     const shaderCode = buildTimelineTransitionShaderCode({
@@ -1179,7 +1184,32 @@ export function TimelineStageRenderer({
         to: nextLayer.overlaySource ?? null,
       },
     };
-  }, [resolveShaderLayer, shouldResolveLiveTimelineState]);
+  }, [resolveTimelineStepLayer, shouldResolveLiveTimelineState]);
+
+  const buildRevealedStepSinglePreloadLayer = useCallback((
+    state: NonNullable<typeof timelineState>,
+  ): StageRenderLayer | null => {
+    if (!state.nextShader || !state.nextStep || state.transitionEffect === 'cut') {
+      return null;
+    }
+
+    const revealedLayer = buildSingleShaderLayer(
+      resolveTimelineStepLayer(
+        state.nextShader,
+        state.nextStep,
+        { preferStepSnapshot: shouldResolveLiveTimelineState },
+      ),
+    );
+
+    return {
+      shaderCode: revealedLayer.shaderCode,
+      uniformDefinitions: parseUniforms(revealedLayer.shaderCode),
+      uniformValues: revealedLayer.uniformValues,
+      opacity: 1,
+      inputSource: revealedLayer.inputSource ?? null,
+      overlaySource: revealedLayer.overlaySource ?? null,
+    };
+  }, [buildSingleShaderLayer, resolveTimelineStepLayer, shouldResolveLiveTimelineState]);
 
   const createStageRenderLayer = useCallback((
     layer: TimelineRenderLayer,
@@ -1602,6 +1632,7 @@ export function TimelineStageRenderer({
     const preloadCandidates: Array<StageRenderLayer | null> = [];
     const pushStatePreloads = (state: ResolvedTimelineState) => {
       preloadCandidates.push(buildTransitionPreloadLayer(state));
+      preloadCandidates.push(buildRevealedStepSinglePreloadLayer(state));
     };
 
     pushStatePreloads(timelineState);
@@ -1629,6 +1660,7 @@ export function TimelineStageRenderer({
 
     return Array.from(dedupedPreloads.values());
   }, [
+    buildRevealedStepSinglePreloadLayer,
     buildTransitionPreloadLayer,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,
