@@ -58,8 +58,9 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
     if (progress >= 1.0) {
         return toColor;
     }
+    float radius = progress * 1.414;
     float feather = 0.08;
-    float edge = smoothstep(progress - feather, progress + feather, uv.x);
+    float edge = 1.0 - smoothstep(radius - feather, radius + feather, uv.x);
     return mix(fromColor, toColor, edge);
 }`;
     case 'radial':
