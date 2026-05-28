@@ -1048,7 +1048,6 @@ export function TimelineStageRenderer({
     );
 
     if (
-      state.isTransitioning &&
       state.nextShader &&
       state.nextStep &&
       state.transitionEffect !== 'cut'
@@ -1059,32 +1058,24 @@ export function TimelineStageRenderer({
         timelineLayerOptions,
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
-      let transitionProgress = 0;
       const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}`;
-      const requestedProgress = easeTransitionProgress(state.transitionProgress);
-      if (transitionProgressHoldRef.current.pairKey !== pairKey) {
-        transitionProgressHoldRef.current = {
-          pairKey,
-          progress: requestedProgress,
-        };
+      let transitionProgress = 0;
+      if (state.isTransitioning) {
+        const requestedProgress = easeTransitionProgress(state.transitionProgress);
+        if (transitionProgressHoldRef.current.pairKey !== pairKey) {
+          transitionProgressHoldRef.current = {
+            pairKey,
+            progress: requestedProgress,
+          };
+        } else {
+          transitionProgressHoldRef.current.progress = Math.max(
+            transitionProgressHoldRef.current.progress,
+            requestedProgress,
+          );
+        }
+        transitionProgress = transitionProgressHoldRef.current.progress;
       } else {
-        transitionProgressHoldRef.current.progress = Math.max(
-          transitionProgressHoldRef.current.progress,
-          requestedProgress,
-        );
-      }
-      transitionProgress = transitionProgressHoldRef.current.progress;
-
-      // Once the wipe has finished, show the revealed step as a single layer (same
-      // program that runs for the whole next step). Staying on the transition
-      // shader at progress 0/1 and swapping again at the step boundary redraws the
-      // outgoing shader on top of the mix result.
-      if (transitionProgress >= 0.999 && nextMediaReady) {
-        return buildSingleShaderLayer(nextLayer);
-      }
-
-      if (transitionProgress >= 0.999) {
-        transitionProgress = 1;
+        transitionProgressHoldRef.current = { pairKey, progress: 0 };
       }
 
       return {
@@ -1195,31 +1186,6 @@ export function TimelineStageRenderer({
       },
     };
   }, [resolveTimelineStepLayer, shouldResolveLiveTimelineState]);
-
-  const buildRevealedStepSinglePreloadLayer = useCallback((
-    state: NonNullable<typeof timelineState>,
-  ): StageRenderLayer | null => {
-    if (!state.nextShader || !state.nextStep || state.transitionEffect === 'cut') {
-      return null;
-    }
-
-    const revealedLayer = buildSingleShaderLayer(
-      resolveTimelineStepLayer(
-        state.nextShader,
-        state.nextStep,
-        { preferStepSnapshot: shouldResolveLiveTimelineState },
-      ),
-    );
-
-    return {
-      shaderCode: revealedLayer.shaderCode,
-      uniformDefinitions: parseUniforms(revealedLayer.shaderCode),
-      uniformValues: revealedLayer.uniformValues,
-      opacity: 1,
-      inputSource: revealedLayer.inputSource ?? null,
-      overlaySource: revealedLayer.overlaySource ?? null,
-    };
-  }, [buildSingleShaderLayer, resolveTimelineStepLayer, shouldResolveLiveTimelineState]);
 
   const createStageRenderLayer = useCallback((
     layer: TimelineRenderLayer,
@@ -1642,7 +1608,6 @@ export function TimelineStageRenderer({
     const preloadCandidates: Array<StageRenderLayer | null> = [];
     const pushStatePreloads = (state: ResolvedTimelineState) => {
       preloadCandidates.push(buildTransitionPreloadLayer(state));
-      preloadCandidates.push(buildRevealedStepSinglePreloadLayer(state));
     };
 
     pushStatePreloads(timelineState);
@@ -1670,7 +1635,6 @@ export function TimelineStageRenderer({
 
     return Array.from(dedupedPreloads.values());
   }, [
-    buildRevealedStepSinglePreloadLayer,
     buildTransitionPreloadLayer,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,
