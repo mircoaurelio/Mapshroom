@@ -173,52 +173,6 @@ function easeTransitionProgress(progress: number): number {
   return clamped * clamped * (3 - 2 * clamped);
 }
 
-function getTimelineTransitionPairKey(state: ResolvedTimelineState): string {
-  return [
-    state.currentStep.id,
-    state.nextStep?.id ?? 'none',
-    state.transitionEffect,
-    state.stepStartSeconds,
-  ].join(':');
-}
-
-function resolveTransitionRenderProgress(
-  state: ResolvedTimelineState,
-  holdRef: { pairKey: string; progress: number },
-): number {
-  if (!state.nextStep || state.transitionEffect === 'cut') {
-    holdRef.pairKey = '';
-    holdRef.progress = 0;
-    return 0;
-  }
-
-  const pairKey = getTimelineTransitionPairKey(state);
-  const beforeTransitionWindow = state.localTimeSeconds < state.transitionStartSeconds - 0.001;
-  const requestedProgress = state.isTransitioning
-    ? easeTransitionProgress(state.transitionProgress)
-    : 0;
-
-  if (!state.isTransitioning && beforeTransitionWindow) {
-    holdRef.pairKey = pairKey;
-    holdRef.progress = 0;
-    return 0;
-  }
-
-  if (holdRef.pairKey !== pairKey) {
-    holdRef.pairKey = pairKey;
-    holdRef.progress = requestedProgress;
-    return requestedProgress;
-  }
-
-  if (!state.isTransitioning) {
-    return Math.max(holdRef.progress, requestedProgress);
-  }
-
-  const heldProgress = Math.max(holdRef.progress, requestedProgress);
-  holdRef.progress = heldProgress;
-  return heldProgress;
-}
-
 function buildOverlayUniformValues(
   namespace: string,
   settings: TimelineStepAssetSettings,
@@ -405,7 +359,6 @@ export function TimelineStageRenderer({
     isPlaying: transport.isPlaying,
     currentTimeSeconds: transport.currentTimeSeconds,
   });
-  const transitionProgressHoldRef = useRef({ pairKey: '', progress: 0 });
   const [resolvedInputSources, setResolvedInputSources] = useState<
     Record<string, { url: string | null; status: AssetObjectUrlStatus }>
   >({});
@@ -1064,9 +1017,10 @@ export function TimelineStageRenderer({
     };
   }, [buildSingleShaderLayer]);
 
-  const liveTimelineState = timelineState ?? renderTimelineState;
+  const liveTimelineState = renderTimelineState ?? timelineState;
   const isTimelineTransitionRendering = Boolean(
-    liveTimelineState?.nextShader &&
+    liveTimelineState?.isTransitioning &&
+      liveTimelineState.nextShader &&
       liveTimelineState.nextStep &&
       liveTimelineState.transitionEffect !== 'cut',
   );
@@ -1085,6 +1039,7 @@ export function TimelineStageRenderer({
     );
 
     if (
+      state.isTransitioning &&
       state.nextShader &&
       state.nextStep &&
       state.transitionEffect !== 'cut'
@@ -1096,10 +1051,7 @@ export function TimelineStageRenderer({
         timelineLayerOptions,
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
-      const transitionProgress = resolveTransitionRenderProgress(
-        state,
-        transitionProgressHoldRef.current,
-      );
+      const transitionProgress = easeTransitionProgress(state.transitionProgress);
 
       return {
         kind: 'transition',
@@ -1211,6 +1163,32 @@ export function TimelineStageRenderer({
       },
     };
   }, [resolveShaderLayer, shouldResolveLiveTimelineState]);
+
+  const buildRevealedStepSinglePreloadLayer = useCallback((
+    state: NonNullable<typeof timelineState>,
+  ): StageRenderLayer | null => {
+    if (!state.nextShader || !state.nextStep || state.transitionEffect === 'cut') {
+      return null;
+    }
+
+    const revealedLayer = buildSingleShaderLayer(
+      resolveShaderLayer(
+        state.nextShader,
+        state.nextStep,
+        `step:${state.nextStep.id}:preload-revealed-single`,
+        { preferStepSnapshot: shouldResolveLiveTimelineState },
+      ),
+    );
+
+    return {
+      shaderCode: revealedLayer.shaderCode,
+      uniformDefinitions: parseUniforms(revealedLayer.shaderCode),
+      uniformValues: revealedLayer.uniformValues,
+      opacity: 1,
+      inputSource: revealedLayer.inputSource ?? null,
+      overlaySource: revealedLayer.overlaySource ?? null,
+    };
+  }, [buildSingleShaderLayer, resolveShaderLayer, shouldResolveLiveTimelineState]);
 
   const createStageRenderLayer = useCallback((
     layer: TimelineRenderLayer,
@@ -1633,6 +1611,7 @@ export function TimelineStageRenderer({
     const preloadCandidates: Array<StageRenderLayer | null> = [];
     const pushStatePreloads = (state: ResolvedTimelineState) => {
       preloadCandidates.push(buildTransitionPreloadLayer(state));
+      preloadCandidates.push(buildRevealedStepSinglePreloadLayer(state));
     };
 
     pushStatePreloads(timelineState);
@@ -1660,6 +1639,7 @@ export function TimelineStageRenderer({
 
     return Array.from(dedupedPreloads.values());
   }, [
+    buildRevealedStepSinglePreloadLayer,
     buildTransitionPreloadLayer,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,
