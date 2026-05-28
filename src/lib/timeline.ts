@@ -51,9 +51,13 @@ export function normalizeTimelineTransitionEffect(
   return fallback;
 }
 
-export function getTimelineTransitionSeed(fromStepId: string, toStepId: string): number {
+export function getTimelineTransitionSeed(
+  fromStepId: string,
+  toStepId: string,
+  occurrenceSalt = '',
+): number {
   let hash = 2166136261;
-  const token = `${fromStepId}:${toStepId}`;
+  const token = `${fromStepId}:${toStepId}:${occurrenceSalt}`;
 
   for (let index = 0; index < token.length; index += 1) {
     hash ^= token.charCodeAt(index);
@@ -453,6 +457,7 @@ interface TimelineResolution {
   transitionEffect: TimelineTransitionEffect;
   transitionStartSeconds: number;
   transitionDurationSeconds: number;
+  cycleIndex: number;
   isTransitioning: boolean;
 }
 
@@ -586,6 +591,7 @@ export function resolveShaderTimelineState({
         transitionEffect: effectiveTransitionEffect,
         transitionStartSeconds,
         transitionDurationSeconds,
+        cycleIndex,
         isTransitioning,
       };
     }

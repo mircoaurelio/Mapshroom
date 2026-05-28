@@ -209,6 +209,14 @@ function createTimelineRandomSeedToken(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function getTimelineTransitionOccurrenceSalt(
+  state: ResolvedTimelineState,
+  playbackTransitionSeedToken: string,
+  randomSeedSalt = '',
+): string {
+  return `${state.cycleIndex}:${playbackTransitionSeedToken}:${randomSeedSalt}`;
+}
+
 function getTimelineStateLookaheadKey(state: ResolvedTimelineState): string {
   return [
     state.currentStep.id,
@@ -344,6 +352,9 @@ export function TimelineStageRenderer({
   const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
   const pinLayerTransitionRef = useRef<PinLayerTransitionState | null>(null);
   const [doubleModeRandomSeedToken, setDoubleModeRandomSeedToken] = useState(() =>
+    createTimelineRandomSeedToken(),
+  );
+  const [playbackTransitionSeedToken, setPlaybackTransitionSeedToken] = useState(() =>
     createTimelineRandomSeedToken(),
   );
   const previousDoubleModeRef = useRef(false);
@@ -664,16 +675,18 @@ export function TimelineStageRenderer({
     const wasDoubleMode = previousDoubleModeRef.current;
     const previousTransportSnapshot = previousTransportSnapshotRef.current;
     const rewoundToStart =
-      isDoubleMode &&
       !transport.isPlaying &&
       previousTransportSnapshot.currentTimeSeconds > DOUBLE_RANDOM_RESEED_EPSILON_SECONDS &&
       transport.currentTimeSeconds <= DOUBLE_RANDOM_RESEED_EPSILON_SECONDS;
     const restartedPlaybackFromStart =
-      isDoubleMode &&
       transport.isPlaying &&
       transport.currentTimeSeconds <= DOUBLE_RANDOM_RESEED_EPSILON_SECONDS &&
       (!previousTransportSnapshot.isPlaying ||
         previousTransportSnapshot.currentTimeSeconds > DOUBLE_RANDOM_RESEED_EPSILON_SECONDS);
+
+    if (restartedPlaybackFromStart || rewoundToStart) {
+      setPlaybackTransitionSeedToken(createTimelineRandomSeedToken());
+    }
 
     if (isDoubleMode && (!wasDoubleMode || rewoundToStart || restartedPlaybackFromStart)) {
       setDoubleModeRandomSeedToken(createTimelineRandomSeedToken());
@@ -1054,8 +1067,17 @@ export function TimelineStageRenderer({
         timelineLayerOptions,
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
-      const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}`;
-      const transitionSeed = getTimelineTransitionSeed(state.currentStep.id, state.nextStep.id);
+      const transitionOccurrenceSalt = getTimelineTransitionOccurrenceSalt(
+        state,
+        playbackTransitionSeedToken,
+        doublePrimaryRandomSeedSalt,
+      );
+      const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}:${transitionOccurrenceSalt}`;
+      const transitionSeed = getTimelineTransitionSeed(
+        state.currentStep.id,
+        state.nextStep.id,
+        transitionOccurrenceSalt,
+      );
       let transitionProgress = 0;
       if (state.isTransitioning) {
         const requestedProgress = easeTransitionProgress(state.transitionProgress);
@@ -1131,6 +1153,8 @@ export function TimelineStageRenderer({
     resolveTimelineStepLayer,
     resolvedInputSources,
     shouldResolveLiveTimelineState,
+    playbackTransitionSeedToken,
+    doublePrimaryRandomSeedSalt,
   ]);
 
   const buildTransitionPreloadLayer = useCallback((
@@ -1153,7 +1177,16 @@ export function TimelineStageRenderer({
       state.nextStep,
       timelineLayerOptions,
     );
-    const transitionSeed = getTimelineTransitionSeed(state.currentStep.id, state.nextStep.id);
+    const transitionOccurrenceSalt = getTimelineTransitionOccurrenceSalt(
+      state,
+      playbackTransitionSeedToken,
+      doublePrimaryRandomSeedSalt,
+    );
+    const transitionSeed = getTimelineTransitionSeed(
+      state.currentStep.id,
+      state.nextStep.id,
+      transitionOccurrenceSalt,
+    );
     const shaderCode = buildTimelineTransitionShaderCode({
       fromCode: currentLayer.shaderCode,
       toCode: nextLayer.shaderCode,
@@ -1190,7 +1223,7 @@ export function TimelineStageRenderer({
         to: nextLayer.overlaySource ?? null,
       },
     };
-  }, [resolveTimelineStepLayer, shouldResolveLiveTimelineState]);
+  }, [resolveTimelineStepLayer, shouldResolveLiveTimelineState, playbackTransitionSeedToken, doublePrimaryRandomSeedSalt]);
 
   const createStageRenderLayer = useCallback((
     layer: TimelineRenderLayer,
