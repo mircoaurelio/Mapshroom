@@ -2,6 +2,7 @@ import { APP_VERSION, createDefaultProject } from '../config';
 import { persistActiveSessionId, saveProjectDocument } from './storage';
 import { parseShaderName, parseUniforms, syncUniformValues } from './shader';
 import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings';
+import { normalizeTimelineTransitionEffect } from './timeline';
 import type {
   ProjectDocument,
   SavedShader,
@@ -382,7 +383,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
           disabled: Boolean(step.o),
           durationSeconds: step.d,
           transitionDurationSeconds: step.x,
-          transitionEffect: step.e,
+          transitionEffect: normalizeTimelineTransitionEffect(step.e),
           assetSettings: normalizeTimelineStepAssetSettings({
             scaleX: step.asx,
             scaleY: step.asy,
@@ -469,8 +470,10 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
           singleStepLoopEnabled: Boolean(payload.t.l),
           randomChoiceEnabled: Boolean(payload.t.r),
           sharedTransitionEnabled: Boolean(payload.t.z),
-          sharedTransitionEffect:
-            payload.t.se ?? baseProject.timeline.stub.shaderSequence.sharedTransitionEffect,
+          sharedTransitionEffect: normalizeTimelineTransitionEffect(
+            payload.t.se,
+            baseProject.timeline.stub.shaderSequence.sharedTransitionEffect,
+          ),
           sharedTransitionDurationSeconds:
             payload.t.sd ?? baseProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
           sharedSectionDurationSeconds:

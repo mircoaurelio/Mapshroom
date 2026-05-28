@@ -2564,10 +2564,6 @@ a {
   z-index: 2;
 }
 
-.timeline-transition-range-cut {
-  background: rgba(161, 161, 170, 0.22);
-}
-
 .timeline-transition-range-mix,
 .timeline-transition-range-wipe {
   background:
@@ -2588,13 +2584,34 @@ a {
     );
 }
 
-.timeline-transition-range-glitch {
+.timeline-transition-range-random {
   background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(161, 161, 170, 0.08) 0 6px,
-      rgba(212, 212, 216, 0.26) 6px 10px,
-      rgba(113, 113, 122, 0.08) 10px 16px
+    conic-gradient(
+      from 45deg,
+      rgba(161, 161, 170, 0.24) 0deg,
+      rgba(113, 113, 122, 0.1) 90deg,
+      rgba(212, 212, 216, 0.22) 180deg,
+      rgba(113, 113, 122, 0.1) 270deg,
+      rgba(161, 161, 170, 0.24) 360deg
+    );
+}
+
+.timeline-transition-range-noise {
+  background:
+    radial-gradient(
+      circle at 20% 30%,
+      rgba(212, 212, 216, 0.28) 0%,
+      rgba(113, 113, 122, 0.08) 42%
+    ),
+    radial-gradient(
+      circle at 72% 68%,
+      rgba(161, 161, 170, 0.24) 0%,
+      rgba(113, 113, 122, 0.08) 38%
+    ),
+    radial-gradient(
+      circle at 48% 52%,
+      rgba(228, 228, 231, 0.16) 0%,
+      rgba(113, 113, 122, 0.06) 52%
     );
 }
 

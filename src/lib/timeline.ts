@@ -20,12 +20,48 @@ export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{
   value: TimelineTransitionEffect;
   label: string;
 }> = [
-  { value: 'cut', label: 'Cut' },
   { value: 'mix', label: 'Mix' },
   { value: 'wipe', label: 'Wipe' },
   { value: 'radial', label: 'Radial' },
-  { value: 'glitch', label: 'Glitch' },
+  { value: 'random', label: 'Random' },
+  { value: 'noise', label: 'Noise' },
 ];
+
+const LEGACY_TIMELINE_TRANSITION_EFFECTS: Record<string, TimelineTransitionEffect> = {
+  cut: 'mix',
+  glitch: 'noise',
+};
+
+export function normalizeTimelineTransitionEffect(
+  value: unknown,
+  fallback: TimelineTransitionEffect = 'mix',
+): TimelineTransitionEffect {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  if (value in LEGACY_TIMELINE_TRANSITION_EFFECTS) {
+    return LEGACY_TIMELINE_TRANSITION_EFFECTS[value];
+  }
+
+  if (TIMELINE_TRANSITION_EFFECT_OPTIONS.some((option) => option.value === value)) {
+    return value as TimelineTransitionEffect;
+  }
+
+  return fallback;
+}
+
+export function getTimelineTransitionSeed(fromStepId: string, toStepId: string): number {
+  let hash = 2166136261;
+  const token = `${fromStepId}:${toStepId}`;
+
+  for (let index = 0; index < token.length; index += 1) {
+    hash ^= token.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0) / 4294967295;
+}
 
 export function roundTimelineSeconds(value: number): number {
   if (!Number.isFinite(value)) {

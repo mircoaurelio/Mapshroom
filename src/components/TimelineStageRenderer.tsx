@@ -9,6 +9,7 @@ import {
 import {
   clampTimelineStepDuration,
   excludePinnedStepFromTimelinePlayback,
+  getTimelineTransitionSeed,
   resolveShaderTimelineState,
   resolveTimelineStepIdForShader,
 } from '../lib/timeline';
@@ -1022,8 +1023,7 @@ export function TimelineStageRenderer({
   const isTimelineTransitionRendering = Boolean(
     liveTimelineState?.isTransitioning &&
       liveTimelineState.nextShader &&
-      liveTimelineState.nextStep &&
-      liveTimelineState.transitionEffect !== 'cut',
+      liveTimelineState.nextStep,
   );
 
   const resolveTimelineStepLayer = useCallback((
@@ -1047,11 +1047,7 @@ export function TimelineStageRenderer({
       timelineLayerOptions,
     );
 
-    if (
-      state.nextShader &&
-      state.nextStep &&
-      state.transitionEffect !== 'cut'
-    ) {
+    if (state.nextShader && state.nextStep) {
       const nextLayer = resolveTimelineStepLayer(
         state.nextShader,
         state.nextStep,
@@ -1059,6 +1055,7 @@ export function TimelineStageRenderer({
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
       const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}`;
+      const transitionSeed = getTimelineTransitionSeed(state.currentStep.id, state.nextStep.id);
       let transitionProgress = 0;
       if (state.isTransitioning) {
         const requestedProgress = easeTransitionProgress(state.transitionProgress);
@@ -1087,6 +1084,7 @@ export function TimelineStageRenderer({
         }),
         uniformValues: {
           u_transition_progress: transitionProgress,
+          u_transition_seed: transitionSeed,
           u_timeline_from_has_overlay: Boolean(currentLayer.overlaySource),
           u_timeline_to_has_overlay: nextMediaReady && Boolean(nextLayer.overlaySource),
           ...buildOverlayUniformValues('u_timeline_from_overlay', currentLayer.assetSettings),
@@ -1134,7 +1132,7 @@ export function TimelineStageRenderer({
   const buildTransitionPreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): StageRenderLayer | null => {
-    if (!state.nextShader || state.transitionEffect === 'cut') {
+    if (!state.nextShader || !state.nextStep) {
       return null;
     }
 
@@ -1151,6 +1149,7 @@ export function TimelineStageRenderer({
       state.nextStep,
       timelineLayerOptions,
     );
+    const transitionSeed = getTimelineTransitionSeed(state.currentStep.id, state.nextStep.id);
     const shaderCode = buildTimelineTransitionShaderCode({
       fromCode: currentLayer.shaderCode,
       toCode: nextLayer.shaderCode,
@@ -1162,6 +1161,7 @@ export function TimelineStageRenderer({
       uniformDefinitions: parseUniforms(shaderCode),
       uniformValues: {
         u_transition_progress: PRELOAD_TRANSITION_PROGRESS,
+        u_transition_seed: transitionSeed,
         u_timeline_from_has_overlay: Boolean(currentLayer.overlaySource),
         u_timeline_to_has_overlay: Boolean(nextLayer.overlaySource),
         ...buildOverlayUniformValues('u_timeline_from_overlay', currentLayer.assetSettings),

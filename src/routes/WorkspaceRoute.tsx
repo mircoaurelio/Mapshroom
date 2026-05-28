@@ -58,6 +58,7 @@ import {
   getShaderTimelineDuration,
   getEffectiveTimelinePlaybackSteps,
   isTimelineStepEnabled,
+  normalizeTimelineTransitionEffect,
   roundTimelineSeconds,
   scaleTimelineStepDurations,
 } from '../lib/timeline';
@@ -300,7 +301,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         durationSeconds,
         step.transitionDurationSeconds,
       ),
-      transitionEffect: step.transitionEffect ?? 'mix',
+      transitionEffect: normalizeTimelineTransitionEffect(step.transitionEffect),
       assetSettings: normalizeTimelineStepAssetSettings(step.assetSettings),
     };
   });
@@ -370,9 +371,10 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
           sharedTransitionEnabled:
             project.timeline?.stub?.shaderSequence?.sharedTransitionEnabled ??
             defaultProject.timeline.stub.shaderSequence.sharedTransitionEnabled,
-          sharedTransitionEffect:
-            project.timeline?.stub?.shaderSequence?.sharedTransitionEffect ??
+          sharedTransitionEffect: normalizeTimelineTransitionEffect(
+            project.timeline?.stub?.shaderSequence?.sharedTransitionEffect,
             defaultProject.timeline.stub.shaderSequence.sharedTransitionEffect,
+          ),
           sharedTransitionDurationSeconds: clampTransitionDuration(
             600,
             project.timeline?.stub?.shaderSequence?.sharedTransitionDurationSeconds ??

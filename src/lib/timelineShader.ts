@@ -42,16 +42,13 @@ function namespaceShaderCode(code: string, namespace: string): string {
   return nextCode;
 }
 
-function buildTransitionMixer(effect: TimelineTransitionEffect): string {
-  switch (effect) {
-    case 'cut':
-      return `
-vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
-    return progress < 0.999 ? fromColor : toColor;
-}`;
-    case 'wipe':
-      return `
-vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
+function buildTransitionMixerLibrary(): string {
+  return `
+vec4 timelineTransitionMixCore(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
+    return mix(fromColor, toColor, progress);
+}
+
+vec4 timelineTransitionWipeCore(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
     if (progress <= 0.0) {
         return fromColor;
     }
@@ -62,10 +59,9 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
     float feather = 0.08;
     float edge = 1.0 - smoothstep(radius - feather, radius + feather, uv.x);
     return mix(fromColor, toColor, edge);
-}`;
-    case 'radial':
-      return `
-vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
+}
+
+vec4 timelineTransitionRadialCore(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
     if (progress <= 0.0) {
         return fromColor;
     }
@@ -77,26 +73,71 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
     float feather = 0.08;
     float edge = 1.0 - smoothstep(radius - feather, radius + feather, distanceToCenter);
     return mix(fromColor, toColor, edge);
+}
+
+vec4 timelineTransitionNoiseCore(
+    vec4 fromColor,
+    vec4 toColor,
+    vec2 uv,
+    float progress,
+    float seed
+) {
+    if (progress <= 0.0) {
+        return fromColor;
+    }
+    if (progress >= 1.0) {
+        return toColor;
+    }
+    float scaleRand = node_rand(vec2(seed, 19.73));
+    float noiseScale = mix(0.65, 2.4, scaleRand);
+    vec2 noiseShift = vec2(
+        node_rand(vec2(seed, 31.17)),
+        node_rand(vec2(seed, 47.91))
+    ) * 128.0;
+    float noiseSample = node_noise(uv * noiseScale + noiseShift);
+    float feather = 0.08;
+    float edge = smoothstep(progress - feather, progress + feather, noiseSample);
+    return mix(fromColor, toColor, edge);
 }`;
-    case 'glitch':
+}
+
+function buildTransitionMixer(effect: TimelineTransitionEffect): string {
+  switch (effect) {
+    case 'wipe':
       return `
 vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
-    float stripe = step(0.45, fract(uv.y * 18.0 + u_time * 4.0));
-    float jitter = (node_noise(vec2(uv.y * 24.0, u_time * 3.0)) - 0.5) * 0.22 * (1.0 - progress);
-    float mask = smoothstep(progress - 0.14, progress + 0.14, uv.x + (stripe - 0.5) * 0.2 + jitter);
-    vec4 shiftedTo = vec4(
-        mix(fromColor.r, toColor.r, mask),
-        mix(fromColor.g, toColor.g, clamp(mask + 0.1 * (1.0 - progress), 0.0, 1.0)),
-        mix(fromColor.b, toColor.b, clamp(mask - 0.08 * (1.0 - progress), 0.0, 1.0)),
-        mix(fromColor.a, toColor.a, mask)
-    );
-    return mix(fromColor, shiftedTo, clamp(progress * 1.2, 0.0, 1.0));
+    return timelineTransitionWipeCore(fromColor, toColor, uv, progress);
+}`;
+    case 'radial':
+      return `
+vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
+    return timelineTransitionRadialCore(fromColor, toColor, uv, progress);
+}`;
+    case 'noise':
+      return `
+vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
+    return timelineTransitionNoiseCore(fromColor, toColor, uv, progress, u_transition_seed);
+}`;
+    case 'random':
+      return `
+vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
+    float bucket = node_rand(vec2(u_transition_seed, 3.7));
+    if (bucket < 0.25) {
+        return timelineTransitionMixCore(fromColor, toColor, uv, progress);
+    }
+    if (bucket < 0.5) {
+        return timelineTransitionWipeCore(fromColor, toColor, uv, progress);
+    }
+    if (bucket < 0.75) {
+        return timelineTransitionRadialCore(fromColor, toColor, uv, progress);
+    }
+    return timelineTransitionNoiseCore(fromColor, toColor, uv, progress, u_transition_seed + 13.0);
 }`;
     case 'mix':
     default:
       return `
 vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
-    return mix(fromColor, toColor, progress);
+    return timelineTransitionMixCore(fromColor, toColor, uv, progress);
 }`;
   }
 }
@@ -516,11 +557,13 @@ export function buildTimelineTransitionShaderCode({
 }): string {
   const leftCode = namespaceShaderCode(fromCode, 'timeline_from');
   const rightCode = namespaceShaderCode(toCode, 'timeline_to');
+  const transitionMixerLibrary = buildTransitionMixerLibrary();
   const transitionMixer = buildTransitionMixer(effect);
   const overlayComposer = buildTimelineOverlayComposer();
 
   return `// NAME: Timeline Transition
 uniform float u_transition_progress; // @min 0.0 @max 1.0 @default 0.0
+uniform float u_transition_seed; // @min 0.0 @max 1.0 @default 0.0
 uniform sampler2D u_timeline_from_image;
 uniform sampler2D u_timeline_to_image;
 uniform bool u_timeline_from_has_overlay; // @default false
@@ -551,6 +594,8 @@ ${leftCode}
 ${rightCode}
 
 ${overlayComposer}
+
+${transitionMixerLibrary}
 
 ${transitionMixer}
 
