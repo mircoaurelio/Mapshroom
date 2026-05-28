@@ -75,19 +75,7 @@ vec4 timelineTransitionRadialCore(vec4 fromColor, vec4 toColor, vec2 uv, float p
     return mix(fromColor, toColor, edge);
 }
 
-float timelineTransitionAutomataField(
-    vec2 uv,
-    float time,
-    float seed,
-    float lum,
-    float mixDuration
-) {
-    float scale = mix(4.0, 14.0, node_rand(vec2(seed, 19.73)));
-    float speed = mix(0.35, 1.1, node_rand(vec2(seed, 31.17)));
-    speed *= 0.75 / max(mixDuration, 0.001);
-    vec2 origin = vec2(node_rand(vec2(seed, 41.17)), node_rand(vec2(seed, 47.91))) * 4.0;
-    vec2 p = uv * scale + origin;
-    float t = time * speed + seed * 12.9898;
+float timelineTransitionAutomataFieldAt(vec2 p, float t, float seed, float lum) {
     float n = 0.0;
     vec2 q = p;
     mat2 rot = mat2(0.73736, -0.67549, 0.67549, 0.73736);
@@ -105,7 +93,29 @@ float timelineTransitionAutomataField(
         amp *= 0.5;
     }
 
-    return n / sumAmp;
+    float normalized = n / sumAmp;
+    return normalized * normalized * (3.0 - 2.0 * normalized);
+}
+
+float timelineTransitionAutomataField(
+    vec2 uv,
+    float time,
+    float seed,
+    float lum,
+    float mixDuration
+) {
+    float scale = mix(2.5, 8.0, node_rand(vec2(seed, 19.73)));
+    float speed = mix(0.35, 1.1, node_rand(vec2(seed, 31.17)));
+    speed *= 0.75 / max(mixDuration, 0.001);
+    vec2 origin = vec2(node_rand(vec2(seed, 41.17)), node_rand(vec2(seed, 47.91))) * 4.0;
+    vec2 p = uv * scale + origin;
+    float t = time * speed + seed * 12.9898;
+    vec2 texel = 1.4 / max(u_resolution * scale, vec2(1.0));
+    float center = timelineTransitionAutomataFieldAt(p, t, seed, lum);
+    float east = timelineTransitionAutomataFieldAt(p + vec2(texel.x, 0.0), t, seed, lum);
+    float north = timelineTransitionAutomataFieldAt(p + vec2(0.0, texel.y), t, seed, lum);
+    float diagonal = timelineTransitionAutomataFieldAt(p + texel, t, seed, lum);
+    return (center + east + north + diagonal) * 0.25;
 }
 
 vec4 timelineTransitionNoiseCore(
@@ -129,10 +139,11 @@ vec4 timelineTransitionNoiseCore(
         lum,
         max(u_transition_duration, 0.001)
     );
-    float branch = smoothstep(0.3, 0.7, automata);
     float radius = progress * 1.414;
-    float feather = 0.1;
-    float edge = 1.0 - smoothstep(radius - feather, radius + feather, branch);
+    float feather = mix(0.16, 0.34, progress * progress);
+    float edge = 1.0 - smoothstep(radius - feather, radius + feather, automata);
+    float completion = smoothstep(0.84, 1.0, progress);
+    edge = mix(edge, 1.0, completion);
     return mix(fromColor, toColor, edge);
 }`;
 }
