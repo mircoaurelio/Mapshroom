@@ -88,12 +88,19 @@ vec4 timelineTransitionNoiseCore(
     if (progress >= 1.0) {
         return toColor;
     }
-    float noiseScale = mix(0.12, 0.42, node_rand(vec2(seed, 19.73)));
-    vec2 noiseOffset = vec2(node_rand(vec2(seed, 31.17)), node_rand(vec2(seed, 47.91))) * 4.0;
-    float noiseSample = node_noise(uv * noiseScale + noiseOffset);
-    float radius = progress * 1.414;
-    float feather = 0.1;
-    float edge = 1.0 - smoothstep(radius - feather, radius + feather, noiseSample);
+    float gridSize = mix(3.5, 6.0, node_rand(vec2(seed, 19.73)));
+    vec2 cellId = floor(uv * gridSize);
+    vec2 cellLocal = fract(uv * gridSize);
+    vec2 dotCenter = vec2(
+        node_rand(cellId + vec2(seed, 11.17)),
+        node_rand(cellId + vec2(seed, 23.41))
+    );
+    float dist = distance(cellLocal, dotCenter);
+    float stagger = node_rand(cellId + vec2(seed, 37.73));
+    float dotProgress = clamp((progress * 1.414 - stagger * 0.42) / 0.58, 0.0, 1.0);
+    float dotRadius = dotProgress * mix(0.68, 0.96, node_rand(cellId + vec2(seed, 47.11)));
+    float feather = 0.14;
+    float edge = 1.0 - smoothstep(dotRadius - feather, dotRadius + feather, dist);
     return mix(fromColor, toColor, edge);
 }`;
 }
