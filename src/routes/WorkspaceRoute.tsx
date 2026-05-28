@@ -57,10 +57,12 @@ import {
   createTimelineShaderStep,
   getShaderTimelineDuration,
   getEffectiveTimelinePlaybackSteps,
+  applyMixDurationToTimelineSteps,
   isTimelineStepEnabled,
   normalizeTimelineTransitionEffect,
   roundTimelineSeconds,
   scaleTimelineStepDurations,
+  shouldUseSharedTransition,
 } from '../lib/timeline';
 import { normalizeTimelineStepAssetSettings } from '../lib/timelineAssetSettings';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
@@ -1650,27 +1652,85 @@ export function WorkspaceRoute() {
       sharedSectionDurationSeconds?: number;
     },
   ) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            ...patch,
-            sharedTransitionDurationSeconds: clampTransitionDuration(
-              600,
-              patch.sharedTransitionDurationSeconds ??
-                currentProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
-            ),
-            sharedSectionDurationSeconds: clampTimelineStepDuration(
-              patch.sharedSectionDurationSeconds ??
-                currentProject.timeline.stub.shaderSequence.sharedSectionDurationSeconds,
-            ),
+    updateProject((currentProject) => {
+      const shaderSequence = currentProject.timeline.stub.shaderSequence;
+      const nextSharedTransitionDurationSeconds = clampTransitionDuration(
+        600,
+        patch.sharedTransitionDurationSeconds ??
+          shaderSequence.sharedTransitionDurationSeconds,
+      );
+      const usesSharedTransition = shouldUseSharedTransition(
+        shaderSequence.mode,
+        patch.sharedTransitionEnabled ?? shaderSequence.sharedTransitionEnabled,
+      );
+      const nextSteps =
+        patch.sharedTransitionDurationSeconds !== undefined
+          ? applyMixDurationToTimelineSteps(
+              shaderSequence.steps,
+              nextSharedTransitionDurationSeconds,
+            )
+          : shaderSequence.steps;
+
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...shaderSequence,
+              ...patch,
+              sharedTransitionDurationSeconds: usesSharedTransition
+                ? nextSharedTransitionDurationSeconds
+                : shaderSequence.sharedTransitionDurationSeconds,
+              sharedSectionDurationSeconds: clampTimelineStepDuration(
+                patch.sharedSectionDurationSeconds ??
+                  shaderSequence.sharedSectionDurationSeconds,
+              ),
+              steps: nextSteps,
+            },
           },
         },
-      },
-    }));
+      };
+    });
+  }, [updateProject]);
+
+  const handleTimelineMixDurationChange = useCallback((mixDurationSeconds: number) => {
+    updateProject((currentProject) => {
+      const shaderSequence = currentProject.timeline.stub.shaderSequence;
+      const nextSteps = applyMixDurationToTimelineSteps(shaderSequence.steps, mixDurationSeconds);
+      const smallestStepDurationSeconds = nextSteps.reduce((shortestDuration, step) => {
+        if (!isTimelineStepEnabled(step)) {
+          return shortestDuration;
+        }
+
+        return Math.min(shortestDuration, clampTimelineStepDuration(step.durationSeconds));
+      }, Number.POSITIVE_INFINITY);
+      const usesSharedTransition = shouldUseSharedTransition(
+        shaderSequence.mode,
+        shaderSequence.sharedTransitionEnabled,
+      );
+
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...shaderSequence,
+              sharedTransitionDurationSeconds: usesSharedTransition
+                ? clampTransitionDuration(
+                    Number.isFinite(smallestStepDurationSeconds)
+                      ? smallestStepDurationSeconds
+                      : 600,
+                    mixDurationSeconds,
+                  )
+                : shaderSequence.sharedTransitionDurationSeconds,
+              steps: nextSteps,
+            },
+          },
+        },
+      };
+    });
   }, [updateProject]);
 
   const handleTimelineSingleStepLoopToggle = useCallback(() => {
@@ -3439,6 +3499,8 @@ ${errorSnapshot}`,
     randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
     steps: timelineStub.shaderSequence.steps,
     sharedSectionDurationSeconds: timelineStub.shaderSequence.sharedSectionDurationSeconds,
+    sharedTransitionEnabled: timelineStub.shaderSequence.sharedTransitionEnabled,
+    sharedTransitionDurationSeconds: timelineStub.shaderSequence.sharedTransitionDurationSeconds,
     pinnedStepId: pinnedTimelineStepId,
   });
   const playableTimelineSteps = timelinePlaybackSteps.filter(isTimelineStepEnabled);
@@ -3700,6 +3762,7 @@ ${errorSnapshot}`,
       onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
+      onSequenceMixDurationChange={handleTimelineMixDurationChange}
       onSequenceStepChange={handleTimelineStepChange}
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
@@ -4055,6 +4118,7 @@ ${errorSnapshot}`,
         onSequenceModeChange={handleTimelineSequenceModeChange}
         onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
+      onSequenceMixDurationChange={handleTimelineMixDurationChange}
         onSequenceStepChange={handleTimelineStepChange}
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignSequenceStepAsset={handleTimelineAssignStepAsset}

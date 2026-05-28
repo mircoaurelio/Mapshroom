@@ -91,34 +91,94 @@ function shouldUseSharedSectionDuration(
   );
 }
 
+export function shouldUseSharedTransition(
+  mode: TimelineSequenceMode,
+  sharedTransitionEnabled: boolean,
+): boolean {
+  return mode === 'randomMix' || mode === 'double' || sharedTransitionEnabled;
+}
+
+export function getEffectiveTransitionDurationSeconds({
+  stepDurationSeconds,
+  stepTransitionDurationSeconds,
+  usesSharedTransition,
+  sharedTransitionDurationSeconds,
+  singleStepLoopEnabled,
+}: {
+  stepDurationSeconds: number;
+  stepTransitionDurationSeconds: number;
+  usesSharedTransition: boolean;
+  sharedTransitionDurationSeconds: number;
+  singleStepLoopEnabled: boolean;
+}): number {
+  if (singleStepLoopEnabled) {
+    return 0;
+  }
+
+  const durationSeconds = clampTimelineStepDuration(stepDurationSeconds);
+  const requestedTransitionDurationSeconds = usesSharedTransition
+    ? sharedTransitionDurationSeconds
+    : stepTransitionDurationSeconds;
+
+  return clampTransitionDuration(durationSeconds, requestedTransitionDurationSeconds);
+}
+
+export function applyMixDurationToTimelineSteps(
+  steps: TimelineStub['shaderSequence']['steps'],
+  mixDurationSeconds: number,
+): TimelineStub['shaderSequence']['steps'] {
+  return steps.map((step) => {
+    if (!isTimelineStepEnabled(step)) {
+      return step;
+    }
+
+    const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
+    return {
+      ...step,
+      transitionDurationSeconds: clampTransitionDuration(durationSeconds, mixDurationSeconds),
+    };
+  });
+}
+
 export function getTimelinePlaybackSteps({
   mode,
   randomChoiceEnabled,
   steps,
   sharedSectionDurationSeconds,
+  sharedTransitionEnabled = false,
+  sharedTransitionDurationSeconds = 0.75,
 }: {
   mode: TimelineSequenceMode;
   randomChoiceEnabled: boolean;
   steps: TimelineStub['shaderSequence']['steps'];
   sharedSectionDurationSeconds: number;
+  sharedTransitionEnabled?: boolean;
+  sharedTransitionDurationSeconds?: number;
 }): TimelineStub['shaderSequence']['steps'] {
-  if (!shouldUseSharedSectionDuration(mode, randomChoiceEnabled)) {
-    return steps;
-  }
+  const usesSharedTransition = shouldUseSharedTransition(mode, sharedTransitionEnabled);
+  const nextSteps = shouldUseSharedSectionDuration(mode, randomChoiceEnabled)
+    ? (() => {
+        const durationSeconds = clampTimelineStepDuration(sharedSectionDurationSeconds);
+        return steps.map((step) =>
+          !isTimelineStepEnabled(step)
+            ? step
+            : {
+                ...step,
+                durationSeconds,
+                transitionDurationSeconds: clampTransitionDuration(
+                  durationSeconds,
+                  usesSharedTransition
+                    ? sharedTransitionDurationSeconds
+                    : step.transitionDurationSeconds,
+                ),
+              },
+        );
+      })()
+    : usesSharedTransition
+      ? applyMixDurationToTimelineSteps(steps, sharedTransitionDurationSeconds)
+      : steps;
 
-  const durationSeconds = clampTimelineStepDuration(sharedSectionDurationSeconds);
-  return steps.map((step) =>
-    !isTimelineStepEnabled(step)
-      ? step
-      : {
-          ...step,
-          durationSeconds,
-          transitionDurationSeconds: clampTransitionDuration(
-            durationSeconds,
-            step.transitionDurationSeconds,
-          ),
-        },
-  );
+  return nextSteps;
 }
 
 export function excludePinnedStepFromTimelinePlayback(
@@ -137,12 +197,16 @@ export function getEffectiveTimelinePlaybackSteps({
   randomChoiceEnabled,
   steps,
   sharedSectionDurationSeconds,
+  sharedTransitionEnabled = false,
+  sharedTransitionDurationSeconds = 0.75,
   pinnedStepId,
 }: {
   mode: TimelineSequenceMode;
   randomChoiceEnabled: boolean;
   steps: TimelineStub['shaderSequence']['steps'];
   sharedSectionDurationSeconds: number;
+  sharedTransitionEnabled?: boolean;
+  sharedTransitionDurationSeconds?: number;
   pinnedStepId: string | null;
 }): TimelineStub['shaderSequence']['steps'] {
   return excludePinnedStepFromTimelinePlayback(
@@ -151,6 +215,8 @@ export function getEffectiveTimelinePlaybackSteps({
       randomChoiceEnabled,
       steps,
       sharedSectionDurationSeconds,
+      sharedTransitionEnabled,
+      sharedTransitionDurationSeconds,
     }),
     pinnedStepId,
   );
@@ -441,9 +507,10 @@ export function resolveShaderTimelineState({
     randomChoiceEnabled,
     steps: playbackSteps,
     sharedSectionDurationSeconds,
+    sharedTransitionEnabled,
+    sharedTransitionDurationSeconds,
   });
-  const usesSharedTransition =
-    effectiveMode === 'randomMix' || sharedTransitionEnabled;
+  const usesSharedTransition = shouldUseSharedTransition(effectiveMode, sharedTransitionEnabled);
 
   const totalDurationSeconds = getShaderTimelineDuration(timedPlaybackSteps);
   if (totalDurationSeconds <= 0) {
@@ -483,14 +550,13 @@ export function resolveShaderTimelineState({
       const localTimeSeconds = Math.max(0, Math.min(durationSeconds, resolvedTime - cursor));
       const effectiveTransitionEffect =
         usesSharedTransition ? sharedTransitionEffect : step.transitionEffect;
-      const transitionDurationSeconds = clampTransitionDuration(
-        durationSeconds,
-        singleStepLoopEnabled
-          ? 0
-          : usesSharedTransition
-            ? sharedTransitionDurationSeconds
-            : step.transitionDurationSeconds,
-      );
+      const transitionDurationSeconds = getEffectiveTransitionDurationSeconds({
+        stepDurationSeconds: durationSeconds,
+        stepTransitionDurationSeconds: step.transitionDurationSeconds,
+        usesSharedTransition,
+        sharedTransitionDurationSeconds,
+        singleStepLoopEnabled,
+      });
       const transitionStartSeconds = Math.max(0, durationSeconds - transitionDurationSeconds);
       const isTransitioning =
         transitionDurationSeconds > 0 &&

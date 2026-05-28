@@ -16,6 +16,7 @@ import {
   isTimelineStepEnabled,
   roundTimelineSeconds,
   resolveShaderTimelineState,
+  shouldUseSharedTransition,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
@@ -58,6 +59,7 @@ interface TimelineBarProps {
     sharedTransitionDurationSeconds?: number;
     sharedSectionDurationSeconds?: number;
   }) => void;
+  onSequenceMixDurationChange: (mixDurationSeconds: number) => void;
   onSequenceStepChange: (
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
@@ -332,6 +334,7 @@ export function TimelineBar({
   onSequenceModeChange,
   onSequenceStagePreviewModeChange,
   onSequenceSharedTransitionChange,
+  onSequenceMixDurationChange,
   onSequenceStepChange,
   onSequencePinnedStepToggle,
   onAssignSequenceStepAsset,
@@ -361,10 +364,10 @@ export function TimelineBar({
   );
   const baseDurationSeconds =
     Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
-  const usesSharedTransition =
-    sequence.mode === 'randomMix' ||
-    sequence.mode === 'double' ||
-    sequence.sharedTransitionEnabled;
+  const usesSharedTransition = shouldUseSharedTransition(
+    sequence.mode,
+    sequence.sharedTransitionEnabled,
+  );
 
   useEffect(() => {
     if (!transport.isPlaying) {
@@ -495,6 +498,8 @@ export function TimelineBar({
         randomChoiceEnabled: sequence.randomChoiceEnabled,
         steps: sequence.steps,
         sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
+        sharedTransitionEnabled: sequence.sharedTransitionEnabled,
+        sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
         pinnedStepId,
       }),
     [
@@ -502,6 +507,8 @@ export function TimelineBar({
       sequence.mode,
       sequence.randomChoiceEnabled,
       sequence.sharedSectionDurationSeconds,
+      sequence.sharedTransitionEnabled,
+      sequence.sharedTransitionDurationSeconds,
       sequence.steps,
     ],
   );
@@ -897,10 +904,6 @@ export function TimelineBar({
                   }}
                   title={title}
                   onClick={() => {
-                    if (usesSharedTransition) {
-                      return;
-                    }
-
                     setActiveTransitionEditorStepId((currentValue) =>
                       currentValue === segment.stepId ? null : segment.stepId,
                     );
@@ -980,7 +983,7 @@ export function TimelineBar({
             })}
           </div>
 
-          {activeTransitionSegment && !usesSharedTransition ? (
+          {activeTransitionSegment ? (
             <div
               className="timeline-transition-editor"
               style={{ left: `${Math.min(84, Math.max(16, activeTransitionSegment.endRatio * 100))}%` }}
@@ -1022,7 +1025,7 @@ export function TimelineBar({
                   className="text-field"
                   type="number"
                   min={0}
-                  step={1}
+                  step={0.05}
                   value={
                     usesSharedTransition
                       ? sequence.sharedTransitionDurationSeconds
@@ -1038,8 +1041,17 @@ export function TimelineBar({
                       return;
                     }
 
+                    const activeStep = sequence.steps.find(
+                      (step) => step.id === activeTransitionSegment.stepId,
+                    );
+                    const stepDurationSeconds = clampTimelineStepDuration(
+                      activeStep?.durationSeconds ?? 1,
+                    );
                     onSequenceStepChange(activeTransitionSegment.stepId, {
-                      transitionDurationSeconds: nextDurationSeconds,
+                      transitionDurationSeconds: clampTransitionDuration(
+                        stepDurationSeconds,
+                        nextDurationSeconds,
+                      ),
                     });
                   }}
                 />
@@ -1102,6 +1114,7 @@ export function TimelineBar({
         onPlayToggle={onPlayToggle}
         onToggleSingleStepLoop={onToggleSingleStepLoop}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
+        onMixDurationChange={onSequenceMixDurationChange}
         onStepChange={onSequenceStepChange}
         onPinnedStepToggle={onSequencePinnedStepToggle}
         onAssignStepAsset={onAssignSequenceStepAsset}

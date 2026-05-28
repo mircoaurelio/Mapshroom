@@ -75,9 +75,16 @@ vec4 timelineTransitionRadialCore(vec4 fromColor, vec4 toColor, vec2 uv, float p
     return mix(fromColor, toColor, edge);
 }
 
-float timelineTransitionAutomataField(vec2 uv, float time, float seed, float lum) {
+float timelineTransitionAutomataField(
+    vec2 uv,
+    float time,
+    float seed,
+    float lum,
+    float mixDuration
+) {
     float scale = mix(4.0, 14.0, node_rand(vec2(seed, 19.73)));
     float speed = mix(0.35, 1.1, node_rand(vec2(seed, 31.17)));
+    speed *= 0.75 / max(mixDuration, 0.001);
     vec2 origin = vec2(node_rand(vec2(seed, 41.17)), node_rand(vec2(seed, 47.91))) * 4.0;
     vec2 p = uv * scale + origin;
     float t = time * speed + seed * 12.9898;
@@ -115,7 +122,13 @@ vec4 timelineTransitionNoiseCore(
         return toColor;
     }
     float lum = dot(fromColor.rgb, vec3(0.299, 0.587, 0.114));
-    float automata = timelineTransitionAutomataField(uv, u_time, seed, lum);
+    float automata = timelineTransitionAutomataField(
+        uv,
+        u_time,
+        seed,
+        lum,
+        max(u_transition_duration, 0.001)
+    );
     float branch = smoothstep(0.3, 0.7, automata);
     float radius = progress * 1.414;
     float feather = 0.1;
@@ -587,6 +600,7 @@ export function buildTimelineTransitionShaderCode({
   return `// NAME: Timeline Transition
 uniform float u_transition_progress; // @min 0.0 @max 1.0 @default 0.0
 uniform float u_transition_seed; // @min 0.0 @max 1.0 @default 0.0
+uniform float u_transition_duration; // @min 0.001 @max 600.0 @default 0.75
 uniform sampler2D u_timeline_from_image;
 uniform sampler2D u_timeline_to_image;
 uniform bool u_timeline_from_has_overlay; // @default false

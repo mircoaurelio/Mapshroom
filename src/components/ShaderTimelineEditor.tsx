@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
   roundTimelineSeconds,
+  shouldUseSharedTransition,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
@@ -63,6 +64,7 @@ interface ShaderTimelineEditorProps {
     sharedTransitionDurationSeconds?: number;
     sharedSectionDurationSeconds?: number;
   }) => void;
+  onMixDurationChange: (mixDurationSeconds: number) => void;
   onStepChange: (
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
@@ -222,6 +224,7 @@ export function ShaderTimelineEditor({
   onPlayToggle,
   onToggleSingleStepLoop,
   onSharedTransitionChange,
+  onMixDurationChange,
   onStepChange,
   onPinnedStepToggle,
   onAssignStepAsset,
@@ -297,13 +300,21 @@ export function ShaderTimelineEditor({
     [referencedAssignedAssetIds],
   );
   const isAdvancedView = true;
-  const usesSharedTransition =
-    sequence.mode === 'randomMix' || sequence.mode === 'double';
+  const usesSharedTransition = shouldUseSharedTransition(
+    sequence.mode,
+    sequence.sharedTransitionEnabled,
+  );
   const usesSharedSectionDuration =
     sequence.mode === 'random' ||
     sequence.mode === 'randomMix' ||
     sequence.mode === 'double' ||
     sequence.randomChoiceEnabled;
+  const showMixTimeControls =
+    !sequence.singleStepLoopEnabled &&
+    (usesSharedTransition || sequence.mode === 'sequence');
+  const displayedMixDurationSeconds = usesSharedTransition
+    ? sequence.sharedTransitionDurationSeconds
+    : sequence.steps.find((step) => !step.disabled)?.transitionDurationSeconds ?? 0.75;
 
   useEffect(
     () => () => {
@@ -679,27 +690,29 @@ export function ShaderTimelineEditor({
               </label>
             ) : null}
 
-            {usesSharedTransition ? (
+            {showMixTimeControls ? (
               <>
-                <label className="field timeline-compact-field timeline-shared-transition-field">
-                  <span>Fx</span>
-                  <select
-                    className="select-field"
-                    value={sequence.sharedTransitionEffect}
-                    onChange={(event) =>
-                      onSharedTransitionChange({
-                        sharedTransitionEffect:
-                          event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
-                      })
-                    }
-                  >
-                    {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {usesSharedTransition ? (
+                  <label className="field timeline-compact-field timeline-shared-transition-field">
+                    <span>Fx</span>
+                    <select
+                      className="select-field"
+                      value={sequence.sharedTransitionEffect}
+                      onChange={(event) =>
+                        onSharedTransitionChange({
+                          sharedTransitionEffect:
+                            event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
+                        })
+                      }
+                    >
+                      {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
 
                 <label className="field timeline-compact-field timeline-shared-transition-field">
                   <span>Mix Time</span>
@@ -707,13 +720,19 @@ export function ShaderTimelineEditor({
                     className="text-field"
                     type="number"
                     min={0}
-                    step={1}
-                    value={sequence.sharedTransitionDurationSeconds}
-                    onChange={(event) =>
-                      onSharedTransitionChange({
-                        sharedTransitionDurationSeconds: Number(event.target.value),
-                      })
-                    }
+                    step={0.05}
+                    value={displayedMixDurationSeconds}
+                    onChange={(event) => {
+                      const nextDurationSeconds = Number(event.target.value);
+                      if (usesSharedTransition) {
+                        onSharedTransitionChange({
+                          sharedTransitionDurationSeconds: nextDurationSeconds,
+                        });
+                        return;
+                      }
+
+                      onMixDurationChange(nextDurationSeconds);
+                    }}
                   />
                 </label>
               </>

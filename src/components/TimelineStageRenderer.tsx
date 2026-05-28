@@ -1085,6 +1085,10 @@ export function TimelineStageRenderer({
         uniformValues: {
           u_transition_progress: transitionProgress,
           u_transition_seed: transitionSeed,
+          u_transition_duration: Math.max(
+            state.transitionDurationSeconds,
+            state.isTransitioning ? 0.001 : 0.75,
+          ),
           u_timeline_from_has_overlay: Boolean(currentLayer.overlaySource),
           u_timeline_to_has_overlay: nextMediaReady && Boolean(nextLayer.overlaySource),
           ...buildOverlayUniformValues('u_timeline_from_overlay', currentLayer.assetSettings),
@@ -1162,6 +1166,7 @@ export function TimelineStageRenderer({
       uniformValues: {
         u_transition_progress: PRELOAD_TRANSITION_PROGRESS,
         u_transition_seed: transitionSeed,
+        u_transition_duration: Math.max(state.transitionDurationSeconds, 0.001),
         u_timeline_from_has_overlay: Boolean(currentLayer.overlaySource),
         u_timeline_to_has_overlay: Boolean(nextLayer.overlaySource),
         ...buildOverlayUniformValues('u_timeline_from_overlay', currentLayer.assetSettings),
