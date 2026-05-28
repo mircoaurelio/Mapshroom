@@ -24,7 +24,7 @@ export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{
   { value: 'wipe', label: 'Wipe' },
   { value: 'radial', label: 'Radial' },
   { value: 'random', label: 'Random' },
-  { value: 'noise', label: 'Noise' },
+  { value: 'noise', label: 'Automata' },
 ];
 
 const LEGACY_TIMELINE_TRANSITION_EFFECTS: Record<string, TimelineTransitionEffect> = {

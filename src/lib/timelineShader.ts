@@ -75,6 +75,32 @@ vec4 timelineTransitionRadialCore(vec4 fromColor, vec4 toColor, vec2 uv, float p
     return mix(fromColor, toColor, edge);
 }
 
+float timelineTransitionAutomataField(vec2 uv, float time, float seed, float lum) {
+    float scale = mix(4.0, 14.0, node_rand(vec2(seed, 19.73)));
+    float speed = mix(0.35, 1.1, node_rand(vec2(seed, 31.17)));
+    vec2 origin = vec2(node_rand(vec2(seed, 41.17)), node_rand(vec2(seed, 47.91))) * 4.0;
+    vec2 p = uv * scale + origin;
+    float t = time * speed + seed * 12.9898;
+    float n = 0.0;
+    vec2 q = p;
+    mat2 rot = mat2(0.73736, -0.67549, 0.67549, 0.73736);
+    float amp = 1.0;
+    float sumAmp = 0.0;
+
+    for (int i = 0; i < 4; i++) {
+        vec2 tOffset = vec2(sin(t * 0.3 + float(i)), cos(t * 0.3 + float(i)));
+        float noiseVal = node_noise(q + tOffset + lum * 1.5);
+        float angle = noiseVal * 6.2831;
+        q += vec2(cos(angle), sin(angle)) * (0.6 + lum * 0.4);
+        q = rot * q * 1.3;
+        n += noiseVal * amp;
+        sumAmp += amp;
+        amp *= 0.5;
+    }
+
+    return n / sumAmp;
+}
+
 vec4 timelineTransitionNoiseCore(
     vec4 fromColor,
     vec4 toColor,
@@ -88,19 +114,12 @@ vec4 timelineTransitionNoiseCore(
     if (progress >= 1.0) {
         return toColor;
     }
-    float gridSize = mix(3.5, 6.0, node_rand(vec2(seed, 19.73)));
-    vec2 cellId = floor(uv * gridSize);
-    vec2 cellLocal = fract(uv * gridSize);
-    vec2 dotCenter = vec2(
-        node_rand(cellId + vec2(seed, 11.17)),
-        node_rand(cellId + vec2(seed, 23.41))
-    );
-    float dist = distance(cellLocal, dotCenter);
-    float stagger = node_rand(cellId + vec2(seed, 37.73));
-    float dotProgress = clamp((progress * 1.414 - stagger * 0.42) / 0.58, 0.0, 1.0);
-    float dotRadius = dotProgress * mix(0.68, 0.96, node_rand(cellId + vec2(seed, 47.11)));
-    float feather = 0.14;
-    float edge = 1.0 - smoothstep(dotRadius - feather, dotRadius + feather, dist);
+    float lum = dot(fromColor.rgb, vec3(0.299, 0.587, 0.114));
+    float automata = timelineTransitionAutomataField(uv, u_time, seed, lum);
+    float branch = smoothstep(0.3, 0.7, automata);
+    float radius = progress * 1.414;
+    float feather = 0.1;
+    float edge = 1.0 - smoothstep(radius - feather, radius + feather, branch);
     return mix(fromColor, toColor, edge);
 }`;
 }
