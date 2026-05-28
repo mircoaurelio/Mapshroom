@@ -59,7 +59,7 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
       return `
 vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
     float distanceToCenter = distance(uv, vec2(0.5));
-    float radius = mix(0.9, 0.0, progress);
+    float radius = progress * 1.414;
     float edge = 1.0 - smoothstep(radius - 0.08, radius + 0.08, distanceToCenter);
     return mix(fromColor, toColor, edge);
 }`;

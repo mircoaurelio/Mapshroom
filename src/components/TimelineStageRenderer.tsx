@@ -1038,6 +1038,7 @@ export function TimelineStageRenderer({
     );
 
     if (
+      state.isTransitioning &&
       state.nextShader &&
       state.nextStep &&
       state.transitionEffect !== 'cut'
@@ -1049,9 +1050,7 @@ export function TimelineStageRenderer({
         timelineLayerOptions,
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
-      const transitionProgress = state.isTransitioning
-        ? easeTransitionProgress(state.transitionProgress)
-        : 0;
+      const transitionProgress = easeTransitionProgress(state.transitionProgress);
 
       return {
         kind: 'transition',
@@ -1610,7 +1609,7 @@ export function TimelineStageRenderer({
     const preloadCandidates: Array<StageRenderLayer | null> = [];
     const pushStatePreloads = (state: ResolvedTimelineState) => {
       preloadCandidates.push(buildTransitionPreloadLayer(state));
-      if (state.transitionEffect === 'cut') {
+      if (state.transitionEffect !== 'cut') {
         preloadCandidates.push(buildNextSinglePreloadLayer(state));
       }
     };
