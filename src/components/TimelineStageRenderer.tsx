@@ -58,13 +58,15 @@ const timelineDecodedAssetIds = new Set<string>();
 function getStageRenderLayerWarmupKey(
   layer: Pick<
     StageRenderLayer,
-    'shaderCode' | 'inputSource' | 'overlaySource' | 'transitionOverlaySources'
+    'shaderCode' | 'inputSource' | 'overlaySource' | 'transitionInputSources' | 'transitionOverlaySources'
   >,
 ): string {
   return [
     layer.shaderCode,
     layer.inputSource?.sourceKey ?? '',
     layer.overlaySource?.sourceKey ?? '',
+    layer.transitionInputSources?.from?.sourceKey ?? '',
+    layer.transitionInputSources?.to?.sourceKey ?? '',
     layer.transitionOverlaySources?.from?.sourceKey ?? '',
     layer.transitionOverlaySources?.to?.sourceKey ?? '',
   ].join('|');
@@ -1067,6 +1069,10 @@ export function TimelineStageRenderer({
           }),
         },
         usedFallback: currentLayer.usedFallback || nextLayer.usedFallback,
+        transitionInputSources: {
+          from: currentLayer.inputSource ?? null,
+          to: nextLayer.inputSource ?? null,
+        },
         transitionOverlaySources: {
           from: currentLayer.overlaySource ?? null,
           to: nextLayer.overlaySource ?? null,
@@ -1119,6 +1125,10 @@ export function TimelineStageRenderer({
         }),
       },
       opacity: 1,
+      transitionInputSources: {
+        from: currentLayer.inputSource ?? null,
+        to: nextLayer.inputSource ?? null,
+      },
       transitionOverlaySources: {
         from: currentLayer.overlaySource ?? null,
         to: nextLayer.overlaySource ?? null,

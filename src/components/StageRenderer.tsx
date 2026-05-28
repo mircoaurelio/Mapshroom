@@ -1027,9 +1027,36 @@ export function StageRenderer({
       ];
     });
 
-    if (nextCompiledLayers.length > 0 || resolvedRenderLayers.length === 0) {
+    if (nextCompiledLayers.length > 0) {
       compiledLayersRef.current = nextCompiledLayers;
+      return;
     }
+
+    if (resolvedRenderLayers.length === 0) {
+      compiledLayersRef.current = [];
+      return;
+    }
+
+    const canRefreshExistingCompiledLayers =
+      compiledLayersRef.current.length === resolvedRenderLayers.length &&
+      compiledLayersRef.current.every(
+        (layer, index) => layer.shaderCode === resolvedRenderLayers[index]?.shaderCode,
+      );
+
+    if (canRefreshExistingCompiledLayers) {
+      compiledLayersRef.current = compiledLayersRef.current.map((existingLayer, index) => ({
+        ...existingLayer,
+        ...resolvedRenderLayers[index],
+        opacity: Number.isFinite(resolvedRenderLayers[index].opacity)
+          ? Number(resolvedRenderLayers[index].opacity)
+          : 1,
+        key: `${existingLayer.shaderCode}:${index}`,
+      }));
+      return;
+    }
+
+    // Avoid drawing an outdated program while the requested shader is still compiling.
+    compiledLayersRef.current = [];
   }, [resolvedRenderLayers]);
 
   useEffect(() => {
