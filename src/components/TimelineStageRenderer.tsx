@@ -52,7 +52,6 @@ const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_SECONDARY_VARIANT_COUNT = 5;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
-const TRANSITION_BOUNDARY_HOLD_SECONDS = 0.12;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
 
@@ -365,7 +364,6 @@ export function TimelineStageRenderer({
   >({});
   const [decodedAssetVersion, setDecodedAssetVersion] = useState(0);
   const lastReadyTimelineStateRef = useRef<ResolvedTimelineState | null>(null);
-  const lastTransitioningTimelineStateRef = useRef<ResolvedTimelineState | null>(null);
   const assetMap = useMemo(
     () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
     [assets],
@@ -736,35 +734,6 @@ export function TimelineStageRenderer({
     return timelineState;
   }, [decodedAssetVersion, resolvedInputSources, timelineState]);
 
-  useEffect(() => {
-    if (renderTimelineState?.isTransitioning) {
-      lastTransitioningTimelineStateRef.current = renderTimelineState;
-    }
-  }, [renderTimelineState]);
-
-  const playbackRenderTimelineState = useMemo(() => {
-    if (!renderTimelineState) {
-      return null;
-    }
-
-    const lastTransition = lastTransitioningTimelineStateRef.current;
-    if (
-      lastTransition &&
-      !renderTimelineState.isTransitioning &&
-      lastTransition.nextStep?.id === renderTimelineState.currentStep.id &&
-      lastTransition.nextShader?.id === renderTimelineState.currentShader.id &&
-      renderTimelineState.localTimeSeconds <= TRANSITION_BOUNDARY_HOLD_SECONDS
-    ) {
-      return {
-        ...lastTransition,
-        transitionProgress: 1,
-        isTransitioning: true,
-      };
-    }
-
-    return renderTimelineState;
-  }, [renderTimelineState]);
-
   const secondaryTimelineResolution = useMemo(() => {
     if (!shouldResolveLiveTimelineState || shaderSequence.mode !== 'double') {
       return {
@@ -1062,8 +1031,8 @@ export function TimelineStageRenderer({
     );
 
     if (
-      state.isTransitioning &&
       state.nextShader &&
+      state.nextStep &&
       state.transitionEffect !== 'cut'
     ) {
       const nextLayer = resolveShaderLayer(
@@ -1073,7 +1042,7 @@ export function TimelineStageRenderer({
         timelineLayerOptions,
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
-      const transitionProgress = nextMediaReady
+      const transitionProgress = state.isTransitioning
         ? easeTransitionProgress(state.transitionProgress)
         : 0;
 
@@ -1302,7 +1271,7 @@ export function TimelineStageRenderer({
       if (focusedTargetShader) {
         visibleShaderIds.add(focusedTargetShader.id);
       }
-    } else if (!playbackRenderTimelineState) {
+    } else if (!renderTimelineState) {
       const fallbackLayer = buildSingleShaderLayer(
         resolveShaderLayer(activeSavedShader, null, 'shader:fallback'),
       );
@@ -1311,17 +1280,17 @@ export function TimelineStageRenderer({
         visibleShaderIds.add(activeSavedShader.id);
       }
     } else if (shaderSequence.mode === 'double') {
-      const primaryLayer = buildTimelineRenderLayer(playbackRenderTimelineState);
-      const resolvedSecondaryState = secondaryTimelineState ?? playbackRenderTimelineState;
+      const primaryLayer = buildTimelineRenderLayer(renderTimelineState);
+      const resolvedSecondaryState = secondaryTimelineState ?? renderTimelineState;
       const secondaryLayer = buildTimelineRenderLayer(resolvedSecondaryState);
 
       baseLayers.push(primaryLayer, secondaryLayer);
-      markStateVisible(playbackRenderTimelineState);
+      markStateVisible(renderTimelineState);
       markStateVisible(resolvedSecondaryState);
     } else {
-      const activeLayer = buildTimelineRenderLayer(playbackRenderTimelineState);
+      const activeLayer = buildTimelineRenderLayer(renderTimelineState);
       baseLayers.push(activeLayer);
-      markStateVisible(playbackRenderTimelineState);
+      markStateVisible(renderTimelineState);
     }
 
     let pinnedLayer: TimelineRenderLayer | null = null;
@@ -1354,7 +1323,7 @@ export function TimelineStageRenderer({
     secondaryTimelineState,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
-    playbackRenderTimelineState,
+    renderTimelineState,
     decodedAssetVersion,
     workspaceFocusedPreviewEnabled,
   ]);

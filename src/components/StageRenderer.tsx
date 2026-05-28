@@ -1055,7 +1055,7 @@ export function StageRenderer({
       return;
     }
 
-    // Avoid drawing an outdated program while the requested shader is still compiling.
+    // Keep the last good frame until every requested layer program is compiled.
     compiledLayersRef.current = [];
   }, [resolvedRenderLayers]);
 
