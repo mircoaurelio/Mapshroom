@@ -1060,21 +1060,31 @@ export function TimelineStageRenderer({
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
       let transitionProgress = 0;
-      if (state.isTransitioning) {
-        const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}`;
-        const requestedProgress = easeTransitionProgress(state.transitionProgress);
-        if (transitionProgressHoldRef.current.pairKey !== pairKey) {
-          transitionProgressHoldRef.current = {
-            pairKey,
-            progress: requestedProgress,
-          };
-        } else {
-          transitionProgressHoldRef.current.progress = Math.max(
-            transitionProgressHoldRef.current.progress,
-            requestedProgress,
-          );
-        }
-        transitionProgress = transitionProgressHoldRef.current.progress;
+      const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}`;
+      const requestedProgress = easeTransitionProgress(state.transitionProgress);
+      if (transitionProgressHoldRef.current.pairKey !== pairKey) {
+        transitionProgressHoldRef.current = {
+          pairKey,
+          progress: requestedProgress,
+        };
+      } else {
+        transitionProgressHoldRef.current.progress = Math.max(
+          transitionProgressHoldRef.current.progress,
+          requestedProgress,
+        );
+      }
+      transitionProgress = transitionProgressHoldRef.current.progress;
+
+      // Once the wipe has finished, show the revealed step as a single layer (same
+      // program that runs for the whole next step). Staying on the transition
+      // shader at progress 0/1 and swapping again at the step boundary redraws the
+      // outgoing shader on top of the mix result.
+      if (transitionProgress >= 0.999 && nextMediaReady) {
+        return buildSingleShaderLayer(nextLayer);
+      }
+
+      if (transitionProgress >= 0.999) {
+        transitionProgress = 1;
       }
 
       return {
