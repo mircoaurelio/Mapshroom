@@ -88,15 +88,12 @@ vec4 timelineTransitionNoiseCore(
     if (progress >= 1.0) {
         return toColor;
     }
-    float scaleRand = node_rand(vec2(seed, 19.73));
-    float noiseScale = mix(0.65, 2.4, scaleRand);
-    vec2 noiseShift = vec2(
-        node_rand(vec2(seed, 31.17)),
-        node_rand(vec2(seed, 47.91))
-    ) * 128.0;
-    float noiseSample = node_noise(uv * noiseScale + noiseShift);
-    float feather = 0.08;
-    float edge = smoothstep(progress - feather, progress + feather, noiseSample);
+    float noiseScale = mix(0.12, 0.42, node_rand(vec2(seed, 19.73)));
+    vec2 noiseOffset = vec2(node_rand(vec2(seed, 31.17)), node_rand(vec2(seed, 47.91))) * 4.0;
+    float noiseSample = node_noise(uv * noiseScale + noiseOffset);
+    float radius = progress * 1.414;
+    float feather = 0.1;
+    float edge = 1.0 - smoothstep(radius - feather, radius + feather, noiseSample);
     return mix(fromColor, toColor, edge);
 }`;
 }
