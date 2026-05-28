@@ -135,6 +135,10 @@ interface TimelineRenderLayer {
   overlaySource?: StageRenderInputSource | null;
   compositeMode?: StageRenderLayer['compositeMode'];
   requiresCompositeBase?: boolean;
+  transitionInputSources?: {
+    from: StageRenderInputSource | null;
+    to: StageRenderInputSource | null;
+  } | null;
   transitionOverlaySources?: {
     from: StageRenderInputSource | null;
     to: StageRenderInputSource | null;
@@ -1170,6 +1174,7 @@ export function TimelineStageRenderer({
     opacity,
     inputSource: layer.inputSource ?? null,
     overlaySource: layer.overlaySource ?? null,
+    transitionInputSources: layer.transitionInputSources ?? null,
     transitionOverlaySources: layer.transitionOverlaySources ?? null,
     compositeMode: layer.compositeMode,
     requiresCompositeBase: layer.requiresCompositeBase,
