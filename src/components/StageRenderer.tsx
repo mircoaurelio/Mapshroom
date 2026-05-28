@@ -1509,26 +1509,40 @@ export function StageRenderer({
 
         const drawCompiledLayer = (
           layer: CompiledRenderLayer,
+          layerIndex: number,
           options: {
             compositeBaseTexture: WebGLTexture | null;
             passLayerCount: number;
           },
         ) => {
+          const activeLayer = resolvedRenderLayersRef.current[layerIndex] ?? layer;
+          const activeOpacity = Number.isFinite(activeLayer.opacity)
+            ? Number(activeLayer.opacity)
+            : layer.opacity;
           const primarySource =
+            activeLayer.inputSource ??
             layer.inputSource ??
             defaultInputSource ??
+            activeLayer.transitionInputSources?.from ??
             layer.transitionInputSources?.from ??
+            activeLayer.transitionInputSources?.to ??
             layer.transitionInputSources?.to ??
             null;
           const primaryState = primarySource
             ? textureSources.get(primarySource.sourceKey) ?? null
             : null;
-          const overlaySource = layer.overlaySource ?? null;
+          const overlaySource = activeLayer.overlaySource ?? layer.overlaySource ?? null;
           const overlayState = overlaySource
             ? textureSources.get(overlaySource.sourceKey) ?? null
             : null;
-          const transitionFromSource = layer.transitionInputSources?.from ?? primarySource;
-          const transitionToSource = layer.transitionInputSources?.to ?? primarySource;
+          const transitionFromSource =
+            activeLayer.transitionInputSources?.from ??
+            layer.transitionInputSources?.from ??
+            primarySource;
+          const transitionToSource =
+            activeLayer.transitionInputSources?.to ??
+            layer.transitionInputSources?.to ??
+            primarySource;
           const transitionFromState = transitionFromSource
             ? textureSources.get(transitionFromSource.sourceKey) ?? primaryState
             : primaryState;
@@ -1536,9 +1550,13 @@ export function StageRenderer({
             ? textureSources.get(transitionToSource.sourceKey) ?? primaryState
             : primaryState;
           const transitionFromOverlaySource =
-            layer.transitionOverlaySources?.from ?? overlaySource;
+            activeLayer.transitionOverlaySources?.from ??
+            layer.transitionOverlaySources?.from ??
+            overlaySource;
           const transitionToOverlaySource =
-            layer.transitionOverlaySources?.to ?? overlaySource;
+            activeLayer.transitionOverlaySources?.to ??
+            layer.transitionOverlaySources?.to ??
+            overlaySource;
           const transitionFromOverlayState = transitionFromOverlaySource
             ? textureSources.get(transitionFromOverlaySource.sourceKey) ?? overlayState
             : overlayState;
@@ -1637,7 +1655,7 @@ export function StageRenderer({
 
           for (const [name, definition] of Object.entries(layer.uniformDefinitions)) {
             const location = layer.locations.custom[name];
-            const value = layer.uniformValues[name];
+            const value = activeLayer.uniformValues[name] ?? layer.uniformValues[name];
 
             if (!location || value === undefined) {
               continue;
@@ -1661,10 +1679,10 @@ export function StageRenderer({
             gl.enable(gl.BLEND);
             gl.blendEquation(gl.FUNC_ADD);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-          } else if (options.passLayerCount > 1 || layer.opacity < 0.999) {
+          } else if (options.passLayerCount > 1 || activeOpacity < 0.999) {
             gl.enable(gl.BLEND);
             gl.blendEquation(gl.FUNC_ADD);
-            gl.blendColor(layer.opacity, layer.opacity, layer.opacity, layer.opacity);
+            gl.blendColor(activeOpacity, activeOpacity, activeOpacity, activeOpacity);
             gl.blendFunc(gl.CONSTANT_COLOR, gl.ONE);
           } else {
             gl.disable(gl.BLEND);
@@ -1686,7 +1704,7 @@ export function StageRenderer({
           gl.clear(gl.COLOR_BUFFER_BIT);
 
           for (let index = 0; index < blendBaseLayerIndex; index += 1) {
-            drawCompiledLayer(compiledLayers[index], {
+            drawCompiledLayer(compiledLayers[index], index, {
               compositeBaseTexture: null,
               passLayerCount: blendBaseLayerIndex,
             });
@@ -1704,7 +1722,7 @@ export function StageRenderer({
         const canvasLayerCount = compiledLayers.length - canvasLayerStart;
 
         for (let index = canvasLayerStart; index < compiledLayers.length; index += 1) {
-          drawCompiledLayer(compiledLayers[index], {
+          drawCompiledLayer(compiledLayers[index], index, {
             compositeBaseTexture,
             passLayerCount: canvasLayerCount,
           });

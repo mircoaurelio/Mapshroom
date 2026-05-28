@@ -52,6 +52,7 @@ const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_SECONDARY_VARIANT_COUNT = 5;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
+const TRANSITION_BOUNDARY_HOLD_SECONDS = 0.12;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
 
@@ -106,20 +107,7 @@ function timelinePlaybackStateNeedsDeferredMedia(
   state: ResolvedTimelineState,
   resolvedInputSources: Record<string, { url: string | null; status: AssetObjectUrlStatus }>,
 ): boolean {
-  if (!isTimelineStepMediaResolved(state.currentShader, resolvedInputSources)) {
-    return true;
-  }
-
-  if (
-    state.isTransitioning &&
-    state.nextShader &&
-    state.nextStep &&
-    !isTimelineStepMediaResolved(state.nextShader, resolvedInputSources)
-  ) {
-    return true;
-  }
-
-  return false;
+  return !isTimelineStepMediaResolved(state.currentShader, resolvedInputSources);
 }
 
 type TimelineRenderLayerKind = 'single' | 'transition';
@@ -377,6 +365,7 @@ export function TimelineStageRenderer({
   >({});
   const [decodedAssetVersion, setDecodedAssetVersion] = useState(0);
   const lastReadyTimelineStateRef = useRef<ResolvedTimelineState | null>(null);
+  const lastTransitioningTimelineStateRef = useRef<ResolvedTimelineState | null>(null);
   const assetMap = useMemo(
     () => new Map(assets.map((assetRecord) => [assetRecord.id, assetRecord])),
     [assets],
@@ -747,6 +736,35 @@ export function TimelineStageRenderer({
     return timelineState;
   }, [decodedAssetVersion, resolvedInputSources, timelineState]);
 
+  useEffect(() => {
+    if (renderTimelineState?.isTransitioning) {
+      lastTransitioningTimelineStateRef.current = renderTimelineState;
+    }
+  }, [renderTimelineState]);
+
+  const playbackRenderTimelineState = useMemo(() => {
+    if (!renderTimelineState) {
+      return null;
+    }
+
+    const lastTransition = lastTransitioningTimelineStateRef.current;
+    if (
+      lastTransition &&
+      !renderTimelineState.isTransitioning &&
+      lastTransition.nextStep?.id === renderTimelineState.currentStep.id &&
+      lastTransition.nextShader?.id === renderTimelineState.currentShader.id &&
+      renderTimelineState.localTimeSeconds <= TRANSITION_BOUNDARY_HOLD_SECONDS
+    ) {
+      return {
+        ...lastTransition,
+        transitionProgress: 1,
+        isTransitioning: true,
+      };
+    }
+
+    return renderTimelineState;
+  }, [renderTimelineState]);
+
   const secondaryTimelineResolution = useMemo(() => {
     if (!shouldResolveLiveTimelineState || shaderSequence.mode !== 'double') {
       return {
@@ -1033,10 +1051,14 @@ export function TimelineStageRenderer({
   const buildTimelineRenderLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): TimelineRenderLayer => {
+    const timelineLayerOptions = {
+      preferStepSnapshot: shouldResolveLiveTimelineState,
+    } satisfies ResolveShaderLayerOptions;
     const currentLayer = resolveShaderLayer(
       state.currentShader,
       state.currentStep,
       `step:${state.currentStep.id}:current`,
+      timelineLayerOptions,
     );
 
     if (
@@ -1048,7 +1070,12 @@ export function TimelineStageRenderer({
         state.nextShader,
         state.nextStep,
         `step:${state.nextStep?.id ?? state.currentStep.id}:next`,
+        timelineLayerOptions,
       );
+      const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
+      const transitionProgress = nextMediaReady
+        ? easeTransitionProgress(state.transitionProgress)
+        : 0;
 
       return {
         kind: 'transition',
@@ -1058,34 +1085,50 @@ export function TimelineStageRenderer({
           effect: state.transitionEffect,
         }),
         uniformValues: {
-          u_transition_progress: easeTransitionProgress(state.transitionProgress),
+          u_transition_progress: transitionProgress,
           u_timeline_from_has_overlay: Boolean(currentLayer.overlaySource),
-          u_timeline_to_has_overlay: Boolean(nextLayer.overlaySource),
+          u_timeline_to_has_overlay: nextMediaReady && Boolean(nextLayer.overlaySource),
           ...buildOverlayUniformValues('u_timeline_from_overlay', currentLayer.assetSettings),
-          ...buildOverlayUniformValues('u_timeline_to_overlay', nextLayer.assetSettings),
+          ...(nextMediaReady
+            ? buildOverlayUniformValues('u_timeline_to_overlay', nextLayer.assetSettings)
+            : buildOverlayUniformValues('u_timeline_to_overlay', currentLayer.assetSettings)),
           ...prefixUniformValueKeys({
             sourceValues: currentLayer.uniformValues,
             namespace: 'timeline_from',
           }),
-          ...prefixUniformValueKeys({
-            sourceValues: nextLayer.uniformValues,
-            namespace: 'timeline_to',
-          }),
+          ...(nextMediaReady
+            ? prefixUniformValueKeys({
+                sourceValues: nextLayer.uniformValues,
+                namespace: 'timeline_to',
+              })
+            : prefixUniformValueKeys({
+                sourceValues: currentLayer.uniformValues,
+                namespace: 'timeline_to',
+              })),
         },
         usedFallback: currentLayer.usedFallback || nextLayer.usedFallback,
         transitionInputSources: {
           from: currentLayer.inputSource ?? null,
-          to: nextLayer.inputSource ?? null,
+          to: nextMediaReady
+            ? nextLayer.inputSource ?? null
+            : currentLayer.inputSource ?? null,
         },
         transitionOverlaySources: {
           from: currentLayer.overlaySource ?? null,
-          to: nextLayer.overlaySource ?? null,
+          to: nextMediaReady
+            ? nextLayer.overlaySource ?? null
+            : currentLayer.overlaySource ?? null,
         },
       };
     }
 
     return buildSingleShaderLayer(currentLayer);
-  }, [buildSingleShaderLayer, resolveShaderLayer]);
+  }, [
+    buildSingleShaderLayer,
+    resolveShaderLayer,
+    resolvedInputSources,
+    shouldResolveLiveTimelineState,
+  ]);
 
   const buildTransitionPreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
@@ -1094,15 +1137,20 @@ export function TimelineStageRenderer({
       return null;
     }
 
+    const timelineLayerOptions = {
+      preferStepSnapshot: shouldResolveLiveTimelineState,
+    } satisfies ResolveShaderLayerOptions;
     const currentLayer = resolveShaderLayer(
       state.currentShader,
       state.currentStep,
       `step:${state.currentStep.id}:preload-current`,
+      timelineLayerOptions,
     );
     const nextLayer = resolveShaderLayer(
       state.nextShader,
       state.nextStep,
       `step:${state.nextStep?.id ?? state.currentStep.id}:preload-next`,
+      timelineLayerOptions,
     );
     const shaderCode = buildTimelineTransitionShaderCode({
       fromCode: currentLayer.shaderCode,
@@ -1138,7 +1186,7 @@ export function TimelineStageRenderer({
         to: nextLayer.overlaySource ?? null,
       },
     };
-  }, [resolveShaderLayer]);
+  }, [resolveShaderLayer, shouldResolveLiveTimelineState]);
 
   const buildNextSinglePreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
@@ -1152,6 +1200,7 @@ export function TimelineStageRenderer({
         state.nextShader,
         state.nextStep,
         `step:${state.nextStep?.id ?? state.currentStep.id}:preload-single`,
+        { preferStepSnapshot: shouldResolveLiveTimelineState },
       ),
     );
     return {
@@ -1162,7 +1211,7 @@ export function TimelineStageRenderer({
       inputSource: nextLayer.inputSource ?? null,
       overlaySource: nextLayer.overlaySource ?? null,
     };
-  }, [buildSingleShaderLayer, resolveShaderLayer]);
+  }, [buildSingleShaderLayer, resolveShaderLayer, shouldResolveLiveTimelineState]);
 
   const createStageRenderLayer = useCallback((
     layer: TimelineRenderLayer,
@@ -1253,7 +1302,7 @@ export function TimelineStageRenderer({
       if (focusedTargetShader) {
         visibleShaderIds.add(focusedTargetShader.id);
       }
-    } else if (!renderTimelineState) {
+    } else if (!playbackRenderTimelineState) {
       const fallbackLayer = buildSingleShaderLayer(
         resolveShaderLayer(activeSavedShader, null, 'shader:fallback'),
       );
@@ -1262,17 +1311,17 @@ export function TimelineStageRenderer({
         visibleShaderIds.add(activeSavedShader.id);
       }
     } else if (shaderSequence.mode === 'double') {
-      const primaryLayer = buildTimelineRenderLayer(renderTimelineState);
-      const resolvedSecondaryState = secondaryTimelineState ?? renderTimelineState;
+      const primaryLayer = buildTimelineRenderLayer(playbackRenderTimelineState);
+      const resolvedSecondaryState = secondaryTimelineState ?? playbackRenderTimelineState;
       const secondaryLayer = buildTimelineRenderLayer(resolvedSecondaryState);
 
       baseLayers.push(primaryLayer, secondaryLayer);
-      markStateVisible(renderTimelineState);
+      markStateVisible(playbackRenderTimelineState);
       markStateVisible(resolvedSecondaryState);
     } else {
-      const activeLayer = buildTimelineRenderLayer(renderTimelineState);
+      const activeLayer = buildTimelineRenderLayer(playbackRenderTimelineState);
       baseLayers.push(activeLayer);
-      markStateVisible(renderTimelineState);
+      markStateVisible(playbackRenderTimelineState);
     }
 
     let pinnedLayer: TimelineRenderLayer | null = null;
@@ -1305,7 +1354,7 @@ export function TimelineStageRenderer({
     secondaryTimelineState,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
-    renderTimelineState,
+    playbackRenderTimelineState,
     decodedAssetVersion,
     workspaceFocusedPreviewEnabled,
   ]);
