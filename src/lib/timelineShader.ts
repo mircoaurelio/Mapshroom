@@ -52,7 +52,14 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
     case 'wipe':
       return `
 vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress) {
-    float edge = smoothstep(progress - 0.08, progress + 0.08, uv.x);
+    if (progress <= 0.0) {
+        return fromColor;
+    }
+    if (progress >= 1.0) {
+        return toColor;
+    }
+    float feather = 0.08;
+    float edge = smoothstep(progress - feather, progress + feather, uv.x);
     return mix(fromColor, toColor, edge);
 }`;
     case 'radial':
