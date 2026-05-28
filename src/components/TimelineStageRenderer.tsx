@@ -1038,7 +1038,6 @@ export function TimelineStageRenderer({
     );
 
     if (
-      state.isTransitioning &&
       state.nextShader &&
       state.nextStep &&
       state.transitionEffect !== 'cut'
@@ -1050,7 +1049,9 @@ export function TimelineStageRenderer({
         timelineLayerOptions,
       );
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
-      const transitionProgress = easeTransitionProgress(state.transitionProgress);
+      const transitionProgress = state.isTransitioning
+        ? easeTransitionProgress(state.transitionProgress)
+        : 0;
 
       return {
         kind: 'transition',
