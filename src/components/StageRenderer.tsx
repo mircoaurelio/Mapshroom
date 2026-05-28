@@ -1028,7 +1028,10 @@ export function StageRenderer({
       ];
     });
 
-    if (nextCompiledLayers.length > 0) {
+    if (
+      nextCompiledLayers.length > 0 &&
+      nextCompiledLayers.length === resolvedRenderLayers.length
+    ) {
       compiledLayersRef.current = nextCompiledLayers;
       return;
     }

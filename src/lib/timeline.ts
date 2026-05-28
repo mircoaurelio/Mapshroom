@@ -349,6 +349,8 @@ interface TimelineResolution {
   totalDurationSeconds: number;
   transitionProgress: number;
   transitionEffect: TimelineTransitionEffect;
+  transitionStartSeconds: number;
+  transitionDurationSeconds: number;
   isTransitioning: boolean;
 }
 
@@ -480,6 +482,8 @@ export function resolveShaderTimelineState({
         totalDurationSeconds,
         transitionProgress,
         transitionEffect: effectiveTransitionEffect,
+        transitionStartSeconds,
+        transitionDurationSeconds,
         isTransitioning,
       };
     }
