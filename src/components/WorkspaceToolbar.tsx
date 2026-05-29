@@ -18,6 +18,9 @@ interface WorkspaceToolbarProps {
   onToggleWorkspaceMode: () => void;
   onToggleSidebarVisibility: () => void;
   onToggleDesktopSlidersWindow: () => void;
+  midiEnabled: boolean;
+  midiPanelVisible: boolean;
+  onToggleMidi: () => void;
 }
 
 function PlayIcon() {
@@ -54,6 +57,9 @@ export function WorkspaceToolbar({
   onToggleWorkspaceMode,
   onToggleSidebarVisibility,
   onToggleDesktopSlidersWindow,
+  midiEnabled,
+  midiPanelVisible,
+  onToggleMidi,
 }: WorkspaceToolbarProps) {
   const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const viewMenuRef = useRef<HTMLDivElement | null>(null);
@@ -155,6 +161,21 @@ export function WorkspaceToolbar({
         </button>
         <button type="button" className="secondary-button" onClick={onOpenSettings}>
           Settings
+        </button>
+        <button
+          type="button"
+          className={`toggle-chip ${midiEnabled ? 'toggle-chip-active' : ''}`}
+          aria-pressed={midiEnabled}
+          title={
+            midiEnabled
+              ? midiPanelVisible
+                ? 'Disable MIDI controller'
+                : 'Show MIDI monitor'
+              : 'Enable MIDI controller'
+          }
+          onClick={onToggleMidi}
+        >
+          MIDI
         </button>
         <button
           type="button"

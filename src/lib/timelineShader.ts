@@ -56,7 +56,7 @@ vec4 timelineTransitionWipeCore(vec4 fromColor, vec4 toColor, vec2 uv, float pro
         return toColor;
     }
     float radius = progress * 1.414;
-    float feather = 0.08;
+    float feather = mix(0.18, 0.32, smoothstep(0.0, 1.0, progress));
     float edge = 1.0 - smoothstep(radius - feather, radius + feather, uv.x);
     return mix(fromColor, toColor, edge);
 }
@@ -70,7 +70,7 @@ vec4 timelineTransitionRadialCore(vec4 fromColor, vec4 toColor, vec2 uv, float p
     }
     float distanceToCenter = distance(uv, vec2(0.5));
     float radius = progress * 1.414;
-    float feather = 0.08;
+    float feather = mix(0.16, 0.30, smoothstep(0.0, 1.0, progress));
     float edge = 1.0 - smoothstep(radius - feather, radius + feather, distanceToCenter);
     return mix(fromColor, toColor, edge);
 }
@@ -139,9 +139,10 @@ vec4 timelineTransitionNoiseCore(
         lum,
         max(u_transition_duration, 0.001)
     );
-    float radius = progress * 1.414;
-    float feather = mix(0.16, 0.34, progress * progress);
-    float edge = 1.0 - smoothstep(radius - feather, radius + feather, automata);
+    float reveal = smoothstep(0.02, 1.0, progress);
+    float threshold = mix(1.08, -0.08, reveal);
+    float feather = mix(0.035, 0.18, reveal);
+    float edge = smoothstep(threshold - feather, threshold + feather, automata);
     float completion = smoothstep(0.84, 1.0, progress);
     edge = mix(edge, 1.0, completion);
     return mix(fromColor, toColor, edge);

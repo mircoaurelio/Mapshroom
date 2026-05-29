@@ -33,6 +33,8 @@ import type {
 } from '../types';
 
 const timelineEditorAssetUrlCache = new Map<string, string>();
+const TIMELINE_PREVIEW_RENDER_DELAY_MS = 500;
+const TIMELINE_PREVIEW_RENDER_SPACING_MS = 80;
 
 function getUniformValuesPreviewSignature(uniformValues: ShaderUniformValueMap | undefined): string {
   return JSON.stringify(
@@ -487,6 +489,12 @@ export function ShaderTimelineEditor({
     }
 
     const nextPreviewSources: Record<string, string> = {};
+    const renderQueue: Array<{
+      previewKey: string;
+      renderCode: string;
+      renderUniformValues: ShaderUniformValueMap | undefined;
+      assignedPreviewImage: HTMLCanvasElement | null;
+    }> = [];
 
     for (const shader of sequenceShaders) {
       const renderCode = getRenderableShaderCode(shader);
@@ -501,27 +509,82 @@ export function ShaderTimelineEditor({
         overlayPreviewNamespace,
         shader,
       );
+      const cachedPreview = previewSourceRef.current[previewKey];
+      if (cachedPreview) {
+        nextPreviewSources[previewKey] = cachedPreview;
+        continue;
+      }
+
+      renderQueue.push({
+        previewKey,
+        renderCode,
+        renderUniformValues,
+        assignedPreviewImage: assignedPreview?.image ?? null,
+      });
+    }
+
+    if (Object.keys(nextPreviewSources).length > 0) {
+      setPreviewSources((current) => ({
+        ...current,
+        ...nextPreviewSources,
+      }));
+    }
+
+    if (renderQueue.length === 0) {
+      return;
+    }
+
+    let disposed = false;
+    let timeoutId = 0;
+
+    const renderNextPreview = (queueIndex: number) => {
+      if (disposed || queueIndex >= renderQueue.length) {
+        return;
+      }
+
+      const queuedPreview = renderQueue[queueIndex];
+      if (!queuedPreview) {
+        return;
+      }
+
       const cachedPreview =
-        previewSourceRef.current[previewKey] ??
+        previewSourceRef.current[queuedPreview.previewKey] ??
         renderShaderPreviewToDataUrl(
-          renderCode,
-          renderUniformValues,
+          queuedPreview.renderCode,
+          queuedPreview.renderUniformValues,
           previewImage,
-          assignedPreview?.image ?? null,
+          queuedPreview.assignedPreviewImage,
           previewRendererRef,
         );
 
+      if (disposed) {
+        return;
+      }
+
       previewSourceRef.current = {
         ...previewSourceRef.current,
-        [previewKey]: cachedPreview,
+        [queuedPreview.previewKey]: cachedPreview,
       };
-      nextPreviewSources[previewKey] = cachedPreview;
-    }
+      setPreviewSources((current) => ({
+        ...current,
+        [queuedPreview.previewKey]: cachedPreview,
+      }));
 
-    setPreviewSources((current) => ({
-      ...current,
-      ...nextPreviewSources,
-    }));
+      timeoutId = window.setTimeout(
+        () => renderNextPreview(queueIndex + 1),
+        TIMELINE_PREVIEW_RENDER_SPACING_MS,
+      );
+    };
+
+    timeoutId = window.setTimeout(
+      () => renderNextPreview(0),
+      TIMELINE_PREVIEW_RENDER_DELAY_MS,
+    );
+
+    return () => {
+      disposed = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [loadedAssignedPreviews, previewImage, previewNamespace, sequenceShaders]);
 
   const previewPlaceholder =

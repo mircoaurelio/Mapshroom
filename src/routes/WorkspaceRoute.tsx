@@ -31,6 +31,8 @@ import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { UniformPanel } from '../components/UniformPanel';
 import type { TimelineSelectionInfo } from '../components/TimelineSelectionBanner';
+import { MidiControllerPanel } from '../components/MidiControllerPanel';
+import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_STAGE_TRANSFORM,
@@ -63,10 +65,16 @@ import {
   roundTimelineSeconds,
   scaleTimelineStepDurations,
   shouldUseSharedTransition,
+  TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
 import { normalizeTimelineStepAssetSettings } from '../lib/timelineAssetSettings';
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
+import { useMidiController } from '../hooks/useMidiController';
+import type {
+  MidiControllerMode,
+  MidiTimelineTransportAction,
+} from '../lib/midi/types';
 import {
   createProjectShareLink,
   importProjectFromSharedUrl,
@@ -107,6 +115,12 @@ import type {
   UiPreferences,
   WorkspaceMode,
 } from '../types';
+
+const MIDI_MIX_DURATION_MIN_SECONDS = 0.05;
+const MIDI_MIX_DURATION_MAX_SECONDS = 8;
+const MIDI_MIX_DURATION_STEP_SECONDS = 0.25;
+const MIDI_MANUAL_MIX_MIN_TRIGGER = 0.02;
+const MIDI_MANUAL_MIX_MAX_TRIGGER = 0.97;
 
 function useIsMobile(breakpoint = 960): boolean {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint);
@@ -829,6 +843,15 @@ export function WorkspaceRoute() {
     leftSidebarWidth: 360,
     rightSidebarWidth: 360,
     timelineHeight: 300,
+  });
+  const [midiEnabled, setMidiEnabled] = useState(false);
+  const [midiPanelVisible, setMidiPanelVisible] = useState(false);
+  const [midiMode, setMidiMode] = useState<MidiControllerMode>('shader-uniforms');
+  const [midiGuideOpen, setMidiGuideOpen] = useState(false);
+  const [midiManualMix, setMidiManualMix] = useState({
+    stepIndex: 0,
+    nextEndpoint: 'max' as 'max' | 'min',
+    progress: 0,
   });
   const hasLoadedInitialProjectRef = useRef(false);
   const generatedShaderRetryRef = useRef<Record<string, {
@@ -2322,6 +2345,292 @@ export function WorkspaceRoute() {
     );
   };
 
+  const selectTimelineStepByIndex = useCallback((stepIndex: number) => {
+    const step = project?.timeline.stub.shaderSequence.steps[stepIndex];
+    if (!step) {
+      return;
+    }
+
+    void selectTimelineStepForEditing(step.id, {
+      stagePreviewMode: 'focused',
+      updateTimelineFocus: false,
+    });
+    setTimelineScrollToStepRequest({
+      stepId: step.id,
+      token: performance.now(),
+    });
+    setStatusMessage(`MIDI selected timeline step ${stepIndex + 1}.`);
+  }, [project]);
+
+  const getMidiTimelineStepIndex = useCallback(() => {
+    const steps = project?.timeline.stub.shaderSequence.steps ?? [];
+    if (!steps.length) {
+      return -1;
+    }
+
+    const currentStepId =
+      editingTimelineStepId ??
+      project?.timeline.stub.shaderSequence.focusedStepId ??
+      steps[0]?.id;
+    const currentIndex = steps.findIndex((step) => step.id === currentStepId);
+    return currentIndex >= 0 ? currentIndex : 0;
+  }, [editingTimelineStepId, project]);
+
+  const triggerTimelineShaderByOffset = useCallback((
+    offset: number,
+    mode: 'cut' | 'mix',
+  ) => {
+    const steps = project?.timeline.stub.shaderSequence.steps ?? [];
+    if (!steps.length) {
+      return;
+    }
+
+    const currentIndex = getMidiTimelineStepIndex();
+    const targetIndex = Math.max(0, Math.min(steps.length - 1, currentIndex + offset));
+    const targetStep = steps[targetIndex];
+    if (!targetStep || targetStep.disabled) {
+      return;
+    }
+
+    if (mode === 'cut' || targetIndex === 0) {
+      selectTimelineStepByIndex(targetIndex);
+      setStatusMessage(`MIDI cut to timeline step ${targetIndex + 1}.`);
+      return;
+    }
+
+    const mixDurationSeconds = clampTransitionDuration(
+      clampTimelineStepDuration(steps[targetIndex - 1]?.durationSeconds ?? 1),
+      project?.timeline.stub.shaderSequence.sharedTransitionDurationSeconds ??
+        MIDI_MIX_DURATION_STEP_SECONDS,
+    );
+    const targetStartSeconds = steps
+      .slice(0, targetIndex)
+      .reduce((totalSeconds, step) => totalSeconds + clampTimelineStepDuration(step.durationSeconds), 0);
+    const transitionStartSeconds = Math.max(0, targetStartSeconds - mixDurationSeconds);
+
+    updateProject((currentProject) => ({
+      ...currentProject,
+      playback: {
+        ...currentProject.playback,
+        transport: playTransport(
+          seekTransport(currentProject.playback.transport, transitionStartSeconds),
+        ),
+      },
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            stagePreviewMode: 'timeline',
+            focusedStepId: targetStep.id,
+            sharedTransitionEnabled: true,
+            sharedTransitionDurationSeconds: mixDurationSeconds,
+          },
+        },
+      },
+    }));
+    setTimelineScrollToStepRequest({
+      stepId: targetStep.id,
+      token: performance.now(),
+    });
+    setStatusMessage(`MIDI mixed to timeline step ${targetIndex + 1}.`);
+  }, [
+    getMidiTimelineStepIndex,
+    project,
+    selectTimelineStepByIndex,
+    updateProject,
+  ]);
+
+  const updateMidiMixVelocity = useCallback((normalizedValue: number) => {
+    const safeValue = Math.max(0, Math.min(1, normalizedValue));
+    const durationSeconds = roundTimelineSeconds(
+      MIDI_MIX_DURATION_MAX_SECONDS -
+        safeValue * (MIDI_MIX_DURATION_MAX_SECONDS - MIDI_MIX_DURATION_MIN_SECONDS),
+    );
+    handleTimelineMixDurationChange(durationSeconds);
+    setStatusMessage(`MIDI mix speed set to ${durationSeconds.toFixed(2)}s.`);
+  }, [handleTimelineMixDurationChange]);
+
+  const adjustMidiMixVelocity = useCallback((direction: 'faster' | 'slower') => {
+    const currentDuration =
+      project?.timeline.stub.shaderSequence.sharedTransitionDurationSeconds ??
+      MIDI_MIX_DURATION_STEP_SECONDS;
+    const nextDuration = roundTimelineSeconds(
+      Math.max(
+        MIDI_MIX_DURATION_MIN_SECONDS,
+        Math.min(
+          MIDI_MIX_DURATION_MAX_SECONDS,
+          currentDuration +
+            (direction === 'faster'
+              ? -MIDI_MIX_DURATION_STEP_SECONDS
+              : MIDI_MIX_DURATION_STEP_SECONDS),
+        ),
+      ),
+    );
+    handleTimelineMixDurationChange(nextDuration);
+    setStatusMessage(`MIDI mix speed set to ${nextDuration.toFixed(2)}s.`);
+  }, [handleTimelineMixDurationChange, project]);
+
+  const handleMidiCycleMixMode = useCallback(() => {
+    const currentEffect =
+      project?.timeline.stub.shaderSequence.sharedTransitionEffect ?? 'mix';
+    const currentIndex = TIMELINE_TRANSITION_EFFECT_OPTIONS.findIndex(
+      (option) => option.value === currentEffect,
+    );
+    const nextEffect =
+      TIMELINE_TRANSITION_EFFECT_OPTIONS[
+        (Math.max(0, currentIndex) + 1) % TIMELINE_TRANSITION_EFFECT_OPTIONS.length
+      ]?.value ?? 'mix';
+
+    handleTimelineSharedTransitionChange({
+      sharedTransitionEnabled: true,
+      sharedTransitionEffect: nextEffect,
+    });
+    setStatusMessage(`MIDI mix mode set to ${nextEffect}.`);
+  }, [handleTimelineSharedTransitionChange, project]);
+
+  const handleMidiTimelineFaderChange = useCallback((
+    faderIndex: number,
+    normalizedValue: number,
+  ) => {
+    if (faderIndex !== 7) {
+      return;
+    }
+
+    const enabledSteps =
+      project?.timeline.stub.shaderSequence.steps.filter(isTimelineStepEnabled) ?? [];
+    if (enabledSteps.length < 2) {
+      return;
+    }
+
+    const safeValue = Math.max(0, Math.min(1, normalizedValue));
+    setMidiManualMix((currentValue) => {
+      const boundedStepIndex =
+        ((currentValue.stepIndex % enabledSteps.length) + enabledSteps.length) % enabledSteps.length;
+
+      if (
+        currentValue.nextEndpoint === 'max' &&
+        safeValue >= MIDI_MANUAL_MIX_MAX_TRIGGER
+      ) {
+        return {
+          stepIndex: (boundedStepIndex + 1) % enabledSteps.length,
+          nextEndpoint: 'min',
+          progress: 0,
+        };
+      }
+
+      if (
+        currentValue.nextEndpoint === 'min' &&
+        safeValue <= MIDI_MANUAL_MIX_MIN_TRIGGER
+      ) {
+        return {
+          stepIndex: (boundedStepIndex + 1) % enabledSteps.length,
+          nextEndpoint: 'max',
+          progress: 0,
+        };
+      }
+
+      return {
+        ...currentValue,
+        stepIndex: boundedStepIndex,
+        progress: currentValue.nextEndpoint === 'max' ? safeValue : 1 - safeValue,
+      };
+    });
+  }, [project]);
+
+  const handleMidiTimelineTransport = useCallback((action: MidiTimelineTransportAction) => {
+    switch (action) {
+      case 'play':
+        updateProject((currentProject) => ({
+          ...currentProject,
+          playback: {
+            ...currentProject.playback,
+            transport: playTransport(currentProject.playback.transport),
+          },
+        }));
+        return;
+      case 'stop':
+        updateProject((currentProject) => ({
+          ...currentProject,
+          playback: {
+            ...currentProject.playback,
+            transport: pauseTransport(currentProject.playback.transport),
+          },
+        }));
+        return;
+      case 'record':
+        selectShader(project?.studio.activeShaderId ?? '', { addToTimeline: true });
+        setStatusMessage('MIDI added the active shader to the timeline.');
+        return;
+      case 'previous-cut':
+        triggerTimelineShaderByOffset(-1, 'cut');
+        return;
+      case 'next-cut':
+        triggerTimelineShaderByOffset(1, 'cut');
+        return;
+      case 'previous-mix':
+        triggerTimelineShaderByOffset(-1, 'mix');
+        return;
+      case 'next-mix':
+        triggerTimelineShaderByOffset(1, 'mix');
+        return;
+      case 'mix-faster':
+        adjustMidiMixVelocity('faster');
+        return;
+      case 'mix-slower':
+        adjustMidiMixVelocity('slower');
+        return;
+      case 'cycle-mix-mode':
+        handleMidiCycleMixMode();
+        return;
+      case 'select-left':
+        selectTimelineStepByIndex(getMidiTimelineStepIndex() - 1);
+        return;
+      case 'select-right':
+        selectTimelineStepByIndex(getMidiTimelineStepIndex() + 1);
+        return;
+      default:
+        return;
+    }
+  }, [
+    adjustMidiMixVelocity,
+    getMidiTimelineStepIndex,
+    handleMidiCycleMixMode,
+    handleTimelineStop,
+    project,
+    selectTimelineStepByIndex,
+    triggerTimelineShaderByOffset,
+    updateProject,
+  ]);
+
+  const midiController = useMidiController({
+    enabled: midiEnabled,
+    mode: midiMode,
+    uniformDefinitions,
+    onUniformChange: handleUniformChange,
+    onModeChange: setMidiMode,
+    onTimelineTransport: handleMidiTimelineTransport,
+    onTimelineFaderChange: handleMidiTimelineFaderChange,
+    onTimelineMixVelocityChange: updateMidiMixVelocity,
+  });
+
+  const handleToggleMidi = () => {
+    setMidiEnabled((currentValue) => {
+      if (!currentValue) {
+        setMidiPanelVisible(true);
+        return true;
+      }
+
+      if (!midiPanelVisible) {
+        setMidiPanelVisible(true);
+        return currentValue;
+      }
+
+      setMidiPanelVisible(false);
+      return false;
+    });
+  };
+
   const selectShader = (
     shaderId: string,
     options: { addToTimeline?: boolean } = {},
@@ -3504,6 +3813,20 @@ ${errorSnapshot}`,
     pinnedStepId: pinnedTimelineStepId,
   });
   const playableTimelineSteps = timelinePlaybackSteps.filter(isTimelineStepEnabled);
+  const midiManualMixStepIndex =
+    playableTimelineSteps.length > 0
+      ? ((midiManualMix.stepIndex % playableTimelineSteps.length) + playableTimelineSteps.length) %
+        playableTimelineSteps.length
+      : 0;
+  const midiManualMixCurrentStep = playableTimelineSteps[midiManualMixStepIndex] ?? null;
+  const midiManualMixNextStep =
+    playableTimelineSteps.length > 1
+      ? playableTimelineSteps[(midiManualMixStepIndex + 1) % playableTimelineSteps.length] ?? null
+      : null;
+  const midiManualMixEnabled =
+    midiEnabled &&
+    midiMode === 'timeline-mixer' &&
+    Boolean(midiManualMixCurrentStep && midiManualMixNextStep);
   const timelineMarkers = timelineSequenceEnabled
     ? timelineStub.shaderSequence.mode === 'random'
       ? playableTimelineSteps.map((_, index) => `Pick ${index + 1}`)
@@ -3832,10 +4155,17 @@ ${errorSnapshot}`,
         forceActiveShaderPreview={
           Boolean(previewShader) ||
           studioPreviewOverride ||
-          (timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
+          (!midiManualMixEnabled &&
+            timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
             editingTimelineStepId !== null)
         }
         focusedPreviewStepId={editingTimelineStepId}
+        midiManualMix={{
+          enabled: midiManualMixEnabled,
+          currentStepId: midiManualMixCurrentStep?.id ?? null,
+          nextStepId: midiManualMixNextStep?.id ?? null,
+          progress: midiManualMix.progress,
+        }}
         preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
         onPinnedIndicatorClick={handlePinnedIndicatorClick}
         onNavigateToTimelineStep={handleStageNavigateToTimelineStep}
@@ -3922,6 +4252,21 @@ ${errorSnapshot}`,
         {statusMessage}
       </div>
 
+      {!isMobile && midiEnabled && midiPanelVisible ? (
+        <MidiControllerPanel
+          status={midiController.status}
+          mode={midiController.mode}
+          devices={midiController.devices}
+          events={midiController.events}
+          errorMessage={midiController.errorMessage}
+          faderBindings={midiController.faderBindings}
+          manualMixProgress={midiManualMix.progress}
+          onClearEvents={midiController.clearEvents}
+          onOpenGuide={() => setMidiGuideOpen(true)}
+          onClose={() => setMidiPanelVisible(false)}
+        />
+      ) : null}
+
       <input
         ref={fileInputRef}
         className="hidden-input"
@@ -3929,6 +4274,11 @@ ${errorSnapshot}`,
         accept="image/*,video/*"
         multiple
         onChange={handleFileSelection}
+      />
+
+      <MidiControllerGuideDialog
+        open={midiGuideOpen}
+        onClose={() => setMidiGuideOpen(false)}
       />
 
       {!isMobile && uiPreferences.chromeVisible ? (
@@ -3951,6 +4301,9 @@ ${errorSnapshot}`,
           onOpenOutput={handleOutputWindowOpen}
           onToggleSidebarVisibility={toggleSidebarVisibility}
           onToggleDesktopSlidersWindow={toggleDesktopSlidersWindow}
+          midiEnabled={midiEnabled}
+          midiPanelVisible={midiPanelVisible}
+          onToggleMidi={handleToggleMidi}
           onToggleWorkspaceMode={() =>
             updateWorkspaceMode(uiPreferences.workspaceMode === 'immersive' ? 'split' : 'immersive')
           }

@@ -314,6 +314,12 @@ interface TimelineStageRendererProps {
   transport: PlaybackTransport;
   forceActiveShaderPreview?: boolean;
   focusedPreviewStepId?: string | null;
+  midiManualMix?: {
+    enabled: boolean;
+    currentStepId: string | null;
+    nextStepId: string | null;
+    progress: number;
+  };
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
   onPinnedIndicatorClick?: () => void;
@@ -340,6 +346,7 @@ export function TimelineStageRenderer({
   transport,
   forceActiveShaderPreview = false,
   focusedPreviewStepId = null,
+  midiManualMix,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
   onPinnedIndicatorClick,
@@ -704,6 +711,45 @@ export function TimelineStageRenderer({
       return null;
     }
 
+    if (
+      midiManualMix?.enabled &&
+      midiManualMix.currentStepId &&
+      midiManualMix.nextStepId
+    ) {
+      const shaderMap = new Map(availableShaders.map((shader) => [shader.id, shader]));
+      const currentStep =
+        playbackTimelineSteps.find((step) => step.id === midiManualMix.currentStepId) ?? null;
+      const nextStep =
+        playbackTimelineSteps.find((step) => step.id === midiManualMix.nextStepId) ?? null;
+      const currentShader = currentStep ? shaderMap.get(currentStep.shaderId) ?? null : null;
+      const nextShader = nextStep ? shaderMap.get(nextStep.shaderId) ?? null : null;
+
+      if (currentStep && nextStep && currentShader && nextShader) {
+        const transitionDurationSeconds =
+          shaderSequence.sharedTransitionEnabled
+            ? shaderSequence.sharedTransitionDurationSeconds ?? 0.75
+            : currentStep.transitionDurationSeconds;
+        return {
+          currentStep,
+          currentShader,
+          nextStep,
+          nextShader,
+          stepStartSeconds: 0,
+          stepEndSeconds: clampTimelineStepDuration(currentStep.durationSeconds),
+          localTimeSeconds: 0,
+          totalDurationSeconds: clampTimelineStepDuration(currentStep.durationSeconds),
+          transitionProgress: Math.max(0, Math.min(1, midiManualMix.progress)),
+          transitionEffect: shaderSequence.sharedTransitionEnabled
+            ? shaderSequence.sharedTransitionEffect ?? 'mix'
+            : currentStep.transitionEffect,
+          transitionStartSeconds: 0,
+          transitionDurationSeconds,
+          cycleIndex: 0,
+          isTransitioning: midiManualMix.progress > 0,
+        } satisfies ResolvedTimelineState;
+      }
+    }
+
     return resolveShaderTimelineState({
       shaders: availableShaders,
       mode: shaderSequence.mode ?? 'sequence',
@@ -723,6 +769,7 @@ export function TimelineStageRenderer({
     availableShaders,
     doublePrimaryRandomSeedSalt,
     shouldResolveLiveTimelineState,
+    midiManualMix,
     playbackTimelineSteps,
     shaderSequence.focusedStepId,
     shaderSequence.mode,
@@ -1081,7 +1128,12 @@ export function TimelineStageRenderer({
       let transitionProgress = 0;
       if (state.isTransitioning) {
         const requestedProgress = easeTransitionProgress(state.transitionProgress);
-        if (transitionProgressHoldRef.current.pairKey !== pairKey) {
+        if (midiManualMix?.enabled) {
+          transitionProgressHoldRef.current = {
+            pairKey,
+            progress: requestedProgress,
+          };
+        } else if (transitionProgressHoldRef.current.pairKey !== pairKey) {
           transitionProgressHoldRef.current = {
             pairKey,
             progress: requestedProgress,
@@ -1155,6 +1207,7 @@ export function TimelineStageRenderer({
     shouldResolveLiveTimelineState,
     playbackTransitionSeedToken,
     doublePrimaryRandomSeedSalt,
+    midiManualMix?.enabled,
   ]);
 
   const buildTransitionPreloadLayer = useCallback((

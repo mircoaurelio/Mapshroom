@@ -4467,3 +4467,197 @@ a {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.midi-binding-list {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.55rem;
+}
+
+.midi-binding-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: rgba(13, 13, 16, 0.72);
+  font-size: 0.72rem;
+}
+
+.midi-binding-fader {
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.midi-binding-target {
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  text-align: right;
+}
+
+.midi-monitor-panel {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 30;
+  width: min(360px, calc(100vw - 2rem));
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(9, 9, 11, 0.94);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.midi-monitor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.65rem;
+}
+
+.midi-monitor-title {
+  margin: 0.15rem 0 0;
+  font-size: 0.95rem;
+}
+
+.midi-monitor-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.midi-mode-select {
+  width: 8.5rem;
+  border: 1px solid rgba(82, 82, 91, 0.88);
+  border-radius: var(--radius-sm);
+  background: rgba(24, 24, 27, 0.96);
+  color: var(--text);
+  font: inherit;
+  padding: 0.28rem 0.4rem;
+}
+
+.midi-monitor-status {
+  margin-bottom: 0.55rem;
+}
+
+.midi-monitor-error {
+  margin: 0 0 0.55rem;
+  color: #fca5a5;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.midi-monitor-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.midi-monitor-empty {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.midi-monitor-event {
+  display: grid;
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+  gap: 0.15rem 0.55rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid rgba(63, 63, 70, 0.55);
+  border-radius: var(--radius-sm);
+  background: rgba(13, 13, 16, 0.88);
+}
+
+.midi-monitor-event-time {
+  grid-row: span 2;
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.midi-monitor-event-summary {
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.midi-monitor-event-raw {
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.midi-guide-dialog {
+  width: min(980px, calc(100vw - 2rem));
+}
+
+.midi-guide-body {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(280px, 1.05fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.midi-guide-figure {
+  margin: 0;
+}
+
+.midi-guide-image {
+  display: block;
+  width: 100%;
+  max-height: min(64vh, 680px);
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #111;
+}
+
+.midi-guide-figure figcaption {
+  margin-top: 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.midi-guide-map {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.midi-guide-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.85fr) minmax(0, 1.15fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(63, 63, 70, 0.72);
+  border-radius: var(--radius-sm);
+  background: rgba(13, 13, 16, 0.82);
+}
+
+.midi-guide-row span {
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.74rem;
+}
+
+.midi-guide-row strong {
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 860px) {
+  .midi-guide-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
