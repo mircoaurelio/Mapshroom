@@ -81,6 +81,7 @@ export function useMidiController({
   const enabledRef = useRef(enabled);
   const shiftPressedRef = useRef(false);
   const mixModeCycleValueRef = useRef<number | null>(null);
+  const manualMixSwitchValueRef = useRef<number | null>(null);
 
   uniformDefinitionsRef.current = uniformDefinitions;
   onUniformChangeRef.current = onUniformChange;
@@ -184,11 +185,20 @@ export function useMidiController({
         }
       }
 
-      if (
-        parsed.kind === 'cc' &&
-        parsed.channel === 1 &&
-        (parsed.controller === 22 || parsed.controller === 23)
-      ) {
+      if (parsed.kind === 'cc' && parsed.channel === 1 && parsed.controller === 22) {
+        setControllerMode('timeline-mixer');
+        if (manualMixSwitchValueRef.current !== parsed.value) {
+          manualMixSwitchValueRef.current = parsed.value;
+          if (parsed.value === 1) {
+            onTimelineTransportRef.current?.('manual-mix-on');
+          } else if (parsed.value === 65) {
+            onTimelineTransportRef.current?.('manual-mix-off');
+          }
+        }
+        return;
+      }
+
+      if (parsed.kind === 'cc' && parsed.channel === 1 && parsed.controller === 23) {
         setControllerMode('timeline-mixer');
         if (parsed.value > 0 && mixModeCycleValueRef.current !== parsed.value) {
           mixModeCycleValueRef.current = parsed.value;

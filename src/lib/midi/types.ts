@@ -57,6 +57,8 @@ export type MidiTimelineTransportAction =
   | 'mix-faster'
   | 'mix-slower'
   | 'cycle-mix-mode'
+  | 'manual-mix-on'
+  | 'manual-mix-off'
   | 'select-left'
   | 'select-right';
 

@@ -41,7 +41,13 @@ import {
   DEFAULT_UI_PREFERENCES,
   createDefaultProject,
 } from '../config';
-import { pauseTransport, playTransport, restoreTransport, seekTransport } from '../lib/clock';
+import {
+  getTransportTimeSeconds,
+  pauseTransport,
+  playTransport,
+  restoreTransport,
+  seekTransport,
+} from '../lib/clock';
 import {
   DEFAULT_BUNDLED_ASSET_ID,
   mergeBundledAssets,
@@ -59,6 +65,8 @@ import {
   createTimelineShaderStep,
   getShaderTimelineDuration,
   getEffectiveTimelinePlaybackSteps,
+  getTimelineCycleSteps,
+  resolveShaderTimelineState,
   applyMixDurationToTimelineSteps,
   isTimelineStepEnabled,
   normalizeTimelineTransitionEffect,
@@ -75,6 +83,7 @@ import type {
   MidiControllerMode,
   MidiTimelineTransportAction,
 } from '../lib/midi/types';
+import { createMidiOutputSync } from '../lib/midi/outputSync';
 import {
   createProjectShareLink,
   importProjectFromSharedUrl,
@@ -121,6 +130,14 @@ const MIDI_MIX_DURATION_MAX_SECONDS = 8;
 const MIDI_MIX_DURATION_STEP_SECONDS = 0.25;
 const MIDI_MANUAL_MIX_MIN_TRIGGER = 0.02;
 const MIDI_MANUAL_MIX_MAX_TRIGGER = 0.97;
+
+function createTimelineRandomSeedToken(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function useIsMobile(breakpoint = 960): boolean {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint);
@@ -794,6 +811,7 @@ export function WorkspaceRoute() {
   const stageViewportRef = useRef<HTMLElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
+  const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() =>
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
@@ -848,6 +866,10 @@ export function WorkspaceRoute() {
   const [midiPanelVisible, setMidiPanelVisible] = useState(false);
   const [midiMode, setMidiMode] = useState<MidiControllerMode>('shader-uniforms');
   const [midiGuideOpen, setMidiGuideOpen] = useState(false);
+  const [midiManualMixArmed, setMidiManualMixArmed] = useState(false);
+  const [midiManualMixSeedToken, setMidiManualMixSeedToken] = useState(() =>
+    createTimelineRandomSeedToken(),
+  );
   const [midiManualMix, setMidiManualMix] = useState({
     stepIndex: 0,
     nextEndpoint: 'max' as 'max' | 'min',
@@ -955,6 +977,7 @@ export function WorkspaceRoute() {
     }
 
     sessionSyncRef.current?.destroy();
+    midiOutputSyncRef.current?.destroy();
     sessionSyncRef.current = createSessionSync(activeSessionId, (incomingProject) => {
       setProject((currentProject) => {
         if (!currentProject || currentProject.sessionId !== incomingProject.sessionId) {
@@ -963,10 +986,13 @@ export function WorkspaceRoute() {
         return normalizeProject(incomingProject);
       });
     });
+    midiOutputSyncRef.current = createMidiOutputSync(activeSessionId, () => undefined);
 
     return () => {
       sessionSyncRef.current?.destroy();
       sessionSyncRef.current = null;
+      midiOutputSyncRef.current?.destroy();
+      midiOutputSyncRef.current = null;
     };
   }, [activeSessionId]);
 
@@ -2493,6 +2519,10 @@ export function WorkspaceRoute() {
     faderIndex: number,
     normalizedValue: number,
   ) => {
+    if (!midiManualMixArmed) {
+      return;
+    }
+
     if (faderIndex !== 7) {
       return;
     }
@@ -2513,7 +2543,7 @@ export function WorkspaceRoute() {
         safeValue >= MIDI_MANUAL_MIX_MAX_TRIGGER
       ) {
         return {
-          stepIndex: (boundedStepIndex + 1) % enabledSteps.length,
+          stepIndex: currentValue.stepIndex + 1,
           nextEndpoint: 'min',
           progress: 0,
         };
@@ -2524,7 +2554,7 @@ export function WorkspaceRoute() {
         safeValue <= MIDI_MANUAL_MIX_MIN_TRIGGER
       ) {
         return {
-          stepIndex: (boundedStepIndex + 1) % enabledSteps.length,
+          stepIndex: currentValue.stepIndex + 1,
           nextEndpoint: 'max',
           progress: 0,
         };
@@ -2536,7 +2566,76 @@ export function WorkspaceRoute() {
         progress: currentValue.nextEndpoint === 'max' ? safeValue : 1 - safeValue,
       };
     });
-  }, [project]);
+  }, [midiManualMixArmed, project]);
+
+  const armMidiManualMix = useCallback(() => {
+    const timeline = project?.timeline.stub;
+    if (!project || !timeline) {
+      setMidiManualMixArmed(true);
+      return;
+    }
+
+    const playbackSteps = getEffectiveTimelinePlaybackSteps({
+      mode: timeline.shaderSequence.mode,
+      randomChoiceEnabled: timeline.shaderSequence.randomChoiceEnabled,
+      steps: timeline.shaderSequence.steps,
+      sharedSectionDurationSeconds: timeline.shaderSequence.sharedSectionDurationSeconds,
+      sharedTransitionEnabled: timeline.shaderSequence.sharedTransitionEnabled,
+      sharedTransitionDurationSeconds: timeline.shaderSequence.sharedTransitionDurationSeconds,
+      pinnedStepId: timeline.shaderSequence.pinnedStepId ?? null,
+    }).filter(isTimelineStepEnabled);
+
+    if (playbackSteps.length < 2) {
+      setMidiManualMixArmed(true);
+      return;
+    }
+
+    const currentState = resolveShaderTimelineState({
+      shaders: project.studio.savedShaders,
+      mode: timeline.shaderSequence.mode ?? 'sequence',
+      focusedStepId: timeline.shaderSequence.focusedStepId ?? null,
+      singleStepLoopEnabled: timeline.shaderSequence.singleStepLoopEnabled ?? false,
+      randomChoiceEnabled: timeline.shaderSequence.randomChoiceEnabled ?? false,
+      sharedTransitionEnabled: timeline.shaderSequence.sharedTransitionEnabled ?? false,
+      sharedTransitionEffect: timeline.shaderSequence.sharedTransitionEffect ?? 'mix',
+      sharedTransitionDurationSeconds:
+        timeline.shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+      sharedSectionDurationSeconds: timeline.shaderSequence.sharedSectionDurationSeconds ?? 8,
+      steps: playbackSteps,
+      timeSeconds: getTransportTimeSeconds(project.playback.transport),
+      loop: project.playback.transport.loop,
+    });
+    const currentStepId =
+      currentState?.currentStep.id ??
+      editingTimelineStepId ??
+      timeline.shaderSequence.focusedStepId ??
+      playbackSteps[0]?.id ??
+      null;
+
+    const nextSeedToken = createTimelineRandomSeedToken();
+    const manualMode =
+      timeline.shaderSequence.mode === 'double'
+        ? 'randomMix'
+        : timeline.shaderSequence.randomChoiceEnabled
+          ? 'random'
+          : timeline.shaderSequence.mode;
+    const manualCycleIndex = currentState?.cycleIndex ?? 0;
+    const manualSteps = getTimelineCycleSteps({
+      mode: manualMode,
+      steps: playbackSteps,
+      cycleIndex: manualCycleIndex,
+      randomSeedSalt: nextSeedToken,
+    });
+    const currentIndex = Math.max(0, manualSteps.findIndex((step) => step.id === currentStepId));
+
+    setMidiManualMixSeedToken(nextSeedToken);
+    setMidiManualMix({
+      stepIndex: manualCycleIndex * manualSteps.length + currentIndex,
+      nextEndpoint: 'max',
+      progress: 0,
+    });
+    setMidiManualMixArmed(true);
+  }, [editingTimelineStepId, project]);
 
   const handleMidiTimelineTransport = useCallback((action: MidiTimelineTransportAction) => {
     switch (action) {
@@ -2583,6 +2682,14 @@ export function WorkspaceRoute() {
       case 'cycle-mix-mode':
         handleMidiCycleMixMode();
         return;
+      case 'manual-mix-on':
+        armMidiManualMix();
+        setStatusMessage('MIDI slider mix enabled.');
+        return;
+      case 'manual-mix-off':
+        setMidiManualMixArmed(false);
+        setStatusMessage('MIDI slider mix disabled. Timeline timing controls are active.');
+        return;
       case 'select-left':
         selectTimelineStepByIndex(getMidiTimelineStepIndex() - 1);
         return;
@@ -2594,6 +2701,7 @@ export function WorkspaceRoute() {
     }
   }, [
     adjustMidiMixVelocity,
+    armMidiManualMix,
     getMidiTimelineStepIndex,
     handleMidiCycleMixMode,
     handleTimelineStop,
@@ -3509,6 +3617,7 @@ ${errorSnapshot}`,
         outputWindowRef.current.close();
       }
       sessionSyncRef.current?.destroy();
+      midiOutputSyncRef.current?.destroy();
       await clearPersistedSiteData();
       window.location.reload();
     } catch (error) {
@@ -3766,6 +3875,76 @@ ${errorSnapshot}`,
     [handleTimelineEditStep, isMobile],
   );
 
+  useEffect(() => {
+    if (!project) {
+      return;
+    }
+
+    const publishLiveOutputState = () => {
+      const outputTimelineStub = project.timeline.stub;
+      const outputTimelinePlaybackSteps = getEffectiveTimelinePlaybackSteps({
+        mode: outputTimelineStub.shaderSequence.mode,
+        randomChoiceEnabled: outputTimelineStub.shaderSequence.randomChoiceEnabled,
+        steps: outputTimelineStub.shaderSequence.steps,
+        sharedSectionDurationSeconds:
+          outputTimelineStub.shaderSequence.sharedSectionDurationSeconds,
+        sharedTransitionEnabled: outputTimelineStub.shaderSequence.sharedTransitionEnabled,
+        sharedTransitionDurationSeconds:
+          outputTimelineStub.shaderSequence.sharedTransitionDurationSeconds,
+        pinnedStepId: outputTimelineStub.shaderSequence.pinnedStepId ?? null,
+      }).filter(isTimelineStepEnabled);
+      const outputMidiMode =
+        outputTimelineStub.shaderSequence.mode === 'double'
+          ? 'randomMix'
+          : outputTimelineStub.shaderSequence.randomChoiceEnabled
+            ? 'random'
+            : outputTimelineStub.shaderSequence.mode;
+      const outputCycleIndex =
+        outputTimelinePlaybackSteps.length > 0
+          ? Math.floor(Math.max(0, midiManualMix.stepIndex) / outputTimelinePlaybackSteps.length)
+          : 0;
+      const outputMidiSteps = getTimelineCycleSteps({
+        mode: outputMidiMode,
+        steps: outputTimelinePlaybackSteps,
+        cycleIndex: outputCycleIndex,
+        randomSeedSalt: midiManualMixSeedToken,
+      });
+      const outputStepIndex =
+        outputMidiSteps.length > 0
+          ? ((midiManualMix.stepIndex % outputMidiSteps.length) + outputMidiSteps.length) %
+            outputMidiSteps.length
+          : 0;
+      const outputCurrentStep = outputMidiSteps[outputStepIndex] ?? null;
+      const outputNextStep =
+        outputMidiSteps.length > 1
+          ? outputMidiSteps[(outputStepIndex + 1) % outputMidiSteps.length] ?? null
+          : null;
+      const outputMidiEnabled =
+        midiEnabled &&
+        midiMode === 'timeline-mixer' &&
+        midiManualMixArmed &&
+        Boolean(outputCurrentStep && outputNextStep);
+
+      midiOutputSyncRef.current?.publish({
+        enabled: outputMidiEnabled,
+        currentStepId: outputCurrentStep?.id ?? null,
+        nextStepId: outputNextStep?.id ?? null,
+        progress: midiManualMix.progress,
+        updatedAt: Date.now(),
+        transport: project.playback.transport,
+      });
+    };
+
+    publishLiveOutputState();
+
+    if (!project.playback.transport.isPlaying) {
+      return;
+    }
+
+    const intervalId = window.setInterval(publishLiveOutputState, 250);
+    return () => window.clearInterval(intervalId);
+  }, [midiEnabled, midiManualMix, midiManualMixArmed, midiManualMixSeedToken, midiMode, project]);
+
   if (!project) {
     return (
       <div className="loading-screen">
@@ -3813,20 +3992,38 @@ ${errorSnapshot}`,
     pinnedStepId: pinnedTimelineStepId,
   });
   const playableTimelineSteps = timelinePlaybackSteps.filter(isTimelineStepEnabled);
-  const midiManualMixStepIndex =
+  const midiManualMixMode =
+    timelineStub.shaderSequence.mode === 'double'
+      ? 'randomMix'
+      : timelineStub.shaderSequence.randomChoiceEnabled
+        ? 'random'
+        : timelineStub.shaderSequence.mode;
+  const midiManualMixCycleIndex =
     playableTimelineSteps.length > 0
-      ? ((midiManualMix.stepIndex % playableTimelineSteps.length) + playableTimelineSteps.length) %
-        playableTimelineSteps.length
+      ? Math.floor(Math.max(0, midiManualMix.stepIndex) / playableTimelineSteps.length)
       : 0;
-  const midiManualMixCurrentStep = playableTimelineSteps[midiManualMixStepIndex] ?? null;
+  const midiManualMixPlaybackSteps = getTimelineCycleSteps({
+    mode: midiManualMixMode,
+    steps: playableTimelineSteps,
+    cycleIndex: midiManualMixCycleIndex,
+    randomSeedSalt: midiManualMixSeedToken,
+  });
+  const midiManualMixStepIndex =
+    midiManualMixPlaybackSteps.length > 0
+      ? ((midiManualMix.stepIndex % midiManualMixPlaybackSteps.length) + midiManualMixPlaybackSteps.length) %
+        midiManualMixPlaybackSteps.length
+      : 0;
+  const midiManualMixCurrentStep = midiManualMixPlaybackSteps[midiManualMixStepIndex] ?? null;
   const midiManualMixNextStep =
-    playableTimelineSteps.length > 1
-      ? playableTimelineSteps[(midiManualMixStepIndex + 1) % playableTimelineSteps.length] ?? null
+    midiManualMixPlaybackSteps.length > 1
+      ? midiManualMixPlaybackSteps[(midiManualMixStepIndex + 1) % midiManualMixPlaybackSteps.length] ?? null
       : null;
   const midiManualMixEnabled =
     midiEnabled &&
     midiMode === 'timeline-mixer' &&
+    midiManualMixArmed &&
     Boolean(midiManualMixCurrentStep && midiManualMixNextStep);
+
   const timelineMarkers = timelineSequenceEnabled
     ? timelineStub.shaderSequence.mode === 'random'
       ? playableTimelineSteps.map((_, index) => `Pick ${index + 1}`)
@@ -4076,6 +4273,8 @@ ${errorSnapshot}`,
       sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
+      midiTimelineControlActive={midiEnabled && midiMode === 'timeline-mixer'}
+      midiManualMixArmed={midiManualMixArmed}
       markers={timelineMarkers}
       tracks={timelineTracks}
       onSeek={handleTimelineSeek}
@@ -4155,8 +4354,7 @@ ${errorSnapshot}`,
         forceActiveShaderPreview={
           Boolean(previewShader) ||
           studioPreviewOverride ||
-          (!midiManualMixEnabled &&
-            timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
+          (timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
             editingTimelineStepId !== null)
         }
         focusedPreviewStepId={editingTimelineStepId}
@@ -4462,6 +4660,8 @@ ${errorSnapshot}`,
         sequence={timelineStub.shaderSequence}
         transport={project.playback.transport}
         durationSeconds={timelineDurationSeconds}
+        midiTimelineControlActive={midiEnabled && midiMode === 'timeline-mixer'}
+        midiManualMixArmed={midiManualMixArmed}
         markers={timelineMarkers}
         tracks={timelineTracks}
         onSeek={handleTimelineSeek}
@@ -4471,7 +4671,7 @@ ${errorSnapshot}`,
         onSequenceModeChange={handleTimelineSequenceModeChange}
         onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
-      onSequenceMixDurationChange={handleTimelineMixDurationChange}
+        onSequenceMixDurationChange={handleTimelineMixDurationChange}
         onSequenceStepChange={handleTimelineStepChange}
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignSequenceStepAsset={handleTimelineAssignStepAsset}

@@ -119,6 +119,49 @@ export function ApiSettingsDialog({
               </button>
             </div>
           </section>
+
+          <section className="dialog-section">
+            <span className="panel-eyebrow">Privacy & Storage</span>
+            <div className="stack gap-md">
+              <p className="helper-copy">
+                Mapshroom does not set app cookies. Project data is stored on this device in browser
+                storage so the workspace can reopen without an account.
+              </p>
+              <dl className="privacy-storage-list">
+                <div>
+                  <dt>localStorage</dt>
+                  <dd>
+                    Project documents, shader code, timeline settings, UI preferences, selected
+                    session, preset favorites, slider cache, API keys, and live MIDI/output state.
+                  </dd>
+                </div>
+                <div>
+                  <dt>IndexedDB</dt>
+                  <dd>Imported image/video assets and other large local media blobs.</dd>
+                </div>
+                <div>
+                  <dt>Cache Storage</dt>
+                  <dd>Browser-managed app/runtime cache for this site.</dd>
+                </div>
+                <div>
+                  <dt>sessionStorage</dt>
+                  <dd>Temporary browser-session data, cleared when using Clear Local Data.</dd>
+                </div>
+                <div>
+                  <dt>External services</dt>
+                  <dd>
+                    AI requests are sent only when you use AI generation. The relevant prompt,
+                    shader context, model choice, and API key are sent to the selected provider.
+                  </dd>
+                </div>
+              </dl>
+              <p className="helper-copy">
+                Use Clear Local Data to erase Mapshroom data from this browser profile. Browser,
+                operating-system, MIDI-device, or AI-provider logs are outside this local clear
+                action.
+              </p>
+            </div>
+          </section>
         </div>
 
         <footer className="dialog-footer">

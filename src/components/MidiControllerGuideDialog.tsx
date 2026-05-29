@@ -17,8 +17,10 @@ const timelineMappings = [
   ['9. Down', 'Make the mix slower'],
   ['10. Left', 'Select the previous shader without triggering a mix'],
   ['11. Right', 'Select the next shader without triggering a mix'],
-  ['Fader 8', 'Manual A/B mix: 0% shows shader A, 100% advances to the next pair'],
-  ['CC 22 / CC 23', 'Cycle the selected mix mode'],
+  ['CC 22 = 1', 'Enable manual A/B mix on fader 8'],
+  ['CC 22 = 65', 'Disable manual A/B mix and use timeline timing controls'],
+  ['Fader 8', 'Manual A/B mix while CC 22 is enabled'],
+  ['CC 23', 'Cycle the selected mix mode'],
   ['Knobs', 'Set mix velocity'],
 ];
 
@@ -68,7 +70,8 @@ export function MidiControllerGuideDialog({
             <figcaption>
               Change mode on the mixer. The app reads the incoming MIDI signal layout and switches
               automatically: slider layout drives shader uniforms, timeline layout drives timeline
-              performance. In timeline mode, fader 8 manually controls the current A/B shader mix.
+              performance. In timeline mode, CC 22 switches whether fader 8 controls the current
+              A/B shader mix or the timeline uses normal timing controls.
             </figcaption>
           </figure>
 

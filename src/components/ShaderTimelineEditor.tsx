@@ -54,6 +54,8 @@ interface ShaderTimelineEditorProps {
   pinnedStepId: string | null;
   sequence: TimelineStub['shaderSequence'];
   totalDurationSeconds: number;
+  midiTimelineControlActive?: boolean;
+  midiManualMixArmed?: boolean;
   onModeChange: (mode: TimelineSequenceMode) => void;
   previewMode: TimelineStagePreviewMode;
   onPreviewModeChange: (previewMode: TimelineStagePreviewMode) => void;
@@ -219,6 +221,8 @@ export function ShaderTimelineEditor({
   pinnedStepId,
   sequence,
   totalDurationSeconds,
+  midiTimelineControlActive = false,
+  midiManualMixArmed = false,
   onModeChange,
   previewMode,
   onPreviewModeChange,
@@ -734,73 +738,86 @@ export function ShaderTimelineEditor({
             {previewMode === 'focused' ? <SinglePreviewIcon /> : <TimelinePreviewIcon />}
           </button>
 
-          <div className="timeline-shared-transition-toolbar">
-            {usesSharedSectionDuration ? (
-              <label className="field timeline-compact-field timeline-shared-transition-field">
-                <span>Section Time</span>
-                <input
-                  className="text-field"
-                  type="number"
-                  min={0.5}
-                  step={0.5}
-                  value={sequence.sharedSectionDurationSeconds}
-                  onChange={(event) =>
-                    onSharedTransitionChange({
-                      sharedSectionDurationSeconds: Number(event.target.value),
-                    })
-                  }
-                />
-              </label>
-            ) : null}
-
-            {showMixTimeControls ? (
-              <>
-                {usesSharedTransition ? (
-                  <label className="field timeline-compact-field timeline-shared-transition-field">
-                    <span>Fx</span>
-                    <select
-                      className="select-field"
-                      value={sequence.sharedTransitionEffect}
-                      onChange={(event) =>
-                        onSharedTransitionChange({
-                          sharedTransitionEffect:
-                            event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
-                        })
-                      }
-                    >
-                      {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
+          {midiTimelineControlActive ? (
+            <div
+              className={`timeline-midi-control-label ${
+                midiManualMixArmed
+                  ? 'timeline-midi-control-label-on'
+                  : 'timeline-midi-control-label-off'
+              }`}
+              aria-live="polite"
+            >
+              <span>{midiManualMixArmed ? 'MIDI Slider On' : 'MIDI Slider Off'}</span>
+            </div>
+          ) : (
+            <div className="timeline-shared-transition-toolbar">
+              {usesSharedSectionDuration ? (
                 <label className="field timeline-compact-field timeline-shared-transition-field">
-                  <span>Mix Time</span>
+                  <span>Section Time</span>
                   <input
                     className="text-field"
                     type="number"
-                    min={0}
-                    step={0.05}
-                    value={displayedMixDurationSeconds}
-                    onChange={(event) => {
-                      const nextDurationSeconds = Number(event.target.value);
-                      if (usesSharedTransition) {
-                        onSharedTransitionChange({
-                          sharedTransitionDurationSeconds: nextDurationSeconds,
-                        });
-                        return;
-                      }
-
-                      onMixDurationChange(nextDurationSeconds);
-                    }}
+                    min={0.5}
+                    step={0.5}
+                    value={sequence.sharedSectionDurationSeconds}
+                    onChange={(event) =>
+                      onSharedTransitionChange({
+                        sharedSectionDurationSeconds: Number(event.target.value),
+                      })
+                    }
                   />
                 </label>
-              </>
-            ) : null}
-          </div>
+              ) : null}
+
+              {showMixTimeControls ? (
+                <>
+                  {usesSharedTransition ? (
+                    <label className="field timeline-compact-field timeline-shared-transition-field">
+                      <span>Fx</span>
+                      <select
+                        className="select-field"
+                        value={sequence.sharedTransitionEffect}
+                        onChange={(event) =>
+                          onSharedTransitionChange({
+                            sharedTransitionEffect:
+                              event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
+                          })
+                        }
+                      >
+                        {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+
+                  <label className="field timeline-compact-field timeline-shared-transition-field">
+                    <span>Mix Time</span>
+                    <input
+                      className="text-field"
+                      type="number"
+                      min={0}
+                      step={0.05}
+                      value={displayedMixDurationSeconds}
+                      onChange={(event) => {
+                        const nextDurationSeconds = Number(event.target.value);
+                        if (usesSharedTransition) {
+                          onSharedTransitionChange({
+                            sharedTransitionDurationSeconds: nextDurationSeconds,
+                          });
+                          return;
+                        }
+
+                        onMixDurationChange(nextDurationSeconds);
+                      }}
+                    />
+                  </label>
+                </>
+              ) : null}
+            </div>
+          )}
 
           <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
             {TIMELINE_SEQUENCE_MODE_OPTIONS.map((option) => (

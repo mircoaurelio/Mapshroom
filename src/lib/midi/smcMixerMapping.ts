@@ -122,6 +122,16 @@ export function resolveSmcMixerTransport(
 
   switch (code) {
     case 22:
+      if (message.kind !== 'cc') {
+        return null;
+      }
+      if (message.value === 1) {
+        return 'manual-mix-on';
+      }
+      if (message.value === 65) {
+        return 'manual-mix-off';
+      }
+      return null;
     case 23:
       return 'cycle-mix-mode';
     case 41:

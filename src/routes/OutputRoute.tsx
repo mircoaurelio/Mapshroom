@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
+import {
+  createMidiOutputSync,
+  loadMidiOutputMixState,
+  type MidiOutputLiveState,
+} from '../lib/midi/outputSync';
 import { createSessionSync } from '../lib/sessionSync';
 import { loadProjectDocument } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
@@ -35,6 +40,9 @@ export function OutputRoute() {
     [sessionId],
   );
   const [liveProject, setLiveProject] = useState<ProjectDocument | null>(null);
+  const [midiOutputMix, setMidiOutputMix] = useState<MidiOutputLiveState | null>(() =>
+    sessionId ? loadMidiOutputMixState(sessionId) : null,
+  );
 
   useEffect(() => {
     if (!sessionId) {
@@ -48,7 +56,45 @@ export function OutputRoute() {
     return () => sync.destroy();
   }, [sessionId]);
 
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    setMidiOutputMix(loadMidiOutputMixState(sessionId));
+    const sync = createMidiOutputSync(sessionId, setMidiOutputMix);
+    const intervalId = window.setInterval(() => {
+      const nextState = loadMidiOutputMixState(sessionId);
+      if (!nextState) {
+        return;
+      }
+
+      setMidiOutputMix((currentState) => {
+        const currentTransport = currentState?.transport;
+        const nextTransport = nextState.transport;
+        const stateUnchanged =
+          currentState?.enabled === nextState.enabled &&
+          currentState?.currentStepId === nextState.currentStepId &&
+          currentState?.nextStepId === nextState.nextStepId &&
+          currentState?.progress === nextState.progress &&
+          currentState?.updatedAt === nextState.updatedAt &&
+          currentTransport?.isPlaying === nextTransport?.isPlaying &&
+          currentTransport?.currentTimeSeconds === nextTransport?.currentTimeSeconds &&
+          currentTransport?.playbackRate === nextTransport?.playbackRate &&
+          currentTransport?.loop === nextTransport?.loop;
+
+        return stateUnchanged ? currentState : nextState;
+      });
+    }, 33);
+
+    return () => {
+      window.clearInterval(intervalId);
+      sync.destroy();
+    };
+  }, [sessionId]);
+
   const project = liveProject?.sessionId === sessionId ? liveProject : storedProject;
+  const outputTransport = midiOutputMix?.transport ?? project?.playback.transport ?? null;
 
   const activeAsset = useMemo(() => {
     if (!project) {
@@ -89,7 +135,13 @@ export function OutputRoute() {
         timeline={project.timeline?.stub ?? FALLBACK_TIMELINE_STUB}
         pinnedStepId={project.timeline?.stub?.shaderSequence?.pinnedStepId ?? null}
         stageTransform={project.mapping.stageTransform}
-        transport={project.playback.transport}
+        transport={outputTransport ?? project.playback.transport}
+        midiManualMix={{
+          enabled: Boolean(midiOutputMix?.enabled),
+          currentStepId: midiOutputMix?.currentStepId ?? null,
+          nextStepId: midiOutputMix?.nextStepId ?? null,
+          progress: midiOutputMix?.progress ?? 0,
+        }}
         isOutputOnly
       />
     </div>

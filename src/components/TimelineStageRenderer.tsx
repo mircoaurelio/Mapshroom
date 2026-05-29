@@ -425,6 +425,14 @@ export function TimelineStageRenderer({
     shaderSequence.mode === 'double' ? `double-primary:${doubleModeRandomSeedToken}` : '';
   const doubleSecondaryRandomSeedBase =
     shaderSequence.mode === 'double' ? `double-secondary:${doubleModeRandomSeedToken}` : '';
+  const primaryRandomSeedSalt =
+    shaderSequence.mode === 'double'
+      ? doublePrimaryRandomSeedSalt
+      : shaderSequence.mode === 'random' ||
+          shaderSequence.mode === 'randomMix' ||
+          shaderSequence.randomChoiceEnabled
+        ? `random:${playbackTransitionSeedToken}`
+        : '';
   const playbackTimelineSteps = useMemo(
     () => excludePinnedStepFromTimelinePlayback(shaderSequence.steps, pinnedStepId),
     [pinnedStepId, shaderSequence.steps],
@@ -706,6 +714,59 @@ export function TimelineStageRenderer({
     };
   }, [shaderSequence.mode, transport.currentTimeSeconds, transport.isPlaying]);
 
+  const availableShaderById = useMemo(
+    () => new Map(availableShaders.map((shader) => [shader.id, shader])),
+    [availableShaders],
+  );
+
+  const createMidiManualTimelineState = useCallback((
+    currentStepId: string,
+    nextStepId: string,
+    progress: number,
+  ): ResolvedTimelineState | null => {
+    const currentStep =
+      playbackTimelineSteps.find((step) => step.id === currentStepId) ?? null;
+    const nextStep =
+      playbackTimelineSteps.find((step) => step.id === nextStepId) ?? null;
+    const currentShader = currentStep ? availableShaderById.get(currentStep.shaderId) ?? null : null;
+    const nextShader = nextStep ? availableShaderById.get(nextStep.shaderId) ?? null : null;
+
+    if (!currentStep || !nextStep || !currentShader || !nextShader) {
+      return null;
+    }
+
+    const transitionDurationSeconds =
+      shaderSequence.sharedTransitionEnabled
+        ? shaderSequence.sharedTransitionDurationSeconds ?? 0.75
+        : currentStep.transitionDurationSeconds;
+    const transitionProgress = Math.max(0, Math.min(1, progress));
+
+    return {
+      currentStep,
+      currentShader,
+      nextStep,
+      nextShader,
+      stepStartSeconds: 0,
+      stepEndSeconds: clampTimelineStepDuration(currentStep.durationSeconds),
+      localTimeSeconds: 0,
+      totalDurationSeconds: clampTimelineStepDuration(currentStep.durationSeconds),
+      transitionProgress,
+      transitionEffect: shaderSequence.sharedTransitionEnabled
+        ? shaderSequence.sharedTransitionEffect ?? 'mix'
+        : currentStep.transitionEffect,
+      transitionStartSeconds: 0,
+      transitionDurationSeconds,
+      cycleIndex: 0,
+      isTransitioning: true,
+    } satisfies ResolvedTimelineState;
+  }, [
+    availableShaderById,
+    playbackTimelineSteps,
+    shaderSequence.sharedTransitionDurationSeconds,
+    shaderSequence.sharedTransitionEffect,
+    shaderSequence.sharedTransitionEnabled,
+  ]);
+
   const timelineState = useMemo(() => {
     if (!shouldResolveLiveTimelineState) {
       return null;
@@ -716,38 +777,11 @@ export function TimelineStageRenderer({
       midiManualMix.currentStepId &&
       midiManualMix.nextStepId
     ) {
-      const shaderMap = new Map(availableShaders.map((shader) => [shader.id, shader]));
-      const currentStep =
-        playbackTimelineSteps.find((step) => step.id === midiManualMix.currentStepId) ?? null;
-      const nextStep =
-        playbackTimelineSteps.find((step) => step.id === midiManualMix.nextStepId) ?? null;
-      const currentShader = currentStep ? shaderMap.get(currentStep.shaderId) ?? null : null;
-      const nextShader = nextStep ? shaderMap.get(nextStep.shaderId) ?? null : null;
-
-      if (currentStep && nextStep && currentShader && nextShader) {
-        const transitionDurationSeconds =
-          shaderSequence.sharedTransitionEnabled
-            ? shaderSequence.sharedTransitionDurationSeconds ?? 0.75
-            : currentStep.transitionDurationSeconds;
-        return {
-          currentStep,
-          currentShader,
-          nextStep,
-          nextShader,
-          stepStartSeconds: 0,
-          stepEndSeconds: clampTimelineStepDuration(currentStep.durationSeconds),
-          localTimeSeconds: 0,
-          totalDurationSeconds: clampTimelineStepDuration(currentStep.durationSeconds),
-          transitionProgress: Math.max(0, Math.min(1, midiManualMix.progress)),
-          transitionEffect: shaderSequence.sharedTransitionEnabled
-            ? shaderSequence.sharedTransitionEffect ?? 'mix'
-            : currentStep.transitionEffect,
-          transitionStartSeconds: 0,
-          transitionDurationSeconds,
-          cycleIndex: 0,
-          isTransitioning: midiManualMix.progress > 0,
-        } satisfies ResolvedTimelineState;
-      }
+      return createMidiManualTimelineState(
+        midiManualMix.currentStepId,
+        midiManualMix.nextStepId,
+        midiManualMix.progress,
+      );
     }
 
     return resolveShaderTimelineState({
@@ -763,11 +797,13 @@ export function TimelineStageRenderer({
       steps: playbackTimelineSteps,
       timeSeconds: transportTimeSeconds,
       loop: transport.loop,
-      randomSeedSalt: doublePrimaryRandomSeedSalt,
+      randomSeedSalt: primaryRandomSeedSalt,
     });
   }, [
     availableShaders,
+    createMidiManualTimelineState,
     doublePrimaryRandomSeedSalt,
+    primaryRandomSeedSalt,
     shouldResolveLiveTimelineState,
     midiManualMix,
     playbackTimelineSteps,
@@ -781,6 +817,40 @@ export function TimelineStageRenderer({
     shaderSequence.singleStepLoopEnabled,
     transport.loop,
     transportTimeSeconds,
+  ]);
+
+  const midiManualLookaheadTimelineState = useMemo(() => {
+    if (
+      !midiManualMix?.enabled ||
+      !midiManualMix.nextStepId ||
+      playbackTimelineSteps.length < 2
+    ) {
+      return null;
+    }
+
+    const nextStepIndex = playbackTimelineSteps.findIndex(
+      (step) => step.id === midiManualMix.nextStepId,
+    );
+    if (nextStepIndex < 0) {
+      return null;
+    }
+
+    const followingStep =
+      playbackTimelineSteps[(nextStepIndex + 1) % playbackTimelineSteps.length] ?? null;
+    if (!followingStep) {
+      return null;
+    }
+
+    return createMidiManualTimelineState(
+      midiManualMix.nextStepId,
+      followingStep.id,
+      PRELOAD_TRANSITION_PROGRESS,
+    );
+  }, [
+    createMidiManualTimelineState,
+    midiManualMix?.enabled,
+    midiManualMix?.nextStepId,
+    playbackTimelineSteps,
   ]);
 
   const renderTimelineState = useMemo(() => {
@@ -1294,6 +1364,29 @@ export function TimelineStageRenderer({
     requiresCompositeBase: layer.requiresCompositeBase,
   }), []);
 
+  const buildSingleStepPreloadLayer = useCallback((
+    shader: SavedShader | null | undefined,
+    step: TimelineSequenceStep | null | undefined,
+  ): StageRenderLayer | null => {
+    if (!shader || !step) {
+      return null;
+    }
+
+    const timelineLayerOptions = {
+      preferStepSnapshot: shouldResolveLiveTimelineState,
+    } satisfies ResolveShaderLayerOptions;
+    const layer = buildSingleShaderLayer(
+      resolveTimelineStepLayer(shader, step, timelineLayerOptions),
+    );
+
+    return createStageRenderLayer(layer, 1);
+  }, [
+    buildSingleShaderLayer,
+    createStageRenderLayer,
+    resolveTimelineStepLayer,
+    shouldResolveLiveTimelineState,
+  ]);
+
   const timelineWarmupSources = useMemo(() => {
     const sources = new Map<string, StageRenderInputSource>();
 
@@ -1624,7 +1717,7 @@ export function TimelineStageRenderer({
             steps: playbackTimelineSteps,
             timeSeconds,
             loop: transport.loop,
-            randomSeedSalt: doublePrimaryRandomSeedSalt,
+            randomSeedSalt: primaryRandomSeedSalt,
           }),
         depth:
           shaderSequence.mode === 'double'
@@ -1634,6 +1727,7 @@ export function TimelineStageRenderer({
     [
       availableShaders,
       doublePrimaryRandomSeedSalt,
+      primaryRandomSeedSalt,
       playbackTimelineSteps,
       shaderSequence.focusedStepId,
       shaderSequence.mode,
@@ -1698,10 +1792,14 @@ export function TimelineStageRenderer({
 
     const preloadCandidates: Array<StageRenderLayer | null> = [];
     const pushStatePreloads = (state: ResolvedTimelineState) => {
+      preloadCandidates.push(buildSingleStepPreloadLayer(state.nextShader, state.nextStep));
       preloadCandidates.push(buildTransitionPreloadLayer(state));
     };
 
     pushStatePreloads(timelineState);
+    if (midiManualLookaheadTimelineState) {
+      pushStatePreloads(midiManualLookaheadTimelineState);
+    }
     primaryLookaheadTimelineStates.forEach(pushStatePreloads);
 
     if (shaderSequence.mode === 'double' && secondaryTimelineState) {
@@ -1727,6 +1825,8 @@ export function TimelineStageRenderer({
     return Array.from(dedupedPreloads.values());
   }, [
     buildTransitionPreloadLayer,
+    buildSingleStepPreloadLayer,
+    midiManualLookaheadTimelineState,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,
     secondaryTimelineState,

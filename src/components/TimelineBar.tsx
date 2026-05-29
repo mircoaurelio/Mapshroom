@@ -45,6 +45,8 @@ interface TimelineBarProps {
   sequence: TimelineStub['shaderSequence'];
   transport: PlaybackTransport;
   durationSeconds: number;
+  midiTimelineControlActive?: boolean;
+  midiManualMixArmed?: boolean;
   markers: string[];
   tracks: TimelineStub['tracks'];
   onSeek: (seconds: number) => void;
@@ -325,6 +327,8 @@ export function TimelineBar({
   sequence,
   transport,
   durationSeconds,
+  midiTimelineControlActive = false,
+  midiManualMixArmed = false,
   markers,
   tracks,
   onSeek,
@@ -1107,6 +1111,8 @@ export function TimelineBar({
         pinnedStepId={pinnedStepId}
         sequence={sequence}
         totalDurationSeconds={durationSeconds}
+        midiTimelineControlActive={midiTimelineControlActive}
+        midiManualMixArmed={midiManualMixArmed}
         onModeChange={onSequenceModeChange}
         previewMode={sequence.stagePreviewMode}
         onPreviewModeChange={onSequenceStagePreviewModeChange}

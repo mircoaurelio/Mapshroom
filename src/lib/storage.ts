@@ -25,6 +25,7 @@ import type {
 
 let cachedDbPromise: Promise<IDBDatabase | null> | null = null;
 const SHADER_SLIDER_CACHE_PREFIX = 'mapshroom-v3:shader-sliders:';
+const APP_STORAGE_PREFIX = 'mapshroom-v3:';
 
 function getProjectStorageKey(sessionId: string): string {
   return `${PROJECT_STORAGE_PREFIX}${sessionId}`;
@@ -310,13 +311,7 @@ export async function clearPersistedSiteData(): Promise<void> {
   ).filter((key): key is string => Boolean(key));
 
   for (const key of localStorageKeys) {
-    if (
-      key === ACTIVE_SESSION_KEY ||
-      key === PROJECT_LIBRARY_STORAGE_KEY ||
-      key === UI_STORAGE_KEY ||
-      key.startsWith(PROJECT_STORAGE_PREFIX) ||
-      key.startsWith(SHADER_SLIDER_CACHE_PREFIX)
-    ) {
+    if (key.startsWith(APP_STORAGE_PREFIX)) {
       localStorage.removeItem(key);
     }
   }
