@@ -20,6 +20,19 @@ function collectFunctionNames(code: string): string[] {
   return [...names];
 }
 
+function collectUniformNames(code: string): string[] {
+  const names = new Set(Object.keys(parseUniforms(code)));
+  const uniformRegex =
+    /\buniform\s+(?:float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|sampler2D)\s+([A-Za-z_][A-Za-z0-9_]*)\b/g;
+  let match: RegExpExecArray | null = null;
+
+  while ((match = uniformRegex.exec(code)) !== null) {
+    names.add(match[1]);
+  }
+
+  return [...names];
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -39,7 +52,7 @@ function replaceIdentifier(source: string, name: string, replacement: string): s
 
 function namespaceShaderCode(code: string, namespace: string): string {
   let nextCode = stripShaderNameHeader(code);
-  const uniformNames = Object.keys(parseUniforms(nextCode));
+  const uniformNames = collectUniformNames(nextCode);
   const functionNames = collectFunctionNames(nextCode);
   const replacements = [...uniformNames, ...functionNames]
     .map((name) => ({
