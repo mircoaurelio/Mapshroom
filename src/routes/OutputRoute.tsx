@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
+import { DEFAULT_STAGE_TRANSFORM } from '../config';
 import {
   createMidiOutputSync,
   loadMidiOutputMixState,
@@ -134,7 +135,7 @@ export function OutputRoute() {
         savedShaders={project.studio.savedShaders}
         timeline={project.timeline?.stub ?? FALLBACK_TIMELINE_STUB}
         pinnedStepId={project.timeline?.stub?.shaderSequence?.pinnedStepId ?? null}
-        stageTransform={project.mapping.stageTransform}
+        stageTransform={DEFAULT_STAGE_TRANSFORM}
         transport={outputTransport ?? project.playback.transport}
         midiManualMix={{
           enabled: Boolean(midiOutputMix?.enabled),
