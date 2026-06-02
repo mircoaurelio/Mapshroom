@@ -1522,14 +1522,7 @@ export function TimelineStageRenderer({
     } else if (shaderSequence.mode === 'double') {
       const resolvedSecondaryState = secondaryTimelineState ?? liveTimelineState;
 
-      if (liveTimelineState.isTransitioning || resolvedSecondaryState.isTransitioning) {
-        baseLayers.push(
-          buildTimelineRenderLayer(liveTimelineState),
-          buildTimelineRenderLayer(resolvedSecondaryState),
-        );
-      } else {
-        baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
-      }
+      baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
 
       markStateVisible(liveTimelineState);
       markStateVisible(resolvedSecondaryState);
@@ -1859,6 +1852,40 @@ export function TimelineStageRenderer({
     if (shaderSequence.mode === 'double' && secondaryTimelineState) {
       pushStatePreloads(secondaryTimelineState);
       secondaryLookaheadTimelineStates.forEach(pushStatePreloads);
+
+      for (const primaryState of primaryLookaheadTimelineStates) {
+        preloadCandidates.push(
+          createStageRenderLayer(
+            buildDoubleAutomataRenderLayer(primaryState, secondaryTimelineState),
+            1,
+          ),
+        );
+      }
+
+      for (const secondaryState of secondaryLookaheadTimelineStates) {
+        preloadCandidates.push(
+          createStageRenderLayer(
+            buildDoubleAutomataRenderLayer(timelineState, secondaryState),
+            1,
+          ),
+        );
+      }
+
+      const pairedLookaheadCount = Math.min(
+        primaryLookaheadTimelineStates.length,
+        secondaryLookaheadTimelineStates.length,
+      );
+      for (let index = 0; index < pairedLookaheadCount; index += 1) {
+        preloadCandidates.push(
+          createStageRenderLayer(
+            buildDoubleAutomataRenderLayer(
+              primaryLookaheadTimelineStates[index],
+              secondaryLookaheadTimelineStates[index],
+            ),
+            1,
+          ),
+        );
+      }
     }
 
     const visiblePreloadKeys = new Set(stageRenderLayers.map((layer) => getStageRenderLayerWarmupKey(layer)));
@@ -1879,7 +1906,9 @@ export function TimelineStageRenderer({
     return Array.from(dedupedPreloads.values());
   }, [
     buildTransitionPreloadLayer,
+    buildDoubleAutomataRenderLayer,
     buildSingleStepPreloadLayer,
+    createStageRenderLayer,
     midiManualLookaheadTimelineState,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,

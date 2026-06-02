@@ -805,6 +805,7 @@ export function WorkspaceRoute() {
   const filePickerSourceRef = useRef<FilePickerSource>('library');
   const stageViewportRef = useRef<HTMLElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
+  const [outputWindowOpen, setOutputWindowOpen] = useState(false);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
@@ -3545,6 +3546,7 @@ ${errorSnapshot}`,
     if (existingWindow && !existingWindow.closed) {
       existingWindow.focus();
       publishProjectToOutput();
+      setOutputWindowOpen(true);
       setStatusMessage('Projection window focused.');
       return;
     }
@@ -3556,11 +3558,27 @@ ${errorSnapshot}`,
     }
 
     outputWindowRef.current = popup;
+    setOutputWindowOpen(true);
     publishProjectToOutput();
     window.setTimeout(publishProjectToOutput, 200);
     window.setTimeout(publishProjectToOutput, 800);
     setStatusMessage('Projection window opened.');
   };
+
+  useEffect(() => {
+    if (!outputWindowOpen) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (!outputWindowRef.current || outputWindowRef.current.closed) {
+        outputWindowRef.current = null;
+        setOutputWindowOpen(false);
+      }
+    }, 1_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [outputWindowOpen]);
 
   const updateAiSetting = (field: keyof AiSettings, value: string) => {
     updateProject((currentProject) => ({
@@ -3609,6 +3627,8 @@ ${errorSnapshot}`,
       if (outputWindowRef.current && !outputWindowRef.current.closed) {
         outputWindowRef.current.close();
       }
+      outputWindowRef.current = null;
+      setOutputWindowOpen(false);
       sessionSyncRef.current?.destroy();
       midiOutputSyncRef.current?.destroy();
       await clearPersistedSiteData();
@@ -3982,6 +4002,8 @@ ${errorSnapshot}`,
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
   const previewShader =
     previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
+  const workspaceStageMirrorsOutput = outputWindowOpen && !isMobile;
+  const workspaceStagePreviewShader = workspaceStageMirrorsOutput ? null : previewShader;
   const timelinePlaybackSteps = getEffectiveTimelinePlaybackSteps({
     mode: timelineStub.shaderSequence.mode,
     randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
@@ -4343,12 +4365,15 @@ ${errorSnapshot}`,
         assets={project.library.assets}
         assetUrl={activeAssetUrl}
         assetUrlStatus={activeAssetResolution.status}
-        activeShaderId={previewShader?.id ?? project.studio.activeShaderId}
-        activeShaderName={previewShader?.name ?? project.studio.activeShaderName}
-        activeShaderCode={previewShader?.code ?? project.studio.activeShaderCode}
+        activeShaderId={workspaceStagePreviewShader?.id ?? project.studio.activeShaderId}
+        activeShaderName={workspaceStagePreviewShader?.name ?? project.studio.activeShaderName}
+        activeShaderCode={workspaceStagePreviewShader?.code ?? project.studio.activeShaderCode}
         activeUniformValues={
-          previewShader
-            ? getSyncedShaderUniformValues(previewShader.code, previewShader.uniformValues)
+          workspaceStagePreviewShader
+            ? getSyncedShaderUniformValues(
+                workspaceStagePreviewShader.code,
+                workspaceStagePreviewShader.uniformValues,
+              )
             : project.studio.uniformValues
         }
         savedShaders={project.studio.savedShaders}
@@ -4358,10 +4383,11 @@ ${errorSnapshot}`,
         stageTransform={workspacePreviewStageTransform}
         transport={project.playback.transport}
         forceActiveShaderPreview={
-          Boolean(previewShader) ||
-          studioPreviewOverride ||
-          (timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
-            editingTimelineStepId !== null)
+          !workspaceStageMirrorsOutput &&
+          (Boolean(workspaceStagePreviewShader) ||
+            studioPreviewOverride ||
+            (timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
+              editingTimelineStepId !== null))
         }
         focusedPreviewStepId={editingTimelineStepId}
         midiManualMix={{
