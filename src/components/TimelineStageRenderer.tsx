@@ -1150,11 +1150,6 @@ export function TimelineStageRenderer({
   }, [buildSingleShaderLayer]);
 
   const liveTimelineState = timelineState;
-  const isTimelineTransitionRendering = Boolean(
-    liveTimelineState?.isTransitioning &&
-      liveTimelineState.nextShader &&
-      liveTimelineState.nextStep,
-  );
 
   const resolveTimelineStepLayer = useCallback((
     shader: SavedShader | null | undefined,
@@ -1597,10 +1592,7 @@ export function TimelineStageRenderer({
       ? Math.max(pinTransitionNowMs, activePinLayerTransition.startedAtMs)
       : pinTransitionNowMs;
 
-    if (
-      isTimelineTransitionRendering ||
-      (!activePinLayerTransition && !pinnedTimelineRenderLayer)
-    ) {
+    if (!activePinLayerTransition && !pinnedTimelineRenderLayer) {
       const normalizedOpacity =
         visibleTimelineRenderLayers.length > 1 ? 1 / visibleTimelineRenderLayers.length : 1;
 
@@ -1684,7 +1676,6 @@ export function TimelineStageRenderer({
     return composedLayers;
   }, [
     createStageRenderLayer,
-    isTimelineTransitionRendering,
     pinTransitionNowMs,
     pinnedTimelineRenderLayer,
     visibleTimelineRenderLayers,

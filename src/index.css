@@ -3323,6 +3323,15 @@ a {
   stroke-linejoin: round;
 }
 
+.timeline-step-shader-button {
+  min-height: 34px;
+  justify-content: flex-start;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .timeline-step-preview-badge-active {
   border-color: rgba(56, 189, 248, 0.42);
   color: #e0f2fe;

@@ -268,6 +268,7 @@ export function ShaderTimelineEditor({
   const previewSourceRef = useRef<Record<string, string>>({});
   const [assetPickerStepId, setAssetPickerStepId] = useState<string | null>(null);
   const [assetPickerPreviewAssetId, setAssetPickerPreviewAssetId] = useState<string | null>(null);
+  const [shaderPickerStepId, setShaderPickerStepId] = useState<string | null>(null);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
@@ -1091,18 +1092,36 @@ export function ShaderTimelineEditor({
 
                 <label className="field timeline-compact-field">
                   <span>Shader</span>
-                  <select
-                    className="select-field"
-                    value={step.shaderId}
-                    onClick={(event) => event.stopPropagation()}
-                    onChange={(event) => onStepChange(step.id, { shaderId: event.target.value })}
-                  >
-                    {savedShaders.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.isTemporary ? `${item.name} (Timeline)` : item.name}
-                      </option>
-                    ))}
-                  </select>
+                  {shaderPickerStepId === step.id ? (
+                    <select
+                      className="select-field"
+                      value={step.shaderId}
+                      autoFocus
+                      onBlur={() => setShaderPickerStepId(null)}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => {
+                        onStepChange(step.id, { shaderId: event.target.value });
+                        setShaderPickerStepId(null);
+                      }}
+                    >
+                      {savedShaders.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.isTemporary ? `${item.name} (Timeline)` : item.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <button
+                      type="button"
+                      className="secondary-button timeline-step-shader-button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setShaderPickerStepId(step.id);
+                      }}
+                    >
+                      {shader?.name ?? 'Choose shader'}
+                    </button>
+                  )}
                 </label>
               </article>
             </div>

@@ -438,11 +438,6 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
   };
 }
 
-function hasAllDefaultShaders(project: ProjectDocument): boolean {
-  const savedShaderIds = new Set(project.studio.savedShaders.map((shader) => shader.id));
-  return Object.keys(DEFAULT_SHADERS).every((shaderId) => savedShaderIds.has(shaderId));
-}
-
 function sanitizeAiMessage(message: string): string {
   return message
     .replaceAll('Google Gemini', 'AI')
@@ -997,21 +992,19 @@ export function WorkspaceRoute() {
   }, [activeSessionId]);
 
   useEffect(() => {
-    if (!project || hasAllDefaultShaders(project)) {
-      return;
-    }
-
-    setProject(normalizeProject(project));
-  }, [project]);
-
-  useEffect(() => {
     if (!project) {
       return;
     }
-    saveProjectDocument(project);
-    saveShaderSliderCache(project.sessionId, createSliderCacheSnapshot(project));
+
     persistActiveSessionId(project.sessionId);
-    sessionSyncRef.current?.publish(project);
+
+    const timeoutId = window.setTimeout(() => {
+      saveProjectDocument(project);
+      saveShaderSliderCache(project.sessionId, createSliderCacheSnapshot(project));
+      sessionSyncRef.current?.publish(project);
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
   }, [project]);
 
   useEffect(() => {
