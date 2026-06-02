@@ -8,6 +8,7 @@ export interface MidiOutputMixState {
   enabled: boolean;
   currentStepId: string | null;
   nextStepId: string | null;
+  followingStepId: string | null;
   progress: number;
   updatedAt: number;
 }
@@ -35,6 +36,8 @@ function normalizeMidiOutputLiveState(
     enabled: Boolean(payload.enabled),
     currentStepId: typeof payload.currentStepId === 'string' ? payload.currentStepId : null,
     nextStepId: typeof payload.nextStepId === 'string' ? payload.nextStepId : null,
+    followingStepId:
+      typeof payload.followingStepId === 'string' ? payload.followingStepId : null,
     progress:
       typeof payload.progress === 'number' && Number.isFinite(payload.progress)
         ? Math.max(0, Math.min(1, payload.progress))

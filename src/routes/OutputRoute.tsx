@@ -140,6 +140,7 @@ export function OutputRoute() {
           enabled: Boolean(midiOutputMix?.enabled),
           currentStepId: midiOutputMix?.currentStepId ?? null,
           nextStepId: midiOutputMix?.nextStepId ?? null,
+          followingStepId: midiOutputMix?.followingStepId ?? null,
           progress: midiOutputMix?.progress ?? 0,
         }}
         isOutputOnly

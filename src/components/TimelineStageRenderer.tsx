@@ -318,6 +318,7 @@ interface TimelineStageRendererProps {
     enabled: boolean;
     currentStepId: string | null;
     nextStepId: string | null;
+    followingStepId?: string | null;
     progress: number;
   };
   preferActiveShaderCompilePreview?: boolean;
@@ -823,34 +824,21 @@ export function TimelineStageRenderer({
     if (
       !midiManualMix?.enabled ||
       !midiManualMix.nextStepId ||
-      playbackTimelineSteps.length < 2
+      !midiManualMix.followingStepId
     ) {
-      return null;
-    }
-
-    const nextStepIndex = playbackTimelineSteps.findIndex(
-      (step) => step.id === midiManualMix.nextStepId,
-    );
-    if (nextStepIndex < 0) {
-      return null;
-    }
-
-    const followingStep =
-      playbackTimelineSteps[(nextStepIndex + 1) % playbackTimelineSteps.length] ?? null;
-    if (!followingStep) {
       return null;
     }
 
     return createMidiManualTimelineState(
       midiManualMix.nextStepId,
-      followingStep.id,
+      midiManualMix.followingStepId,
       PRELOAD_TRANSITION_PROGRESS,
     );
   }, [
     createMidiManualTimelineState,
     midiManualMix?.enabled,
+    midiManualMix?.followingStepId,
     midiManualMix?.nextStepId,
-    playbackTimelineSteps,
   ]);
 
   const renderTimelineState = useMemo(() => {
@@ -1275,6 +1263,74 @@ export function TimelineStageRenderer({
     midiManualMix?.enabled,
   ]);
 
+  const buildDoubleAutomataRenderLayer = useCallback((
+    primaryState: ResolvedTimelineState,
+    secondaryState: ResolvedTimelineState,
+  ): TimelineRenderLayer => {
+    const timelineLayerOptions = {
+      preferStepSnapshot: shouldResolveLiveTimelineState,
+    } satisfies ResolveShaderLayerOptions;
+    const primaryLayer = resolveTimelineStepLayer(
+      primaryState.currentShader,
+      primaryState.currentStep,
+      timelineLayerOptions,
+    );
+    const secondaryLayer = resolveTimelineStepLayer(
+      secondaryState.currentShader,
+      secondaryState.currentStep,
+      timelineLayerOptions,
+    );
+    const transitionSeed = getTimelineTransitionSeed(
+      primaryState.currentStep.id,
+      secondaryState.currentStep.id,
+      `${primaryState.cycleIndex}:${secondaryState.cycleIndex}:${doublePrimaryRandomSeedSalt}`,
+    );
+    const shaderCode = buildTimelineTransitionShaderCode({
+      fromCode: primaryLayer.shaderCode,
+      toCode: secondaryLayer.shaderCode,
+      effect: 'noise',
+    });
+
+    return {
+      kind: 'transition',
+      shaderCode,
+      uniformValues: {
+        u_transition_progress: 0.5,
+        u_transition_seed: transitionSeed,
+        u_transition_duration: Math.max(
+          shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+          0.001,
+        ),
+        u_timeline_from_has_overlay: Boolean(primaryLayer.overlaySource),
+        u_timeline_to_has_overlay: Boolean(secondaryLayer.overlaySource),
+        ...buildOverlayUniformValues('u_timeline_from_overlay', primaryLayer.assetSettings),
+        ...buildOverlayUniformValues('u_timeline_to_overlay', secondaryLayer.assetSettings),
+        ...prefixUniformValueKeys({
+          sourceValues: primaryLayer.uniformValues,
+          namespace: 'timeline_from',
+        }),
+        ...prefixUniformValueKeys({
+          sourceValues: secondaryLayer.uniformValues,
+          namespace: 'timeline_to',
+        }),
+      },
+      usedFallback: primaryLayer.usedFallback || secondaryLayer.usedFallback,
+      transitionInputSources: {
+        from: primaryLayer.inputSource ?? null,
+        to: secondaryLayer.inputSource ?? null,
+      },
+      transitionOverlaySources: {
+        from: primaryLayer.overlaySource ?? null,
+        to: secondaryLayer.overlaySource ?? null,
+      },
+    };
+  }, [
+    doublePrimaryRandomSeedSalt,
+    resolveTimelineStepLayer,
+    shaderSequence.sharedTransitionDurationSeconds,
+    shouldResolveLiveTimelineState,
+  ]);
+
   const buildTransitionPreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
   ): StageRenderLayer | null => {
@@ -1464,11 +1520,10 @@ export function TimelineStageRenderer({
         visibleShaderIds.add(activeSavedShader.id);
       }
     } else if (shaderSequence.mode === 'double') {
-      const primaryLayer = buildTimelineRenderLayer(liveTimelineState);
       const resolvedSecondaryState = secondaryTimelineState ?? liveTimelineState;
-      const secondaryLayer = buildTimelineRenderLayer(resolvedSecondaryState);
+      const doubleLayer = buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState);
 
-      baseLayers.push(primaryLayer, secondaryLayer);
+      baseLayers.push(doubleLayer);
       markStateVisible(liveTimelineState);
       markStateVisible(resolvedSecondaryState);
     } else {
@@ -1498,6 +1553,7 @@ export function TimelineStageRenderer({
     activeSavedShader,
     buildSingleShaderLayer,
     buildTimelineRenderLayer,
+    buildDoubleAutomataRenderLayer,
     buildPinnedCompareLayer,
     focusedSequenceShader,
     focusedSequenceStep,

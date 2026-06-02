@@ -3912,6 +3912,12 @@ ${errorSnapshot}`,
         outputMidiSteps.length > 1
           ? outputMidiSteps[(outputStepIndex + 1) % outputMidiSteps.length] ?? null
           : null;
+      const outputFollowingStep =
+        outputMidiSteps.length > 2
+          ? outputMidiSteps[(outputStepIndex + 2) % outputMidiSteps.length] ?? null
+          : outputMidiSteps.length > 1
+            ? outputMidiSteps[outputStepIndex] ?? null
+            : null;
       const outputMidiEnabled =
         midiEnabled &&
         midiMode === 'timeline-mixer' &&
@@ -3922,6 +3928,7 @@ ${errorSnapshot}`,
         enabled: outputMidiEnabled,
         currentStepId: outputCurrentStep?.id ?? null,
         nextStepId: outputNextStep?.id ?? null,
+        followingStepId: outputFollowingStep?.id ?? null,
         progress: midiManualMix.progress,
         updatedAt: Date.now(),
         transport: project.playback.transport,
@@ -4011,6 +4018,12 @@ ${errorSnapshot}`,
     midiManualMixPlaybackSteps.length > 1
       ? midiManualMixPlaybackSteps[(midiManualMixStepIndex + 1) % midiManualMixPlaybackSteps.length] ?? null
       : null;
+  const midiManualMixFollowingStep =
+    midiManualMixPlaybackSteps.length > 2
+      ? midiManualMixPlaybackSteps[(midiManualMixStepIndex + 2) % midiManualMixPlaybackSteps.length] ?? null
+      : midiManualMixPlaybackSteps.length > 1
+        ? midiManualMixPlaybackSteps[midiManualMixStepIndex] ?? null
+        : null;
   const midiManualMixEnabled =
     midiEnabled &&
     midiMode === 'timeline-mixer' &&
@@ -4355,6 +4368,7 @@ ${errorSnapshot}`,
           enabled: midiManualMixEnabled,
           currentStepId: midiManualMixCurrentStep?.id ?? null,
           nextStepId: midiManualMixNextStep?.id ?? null,
+          followingStepId: midiManualMixFollowingStep?.id ?? null,
           progress: midiManualMix.progress,
         }}
         preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
