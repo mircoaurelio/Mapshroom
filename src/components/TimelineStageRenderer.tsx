@@ -1295,7 +1295,7 @@ export function TimelineStageRenderer({
       kind: 'transition',
       shaderCode,
       uniformValues: {
-        u_transition_progress: 0.5,
+        u_transition_progress: 0.68,
         u_transition_seed: transitionSeed,
         u_transition_duration: Math.max(
           shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
@@ -1521,9 +1521,16 @@ export function TimelineStageRenderer({
       }
     } else if (shaderSequence.mode === 'double') {
       const resolvedSecondaryState = secondaryTimelineState ?? liveTimelineState;
-      const doubleLayer = buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState);
 
-      baseLayers.push(doubleLayer);
+      if (liveTimelineState.isTransitioning || resolvedSecondaryState.isTransitioning) {
+        baseLayers.push(
+          buildTimelineRenderLayer(liveTimelineState),
+          buildTimelineRenderLayer(resolvedSecondaryState),
+        );
+      } else {
+        baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
+      }
+
       markStateVisible(liveTimelineState);
       markStateVisible(resolvedSecondaryState);
     } else {

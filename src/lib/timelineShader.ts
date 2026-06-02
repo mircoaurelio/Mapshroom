@@ -20,8 +20,21 @@ function collectFunctionNames(code: string): string[] {
   return [...names];
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function replaceIdentifier(source: string, name: string, replacement: string): string {
-  return source.replace(new RegExp(`\\b${name}\\b`, 'g'), replacement);
+  return source.replace(
+    new RegExp(`\\b${escapeRegExp(name)}\\b`, 'g'),
+    (match, offset: number, fullSource: string) => {
+      if (fullSource[offset - 1] === '.') {
+        return match;
+      }
+
+      return replacement;
+    },
+  );
 }
 
 function namespaceShaderCode(code: string, namespace: string): string {
