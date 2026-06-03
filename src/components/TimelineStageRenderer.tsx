@@ -1267,8 +1267,19 @@ export function TimelineStageRenderer({
     primaryState: ResolvedTimelineState,
     secondaryState: ResolvedTimelineState,
   ): TimelineRenderLayer => {
-    const primaryLayer = buildTimelineRenderLayer(primaryState);
-    const secondaryLayer = buildTimelineRenderLayer(secondaryState);
+    const timelineLayerOptions = {
+      preferStepSnapshot: shouldResolveLiveTimelineState,
+    } satisfies ResolveShaderLayerOptions;
+    const primaryLayer = resolveTimelineStepLayer(
+      primaryState.currentShader,
+      primaryState.currentStep,
+      timelineLayerOptions,
+    );
+    const secondaryLayer = resolveTimelineStepLayer(
+      secondaryState.currentShader,
+      secondaryState.currentStep,
+      timelineLayerOptions,
+    );
     const transitionSeed = getTimelineTransitionSeed(
       primaryState.currentStep.id,
       secondaryState.currentStep.id,
@@ -1292,6 +1303,8 @@ export function TimelineStageRenderer({
         ),
         u_timeline_from_has_overlay: Boolean(primaryLayer.overlaySource),
         u_timeline_to_has_overlay: Boolean(secondaryLayer.overlaySource),
+        ...buildOverlayUniformValues('u_timeline_from_overlay', primaryLayer.assetSettings),
+        ...buildOverlayUniformValues('u_timeline_to_overlay', secondaryLayer.assetSettings),
         ...prefixUniformValueKeys({
           sourceValues: primaryLayer.uniformValues,
           namespace: 'timeline_from',
@@ -1312,9 +1325,10 @@ export function TimelineStageRenderer({
       },
     };
   }, [
-    buildTimelineRenderLayer,
     doublePrimaryRandomSeedSalt,
+    resolveTimelineStepLayer,
     shaderSequence.sharedTransitionDurationSeconds,
+    shouldResolveLiveTimelineState,
   ]);
 
   const buildTransitionPreloadLayer = useCallback((
@@ -1508,7 +1522,14 @@ export function TimelineStageRenderer({
     } else if (shaderSequence.mode === 'double') {
       const resolvedSecondaryState = secondaryTimelineState ?? liveTimelineState;
 
-      baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
+      if (liveTimelineState.isTransitioning || resolvedSecondaryState.isTransitioning) {
+        baseLayers.push(
+          buildTimelineRenderLayer(liveTimelineState),
+          buildTimelineRenderLayer(resolvedSecondaryState),
+        );
+      } else {
+        baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
+      }
 
       markStateVisible(liveTimelineState);
       markStateVisible(resolvedSecondaryState);

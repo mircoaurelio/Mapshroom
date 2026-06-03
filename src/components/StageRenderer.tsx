@@ -94,6 +94,12 @@ interface ProgramLocations {
   custom: Record<string, WebGLUniformLocation | null>;
 }
 
+interface CachedProgram {
+  program: WebGLProgram;
+  locations: ProgramLocations;
+  lastUsedAt: number;
+}
+
 interface CompiledRenderLayer extends StageRenderLayer {
   opacity: number;
   key: string;
@@ -144,6 +150,7 @@ const VIDEO_DRIFT_CORRECTION_THRESHOLD_SECONDS = 0.05;
 const VIDEO_HARD_SEEK_THRESHOLD_SECONDS = 0.45;
 const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
 const MIN_STAGE_SCALE = 0.05;
+const MAX_RETAINED_PROGRAMS = 96;
 
 interface StageRenderTarget {
   framebuffer: WebGLFramebuffer;
@@ -844,11 +851,10 @@ export function StageRenderer({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaSurfaceRef = useRef<HTMLDivElement | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
-  const programCacheRef = useRef<
-    Map<string, { program: WebGLProgram; locations: ProgramLocations }>
-  >(new Map());
+  const programCacheRef = useRef<Map<string, CachedProgram>>(new Map());
   const pendingProgramCacheRef = useRef<Map<string, PendingProgramBundle>>(new Map());
   const compiledLayersRef = useRef<CompiledRenderLayer[]>([]);
+  const programCacheClockRef = useRef(0);
   const onCompilerErrorRef = useRef(onCompilerError);
   const textureSourcesRef = useRef<Map<string, StageTextureSourceState>>(new Map());
   const positionBufferRef = useRef<WebGLBuffer | null>(null);
@@ -1006,6 +1012,7 @@ export function StageRenderer({
         if (!cachedProgram) {
           return [];
         }
+        cachedProgram.lastUsedAt = ++programCacheClockRef.current;
 
         return [
           {
@@ -1060,7 +1067,6 @@ export function StageRenderer({
     }
 
     // Keep the last good frame until every requested layer program is compiled.
-    compiledLayersRef.current = [];
   }, [resolvedRenderLayers]);
 
   useEffect(() => {
@@ -1216,14 +1222,24 @@ export function StageRenderer({
       requiredLayers.map((layer) => [layer.shaderCode, layer.uniformDefinitions] as const),
     );
 
-    for (const [key, cachedProgram] of programCacheRef.current.entries()) {
-      if (requiredShaderCodes.has(key)) {
-        continue;
+    const pruneProgramCache = () => {
+      if (programCacheRef.current.size <= MAX_RETAINED_PROGRAMS) {
+        return;
       }
 
-      gl.deleteProgram(cachedProgram.program);
-      programCacheRef.current.delete(key);
-    }
+      const disposablePrograms = Array.from(programCacheRef.current.entries())
+        .filter(([key]) => !requiredShaderCodes.has(key))
+        .sort((left, right) => left[1].lastUsedAt - right[1].lastUsedAt);
+
+      for (const [key, cachedProgram] of disposablePrograms) {
+        if (programCacheRef.current.size <= MAX_RETAINED_PROGRAMS) {
+          break;
+        }
+
+        gl.deleteProgram(cachedProgram.program);
+        programCacheRef.current.delete(key);
+      }
+    };
 
     for (const [key, pendingBundle] of pendingProgramCacheRef.current.entries()) {
       if (requiredShaderCodes.has(key)) {
@@ -1243,6 +1259,7 @@ export function StageRenderer({
         if (!cachedProgram) {
           return false;
         }
+        cachedProgram.lastUsedAt = ++programCacheClockRef.current;
 
         nextCompiledLayers.push({
           ...layer,
@@ -1289,7 +1306,10 @@ export function StageRenderer({
           }
 
           pendingProgramCacheRef.current.delete(key);
-          programCacheRef.current.set(key, resolvedProgram);
+          programCacheRef.current.set(key, {
+            ...resolvedProgram,
+            lastUsedAt: ++programCacheClockRef.current,
+          });
         } catch (error) {
           pendingProgramCacheRef.current.delete(key);
           if (visibleShaderCodes.has(key)) {
@@ -1320,7 +1340,10 @@ export function StageRenderer({
           } else {
             programCacheRef.current.set(
               missingShaderCode,
-              createProgramBundle(gl, missingShaderCode, uniformMap),
+              {
+                ...createProgramBundle(gl, missingShaderCode, uniformMap),
+                lastUsedAt: ++programCacheClockRef.current,
+              },
             );
           }
         } catch (error) {
@@ -1345,6 +1368,7 @@ export function StageRenderer({
       if (hasPendingWork) {
         scheduleNextTick();
       }
+      pruneProgramCache();
     };
 
     processShaderQueue();
