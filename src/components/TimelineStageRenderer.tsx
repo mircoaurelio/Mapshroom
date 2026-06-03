@@ -56,6 +56,7 @@ const DOUBLE_AUTOMATA_BALANCED_PROGRESS = 0.5;
 const DOUBLE_AUTOMATA_GROW_AMOUNT = 0.12;
 const DOUBLE_AUTOMATA_MOTION_SECONDS = 1.25;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
+const MODE_LAYER_WARMUP_DURATION_MS = 900;
 const MODE_LAYER_FADE_DURATION_MS = 1_000;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
@@ -1643,7 +1644,10 @@ export function TimelineStageRenderer({
       }
 
       setModeTransitionNowMs(timestamp);
-      if (timestamp - activeTransition.startedAtMs < MODE_LAYER_FADE_DURATION_MS) {
+      if (
+        timestamp - activeTransition.startedAtMs <
+        MODE_LAYER_WARMUP_DURATION_MS + MODE_LAYER_FADE_DURATION_MS
+      ) {
         frameId = requestAnimationFrame(tick);
         return;
       }
@@ -1685,7 +1689,9 @@ export function TimelineStageRenderer({
             0,
             Math.min(
               1,
-              (effectiveModeTransitionNowMs - activeModeLayerTransition.startedAtMs) /
+              (effectiveModeTransitionNowMs -
+                activeModeLayerTransition.startedAtMs -
+                MODE_LAYER_WARMUP_DURATION_MS) /
                 MODE_LAYER_FADE_DURATION_MS,
             ),
           ),
@@ -1895,6 +1901,13 @@ export function TimelineStageRenderer({
     }
 
     const preloadCandidates: Array<StageRenderLayer | null> = [];
+    const activeModeLayerTransition = modeLayerTransitionRef.current;
+    if (activeModeLayerTransition) {
+      for (const layer of activeModeLayerTransition.toLayers) {
+        preloadCandidates.push(createStageRenderLayer(layer, 1));
+      }
+    }
+
     const pushStatePreloads = (state: ResolvedTimelineState) => {
       preloadCandidates.push(buildSingleStepPreloadLayer(state.nextShader, state.nextStep));
       preloadCandidates.push(buildTransitionPreloadLayer(state));
@@ -1967,6 +1980,7 @@ export function TimelineStageRenderer({
     buildSingleStepPreloadLayer,
     createStageRenderLayer,
     midiManualLookaheadTimelineState,
+    modeTransitionNowMs,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,
     secondaryTimelineState,
