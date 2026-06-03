@@ -167,7 +167,7 @@ vec4 timelineTransitionNoiseCore(
     );
     float reveal = smoothstep(0.02, 1.0, progress);
     float threshold = mix(1.08, -0.08, reveal);
-    float feather = mix(0.035, 0.18, reveal);
+    float feather = mix(0.08, 0.28, reveal);
     float edge = smoothstep(threshold - feather, threshold + feather, automata);
     float completion = smoothstep(0.84, 1.0, progress);
     edge = mix(edge, 1.0, completion);

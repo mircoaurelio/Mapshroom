@@ -52,7 +52,8 @@ const STANDARD_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const DOUBLE_AUTOMATA_BALANCED_PROGRESS = 0.5;
-const DOUBLE_AUTOMATA_MIN_CYCLE_SECONDS = 2;
+const DOUBLE_AUTOMATA_GROW_AMOUNT = 0.12;
+const DOUBLE_AUTOMATA_MOTION_SECONDS = 1.25;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
@@ -173,6 +174,13 @@ function prefixUniformValueKeys({
 function easeTransitionProgress(progress: number): number {
   const clamped = Math.max(0, Math.min(1, progress));
   return clamped * clamped * (3 - 2 * clamped);
+}
+
+function getDoubleAutomataBalancedProgress(timeSeconds: number): number {
+  const cyclePosition = ((timeSeconds / DOUBLE_AUTOMATA_MOTION_SECONDS) % 1 + 1) % 1;
+  const wave = Math.sin(cyclePosition * Math.PI * 2);
+
+  return DOUBLE_AUTOMATA_BALANCED_PROGRESS + wave * DOUBLE_AUTOMATA_GROW_AMOUNT;
 }
 
 function buildOverlayUniformValues(
@@ -1224,18 +1232,14 @@ export function TimelineStageRenderer({
       toCode: secondaryLayer.shaderCode,
       effect: 'noise',
     });
-    const automataCycleDurationSeconds = Math.max(
-      DOUBLE_AUTOMATA_MIN_CYCLE_SECONDS,
-      shaderSequence.sharedSectionDurationSeconds ?? 8,
-    );
 
     return {
       kind: 'transition',
       shaderCode,
       uniformValues: {
-        u_transition_progress: DOUBLE_AUTOMATA_BALANCED_PROGRESS,
+        u_transition_progress: getDoubleAutomataBalancedProgress(transportTimeSeconds),
         u_transition_seed: transitionSeed,
-        u_transition_duration: automataCycleDurationSeconds,
+        u_transition_duration: DOUBLE_AUTOMATA_MOTION_SECONDS,
         u_timeline_from_has_overlay: Boolean(primaryLayer.overlaySource),
         u_timeline_to_has_overlay: Boolean(secondaryLayer.overlaySource),
         ...prefixUniformValueKeys({
@@ -1260,7 +1264,7 @@ export function TimelineStageRenderer({
   }, [
     buildTimelineRenderLayer,
     doublePrimaryRandomSeedSalt,
-    shaderSequence.sharedSectionDurationSeconds,
+    transportTimeSeconds,
   ]);
 
   const buildTransitionPreloadLayer = useCallback((
