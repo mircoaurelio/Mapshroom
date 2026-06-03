@@ -52,6 +52,8 @@ const STANDARD_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const DOUBLE_AUTOMATA_MIN_GROW_SECONDS = 2;
+const DOUBLE_AUTOMATA_MIN_MIX_PROGRESS = 0.28;
+const DOUBLE_AUTOMATA_MAX_MIX_PROGRESS = 0.72;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
@@ -183,7 +185,11 @@ function getDoubleAutomataGrowthProgress(
   const pingPongProgress =
     cyclePosition < 0.5 ? cyclePosition * 2 : (1 - cyclePosition) * 2;
 
-  return easeTransitionProgress(pingPongProgress);
+  return (
+    DOUBLE_AUTOMATA_MIN_MIX_PROGRESS +
+    easeTransitionProgress(pingPongProgress) *
+      (DOUBLE_AUTOMATA_MAX_MIX_PROGRESS - DOUBLE_AUTOMATA_MIN_MIX_PROGRESS)
+  );
 }
 
 function buildOverlayUniformValues(
