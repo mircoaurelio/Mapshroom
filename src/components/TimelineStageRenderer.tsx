@@ -1213,9 +1213,9 @@ export function TimelineStageRenderer({
     const primaryLayer = buildTimelineRenderLayer(primaryState);
     const secondaryLayer = buildTimelineRenderLayer(secondaryState);
     const transitionSeed = getTimelineTransitionSeed(
-      primaryState.currentStep.id,
-      secondaryState.currentStep.id,
-      `${primaryState.cycleIndex}:${secondaryState.cycleIndex}:${doublePrimaryRandomSeedSalt}`,
+      'double-primary',
+      'double-secondary',
+      doublePrimaryRandomSeedSalt,
     );
     const shaderCode = buildTimelineTransitionShaderCode({
       fromCode: primaryLayer.shaderCode,
