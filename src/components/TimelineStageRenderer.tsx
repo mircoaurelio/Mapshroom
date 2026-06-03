@@ -51,9 +51,8 @@ const PRELOAD_LOOKAHEAD_EPSILON_SECONDS = 0.01;
 const STANDARD_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
-const DOUBLE_AUTOMATA_MIN_GROW_SECONDS = 2;
-const DOUBLE_AUTOMATA_MIN_MIX_PROGRESS = 0.28;
-const DOUBLE_AUTOMATA_MAX_MIX_PROGRESS = 0.72;
+const DOUBLE_AUTOMATA_BALANCED_PROGRESS = 0.5;
+const DOUBLE_AUTOMATA_MIN_CYCLE_SECONDS = 2;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
@@ -174,22 +173,6 @@ function prefixUniformValueKeys({
 function easeTransitionProgress(progress: number): number {
   const clamped = Math.max(0, Math.min(1, progress));
   return clamped * clamped * (3 - 2 * clamped);
-}
-
-function getDoubleAutomataGrowthProgress(
-  timeSeconds: number,
-  cycleDurationSeconds: number,
-): number {
-  const safeDuration = Math.max(DOUBLE_AUTOMATA_MIN_GROW_SECONDS, cycleDurationSeconds);
-  const cyclePosition = ((timeSeconds / safeDuration) % 1 + 1) % 1;
-  const pingPongProgress =
-    cyclePosition < 0.5 ? cyclePosition * 2 : (1 - cyclePosition) * 2;
-
-  return (
-    DOUBLE_AUTOMATA_MIN_MIX_PROGRESS +
-    easeTransitionProgress(pingPongProgress) *
-      (DOUBLE_AUTOMATA_MAX_MIX_PROGRESS - DOUBLE_AUTOMATA_MIN_MIX_PROGRESS)
-  );
 }
 
 function buildOverlayUniformValues(
@@ -1242,19 +1225,15 @@ export function TimelineStageRenderer({
       effect: 'noise',
     });
     const automataCycleDurationSeconds = Math.max(
-      DOUBLE_AUTOMATA_MIN_GROW_SECONDS,
+      DOUBLE_AUTOMATA_MIN_CYCLE_SECONDS,
       shaderSequence.sharedSectionDurationSeconds ?? 8,
-    );
-    const automataProgress = getDoubleAutomataGrowthProgress(
-      transportTimeSeconds,
-      automataCycleDurationSeconds,
     );
 
     return {
       kind: 'transition',
       shaderCode,
       uniformValues: {
-        u_transition_progress: automataProgress,
+        u_transition_progress: DOUBLE_AUTOMATA_BALANCED_PROGRESS,
         u_transition_seed: transitionSeed,
         u_transition_duration: automataCycleDurationSeconds,
         u_timeline_from_has_overlay: Boolean(primaryLayer.overlaySource),
@@ -1282,7 +1261,6 @@ export function TimelineStageRenderer({
     buildTimelineRenderLayer,
     doublePrimaryRandomSeedSalt,
     shaderSequence.sharedSectionDurationSeconds,
-    transportTimeSeconds,
   ]);
 
   const buildTransitionPreloadLayer = useCallback((
