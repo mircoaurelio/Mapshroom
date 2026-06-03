@@ -34,6 +34,7 @@ import type {
   ShaderUniformValueMap,
   StageTransform,
   TimelineStub,
+  TimelineSequenceMode,
   AssetRecord,
   TimelineStepAssetSettings,
 } from '../types';
@@ -55,6 +56,7 @@ const DOUBLE_AUTOMATA_BALANCED_PROGRESS = 0.5;
 const DOUBLE_AUTOMATA_GROW_AMOUNT = 0.12;
 const DOUBLE_AUTOMATA_MOTION_SECONDS = 1.25;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
+const MODE_LAYER_FADE_DURATION_MS = 1_000;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
 
@@ -153,6 +155,14 @@ interface PinLayerTransitionState {
   toKey: string | null;
   fromLayer: TimelineRenderLayer | null;
   toLayer: TimelineRenderLayer | null;
+  startedAtMs: number;
+}
+
+interface ModeLayerTransitionState {
+  fromMode: TimelineSequenceMode;
+  toMode: TimelineSequenceMode;
+  fromLayers: TimelineRenderLayer[];
+  toLayers: TimelineRenderLayer[];
   startedAtMs: number;
 }
 
@@ -342,7 +352,9 @@ export function TimelineStageRenderer({
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
   const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
+  const [modeTransitionNowMs, setModeTransitionNowMs] = useState(() => performance.now());
   const pinLayerTransitionRef = useRef<PinLayerTransitionState | null>(null);
+  const modeLayerTransitionRef = useRef<ModeLayerTransitionState | null>(null);
   const [doubleModeRandomSeedToken, setDoubleModeRandomSeedToken] = useState(() =>
     createTimelineRandomSeedToken(),
   );
@@ -350,6 +362,7 @@ export function TimelineStageRenderer({
     createTimelineRandomSeedToken(),
   );
   const previousDoubleModeRef = useRef(false);
+  const previousSequenceModeRef = useRef<TimelineSequenceMode | null>(null);
   const hasMountedPinLayerRef = useRef(false);
   const previousPinnedStepIdRef = useRef<string | null>(null);
   const latestPinnedLayerSnapshotRef = useRef<{
@@ -358,6 +371,13 @@ export function TimelineStageRenderer({
   }>({
     key: null,
     layer: null,
+  });
+  const latestModeLayerSnapshotRef = useRef<{
+    mode: TimelineSequenceMode | null;
+    layers: TimelineRenderLayer[];
+  }>({
+    mode: null,
+    layers: [],
   });
   const previousTransportSnapshotRef = useRef({
     isPlaying: transport.isPlaying,
@@ -1506,7 +1526,37 @@ export function TimelineStageRenderer({
   const visibleTimelineRenderLayers = visibleTimelineRenderState.baseLayers;
   const pinnedTimelineRenderLayer = visibleTimelineRenderState.pinnedLayer;
   const pinnedTimelineRenderLayerKey = visibleTimelineRenderState.pinnedLayerKey;
+  const currentSequenceMode = shaderSequence.mode ?? 'sequence';
   const effectivePinnedStepId = pinnedStepId ?? null;
+
+  if (previousSequenceModeRef.current === null) {
+    previousSequenceModeRef.current = currentSequenceMode;
+  } else if (currentSequenceMode !== previousSequenceModeRef.current) {
+    const previousModeLayerSnapshot =
+      latestModeLayerSnapshotRef.current.mode === previousSequenceModeRef.current
+        ? latestModeLayerSnapshotRef.current.layers
+        : [];
+    const now = performance.now();
+
+    modeLayerTransitionRef.current =
+      previousModeLayerSnapshot.length > 0 || visibleTimelineRenderLayers.length > 0
+        ? {
+            fromMode: previousSequenceModeRef.current,
+            toMode: currentSequenceMode,
+            fromLayers: previousModeLayerSnapshot,
+            toLayers: visibleTimelineRenderLayers,
+            startedAtMs: now,
+          }
+        : null;
+    previousSequenceModeRef.current = currentSequenceMode;
+  }
+
+  if (!modeLayerTransitionRef.current) {
+    latestModeLayerSnapshotRef.current = {
+      mode: currentSequenceMode,
+      layers: visibleTimelineRenderLayers,
+    };
+  }
 
   if (!hasMountedPinLayerRef.current) {
     hasMountedPinLayerRef.current = true;
@@ -1578,22 +1628,91 @@ export function TimelineStageRenderer({
     };
   }, [effectivePinnedStepId]);
 
+  useEffect(() => {
+    if (!modeLayerTransitionRef.current) {
+      return;
+    }
+
+    const activeTransition = modeLayerTransitionRef.current;
+    let frameId = 0;
+    let cancelled = false;
+
+    const tick = (timestamp: number) => {
+      if (cancelled) {
+        return;
+      }
+
+      setModeTransitionNowMs(timestamp);
+      if (timestamp - activeTransition.startedAtMs < MODE_LAYER_FADE_DURATION_MS) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      modeLayerTransitionRef.current = null;
+      latestModeLayerSnapshotRef.current = {
+        mode: activeTransition.toMode,
+        layers: activeTransition.toLayers,
+      };
+    };
+
+    setModeTransitionNowMs(activeTransition.startedAtMs);
+    frameId = requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frameId);
+    };
+  }, [currentSequenceMode]);
+
   const stageRenderLayers = useMemo<StageRenderLayer[]>(() => {
+    const createBaseStageRenderLayers = (
+      layers: TimelineRenderLayer[],
+      totalOpacity: number,
+    ): StageRenderLayer[] => {
+      if (layers.length === 0 || totalOpacity <= 0.001) {
+        return [];
+      }
+
+      const layerOpacity = totalOpacity / layers.length;
+      return layers.map((layer) => createStageRenderLayer(layer, layerOpacity));
+    };
+    const activeModeLayerTransition = modeLayerTransitionRef.current;
+    const effectiveModeTransitionNowMs = activeModeLayerTransition
+      ? Math.max(modeTransitionNowMs, activeModeLayerTransition.startedAtMs)
+      : modeTransitionNowMs;
+    const modeTransitionProgress = activeModeLayerTransition
+      ? easeTransitionProgress(
+          Math.max(
+            0,
+            Math.min(
+              1,
+              (effectiveModeTransitionNowMs - activeModeLayerTransition.startedAtMs) /
+                MODE_LAYER_FADE_DURATION_MS,
+            ),
+          ),
+        )
+      : 1;
+    const baseStageLayers = activeModeLayerTransition
+      ? [
+          ...createBaseStageRenderLayers(
+            activeModeLayerTransition.fromLayers,
+            1 - modeTransitionProgress,
+          ),
+          ...createBaseStageRenderLayers(
+            activeModeLayerTransition.toLayers,
+            modeTransitionProgress,
+          ),
+        ]
+      : createBaseStageRenderLayers(visibleTimelineRenderLayers, 1);
     const activePinLayerTransition = pinLayerTransitionRef.current;
     const effectivePinTransitionNowMs = activePinLayerTransition
       ? Math.max(pinTransitionNowMs, activePinLayerTransition.startedAtMs)
       : pinTransitionNowMs;
 
     if (!activePinLayerTransition && !pinnedTimelineRenderLayer) {
-      const normalizedOpacity =
-        visibleTimelineRenderLayers.length > 1 ? 1 / visibleTimelineRenderLayers.length : 1;
-
-      return visibleTimelineRenderLayers.map((layer) =>
-        createStageRenderLayer(layer, normalizedOpacity),
-      );
+      return baseStageLayers;
     }
 
-    const baseLayerCount = visibleTimelineRenderLayers.length;
+    const baseLayerCount = baseStageLayers.length;
     let transitionFromOpacity = 0;
     let transitionToOpacity = 0;
     let transitionFromLayer: TimelineRenderLayer | null = null;
@@ -1646,15 +1765,16 @@ export function TimelineStageRenderer({
       ];
     }
 
-    const currentBaseOpacity =
+    const currentBaseOpacityScale =
       pinnedUsesStackOnTop || pinnedUsesBlendComposite
         ? 1
-        : (1 - totalPinnedOpacity) / baseLayerCount;
+        : 1 - totalPinnedOpacity;
 
     const composedLayers: StageRenderLayer[] = [
-      ...visibleTimelineRenderLayers.map((layer) =>
-        createStageRenderLayer(layer, currentBaseOpacity),
-      ),
+      ...baseStageLayers.map((layer) => ({
+        ...layer,
+        opacity: (layer.opacity ?? 1) * currentBaseOpacityScale,
+      })),
     ];
 
     if (transitionFromLayer && transitionFromOpacity > 0.001) {
@@ -1668,6 +1788,7 @@ export function TimelineStageRenderer({
     return composedLayers;
   }, [
     createStageRenderLayer,
+    modeTransitionNowMs,
     pinTransitionNowMs,
     pinnedTimelineRenderLayer,
     visibleTimelineRenderLayers,
