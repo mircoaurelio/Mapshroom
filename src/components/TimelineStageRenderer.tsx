@@ -1267,19 +1267,8 @@ export function TimelineStageRenderer({
     primaryState: ResolvedTimelineState,
     secondaryState: ResolvedTimelineState,
   ): TimelineRenderLayer => {
-    const timelineLayerOptions = {
-      preferStepSnapshot: shouldResolveLiveTimelineState,
-    } satisfies ResolveShaderLayerOptions;
-    const primaryLayer = resolveTimelineStepLayer(
-      primaryState.currentShader,
-      primaryState.currentStep,
-      timelineLayerOptions,
-    );
-    const secondaryLayer = resolveTimelineStepLayer(
-      secondaryState.currentShader,
-      secondaryState.currentStep,
-      timelineLayerOptions,
-    );
+    const primaryLayer = buildTimelineRenderLayer(primaryState);
+    const secondaryLayer = buildTimelineRenderLayer(secondaryState);
     const transitionSeed = getTimelineTransitionSeed(
       primaryState.currentStep.id,
       secondaryState.currentStep.id,
@@ -1303,8 +1292,6 @@ export function TimelineStageRenderer({
         ),
         u_timeline_from_has_overlay: Boolean(primaryLayer.overlaySource),
         u_timeline_to_has_overlay: Boolean(secondaryLayer.overlaySource),
-        ...buildOverlayUniformValues('u_timeline_from_overlay', primaryLayer.assetSettings),
-        ...buildOverlayUniformValues('u_timeline_to_overlay', secondaryLayer.assetSettings),
         ...prefixUniformValueKeys({
           sourceValues: primaryLayer.uniformValues,
           namespace: 'timeline_from',
@@ -1325,10 +1312,9 @@ export function TimelineStageRenderer({
       },
     };
   }, [
+    buildTimelineRenderLayer,
     doublePrimaryRandomSeedSalt,
-    resolveTimelineStepLayer,
     shaderSequence.sharedTransitionDurationSeconds,
-    shouldResolveLiveTimelineState,
   ]);
 
   const buildTransitionPreloadLayer = useCallback((
