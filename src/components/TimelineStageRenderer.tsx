@@ -1522,14 +1522,7 @@ export function TimelineStageRenderer({
     } else if (shaderSequence.mode === 'double') {
       const resolvedSecondaryState = secondaryTimelineState ?? liveTimelineState;
 
-      if (liveTimelineState.isTransitioning || resolvedSecondaryState.isTransitioning) {
-        baseLayers.push(
-          buildTimelineRenderLayer(liveTimelineState),
-          buildTimelineRenderLayer(resolvedSecondaryState),
-        );
-      } else {
-        baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
-      }
+      baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
 
       markStateVisible(liveTimelineState);
       markStateVisible(resolvedSecondaryState);
