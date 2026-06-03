@@ -50,7 +50,6 @@ const PRELOAD_TRANSITION_PROGRESS = 0.001;
 const PRELOAD_LOOKAHEAD_EPSILON_SECONDS = 0.01;
 const STANDARD_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
-const DOUBLE_SECONDARY_VARIANT_COUNT = 5;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
 const timelineAssetUrlCache = new Map<string, string>();
@@ -272,31 +271,6 @@ function collectTimelineLookaheadStates({
   return collectedStates;
 }
 
-function getDoubleSecondaryCandidateScore(
-  candidate: ResolvedTimelineState,
-  primaryState: ResolvedTimelineState | null,
-): number {
-  if (!primaryState) {
-    return 0;
-  }
-
-  let score = 0;
-  if (candidate.currentShader.id !== primaryState.currentShader.id) {
-    score += 4;
-  }
-  if ((candidate.nextShader?.id ?? null) !== (primaryState.nextShader?.id ?? null)) {
-    score += 2;
-  }
-  if (candidate.currentStep.id !== primaryState.currentStep.id) {
-    score += 1;
-  }
-  if ((candidate.nextStep?.id ?? null) !== (primaryState.nextStep?.id ?? null)) {
-    score += 1;
-  }
-
-  return score;
-}
-
 interface TimelineStageRendererProps {
   asset: AssetRecord | null;
   assets: AssetRecord[];
@@ -379,7 +353,7 @@ export function TimelineStageRenderer({
     isPlaying: transport.isPlaying,
     currentTimeSeconds: transport.currentTimeSeconds,
   });
-  const transitionProgressHoldRef = useRef({ pairKey: '', progress: 0 });
+  const transitionProgressHoldRef = useRef<Map<string, number>>(new Map());
   const [resolvedInputSources, setResolvedInputSources] = useState<
     Record<string, { url: string | null; status: AssetObjectUrlStatus }>
   >({});
@@ -701,10 +675,12 @@ export function TimelineStageRenderer({
         previousTransportSnapshot.currentTimeSeconds > DOUBLE_RANDOM_RESEED_EPSILON_SECONDS);
 
     if (restartedPlaybackFromStart || rewoundToStart) {
+      transitionProgressHoldRef.current.clear();
       setPlaybackTransitionSeedToken(createTimelineRandomSeedToken());
     }
 
     if (isDoubleMode && (!wasDoubleMode || rewoundToStart || restartedPlaybackFromStart)) {
+      transitionProgressHoldRef.current.clear();
       setDoubleModeRandomSeedToken(createTimelineRandomSeedToken());
     }
 
@@ -862,46 +838,26 @@ export function TimelineStageRenderer({
       };
     }
 
-    let bestState: ResolvedTimelineState | null = null;
-    let bestSeedSalt = `${doubleSecondaryRandomSeedBase}:0`;
-    let bestScore = Number.NEGATIVE_INFINITY;
-
-    for (let index = 0; index < DOUBLE_SECONDARY_VARIANT_COUNT; index += 1) {
-      const nextSeedSalt = `${doubleSecondaryRandomSeedBase}:${index}`;
-      const nextState = resolveShaderTimelineState({
-        shaders: availableShaders,
-        mode: 'randomMix',
-        focusedStepId: shaderSequence.focusedStepId ?? null,
-        singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
-        randomChoiceEnabled: false,
-        sharedTransitionEnabled: true,
-        sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
-        sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
-        sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
-        steps: playbackTimelineSteps,
-        timeSeconds: secondaryTimelineTimeSeconds,
-        loop: transport.loop,
-        randomSeedSalt: nextSeedSalt,
-      });
-      if (!nextState) {
-        continue;
-      }
-
-      const nextScore = getDoubleSecondaryCandidateScore(nextState, timelineState);
-      if (!bestState || nextScore > bestScore) {
-        bestState = nextState;
-        bestSeedSalt = nextSeedSalt;
-        bestScore = nextScore;
-      }
-
-      if (nextScore >= 6) {
-        break;
-      }
-    }
+    const secondaryRandomSeedSalt = `${doubleSecondaryRandomSeedBase}:secondary`;
+    const secondaryState = resolveShaderTimelineState({
+      shaders: availableShaders,
+      mode: 'randomMix',
+      focusedStepId: shaderSequence.focusedStepId ?? null,
+      singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
+      randomChoiceEnabled: false,
+      sharedTransitionEnabled: true,
+      sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+      sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+      sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
+      steps: playbackTimelineSteps,
+      timeSeconds: secondaryTimelineTimeSeconds,
+      loop: transport.loop,
+      randomSeedSalt: secondaryRandomSeedSalt,
+    });
 
     return {
-      state: bestState,
-      randomSeedSalt: bestSeedSalt,
+      state: secondaryState,
+      randomSeedSalt: secondaryRandomSeedSalt,
     };
   }, [
     availableShaders,
@@ -914,7 +870,6 @@ export function TimelineStageRenderer({
     shaderSequence.sharedTransitionEffect,
     shaderSequence.singleStepLoopEnabled,
     playbackTimelineSteps,
-    timelineState,
     transport.loop,
   ]);
   const secondaryTimelineState = secondaryTimelineResolution.state;
@@ -1181,25 +1136,13 @@ export function TimelineStageRenderer({
       let transitionProgress = 0;
       if (state.isTransitioning) {
         const requestedProgress = easeTransitionProgress(state.transitionProgress);
-        if (midiManualMix?.enabled) {
-          transitionProgressHoldRef.current = {
-            pairKey,
-            progress: requestedProgress,
-          };
-        } else if (transitionProgressHoldRef.current.pairKey !== pairKey) {
-          transitionProgressHoldRef.current = {
-            pairKey,
-            progress: requestedProgress,
-          };
-        } else {
-          transitionProgressHoldRef.current.progress = Math.max(
-            transitionProgressHoldRef.current.progress,
-            requestedProgress,
-          );
-        }
-        transitionProgress = transitionProgressHoldRef.current.progress;
+        const currentHeldProgress = transitionProgressHoldRef.current.get(pairKey) ?? 0;
+        transitionProgress = midiManualMix?.enabled
+          ? requestedProgress
+          : Math.max(currentHeldProgress, requestedProgress);
+        transitionProgressHoldRef.current.set(pairKey, transitionProgress);
       } else {
-        transitionProgressHoldRef.current = { pairKey, progress: 0 };
+        transitionProgressHoldRef.current.set(pairKey, 0);
       }
 
       return {
