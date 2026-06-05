@@ -325,7 +325,7 @@ export function createBundledProjectDocument(sessionId: string): ProjectDocument
         runwayApiKey: '',
         shaderProvider: 'google',
         openaiShaderModel: '',
-        googleShaderModel: 'gemini-3-flash-preview',
+        googleShaderModel: 'gemini-3.5-flash',
         videoGenProvider: 'runway',
       },
     },

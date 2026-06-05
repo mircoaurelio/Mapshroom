@@ -16,8 +16,9 @@ export const ASSET_DB_VERSION = 1;
 export const ASSET_STORE_NAME = 'asset-blobs';
 export const BROADCAST_PREFIX = 'mapshroom-v3:channel:';
 export const DEFAULT_GOOGLE_API_VERSION = 'v1beta';
-export const DEFAULT_GOOGLE_SHADER_MODEL = 'gemini-3-flash-preview';
+export const DEFAULT_GOOGLE_SHADER_MODEL = 'gemini-3.5-flash';
 export const DEFAULT_GOOGLE_MODEL_OPTIONS = [
+  'gemini-3.5-flash',
   'gemini-3.1-pro-preview',
   'gemini-3-flash-preview',
   'gemini-3.1-flash-lite-preview',
