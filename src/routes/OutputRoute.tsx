@@ -135,7 +135,7 @@ export function OutputRoute() {
         savedShaders={project.studio.savedShaders}
         timeline={project.timeline?.stub ?? FALLBACK_TIMELINE_STUB}
         pinnedStepId={project.timeline?.stub?.shaderSequence?.pinnedStepId ?? null}
-        stageTransform={DEFAULT_STAGE_TRANSFORM}
+        stageTransform={project.mapping?.stageTransform ?? DEFAULT_STAGE_TRANSFORM}
         transport={outputTransport ?? project.playback.transport}
         midiManualMix={{
           enabled: Boolean(midiOutputMix?.enabled),
