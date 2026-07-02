@@ -24,6 +24,7 @@ const FALLBACK_TIMELINE_STUB = {
     stagePreviewMode: 'timeline',
     focusedStepId: null,
     pinnedStepId: null,
+    randomSeedToken: 'fallback-random-seed',
     singleStepLoopEnabled: false,
     randomChoiceEnabled: false,
     sharedTransitionEnabled: false,

@@ -130,6 +130,7 @@ const MIDI_MIX_DURATION_MAX_SECONDS = 8;
 const MIDI_MIX_DURATION_STEP_SECONDS = 0.25;
 const MIDI_MANUAL_MIX_MIN_TRIGGER = 0.02;
 const MIDI_MANUAL_MIX_MAX_TRIGGER = 0.97;
+const TIMELINE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 
 function createTimelineRandomSeedToken(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -200,6 +201,21 @@ function applyMappingTransform(transform: StageTransform, action: MappingAction)
   }
 
   return next;
+}
+
+function withNewTimelineRandomSeed(project: ProjectDocument): ProjectDocument {
+  return {
+    ...project,
+    timeline: {
+      stub: {
+        ...project.timeline.stub,
+        shaderSequence: {
+          ...project.timeline.stub.shaderSequence,
+          randomSeedToken: createTimelineRandomSeedToken(),
+        },
+      },
+    },
+  };
 }
 
 function normalizeProject(project: ProjectDocument): ProjectDocument {
@@ -395,6 +411,11 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
             project.timeline?.stub?.shaderSequence?.focusedStepId ??
             defaultProject.timeline.stub.shaderSequence.focusedStepId,
           pinnedStepId: normalizedPinnedStepId,
+          randomSeedToken:
+            typeof project.timeline?.stub?.shaderSequence?.randomSeedToken === 'string' &&
+            project.timeline.stub.shaderSequence.randomSeedToken.trim()
+              ? project.timeline.stub.shaderSequence.randomSeedToken
+              : createTimelineRandomSeedToken(),
           singleStepLoopEnabled:
             project.timeline?.stub?.shaderSequence?.singleStepLoopEnabled ??
             defaultProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
@@ -1570,15 +1591,26 @@ export function WorkspaceRoute() {
   };
 
   const handlePlayToggle = () => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      playback: {
-        ...currentProject.playback,
-        transport: currentProject.playback.transport.isPlaying
-          ? pauseTransport(currentProject.playback.transport)
-          : playTransport(currentProject.playback.transport),
-      },
-    }));
+    updateProject((currentProject) => {
+      const wasPlaying = currentProject.playback.transport.isPlaying;
+      const startsFromBeginning =
+        !wasPlaying &&
+        currentProject.playback.transport.currentTimeSeconds <=
+          TIMELINE_RANDOM_RESEED_EPSILON_SECONDS;
+      const nextProject = startsFromBeginning
+        ? withNewTimelineRandomSeed(currentProject)
+        : currentProject;
+
+      return {
+        ...nextProject,
+        playback: {
+          ...nextProject.playback,
+          transport: wasPlaying
+            ? pauseTransport(nextProject.playback.transport)
+            : playTransport(nextProject.playback.transport),
+        },
+      };
+    });
   };
 
   const handleAssetSelect = (assetId: string) => {
@@ -1639,18 +1671,26 @@ export function WorkspaceRoute() {
   }, [updateProject]);
 
   const handleTimelineStop = useCallback(() => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      playback: {
-        ...currentProject.playback,
-        transport: {
-          ...currentProject.playback.transport,
-          isPlaying: false,
-          currentTimeSeconds: 0,
-          anchorTimestampMs: null,
+    updateProject((currentProject) => {
+      const currentTimeSeconds = getTransportTimeSeconds(currentProject.playback.transport);
+      const nextProject =
+        currentTimeSeconds > TIMELINE_RANDOM_RESEED_EPSILON_SECONDS
+          ? withNewTimelineRandomSeed(currentProject)
+          : currentProject;
+
+      return {
+        ...nextProject,
+        playback: {
+          ...nextProject.playback,
+          transport: {
+            ...nextProject.playback.transport,
+            isPlaying: false,
+            currentTimeSeconds: 0,
+            anchorTimestampMs: null,
+          },
         },
-      },
-    }));
+      };
+    });
   }, [updateProject]);
 
   const handleTimelineSequenceModeChange = useCallback((mode: ProjectDocument['timeline']['stub']['shaderSequence']['mode']) => {
@@ -2584,6 +2624,16 @@ export function WorkspaceRoute() {
       return;
     }
 
+    const timelineRandomSeedToken =
+      timeline.shaderSequence.randomSeedToken || project.sessionId;
+    const currentRandomSeedSalt =
+      timeline.shaderSequence.mode === 'double'
+        ? `double-primary:${timelineRandomSeedToken}`
+        : timeline.shaderSequence.mode === 'random' ||
+            timeline.shaderSequence.mode === 'randomMix' ||
+            timeline.shaderSequence.randomChoiceEnabled
+          ? `random:${timelineRandomSeedToken}`
+          : '';
     const currentState = resolveShaderTimelineState({
       shaders: project.studio.savedShaders,
       mode: timeline.shaderSequence.mode ?? 'sequence',
@@ -2598,6 +2648,7 @@ export function WorkspaceRoute() {
       steps: playbackSteps,
       timeSeconds: getTransportTimeSeconds(project.playback.transport),
       loop: project.playback.transport.loop,
+      randomSeedSalt: currentRandomSeedSalt,
     });
     const currentStepId =
       currentState?.currentStep.id ??
@@ -2634,13 +2685,23 @@ export function WorkspaceRoute() {
   const handleMidiTimelineTransport = useCallback((action: MidiTimelineTransportAction) => {
     switch (action) {
       case 'play':
-        updateProject((currentProject) => ({
-          ...currentProject,
-          playback: {
-            ...currentProject.playback,
-            transport: playTransport(currentProject.playback.transport),
-          },
-        }));
+        updateProject((currentProject) => {
+          const startsFromBeginning =
+            !currentProject.playback.transport.isPlaying &&
+            currentProject.playback.transport.currentTimeSeconds <=
+              TIMELINE_RANDOM_RESEED_EPSILON_SECONDS;
+          const nextProject = startsFromBeginning
+            ? withNewTimelineRandomSeed(currentProject)
+            : currentProject;
+
+          return {
+            ...nextProject,
+            playback: {
+              ...nextProject.playback,
+              transport: playTransport(nextProject.playback.transport),
+            },
+          };
+        });
         return;
       case 'stop':
         updateProject((currentProject) => ({

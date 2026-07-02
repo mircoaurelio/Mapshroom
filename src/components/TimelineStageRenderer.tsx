@@ -221,20 +221,12 @@ function buildPinnedCompositeUniformValues(
   };
 }
 
-function createTimelineRandomSeedToken(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function getTimelineTransitionOccurrenceSalt(
   state: ResolvedTimelineState,
-  playbackTransitionSeedToken: string,
+  timelineRandomSeedToken: string,
   randomSeedSalt = '',
 ): string {
-  return `${state.cycleIndex}:${playbackTransitionSeedToken}:${randomSeedSalt}`;
+  return `${state.cycleIndex}:${timelineRandomSeedToken}:${randomSeedSalt}`;
 }
 
 function getTimelineStateLookaheadKey(state: ResolvedTimelineState): string {
@@ -356,13 +348,6 @@ export function TimelineStageRenderer({
   const [modeTransitionNowMs, setModeTransitionNowMs] = useState(() => performance.now());
   const pinLayerTransitionRef = useRef<PinLayerTransitionState | null>(null);
   const modeLayerTransitionRef = useRef<ModeLayerTransitionState | null>(null);
-  const [doubleModeRandomSeedToken, setDoubleModeRandomSeedToken] = useState(() =>
-    createTimelineRandomSeedToken(),
-  );
-  const [playbackTransitionSeedToken, setPlaybackTransitionSeedToken] = useState(() =>
-    createTimelineRandomSeedToken(),
-  );
-  const previousDoubleModeRef = useRef(false);
   const previousSequenceModeRef = useRef<TimelineSequenceMode | null>(null);
   const hasMountedPinLayerRef = useRef(false);
   const previousPinnedStepIdRef = useRef<string | null>(null);
@@ -420,6 +405,7 @@ export function TimelineStageRenderer({
     stagePreviewMode: 'timeline',
     focusedStepId: null,
     pinnedStepId: null,
+    randomSeedToken: 'fallback-random-seed',
     singleStepLoopEnabled: false,
     randomChoiceEnabled: false,
     sharedTransitionEnabled: false,
@@ -427,17 +413,18 @@ export function TimelineStageRenderer({
     sharedTransitionDurationSeconds: 0.75,
     steps: [],
   };
+  const timelineRandomSeedToken = shaderSequence.randomSeedToken || 'fallback-random-seed';
   const doublePrimaryRandomSeedSalt =
-    shaderSequence.mode === 'double' ? `double-primary:${doubleModeRandomSeedToken}` : '';
+    shaderSequence.mode === 'double' ? `double-primary:${timelineRandomSeedToken}` : '';
   const doubleSecondaryRandomSeedBase =
-    shaderSequence.mode === 'double' ? `double-secondary:${doubleModeRandomSeedToken}` : '';
+    shaderSequence.mode === 'double' ? `double-secondary:${timelineRandomSeedToken}` : '';
   const primaryRandomSeedSalt =
     shaderSequence.mode === 'double'
       ? doublePrimaryRandomSeedSalt
       : shaderSequence.mode === 'random' ||
           shaderSequence.mode === 'randomMix' ||
           shaderSequence.randomChoiceEnabled
-        ? `random:${playbackTransitionSeedToken}`
+        ? `random:${timelineRandomSeedToken}`
         : '';
   const playbackTimelineSteps = useMemo(
     () => excludePinnedStepFromTimelinePlayback(shaderSequence.steps, pinnedStepId),
@@ -692,8 +679,6 @@ export function TimelineStageRenderer({
   const secondaryTimelineTimeSeconds = transportTimeSeconds * DOUBLE_SECONDARY_SPEED;
 
   useEffect(() => {
-    const isDoubleMode = shaderSequence.mode === 'double';
-    const wasDoubleMode = previousDoubleModeRef.current;
     const previousTransportSnapshot = previousTransportSnapshotRef.current;
     const rewoundToStart =
       !transport.isPlaying &&
@@ -707,20 +692,17 @@ export function TimelineStageRenderer({
 
     if (restartedPlaybackFromStart || rewoundToStart) {
       transitionProgressHoldRef.current.clear();
-      setPlaybackTransitionSeedToken(createTimelineRandomSeedToken());
     }
 
-    if (isDoubleMode && (!wasDoubleMode || rewoundToStart || restartedPlaybackFromStart)) {
-      transitionProgressHoldRef.current.clear();
-      setDoubleModeRandomSeedToken(createTimelineRandomSeedToken());
-    }
-
-    previousDoubleModeRef.current = isDoubleMode;
     previousTransportSnapshotRef.current = {
       isPlaying: transport.isPlaying,
       currentTimeSeconds: transport.currentTimeSeconds,
     };
-  }, [shaderSequence.mode, transport.currentTimeSeconds, transport.isPlaying]);
+  }, [transport.currentTimeSeconds, transport.isPlaying]);
+
+  useEffect(() => {
+    transitionProgressHoldRef.current.clear();
+  }, [timelineRandomSeedToken]);
 
   const availableShaderById = useMemo(
     () => new Map(availableShaders.map((shader) => [shader.id, shader])),
@@ -1155,7 +1137,7 @@ export function TimelineStageRenderer({
       const nextMediaReady = isTimelineStepMediaResolved(state.nextShader, resolvedInputSources);
       const transitionOccurrenceSalt = getTimelineTransitionOccurrenceSalt(
         state,
-        playbackTransitionSeedToken,
+        timelineRandomSeedToken,
         doublePrimaryRandomSeedSalt,
       );
       const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}:${transitionOccurrenceSalt}`;
@@ -1232,7 +1214,7 @@ export function TimelineStageRenderer({
     resolveTimelineStepLayer,
     resolvedInputSources,
     shouldResolveLiveTimelineState,
-    playbackTransitionSeedToken,
+    timelineRandomSeedToken,
     doublePrimaryRandomSeedSalt,
     midiManualMix?.enabled,
   ]);
@@ -1310,7 +1292,7 @@ export function TimelineStageRenderer({
     );
     const transitionOccurrenceSalt = getTimelineTransitionOccurrenceSalt(
       state,
-      playbackTransitionSeedToken,
+      timelineRandomSeedToken,
       doublePrimaryRandomSeedSalt,
     );
     const transitionSeed = getTimelineTransitionSeed(
@@ -1354,7 +1336,7 @@ export function TimelineStageRenderer({
         to: nextLayer.overlaySource ?? null,
       },
     };
-  }, [resolveTimelineStepLayer, shouldResolveLiveTimelineState, playbackTransitionSeedToken, doublePrimaryRandomSeedSalt]);
+  }, [resolveTimelineStepLayer, shouldResolveLiveTimelineState, timelineRandomSeedToken, doublePrimaryRandomSeedSalt]);
 
   const createStageRenderLayer = useCallback((
     layer: TimelineRenderLayer,

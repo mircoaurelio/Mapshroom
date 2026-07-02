@@ -118,6 +118,7 @@ export interface TimelineStub {
     stagePreviewMode: TimelineStagePreviewMode;
     focusedStepId: string | null;
     pinnedStepId: string | null;
+    randomSeedToken: string;
     singleStepLoopEnabled: boolean;
     randomChoiceEnabled: boolean;
     sharedTransitionEnabled: boolean;

@@ -135,6 +135,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           stagePreviewMode: 'timeline',
           focusedStepId: firstTimelineStepId,
           pinnedStepId: null,
+          randomSeedToken: crypto.randomUUID(),
           singleStepLoopEnabled: false,
           randomChoiceEnabled: false,
           sharedTransitionEnabled: false,
