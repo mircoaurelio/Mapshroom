@@ -44,6 +44,17 @@ interface StageRendererProps {
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
+  onCompiledShaderCodesChange?: (compiledShaderCodes: ReadonlySet<string>) => void;
+  onFrameRendered?: (frame: StageFrameInfo) => void;
+}
+
+export interface StageFrameInfo {
+  /** True when every requested render layer was drawn with its own compiled program. */
+  layersInSync: boolean;
+  /** True when every visible and preload layer program is compiled and cached. */
+  allProgramsReady: boolean;
+  /** Transport time used for the drawn frame. */
+  timeSeconds: number;
 }
 
 export interface StageRenderInputSource {
@@ -846,6 +857,8 @@ export function StageRenderer({
   onCanvasReady,
   onRenderStateChange,
   onCompilerError,
+  onCompiledShaderCodesChange,
+  onFrameRendered,
 }: StageRendererProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -853,6 +866,8 @@ export function StageRenderer({
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programCacheRef = useRef<Map<string, CachedProgram>>(new Map());
   const pendingProgramCacheRef = useRef<Map<string, PendingProgramBundle>>(new Map());
+  const failedProgramCodesRef = useRef<Set<string>>(new Set());
+  const lastCompileNonceRef = useRef(shaderCompileNonce);
   const compiledLayersRef = useRef<CompiledRenderLayer[]>([]);
   const programCacheClockRef = useRef(0);
   const onCompilerErrorRef = useRef(onCompilerError);
@@ -872,6 +887,8 @@ export function StageRenderer({
   const [shellSize, setShellSize] = useState({ width: 1, height: 1 });
   const onCanvasReadyRef = useRef(onCanvasReady);
   const onRenderStateChangeRef = useRef(onRenderStateChange);
+  const onCompiledShaderCodesChangeRef = useRef(onCompiledShaderCodesChange);
+  const onFrameRenderedRef = useRef(onFrameRendered);
   const defaultInputSource = useMemo<StageRenderInputSource | null>(
     () =>
       asset
@@ -911,6 +928,14 @@ export function StageRenderer({
   useEffect(() => {
     onRenderStateChangeRef.current = onRenderStateChange;
   }, [onRenderStateChange]);
+
+  useEffect(() => {
+    onCompiledShaderCodesChangeRef.current = onCompiledShaderCodesChange;
+  }, [onCompiledShaderCodesChange]);
+
+  useEffect(() => {
+    onFrameRenderedRef.current = onFrameRendered;
+  }, [onFrameRendered]);
 
   const resolvedRenderLayers = useMemo<StageRenderLayer[]>(
     () =>
@@ -1210,6 +1235,13 @@ export function StageRenderer({
     const parallelCompileExtension = gl.getExtension(
       'KHR_parallel_shader_compile',
     ) as ParallelShaderCompileExtension | null;
+    // A code that failed to compile must not be resubmitted on every queue
+    // tick (that would keep the GPU compiler busy forever and stutter
+    // playback). Failures are only retried after an explicit recompile.
+    if (lastCompileNonceRef.current !== shaderCompileNonce) {
+      lastCompileNonceRef.current = shaderCompileNonce;
+      failedProgramCodesRef.current.clear();
+    }
     const requiredLayers = [
       ...resolvedRenderLayersRef.current,
       ...resolvedPreloadLayersRef.current,
@@ -1222,6 +1254,10 @@ export function StageRenderer({
       requiredLayers.map((layer) => [layer.shaderCode, layer.uniformDefinitions] as const),
     );
 
+    const notifyCompiledShaderCodes = () => {
+      onCompiledShaderCodesChangeRef.current?.(new Set(programCacheRef.current.keys()));
+    };
+
     const pruneProgramCache = () => {
       if (programCacheRef.current.size <= MAX_RETAINED_PROGRAMS) {
         return;
@@ -1231,6 +1267,7 @@ export function StageRenderer({
         .filter(([key]) => !requiredShaderCodes.has(key))
         .sort((left, right) => left[1].lastUsedAt - right[1].lastUsedAt);
 
+      let prunedAnyProgram = false;
       for (const [key, cachedProgram] of disposablePrograms) {
         if (programCacheRef.current.size <= MAX_RETAINED_PROGRAMS) {
           break;
@@ -1238,6 +1275,11 @@ export function StageRenderer({
 
         gl.deleteProgram(cachedProgram.program);
         programCacheRef.current.delete(key);
+        prunedAnyProgram = true;
+      }
+
+      if (prunedAnyProgram) {
+        notifyCompiledShaderCodes();
       }
     };
 
@@ -1297,6 +1339,7 @@ export function StageRenderer({
       }
 
       let visibleError = '';
+      let programCacheChanged = false;
 
       for (const [key, pendingBundle] of pendingProgramCacheRef.current.entries()) {
         try {
@@ -1310,8 +1353,10 @@ export function StageRenderer({
             ...resolvedProgram,
             lastUsedAt: ++programCacheClockRef.current,
           });
+          programCacheChanged = true;
         } catch (error) {
           pendingProgramCacheRef.current.delete(key);
+          failedProgramCodesRef.current.add(key);
           if (visibleShaderCodes.has(key)) {
             visibleError = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
           }
@@ -1321,7 +1366,8 @@ export function StageRenderer({
       const missingShaderCode = Array.from(requiredShaderCodes).find(
         (shaderCode) =>
           !programCacheRef.current.has(shaderCode) &&
-          !pendingProgramCacheRef.current.has(shaderCode),
+          !pendingProgramCacheRef.current.has(shaderCode) &&
+          !failedProgramCodesRef.current.has(shaderCode),
       );
 
       if (missingShaderCode) {
@@ -1345,12 +1391,18 @@ export function StageRenderer({
                 lastUsedAt: ++programCacheClockRef.current,
               },
             );
+            programCacheChanged = true;
           }
         } catch (error) {
+          failedProgramCodesRef.current.add(missingShaderCode);
           if (visibleShaderCodes.has(missingShaderCode)) {
             visibleError = error instanceof Error ? error.message : 'Unknown GLSL compilation error.';
           }
         }
+      }
+
+      if (programCacheChanged) {
+        notifyCompiledShaderCodes();
       }
 
       const visibleShadersReady = syncCompiledRenderLayers();
@@ -1363,7 +1415,9 @@ export function StageRenderer({
       const hasPendingWork =
         pendingProgramCacheRef.current.size > 0 ||
         Array.from(requiredShaderCodes).some(
-          (shaderCode) => !programCacheRef.current.has(shaderCode),
+          (shaderCode) =>
+            !programCacheRef.current.has(shaderCode) &&
+            !failedProgramCodesRef.current.has(shaderCode),
         );
       if (hasPendingWork) {
         scheduleNextTick();
@@ -1389,6 +1443,24 @@ export function StageRenderer({
 
     const textureSources = textureSourcesRef.current;
     const requiredSourceIds = new Set(requiredInputSources.map((source) => source.sourceKey));
+    // Sources referenced by the currently drawable layers must survive even
+    // when the freshly requested layers no longer reference them: the render
+    // loop keeps drawing the previous compiled layers while new programs
+    // finish compiling, and disposing their textures would flash black.
+    for (const compiledLayer of compiledLayersRef.current) {
+      for (const source of [
+        compiledLayer.inputSource,
+        compiledLayer.overlaySource,
+        compiledLayer.transitionInputSources?.from,
+        compiledLayer.transitionInputSources?.to,
+        compiledLayer.transitionOverlaySources?.from,
+        compiledLayer.transitionOverlaySources?.to,
+      ]) {
+        if (source) {
+          requiredSourceIds.add(source.sourceKey);
+        }
+      }
+    }
     const syncBufferedMedia = () => {
       const readyStates = Array.from(textureSources.values()).filter(
         (state) => state.status === 'ready',
@@ -1527,20 +1599,36 @@ export function StageRenderer({
       const textureSources = textureSourcesRef.current;
       const resolvedLayers = resolvedRenderLayersRef.current;
 
+      // Failed codes count as settled: they will never compile, and export
+      // must not wait for them (visible-layer failures surface separately
+      // through onCompilerError).
+      const allProgramsReady = [
+        ...resolvedRenderLayersRef.current,
+        ...resolvedPreloadLayersRef.current,
+      ].every(
+        (layer) =>
+          programCacheRef.current.has(layer.shaderCode) ||
+          failedProgramCodesRef.current.has(layer.shaderCode),
+      );
+
       if (!gl || !canvas || !buffer || compiledLayers.length === 0) {
+        onFrameRenderedRef.current?.({
+          layersInSync: false,
+          allProgramsReady,
+          timeSeconds: getTransportTimeSeconds(transportRef.current, timestamp),
+        });
         rafRef.current = requestAnimationFrame(render);
         return;
       }
 
-      if (
-        compiledLayers.length !== resolvedLayers.length ||
-        compiledLayers.some(
-          (layer, index) => layer.shaderCode !== resolvedLayers[index]?.shaderCode,
-        )
-      ) {
-        rafRef.current = requestAnimationFrame(render);
-        return;
-      }
+      // When some requested layer program is still compiling, keep drawing the
+      // previous compiled layers with a live clock instead of freezing the
+      // stream. The new layers take over as soon as their programs are ready.
+      const layersInSync =
+        compiledLayers.length === resolvedLayers.length &&
+        compiledLayers.every(
+          (layer, index) => layer.shaderCode === resolvedLayers[index]?.shaderCode,
+        );
 
       try {
         const currentTransport = transportRef.current;
@@ -1560,7 +1648,12 @@ export function StageRenderer({
             passLayerCount: number;
           },
         ) => {
-          const activeLayer = resolvedRenderLayersRef.current[layerIndex] ?? layer;
+          // When drawing stale layers (program for the requested layers still
+          // compiling), reuse the stale layer's own uniforms: the freshly
+          // resolved layer at this index may belong to a different shader.
+          const activeLayer = layersInSync
+            ? resolvedRenderLayersRef.current[layerIndex] ?? layer
+            : layer;
           const activeOpacity = Number.isFinite(activeLayer.opacity)
             ? Number(activeLayer.opacity)
             : layer.opacity;
@@ -1776,6 +1869,11 @@ export function StageRenderer({
         gl.disable(gl.BLEND);
 
         renderWarningRef.current = null;
+        onFrameRenderedRef.current?.({
+          layersInSync,
+          allProgramsReady,
+          timeSeconds: transportTime,
+        });
       } catch (error) {
         const nextWarning =
           error instanceof Error ? error.message : 'Stage render frame failed.';
@@ -1783,6 +1881,11 @@ export function StageRenderer({
           console.warn('Stage render frame failed.', error);
           renderWarningRef.current = nextWarning;
         }
+        onFrameRenderedRef.current?.({
+          layersInSync: false,
+          allProgramsReady,
+          timeSeconds: getTransportTimeSeconds(transportRef.current, timestamp),
+        });
       } finally {
         rafRef.current = requestAnimationFrame(render);
       }

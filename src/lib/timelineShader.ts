@@ -1,6 +1,38 @@
 import { parseUniforms } from './shader';
 import type { TimelineTransitionEffect } from '../types';
 
+// Shader code generation (namespacing + assembly) runs regex passes over the
+// full shader sources. Timeline playback requests the same combinations on
+// every animation frame, so each builder memoizes its output by input key.
+function createShaderCodeMemo(limit = 128) {
+  const cache = new Map<string, string>();
+
+  return (key: string, build: () => string): string => {
+    const cachedCode = cache.get(key);
+    if (cachedCode !== undefined) {
+      cache.delete(key);
+      cache.set(key, cachedCode);
+      return cachedCode;
+    }
+
+    const builtCode = build();
+    if (cache.size >= limit) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey !== undefined) {
+        cache.delete(oldestKey);
+      }
+    }
+    cache.set(key, builtCode);
+    return builtCode;
+  };
+}
+
+const namespaceShaderCodeMemo = createShaderCodeMemo(256);
+const transitionShaderCodeMemo = createShaderCodeMemo(128);
+const overlayShaderCodeMemo = createShaderCodeMemo(128);
+const pinShaderCodeMemo = createShaderCodeMemo(64);
+const doubleShaderCodeMemo = createShaderCodeMemo(64);
+
 function stripShaderNameHeader(code: string): string {
   return code.replace(/^\s*\/\/\s*NAME:.*$/im, '').trim();
 }
@@ -51,21 +83,23 @@ function replaceIdentifier(source: string, name: string, replacement: string): s
 }
 
 function namespaceShaderCode(code: string, namespace: string): string {
-  let nextCode = stripShaderNameHeader(code);
-  const uniformNames = collectUniformNames(nextCode);
-  const functionNames = collectFunctionNames(nextCode);
-  const replacements = [...uniformNames, ...functionNames]
-    .map((name) => ({
-      name,
-      replacement: `${namespace}_${name}`,
-    }))
-    .sort((left, right) => right.name.length - left.name.length);
+  return namespaceShaderCodeMemo(`${namespace}\u0001${code}`, () => {
+    let nextCode = stripShaderNameHeader(code);
+    const uniformNames = collectUniformNames(nextCode);
+    const functionNames = collectFunctionNames(nextCode);
+    const replacements = [...uniformNames, ...functionNames]
+      .map((name) => ({
+        name,
+        replacement: `${namespace}_${name}`,
+      }))
+      .sort((left, right) => right.name.length - left.name.length);
 
-  for (const replacement of replacements) {
-    nextCode = replaceIdentifier(nextCode, replacement.name, replacement.replacement);
-  }
+    for (const replacement of replacements) {
+      nextCode = replaceIdentifier(nextCode, replacement.name, replacement.replacement);
+    }
 
-  return nextCode;
+    return nextCode;
+  });
 }
 
 function buildTransitionMixerLibrary(): string {
@@ -515,9 +549,10 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
 }
 
 export function buildTimelinePinShaderAlphaOverlayShaderCode(shaderCode: string): string {
-  const pinCode = namespaceShaderCode(shaderCode, 'timeline_pin');
+  return pinShaderCodeMemo(`alpha\u0001${shaderCode}`, () => {
+    const pinCode = namespaceShaderCode(shaderCode, 'timeline_pin');
 
-  return `// NAME: Timeline Pin Shader Alpha Overlay
+    return `// NAME: Timeline Pin Shader Alpha Overlay
 uniform sampler2D u_timeline_base_image;
 uniform float u_timeline_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
 
@@ -530,14 +565,16 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     vec3 compositedRgb = mix(baseColor.rgb, pinColor.rgb, alpha);
     return vec4(clamp(compositedRgb, 0.0, 1.0), max(baseColor.a, alpha));
 }`;
+  });
 }
 
 export function buildTimelinePinStackShaderOutputShaderCode(shaderCode: string): string {
-  const pinCode = namespaceShaderCode(shaderCode, 'timeline_pin');
-  const overlayComposer = buildTimelineOverlayComposer();
-  const pinStackKeyComposer = buildPinStackKeyComposer();
+  return pinShaderCodeMemo(`stack\u0001${shaderCode}`, () => {
+    const pinCode = namespaceShaderCode(shaderCode, 'timeline_pin');
+    const overlayComposer = buildTimelineOverlayComposer();
+    const pinStackKeyComposer = buildPinStackKeyComposer();
 
-  return `// NAME: Timeline Pin Stack Shader
+    return `// NAME: Timeline Pin Stack Shader
 uniform float u_timeline_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
 uniform float u_timeline_pin_key_black; // @min 0.0 @max 1.0 @default 0.0
 uniform float u_timeline_pin_key_threshold; // @min 0.0 @max 0.5 @default 0.04
@@ -560,6 +597,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     float alpha = u_timeline_overlay_opacity * max(keyMask, step(0.004, rgbPeak));
     return vec4(pinColor.rgb, alpha);
 }`;
+  });
 }
 
 export function buildTimelinePinBlendCompositeShaderCode(): string {
@@ -575,10 +613,11 @@ export function buildTimelineOverlayShaderCode({
 }: {
   shaderCode: string;
 }): string {
-  const baseCode = namespaceShaderCode(shaderCode, 'timeline_base');
-  const overlayComposer = buildTimelineOverlayComposer();
+  return overlayShaderCodeMemo(shaderCode, () => {
+    const baseCode = namespaceShaderCode(shaderCode, 'timeline_base');
+    const overlayComposer = buildTimelineOverlayComposer();
 
-  return `// NAME: Timeline Overlay
+    return `// NAME: Timeline Overlay
 uniform bool u_timeline_has_overlay; // @default false
 uniform sampler2D u_timeline_overlay_image;
 uniform float u_timeline_overlay_opacity; // @min 0.0 @max 1.0 @default 0.85
@@ -618,6 +657,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
         u_timeline_overlay_quality
     );
 }`;
+  });
 }
 
 export function buildTimelineTransitionShaderCode({
@@ -629,13 +669,14 @@ export function buildTimelineTransitionShaderCode({
   toCode: string;
   effect: TimelineTransitionEffect;
 }): string {
-  const leftCode = namespaceShaderCode(fromCode, 'timeline_from');
-  const rightCode = namespaceShaderCode(toCode, 'timeline_to');
-  const transitionMixerLibrary = buildTransitionMixerLibrary();
-  const transitionMixer = buildTransitionMixer(effect);
-  const overlayComposer = buildTimelineOverlayComposer();
+  return transitionShaderCodeMemo(`${effect}\u0001${fromCode}\u0001${toCode}`, () => {
+    const leftCode = namespaceShaderCode(fromCode, 'timeline_from');
+    const rightCode = namespaceShaderCode(toCode, 'timeline_to');
+    const transitionMixerLibrary = buildTransitionMixerLibrary();
+    const transitionMixer = buildTransitionMixer(effect);
+    const overlayComposer = buildTimelineOverlayComposer();
 
-  return `// NAME: Timeline Transition
+    return `// NAME: Timeline Transition
 uniform float u_transition_progress; // @min 0.0 @max 1.0 @default 0.0
 uniform float u_transition_seed; // @min 0.0 @max 1.0 @default 0.0
 uniform float u_transition_duration; // @min 0.001 @max 600.0 @default 0.75
@@ -716,6 +757,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     float progress = clamp(u_transition_progress, 0.0, 1.0);
     return mixTimelineTransition(fromColor, toColor, uv, progress);
 }`;
+  });
 }
 
 export function buildTimelineDoubleShaderCode({
@@ -725,10 +767,11 @@ export function buildTimelineDoubleShaderCode({
   primaryCode: string;
   secondaryCode: string;
 }): string {
-  const leftCode = namespaceShaderCode(primaryCode, 'timeline_primary');
-  const rightCode = namespaceShaderCode(secondaryCode, 'timeline_secondary');
+  return doubleShaderCodeMemo(`${primaryCode}\u0001${secondaryCode}`, () => {
+    const leftCode = namespaceShaderCode(primaryCode, 'timeline_primary');
+    const rightCode = namespaceShaderCode(secondaryCode, 'timeline_secondary');
 
-  return `// NAME: Timeline Double
+    return `// NAME: Timeline Double
 ${leftCode}
 
 ${rightCode}
@@ -741,4 +784,5 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
         mix(primaryColor.a, secondaryColor.a, 0.5)
     );
 }`;
+  });
 }

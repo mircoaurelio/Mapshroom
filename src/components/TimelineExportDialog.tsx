@@ -1,7 +1,7 @@
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TimelineStageRenderer } from './TimelineStageRenderer';
-import type { StageRendererState } from './StageRenderer';
+import type { StageFrameInfo, StageRendererState } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 import type {
   AssetRecord,
@@ -164,6 +164,7 @@ export function TimelineExportDialog({
   });
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const renderStateRef = useRef<StageRendererState | null>(null);
+  const lastRenderedFrameRef = useRef<StageFrameInfo | null>(null);
   const renderErrorRef = useRef('');
   const encoderErrorRef = useRef<Error | null>(null);
   const dialogSessionTokenRef = useRef(0);
@@ -178,6 +179,7 @@ export function TimelineExportDialog({
     setStatusMessage('Ready to export the current timeline.');
     setErrorMessage('');
     renderStateRef.current = null;
+    lastRenderedFrameRef.current = null;
     renderErrorRef.current = '';
     encoderErrorRef.current = null;
     setExportTransport({
@@ -283,6 +285,56 @@ export function TimelineExportDialog({
     }
 
     throw new Error('The export renderer did not become ready in time.');
+  };
+
+  // Blocks until the stage has actually drawn the requested frame time with
+  // every visible shader program compiled. This keeps compilation hitches out
+  // of the exported file: a frame is only captured once the exact transition /
+  // shader combination for that timestamp is on the canvas.
+  const waitForExportFrame = async (sessionToken: number, targetTimeSeconds: number) => {
+    const startedAtMs = performance.now();
+    const failSafeDeadlineMs = startedAtMs + 10_000;
+    let visibleFrameSyncedAtMs: number | null = null;
+
+    for (;;) {
+      if (dialogSessionTokenRef.current !== sessionToken) {
+        throw new Error('Export cancelled.');
+      }
+
+      const renderError = renderErrorRef.current.trim();
+      if (renderError) {
+        throw new Error(renderError);
+      }
+      if (encoderErrorRef.current) {
+        throw encoderErrorRef.current;
+      }
+
+      const frame = lastRenderedFrameRef.current;
+      const visibleFrameReady =
+        frame !== null &&
+        frame.layersInSync &&
+        Math.abs(frame.timeSeconds - targetTimeSeconds) < 0.0001;
+
+      if (visibleFrameReady && frame.allProgramsReady) {
+        return;
+      }
+
+      if (visibleFrameReady) {
+        // The visible frame is correct; give background (preload) programs a
+        // bounded amount of time so upcoming transitions land on schedule, but
+        // never stall the export on a preload that cannot compile.
+        visibleFrameSyncedAtMs ??= performance.now();
+        if (performance.now() - visibleFrameSyncedAtMs > 2_000) {
+          return;
+        }
+      }
+
+      if (performance.now() > failSafeDeadlineMs) {
+        return;
+      }
+
+      await waitForAnimationFrames(1);
+    }
   };
 
   const handleExport = async () => {
@@ -396,6 +448,7 @@ export function TimelineExportDialog({
         });
 
         await waitForAnimationFrames(2);
+        await waitForExportFrame(exportSessionToken, frameTimeSeconds);
         if (exportUsesVideoInput) {
           await waitForTimeout(30);
           await waitForAnimationFrames(1);
@@ -653,6 +706,9 @@ export function TimelineExportDialog({
                 }}
                 onRenderStateChange={(state) => {
                   renderStateRef.current = state;
+                }}
+                onFrameRendered={(frame) => {
+                  lastRenderedFrameRef.current = frame;
                 }}
                 onCompilerError={(message) => {
                   renderErrorRef.current = message;

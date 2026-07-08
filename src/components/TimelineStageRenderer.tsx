@@ -40,6 +40,7 @@ import type {
 } from '../types';
 import {
   StageRenderer,
+  type StageFrameInfo,
   type StageRendererState,
   type StageRenderInputSource,
   type StageRenderLayer,
@@ -315,6 +316,7 @@ interface TimelineStageRendererProps {
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
+  onFrameRendered?: (frame: StageFrameInfo) => void;
 }
 
 export function TimelineStageRenderer({
@@ -342,6 +344,7 @@ export function TimelineStageRenderer({
   onCanvasReady,
   onRenderStateChange,
   onCompilerError,
+  onFrameRendered,
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
   const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
@@ -370,6 +373,15 @@ export function TimelineStageRenderer({
     currentTimeSeconds: transport.currentTimeSeconds,
   });
   const transitionProgressHoldRef = useRef<Map<string, number>>(new Map());
+  // Raw timeline progress observed when a transition first became renderable
+  // (program compiled). Used to restart the visual transition from 0 when the
+  // program finished compiling after the scheduled transition start, so the
+  // second shader fades in late instead of jumping or stalling the stream.
+  const transitionProgressStartRef = useRef<Map<string, number>>(new Map());
+  // Shader codes whose WebGL programs are compiled and ready to draw.
+  const [compiledShaderCodes, setCompiledShaderCodes] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
   const [resolvedInputSources, setResolvedInputSources] = useState<
     Record<string, { url: string | null; status: AssetObjectUrlStatus }>
   >({});
@@ -692,6 +704,7 @@ export function TimelineStageRenderer({
 
     if (restartedPlaybackFromStart || rewoundToStart) {
       transitionProgressHoldRef.current.clear();
+      transitionProgressStartRef.current.clear();
     }
 
     previousTransportSnapshotRef.current = {
@@ -702,6 +715,7 @@ export function TimelineStageRenderer({
 
   useEffect(() => {
     transitionProgressHoldRef.current.clear();
+    transitionProgressStartRef.current.clear();
   }, [timelineRandomSeedToken]);
 
   const availableShaderById = useMemo(
@@ -1146,9 +1160,40 @@ export function TimelineStageRenderer({
         state.nextStep.id,
         transitionOccurrenceSalt,
       );
+      const transitionShaderCode = buildTimelineTransitionShaderCode({
+        fromCode: currentLayer.shaderCode,
+        toCode: nextLayer.shaderCode,
+        effect: state.transitionEffect,
+      });
+      // During live playback, never put a still-compiling transition program on
+      // screen: keep playing the current shader alone and let the combined
+      // program finish compiling in the background (it stays queued through the
+      // preload layers). When it becomes ready the transition starts from zero
+      // at that moment, so the next shader appears slightly later instead of
+      // stalling or jumping the stream. Paused/scrub/export rendering skips the
+      // gate because those consumers wait for compilation explicitly.
+      const liveGatingActive =
+        shouldResolveLiveTimelineState && transport.isPlaying && !midiManualMix?.enabled;
+      const transitionProgramReady = compiledShaderCodes.has(transitionShaderCode);
+
+      if (liveGatingActive && !transitionProgramReady) {
+        return buildSingleShaderLayer(currentLayer);
+      }
+
       let transitionProgress = 0;
       if (state.isTransitioning) {
-        const requestedProgress = easeTransitionProgress(state.transitionProgress);
+        const rawProgress = Math.max(0, Math.min(1, state.transitionProgress));
+        let startProgress = 0;
+        if (liveGatingActive) {
+          const heldStartProgress = transitionProgressStartRef.current.get(pairKey);
+          startProgress = heldStartProgress ?? rawProgress;
+          if (heldStartProgress === undefined) {
+            transitionProgressStartRef.current.set(pairKey, startProgress);
+          }
+        }
+        const normalizedProgress =
+          startProgress >= 0.999 ? 1 : (rawProgress - startProgress) / (1 - startProgress);
+        const requestedProgress = easeTransitionProgress(normalizedProgress);
         const currentHeldProgress = transitionProgressHoldRef.current.get(pairKey) ?? 0;
         transitionProgress = midiManualMix?.enabled
           ? requestedProgress
@@ -1156,15 +1201,12 @@ export function TimelineStageRenderer({
         transitionProgressHoldRef.current.set(pairKey, transitionProgress);
       } else {
         transitionProgressHoldRef.current.set(pairKey, 0);
+        transitionProgressStartRef.current.delete(pairKey);
       }
 
       return {
         kind: 'transition',
-        shaderCode: buildTimelineTransitionShaderCode({
-          fromCode: currentLayer.shaderCode,
-          toCode: nextLayer.shaderCode,
-          effect: state.transitionEffect,
-        }),
+        shaderCode: transitionShaderCode,
         uniformValues: {
           u_transition_progress: transitionProgress,
           u_transition_seed: transitionSeed,
@@ -1211,12 +1253,14 @@ export function TimelineStageRenderer({
     return buildSingleShaderLayer(currentLayer);
   }, [
     buildSingleShaderLayer,
+    compiledShaderCodes,
     resolveTimelineStepLayer,
     resolvedInputSources,
     shouldResolveLiveTimelineState,
     timelineRandomSeedToken,
     doublePrimaryRandomSeedSalt,
     midiManualMix?.enabled,
+    transport.isPlaying,
   ]);
 
   const buildDoubleAutomataRenderLayer = useCallback((
@@ -2053,6 +2097,8 @@ export function TimelineStageRenderer({
       }
       onCanvasReady={onCanvasReady}
       onRenderStateChange={onRenderStateChange}
+      onCompiledShaderCodesChange={setCompiledShaderCodes}
+      onFrameRendered={onFrameRendered}
       onCompilerError={(message) => {
         if (!onCompilerError) {
           return;

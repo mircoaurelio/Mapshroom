@@ -62,7 +62,19 @@ export function parseShaderName(code: string): string {
   return match?.[1]?.trim() || 'Untitled Shader';
 }
 
+// Timeline playback parses the same (potentially very large) generated shader
+// strings on every animation frame, so results are memoized by source code.
+const parseUniformsCache = new Map<string, ShaderUniformMap>();
+const PARSE_UNIFORMS_CACHE_LIMIT = 512;
+
 export function parseUniforms(code: string): ShaderUniformMap {
+  const cachedUniforms = parseUniformsCache.get(code);
+  if (cachedUniforms) {
+    parseUniformsCache.delete(code);
+    parseUniformsCache.set(code, cachedUniforms);
+    return cachedUniforms;
+  }
+
   const uniformRegex =
     /uniform\s+(float|int|vec3|bool)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*;\s*(?:\/\/\s*(.*))?/g;
   const uniforms: ShaderUniformMap = {};
@@ -109,6 +121,14 @@ export function parseUniforms(code: string): ShaderUniformMap {
       default: defaultValue,
     };
   }
+
+  if (parseUniformsCache.size >= PARSE_UNIFORMS_CACHE_LIMIT) {
+    const oldestKey = parseUniformsCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      parseUniformsCache.delete(oldestKey);
+    }
+  }
+  parseUniformsCache.set(code, uniforms);
 
   return uniforms;
 }
