@@ -674,68 +674,19 @@ export function TimelineStageRenderer({
     return availableShaders.find((shader) => shader.id === pinnedSequenceStep.shaderId) ?? null;
   }, [availableShaders, pinnedSequenceStep]);
 
-  // Shader animation time flows through StageRenderer's own render loop, so a
-  // React re-render is only needed when the resolved timeline state actually
-  // changes shape (step boundary, transition start/end, cycle wrap) or while a
-  // continuously animated value is on screen (transition progress, double-mode
-  // automata, MIDI manual mixing). The probe below is refreshed every render
-  // and lets the ticker decide per frame whether a re-render is required,
-  // which keeps steady single-shader playback almost free of React churn.
-  const timelineTickProbeRef = useRef<(timestamp: number) => { signature: string; continuous: boolean }>(
-    () => ({ signature: '', continuous: true }),
-  );
-
-  useEffect(() => {
-    timelineTickProbeRef.current = (timestamp: number) => {
-      if (midiManualMix?.enabled) {
-        return { signature: 'midi-manual', continuous: true };
-      }
-
-      const timeSeconds = getTransportTimeSeconds(transport, timestamp);
-      const state = resolveShaderTimelineState({
-        shaders: availableShaders,
-        mode: shaderSequence.mode ?? 'sequence',
-        focusedStepId: shaderSequence.focusedStepId ?? null,
-        singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
-        randomChoiceEnabled: shaderSequence.randomChoiceEnabled ?? false,
-        sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled ?? false,
-        sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
-        sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
-        sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
-        steps: playbackTimelineSteps,
-        timeSeconds,
-        loop: transport.loop,
-        randomSeedSalt: primaryRandomSeedSalt,
-      });
-      const continuous =
-        (shaderSequence.mode ?? 'sequence') === 'double' || Boolean(state?.isTransitioning);
-      const signature = state
-        ? [
-            state.currentStep.id,
-            state.nextStep?.id ?? '',
-            state.isTransitioning ? 1 : 0,
-            state.cycleIndex,
-          ].join('|')
-        : 'none';
-
-      return { signature, continuous };
-    };
-  });
-
   useEffect(() => {
     if (!shouldResolveLiveTimelineState || !transport.isPlaying) {
       setTimelineNowMs(performance.now());
       return;
     }
 
+    // Must update every frame: timeline state, preload layers, and transition
+    // progress all depend on transportTimeSeconds. Throttling re-renders here
+    // delays transition-shader compilation until the boundary and brings back
+    // live playback lag.
     let frameId = 0;
-    let lastSignature: string | null = null;
     const tick = (timestamp: number) => {
-      const { signature, continuous } = timelineTickProbeRef.current(timestamp);
-      if (continuous || lastSignature === null || signature !== lastSignature) {
-        setTimelineNowMs(timestamp);
-      }
-      lastSignature = signature;
+      setTimelineNowMs(timestamp);
       frameId = requestAnimationFrame(tick);
     };
 
@@ -1490,9 +1441,6 @@ export function TimelineStageRenderer({
   const timelineWarmupSources = useMemo(() => {
     const sources = new Map<string, StageRenderInputSource>();
 
-    // Warmup sources reuse the exact playback scopes so they share the same
-    // texture/video element with the live render layers instead of creating a
-    // duplicate decoder per asset.
     for (const step of shaderSequence.steps) {
       const stepShader = availableShaders.find((shader) => shader.id === step.shaderId);
       if (!stepShader) {
@@ -1500,7 +1448,7 @@ export function TimelineStageRenderer({
       }
 
       registerResolvedShaderLayerSources(
-        resolveShaderLayer(stepShader, step, `step:${step.id}:current`, {
+        resolveShaderLayer(stepShader, step, `warmup:step:${step.id}`, {
           preferStepSnapshot: true,
         }),
         sources,
@@ -1512,7 +1460,7 @@ export function TimelineStageRenderer({
         resolveShaderLayer(
           pinnedSequenceShader,
           pinnedSequenceStep,
-          `step:${pinnedSequenceStep.id}:pinned`,
+          `warmup:step:${pinnedSequenceStep.id}:pinned`,
           { preferStepSnapshot: true },
         ),
         sources,
