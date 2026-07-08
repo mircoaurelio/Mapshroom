@@ -884,6 +884,9 @@ export function StageRenderer({
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
+  // Bumped after a WebGL context restore so every GL-owning effect rebuilds
+  // its resources (programs, textures, buffers) against the restored context.
+  const [glContextGeneration, setGlContextGeneration] = useState(0);
   const [shellSize, setShellSize] = useState({ width: 1, height: 1 });
   const onCanvasReadyRef = useRef(onCanvasReady);
   const onRenderStateChangeRef = useRef(onRenderStateChange);
@@ -1103,12 +1106,31 @@ export function StageRenderer({
     const programCache = programCacheRef.current;
     const pendingProgramCache = pendingProgramCacheRef.current;
     const textureSources = textureSourcesRef.current;
+    const failedProgramCodes = failedProgramCodesRef.current;
+
+    // Recover from GPU resets: prevent the default lost-context teardown so
+    // the browser restores the context, then rebuild every GL resource by
+    // bumping the context generation (all GL-owning effects depend on it).
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+    };
+    const handleContextRestored = () => {
+      setGlContextGeneration((currentGeneration) => currentGeneration + 1);
+    };
+    canvas.addEventListener('webglcontextlost', handleContextLost);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
     const gl = canvas.getContext('webgl', {
       preserveDrawingBuffer: preserveDrawingBufferRef.current,
     });
-    if (!gl) {
-      onCompilerErrorRef.current?.('WebGL is not available in this browser.');
-      return;
+    if (!gl || gl.isContextLost()) {
+      if (!gl) {
+        onCompilerErrorRef.current?.('WebGL is not available in this browser.');
+      }
+      return () => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost);
+        canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+      };
     }
 
     glRef.current = gl;
@@ -1116,7 +1138,10 @@ export function StageRenderer({
     const buffer = gl.createBuffer();
     if (!buffer) {
       onCompilerErrorRef.current?.('Unable to allocate the WebGL buffers.');
-      return;
+      return () => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost);
+        canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+      };
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -1127,11 +1152,17 @@ export function StageRenderer({
     );
 
     positionBufferRef.current = buffer;
+    gl.viewport(0, 0, canvas.width, canvas.height);
 
     return () => {
+      canvas.removeEventListener('webglcontextlost', handleContextLost);
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored);
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
+      // After a context loss these deletes are harmless no-ops; the important
+      // part is clearing the caches so the next generation recompiles and
+      // re-uploads everything from scratch.
       programCache.forEach(({ program }) => {
         gl.deleteProgram(program);
       });
@@ -1140,17 +1171,24 @@ export function StageRenderer({
         disposePendingProgramBundle(gl, pendingBundle);
       });
       pendingProgramCache.clear();
+      failedProgramCodes.clear();
       compiledLayersRef.current = [];
       textureSources.forEach((state) => {
         disposeTextureSourceState(gl, state);
       });
       textureSources.clear();
+      if (compositeRenderTargetRef.current) {
+        gl.deleteFramebuffer(compositeRenderTargetRef.current.framebuffer);
+        gl.deleteTexture(compositeRenderTargetRef.current.texture);
+        compositeRenderTargetRef.current = null;
+      }
       if (positionBufferRef.current) {
         gl.deleteBuffer(positionBufferRef.current);
       }
+      positionBufferRef.current = null;
       glRef.current = null;
     };
-  }, []);
+  }, [glContextGeneration]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -1222,7 +1260,7 @@ export function StageRenderer({
       resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
-  }, [mediaAspectRatio]);
+  }, [mediaAspectRatio, glContextGeneration]);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -1433,7 +1471,7 @@ export function StageRenderer({
         window.clearTimeout(timeoutId);
       }
     };
-  }, [renderLayerShaderSignature, shaderCompileNonce]);
+  }, [renderLayerShaderSignature, shaderCompileNonce, glContextGeneration]);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -1568,7 +1606,7 @@ export function StageRenderer({
     }
 
     syncBufferedMedia();
-  }, [preferredAspectSourceId, requiredInputSourceSignature, requiredInputSources]);
+  }, [preferredAspectSourceId, requiredInputSourceSignature, requiredInputSources, glContextGeneration]);
 
   useEffect(() => {
     textureSourcesRef.current.forEach((state) => {

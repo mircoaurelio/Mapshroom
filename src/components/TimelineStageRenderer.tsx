@@ -478,6 +478,19 @@ export function TimelineStageRenderer({
 
   useEffect(() => {
     let disposed = false;
+
+    // Release object URLs of assets that no longer exist in the project so
+    // long sessions do not leak the underlying blobs.
+    for (const [cachedAssetId, cachedObjectUrl] of timelineAssetUrlCache.entries()) {
+      if (assetMap.has(cachedAssetId)) {
+        continue;
+      }
+
+      URL.revokeObjectURL(cachedObjectUrl);
+      timelineAssetUrlCache.delete(cachedAssetId);
+      timelineDecodedAssetIds.delete(cachedAssetId);
+    }
+
     const nextKnownSources = referencedInputAssetIds.reduce<
       Record<string, { url: string | null; status: AssetObjectUrlStatus }>
     >((collection, assetId) => {
@@ -661,6 +674,54 @@ export function TimelineStageRenderer({
     return availableShaders.find((shader) => shader.id === pinnedSequenceStep.shaderId) ?? null;
   }, [availableShaders, pinnedSequenceStep]);
 
+  // Shader animation time flows through StageRenderer's own render loop, so a
+  // React re-render is only needed when the resolved timeline state actually
+  // changes shape (step boundary, transition start/end, cycle wrap) or while a
+  // continuously animated value is on screen (transition progress, double-mode
+  // automata, MIDI manual mixing). The probe below is refreshed every render
+  // and lets the ticker decide per frame whether a re-render is required,
+  // which keeps steady single-shader playback almost free of React churn.
+  const timelineTickProbeRef = useRef<(timestamp: number) => { signature: string; continuous: boolean }>(
+    () => ({ signature: '', continuous: true }),
+  );
+
+  useEffect(() => {
+    timelineTickProbeRef.current = (timestamp: number) => {
+      if (midiManualMix?.enabled) {
+        return { signature: 'midi-manual', continuous: true };
+      }
+
+      const timeSeconds = getTransportTimeSeconds(transport, timestamp);
+      const state = resolveShaderTimelineState({
+        shaders: availableShaders,
+        mode: shaderSequence.mode ?? 'sequence',
+        focusedStepId: shaderSequence.focusedStepId ?? null,
+        singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
+        randomChoiceEnabled: shaderSequence.randomChoiceEnabled ?? false,
+        sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled ?? false,
+        sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+        sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+        sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
+        steps: playbackTimelineSteps,
+        timeSeconds,
+        loop: transport.loop,
+        randomSeedSalt: primaryRandomSeedSalt,
+      });
+      const continuous =
+        (shaderSequence.mode ?? 'sequence') === 'double' || Boolean(state?.isTransitioning);
+      const signature = state
+        ? [
+            state.currentStep.id,
+            state.nextStep?.id ?? '',
+            state.isTransitioning ? 1 : 0,
+            state.cycleIndex,
+          ].join('|')
+        : 'none';
+
+      return { signature, continuous };
+    };
+  });
+
   useEffect(() => {
     if (!shouldResolveLiveTimelineState || !transport.isPlaying) {
       setTimelineNowMs(performance.now());
@@ -668,8 +729,13 @@ export function TimelineStageRenderer({
     }
 
     let frameId = 0;
+    let lastSignature: string | null = null;
     const tick = (timestamp: number) => {
-      setTimelineNowMs(timestamp);
+      const { signature, continuous } = timelineTickProbeRef.current(timestamp);
+      if (continuous || lastSignature === null || signature !== lastSignature) {
+        setTimelineNowMs(timestamp);
+      }
+      lastSignature = signature;
       frameId = requestAnimationFrame(tick);
     };
 
@@ -1424,6 +1490,9 @@ export function TimelineStageRenderer({
   const timelineWarmupSources = useMemo(() => {
     const sources = new Map<string, StageRenderInputSource>();
 
+    // Warmup sources reuse the exact playback scopes so they share the same
+    // texture/video element with the live render layers instead of creating a
+    // duplicate decoder per asset.
     for (const step of shaderSequence.steps) {
       const stepShader = availableShaders.find((shader) => shader.id === step.shaderId);
       if (!stepShader) {
@@ -1431,7 +1500,7 @@ export function TimelineStageRenderer({
       }
 
       registerResolvedShaderLayerSources(
-        resolveShaderLayer(stepShader, step, `warmup:step:${step.id}`, {
+        resolveShaderLayer(stepShader, step, `step:${step.id}:current`, {
           preferStepSnapshot: true,
         }),
         sources,
@@ -1443,7 +1512,7 @@ export function TimelineStageRenderer({
         resolveShaderLayer(
           pinnedSequenceShader,
           pinnedSequenceStep,
-          `warmup:step:${pinnedSequenceStep.id}:pinned`,
+          `step:${pinnedSequenceStep.id}:pinned`,
           { preferStepSnapshot: true },
         ),
         sources,

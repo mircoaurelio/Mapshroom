@@ -532,7 +532,7 @@ export function resolveShaderTimelineState({
     cycleIndex,
     randomSeedSalt,
   });
-  let resolvedTime = loop
+  const resolvedTime = loop
     ? absoluteTimeSeconds % totalDurationSeconds
     : Math.min(absoluteTimeSeconds, totalDurationSeconds);
 

@@ -3,8 +3,8 @@ interface MIDIOptions {
   software?: boolean;
 }
 
-interface MIDIInputMap extends ReadonlyMap<string, MIDIInput> {}
-interface MIDIOutputMap extends ReadonlyMap<string, MIDIOutput> {}
+type MIDIInputMap = ReadonlyMap<string, MIDIInput>;
+type MIDIOutputMap = ReadonlyMap<string, MIDIOutput>;
 
 interface MIDIAccess extends EventTarget {
   readonly inputs: MIDIInputMap;

@@ -1,4 +1,3 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import {
   DEFAULT_GOOGLE_API_VERSION,
   SHADER_GENERATION_TEMPERATURE,
@@ -7,17 +6,6 @@ import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
 import type { ShaderRequestOptions } from './openai';
 import { extractGlslCode, validateGeneratedShader } from './shader';
-
-function createGoogleClient(apiKey: string): GoogleGenAI {
-  return new GoogleGenAI({
-    apiKey,
-    apiVersion: DEFAULT_GOOGLE_API_VERSION,
-  });
-}
-
-function resolveThinkingLevel(model: string): ThinkingLevel {
-  return model.includes('flash-lite') ? ThinkingLevel.LOW : ThinkingLevel.MEDIUM;
-}
 
 export async function requestGoogleShaderMutation({
   apiKey,
@@ -31,7 +19,16 @@ export async function requestGoogleShaderMutation({
     throw new Error('Add a Google AI API key before using Gemini shader generation.');
   }
 
-  const client = createGoogleClient(trimmedKey);
+  // Loaded on demand so the (large) Google AI SDK stays out of the initial
+  // bundle; shader generation is an occasional, network-bound action anyway.
+  const { GoogleGenAI, ThinkingLevel } = await import('@google/genai');
+  const client = new GoogleGenAI({
+    apiKey: trimmedKey,
+    apiVersion: DEFAULT_GOOGLE_API_VERSION,
+  });
+  const thinkingLevel = model.includes('flash-lite')
+    ? ThinkingLevel.LOW
+    : ThinkingLevel.MEDIUM;
 
   const history = chatHistory ?? [];
   const recentHistory = history.slice(-10);
@@ -55,7 +52,7 @@ export async function requestGoogleShaderMutation({
       temperature: SHADER_GENERATION_TEMPERATURE,
       maxOutputTokens: 4096,
       thinkingConfig: {
-        thinkingLevel: resolveThinkingLevel(model),
+        thinkingLevel,
       },
     },
   }).catch((error: unknown) => {

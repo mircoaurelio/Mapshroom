@@ -83,14 +83,16 @@ export function useMidiController({
   const mixModeCycleValueRef = useRef<number | null>(null);
   const manualMixSwitchValueRef = useRef<number | null>(null);
 
-  uniformDefinitionsRef.current = uniformDefinitions;
-  onUniformChangeRef.current = onUniformChange;
-  onModeChangeRef.current = onModeChange;
-  onTimelineTransportRef.current = onTimelineTransport;
-  onTimelineFaderChangeRef.current = onTimelineFaderChange;
-  onTimelineMixVelocityChangeRef.current = onTimelineMixVelocityChange;
-  modeRef.current = mode;
-  enabledRef.current = enabled;
+  useEffect(() => {
+    uniformDefinitionsRef.current = uniformDefinitions;
+    onUniformChangeRef.current = onUniformChange;
+    onModeChangeRef.current = onModeChange;
+    onTimelineTransportRef.current = onTimelineTransport;
+    onTimelineFaderChangeRef.current = onTimelineFaderChange;
+    onTimelineMixVelocityChangeRef.current = onTimelineMixVelocityChange;
+    modeRef.current = mode;
+    enabledRef.current = enabled;
+  });
 
   const setControllerMode = useCallback((nextMode: MidiControllerMode) => {
     if (modeRef.current === nextMode) {
@@ -430,6 +432,9 @@ export function useMidiController({
       return;
     }
 
+    // Synchronizes with the external Web MIDI system; state updates land in
+    // the async callbacks of the connection handshake.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void connect();
   }, [connect, disconnect, enabled]);
 

@@ -75,6 +75,23 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const rootRef = useRef<HTMLSpanElement | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (rootRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsOpen(false);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [isOpen]);
+
   if (!Array.isArray(value)) {
     return null;
   }
@@ -118,23 +135,6 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
     const blue = parseInt(nextHex.slice(5, 7), 16);
     onChange([red / 255, green / 255, blue / 255]);
   };
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (rootRef.current?.contains(event.target as Node)) {
-        return;
-      }
-
-      setIsOpen(false);
-    };
-
-    window.addEventListener('pointerdown', handlePointerDown);
-    return () => window.removeEventListener('pointerdown', handlePointerDown);
-  }, [isOpen]);
 
   return (
     <span className="color-picker-root" ref={rootRef}>

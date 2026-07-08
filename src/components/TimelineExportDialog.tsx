@@ -55,6 +55,7 @@ interface TimelineExportDialogProps {
 function sanitizeFileName(value: string): string {
   const baseName = value
     .trim()
+    // eslint-disable-next-line no-control-regex -- strip control chars from filenames
     .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
@@ -287,18 +288,42 @@ export function TimelineExportDialog({
     throw new Error('The export renderer did not become ready in time.');
   };
 
+  // The stage renders through requestAnimationFrame, which browsers suspend
+  // for hidden tabs. Rather than silently stalling (or worse, capturing stale
+  // frames once the failsafe deadline expires), pause the export with a clear
+  // status until the tab is visible again.
+  const waitForDocumentVisible = async (sessionToken: number): Promise<boolean> => {
+    if (!document.hidden) {
+      return false;
+    }
+
+    setStatusMessage('Export paused: keep this tab visible so frames can render.');
+    while (document.hidden) {
+      if (dialogSessionTokenRef.current !== sessionToken) {
+        throw new Error('Export cancelled.');
+      }
+      await waitForTimeout(250);
+    }
+
+    return true;
+  };
+
   // Blocks until the stage has actually drawn the requested frame time with
   // every visible shader program compiled. This keeps compilation hitches out
   // of the exported file: a frame is only captured once the exact transition /
   // shader combination for that timestamp is on the canvas.
   const waitForExportFrame = async (sessionToken: number, targetTimeSeconds: number) => {
-    const startedAtMs = performance.now();
-    const failSafeDeadlineMs = startedAtMs + 10_000;
+    let failSafeDeadlineMs = performance.now() + 10_000;
     let visibleFrameSyncedAtMs: number | null = null;
 
     for (;;) {
       if (dialogSessionTokenRef.current !== sessionToken) {
         throw new Error('Export cancelled.');
+      }
+
+      if (await waitForDocumentVisible(sessionToken)) {
+        failSafeDeadlineMs = performance.now() + 10_000;
+        visibleFrameSyncedAtMs = null;
       }
 
       const renderError = renderErrorRef.current.trim();
@@ -359,6 +384,15 @@ export function TimelineExportDialog({
 
     const exportSessionToken = dialogSessionTokenRef.current + 1;
     dialogSessionTokenRef.current = exportSessionToken;
+
+    // Keep the screen awake for long exports; rendering stops if the display
+    // sleeps because the stage draws on requestAnimationFrame.
+    let wakeLockSentinel: { release: () => Promise<void> } | null = null;
+    try {
+      wakeLockSentinel = (await navigator.wakeLock?.request('screen')) ?? null;
+    } catch {
+      // Wake lock is best-effort; exports still work without it.
+    }
 
     try {
       const encoderConfig = await resolveSupportedVideoEncoderConfig({
@@ -429,6 +463,8 @@ export function TimelineExportDialog({
         if (dialogSessionTokenRef.current !== exportSessionToken) {
           throw new Error('Export cancelled.');
         }
+
+        await waitForDocumentVisible(exportSessionToken);
 
         const frameTimeSeconds = Math.min(
           Math.max(0, exportDurationSeconds - 1 / nextFps),
@@ -527,6 +563,9 @@ export function TimelineExportDialog({
       setErrorMessage(nextMessage);
       setStatusMessage('Export failed.');
     } finally {
+      if (wakeLockSentinel) {
+        void wakeLockSentinel.release().catch(() => {});
+      }
       setIsExporting(false);
     }
   };
