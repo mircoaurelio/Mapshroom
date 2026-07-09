@@ -76,7 +76,8 @@ let voxelCounts = { x: 0, y: 0, z: 0 }; // number of voxels in each dimension
 let voxelBordersVisible = true; // whether voxel borders are currently visible
 
 let marginCm = 1.5;
-let isClippingEnabled = false;
+let isClippingEnabled = true;
+const _floorAlignPoint = new THREE.Vector3();
 const eps = 1e-6; // Increased epsilon for better intersection detection
 let sliceThumbnailCache = [];
 let galleryBuildToken = 0;
@@ -247,9 +248,7 @@ async function processObjText(text, filename) {
   originalGeom = geom.clone(); // Store original geometry for reset
   mesh = new THREE.Mesh(geom, clipMaterial);
   scene.add(mesh);
-  
-  // Initially show the full object without clipping
-  clipMaterial.clippingPlanes = [];
+  attachPlaneHelperToMesh(mesh);
 
   worldBox.setFromBufferAttribute(geom.getAttribute('position'));
   originalWorldBox.copy(worldBox); // Store original bounds
@@ -264,7 +263,7 @@ async function processObjText(text, filename) {
 
   updatePanelInfo();
   computeSlicesFromInputs();
-  planeHelper.visible = true;
+  setSlicePreviewEnabled(true);
 
   exportBtn.disabled = false;
   extractImgBtn.disabled = false;
@@ -428,17 +427,8 @@ centerBtn.addEventListener('click', () => {
 
 toggleClippingBtn.addEventListener('click', () => {
   if (!geom) return;
-  isClippingEnabled = !isClippingEnabled;
-  
-  if (isClippingEnabled) {
-    clipMaterial.clippingPlanes = [previewPlane];
-    planeHelper.visible = true;
-    toggleClippingBtn.textContent = 'Show Full Object';
-  } else {
-    clipMaterial.clippingPlanes = [];
-    planeHelper.visible = false;
-    toggleClippingBtn.textContent = 'Show Slice Preview';
-  }
+  setSlicePreviewEnabled(!isClippingEnabled);
+  updatePreviewPlane(parseInt(slider.value, 10));
 });
 
 // Block division event listeners
@@ -479,6 +469,7 @@ toggleBlockModeBtn.addEventListener('click', () => {
       scene.remove(mesh);
       mesh = new THREE.Mesh(geom, clipMaterial);
       scene.add(mesh);
+      attachPlaneHelperToMesh(mesh);
     }
   }
 });
@@ -553,6 +544,7 @@ toggleLegoModeBtn.addEventListener('click', () => {
       scene.remove(mesh);
       mesh = new THREE.Mesh(geom, clipMaterial);
       scene.add(mesh);
+      attachPlaneHelperToMesh(mesh);
     }
     // Clear voxels
     clearVoxels();
@@ -661,7 +653,9 @@ resetScaleBtn.addEventListener('click', () => {
   geom = originalGeom.clone();
   mesh = new THREE.Mesh(geom, clipMaterial);
   scene.add(mesh);
-  
+  mesh.position.y = 0;
+  attachPlaneHelperToMesh(mesh);
+
   // Reset bounds and scale
   worldBox.copy(originalWorldBox);
   currentScale = { x: 1, y: 1, z: 1 };
@@ -677,6 +671,7 @@ resetScaleBtn.addEventListener('click', () => {
   updateResizeUI();
   updatePanelInfo();
   computeSlicesFromInputs();
+  setSlicePreviewEnabled(isClippingEnabled);
   
   // Reset block mode if active
   if (blockMode) {
@@ -700,7 +695,8 @@ function applyResize(scaleX, scaleY, scaleZ) {
   
   // Apply scale to geometry
   geom.applyMatrix4(scaleMatrix);
-  
+  placeGeometryOnFloor(geom);
+
   // Update current scale
   currentScale.x *= scaleX;
   currentScale.y *= scaleY;
@@ -720,7 +716,9 @@ function applyResize(scaleX, scaleY, scaleZ) {
     mesh.geometry = geom;
     mesh.updateMatrix();
   }
-  
+
+  syncMeshFloorAlignment();
+
   // Update UI
   updateResizeUI();
   fitViewToBox(worldBox);
@@ -1799,19 +1797,96 @@ function updatePanelInfo() {
   panelInfo.textContent = `Panels: ${numPanels} | Model height: ${actualModelHeightCm.toFixed(1)} cm`;
 }
 
+function attachPlaneHelperToMesh(targetMesh) {
+  if (!targetMesh) return;
+
+  if (planeHelper.parent) {
+    planeHelper.parent.remove(planeHelper);
+  }
+  targetMesh.add(planeHelper);
+}
+
 function placeGeometryOnFloor(geometry, floorY = 0) {
   if (!geometry?.attributes?.position) return;
 
-  geometry.computeBoundingBox();
-  const box = geometry.boundingBox;
-  if (!box) return;
-
+  const box = new THREE.Box3().setFromBufferAttribute(geometry.getAttribute('position'));
   const offsetY = floorY - box.min.y;
   if (Math.abs(offsetY) < 1e-9) return;
 
   geometry.translate(0, offsetY, 0);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
+}
+
+function getVisibleGeometryBounds(geometry, clipPlane) {
+  const position = geometry?.getAttribute('position');
+  if (!position || !clipPlane) return null;
+
+  const nx = clipPlane.normal.x;
+  const ny = clipPlane.normal.y;
+  const nz = clipPlane.normal.z;
+  const constant = clipPlane.constant;
+
+  const box = new THREE.Box3();
+  let hasPoint = false;
+
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    if (nx * x + ny * y + nz * z + constant > 0) {
+      box.expandByPoint(_floorAlignPoint.set(x, y, z));
+      hasPoint = true;
+    }
+  }
+
+  return hasPoint ? box : null;
+}
+
+function syncMeshFloorAlignment() {
+  if (!mesh || !geom) return;
+
+  if (!isClippingEnabled) {
+    mesh.position.y = 0;
+    return;
+  }
+
+  const visibleBox = getVisibleGeometryBounds(geom, previewPlane);
+  mesh.position.y = visibleBox ? -visibleBox.min.y : 0;
+}
+
+function setSlicePreviewEnabled(enabled) {
+  isClippingEnabled = enabled;
+
+  if (isClippingEnabled) {
+    clipMaterial.clippingPlanes = [previewPlane];
+    planeHelper.visible = true;
+    toggleClippingBtn.textContent = 'Show Full Object';
+  } else {
+    clipMaterial.clippingPlanes = [];
+    planeHelper.visible = false;
+    toggleClippingBtn.textContent = 'Show Slice Preview';
+  }
+
+  syncMeshFloorAlignment();
+}
+
+function updateSliceInfoDisplay(sliceIndex = activeSliceIndex) {
+  if (!geom || sliceCount <= 0) return;
+
+  const i = clamp(sliceIndex, 0, sliceCount - 1);
+
+  if (blockMode && blocks.length > 0) {
+    const visibleBlocks = blocks.filter((block) => block.visible).length;
+    sliceInfo.textContent = `Preview ${i + 1} / ${sliceCount} (${panelThicknessCm}cm panels, ${visibleBlocks}/${blocks.length} blocks visible, axis ${currentAxis})`;
+    return;
+  }
+
+  const box = geom.boundingBox ?? new THREE.Box3().setFromBufferAttribute(geom.getAttribute('position'));
+  const axisIndex = axisToIndex(currentAxis);
+  const modelSizeUnits = box.max.getComponent(axisIndex) - box.min.getComponent(axisIndex);
+  const actualModelHeightCm = modelSizeUnits * cmPerUnit;
+  sliceInfo.textContent = `Preview ${i + 1} / ${sliceCount} (${panelThicknessCm}cm panels, model height: ${actualModelHeightCm.toFixed(1)} cm, axis ${currentAxis})`;
 }
 
 function fitViewToBox(box) {
@@ -1891,12 +1966,9 @@ function computeSlicesFromInputs(){
   
   sliceCount = n;
   slider.max = String(Math.max(0, n - 1));
-  slider.value = "0";
+  const nextIndex = clamp(activeSliceIndex, 0, n - 1);
+  slider.value = String(nextIndex);
   slider.disabled = false;
-  
-  // Enable arrow buttons if we have more than 1 slice
-  prevSliceBtn.disabled = n <= 1;
-  nextSliceBtn.disabled = n <= 1;
 
   // Precompute plane positions based on panel thickness
   slicePositions = [];
@@ -1906,16 +1978,8 @@ function computeSlicesFromInputs(){
     slicePositions.push(pos);
   }
 
-  selectSlice(0, { updateGalleryHighlight: false });
+  selectSlice(nextIndex, { updateGalleryHighlight: false });
   scheduleSliceGalleryBuild();
-  
-  // Update slice info based on block mode
-  if (blockMode && blocks.length > 0) {
-    const visibleBlocks = blocks.filter(block => block.visible).length;
-    sliceInfo.textContent = `Preview ${parseInt(slider.value) + 1} / ${n} (${panelThicknessCm}cm panels, ${visibleBlocks}/${blocks.length} blocks visible, axis ${currentAxis})`;
-  } else {
-    sliceInfo.textContent = `Preview ${parseInt(slider.value) + 1} / ${n} (${panelThicknessCm}cm panels, model height: ${actualModelHeightCm.toFixed(1)} cm, axis ${currentAxis})`;
-  }
 }
 
 function axisToIndex(a){ return a === 'X' ? 0 : a === 'Y' ? 1 : 2; }
@@ -1942,11 +2006,10 @@ function updatePreviewPlane(i){
   
   planeHelper.plane = previewPlane;
   planeHelper.updateMatrixWorld(true);
-  
-  // Update slice info display
-  sliceInfo.textContent = `Preview ${i + 1} / ${sliceCount} (axis ${currentAxis})`;
-  
-  // Update arrow button states
+
+  syncMeshFloorAlignment();
+  updateSliceInfoDisplay(i);
+
   prevSliceBtn.disabled = i <= 0;
   nextSliceBtn.disabled = i >= sliceCount - 1;
 }
