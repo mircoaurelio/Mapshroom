@@ -297,7 +297,7 @@ export function WorkspaceToolbar({
           </div>
         </div>
 
-        <div className="toolbar-runtime-actions">
+        <div className="toolbar-runtime-actions" data-onboarding-area="topbar">
           <button type="button" className="primary-button" onClick={onOpenOutput}>
             Output
           </button>

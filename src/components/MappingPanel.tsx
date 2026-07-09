@@ -23,7 +23,7 @@ export function MappingPanel({
   showPrecisionSlider = true,
 }: MappingPanelProps) {
   return (
-    <>
+    <div className="mapping-panel-guide-target" data-onboarding-area="mapping">
       <PanelSection title="Stage Mapping">
         <div className="stack gap-md">
           <div className="button-row">
@@ -69,6 +69,6 @@ export function MappingPanel({
           disabled={!stageTransform.moveMode}
         />
       </PanelSection>
-    </>
+    </div>
   );
 }

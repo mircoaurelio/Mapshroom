@@ -453,6 +453,11 @@ a {
   gap: 0.45rem;
 }
 
+.mapping-panel-guide-target {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .toolbar-menu-group-right .toolbar-menu-panel,
 .toolbar-menu-shell-align-right .toolbar-menu-panel {
   right: 0;
@@ -1866,7 +1871,7 @@ a {
 
 .onboarding-photo-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.8rem;
 }
 
@@ -2088,7 +2093,8 @@ a {
     max-height: none;
   }
 
-  .onboarding-workflow-grid {
+  .onboarding-workflow-grid,
+  .onboarding-photo-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

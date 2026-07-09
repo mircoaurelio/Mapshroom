@@ -159,22 +159,39 @@ const ONBOARDING_WORKFLOW_STEPS = [
 
 const ONBOARDING_PHOTO_PREPARATION_STEPS = [
   {
+    title: 'Start from the source photo',
+    badge: 'Source',
+    copy:
+      'Use the captured subject photo as the starting point. This is the image you will clean, adapt, and prepare for the projection workflow.',
+    image: 'assets/onboarding/photo-source-garden.png',
+  },
+  {
     title: 'Remove the background',
     badge: 'Required',
     copy:
-      'Export the subject with the background removed. A clean cutout gives the shader a clear shape to map and avoids projecting onto unwanted areas.',
-    image: 'assets/onboarding/background-removed.svg',
+      'Remove the background with AI. Nano Banana is recommended, or use the app AI tools when configured as a paid feature with an API key.',
+    image: 'assets/onboarding/photo-background-removed.png',
   },
   {
-    title: 'Add a depth map',
-    badge: 'Optional',
+    title: 'Choose the final 3D photo',
+    badge: 'Creative',
     copy:
-      'If the subject has visible depth, prepare a normal grayscale depth map. Use brighter values for closer surfaces and darker values for deeper areas.',
-    image: 'assets/onboarding/depth-map-normal.svg',
+      'In the 3D photo step, modify the image as much as needed and choose the asset that best matches the subject and the final projected look.',
+    image: 'assets/onboarding/photo-3d-asset-choice.png',
   },
 ] as const;
 
 const ONBOARDING_UI_AREAS = [
+  {
+    title: 'Top Bar And Output',
+    eyebrow: 'Windows',
+    placement: 'topbar',
+    points: [
+      'Use File, Shader, and View for project, shader, and layout commands.',
+      'Click Output to open the dedicated projection window.',
+      'Drag the opened Output window onto the projector screen and use it there.',
+    ],
+  },
   {
     title: 'Canvas',
     eyebrow: 'Preview',
@@ -204,6 +221,16 @@ const ONBOARDING_UI_AREAS = [
       'Tune shader values with sliders.',
       'Move, resize, and reset the mapped image.',
       'Use smaller precision values for final alignment.',
+    ],
+  },
+  {
+    title: 'Move The Mapping',
+    eyebrow: 'Tap Grid',
+    placement: 'mapping',
+    points: [
+      'Scroll to Stage Mapping and Tap Grid in the left controls.',
+      'Turn Move Mode On before aligning the projection.',
+      'Use Tap Grid to nudge, resize, and rotate the image onto the real subject.',
     ],
   },
   {
@@ -460,11 +487,13 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
       });
     };
 
+    const targetElement = document.querySelector<HTMLElement>(targetSelector);
+    targetElement?.scrollIntoView({ block: 'center', inline: 'nearest' });
+
     updateHighlightRect();
     window.addEventListener('resize', updateHighlightRect);
     window.addEventListener('scroll', updateHighlightRect, true);
 
-    const targetElement = document.querySelector<HTMLElement>(targetSelector);
     const resizeObserver = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(updateHighlightRect)
       : null;
