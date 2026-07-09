@@ -33,9 +33,9 @@ export function SliceStudioDialog({ open, onClose }: SliceStudioDialogProps) {
       >
         <header className="dialog-header">
           <div>
-            <span className="timeline-dialog-label">Slice Studio</span>
+            <span className="timeline-dialog-label">Slicer OBJ</span>
             <h2 id="slice-studio-title" className="dialog-title">
-              Open 3D OBJ Slicer
+              Open OBJ Slicer
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -45,7 +45,7 @@ export function SliceStudioDialog({ open, onClose }: SliceStudioDialogProps) {
 
         <div className="dialog-body">
           <p className="dialog-note">
-            Slice Studio is a separate Mapshroom module for uploading OBJ models, previewing cross-section
+            Slicer OBJ is a separate Mapshroom module for uploading OBJ models, previewing cross-section
             slices, and exporting printable slice PDFs. It opens in a new browser tab so your current shader
             workspace stays untouched.
           </p>
@@ -67,7 +67,7 @@ export function SliceStudioDialog({ open, onClose }: SliceStudioDialogProps) {
             Stay in Mapshroom
           </button>
           <button type="button" className="primary-button" onClick={handleOpenSliceStudio}>
-            Open Slice Studio
+            Open Slicer OBJ
           </button>
         </footer>
       </section>

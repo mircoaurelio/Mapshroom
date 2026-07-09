@@ -299,7 +299,7 @@ export function WorkspaceToolbar({
           </div>
 
           <button type="button" className="secondary-button toolbar-menu-button" onClick={onOpenSliceStudio}>
-            Slider
+            Slicer OBJ
           </button>
         </div>
 
