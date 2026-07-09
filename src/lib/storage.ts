@@ -10,6 +10,7 @@ import {
   UI_STORAGE_KEY,
 } from '../config';
 import {
+  BUNDLED_STATUE_PROJECT_SESSION_ID,
   BUNDLED_PROJECT_LIBRARY_ENTRIES,
   createBundledProjectDocument,
   isBundledProjectSessionId,
@@ -40,7 +41,7 @@ export function getOrCreateSessionId(): string {
   if (existing) {
     return existing;
   }
-  const next = crypto.randomUUID();
+  const next = BUNDLED_STATUE_PROJECT_SESSION_ID;
   localStorage.setItem(ACTIVE_SESSION_KEY, next);
   return next;
 }
