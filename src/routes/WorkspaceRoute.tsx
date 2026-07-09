@@ -141,19 +141,19 @@ const ONBOARDING_WORKFLOW_STEPS = [
     title: 'Prepare the material',
     copy:
       'Start with a projector, a phone for the reference photo, and a reliable way to connect the projector to a phone or computer.',
-    image: 'assets/onboarding/materials-needed.png',
+    image: 'assets/onboarding/materials-needed.webp',
   },
   {
     title: 'Shoot from the projector view',
     copy:
       'Stand where the projector sees the subject and take the photo from that same perspective. This keeps the image aligned with the projection.',
-    image: 'assets/onboarding/capture-from-projector-view.png',
+    image: 'assets/onboarding/capture-from-projector-view.webp',
   },
   {
     title: 'Match the lens position',
     copy:
       'Hold the phone close to the projector lens direction while shooting. The closer the camera perspective is to the projector perspective, the easier the mapping will be.',
-    image: 'assets/onboarding/align-phone-camera.png',
+    image: 'assets/onboarding/align-phone-camera.webp',
   },
 ] as const;
 
@@ -163,21 +163,21 @@ const ONBOARDING_PHOTO_PREPARATION_STEPS = [
     badge: 'Source',
     copy:
       'Use the captured subject photo as the starting point. This is the image you will clean, adapt, and prepare for the projection workflow.',
-    image: 'assets/onboarding/photo-source-garden.png',
+    image: 'assets/onboarding/photo-source-garden.webp',
   },
   {
     title: 'Remove the background',
     badge: 'Required',
     copy:
       'Remove the background with AI. Nano Banana is recommended, or use the app AI tools when configured as a paid feature with an API key.',
-    image: 'assets/onboarding/photo-background-removed.png',
+    image: 'assets/onboarding/photo-background-removed.webp',
   },
   {
     title: 'Choose the final 3D photo',
     badge: 'Creative',
     copy:
       'In the 3D photo step, modify the image as much as needed and choose the asset that best matches the subject and the final projected look.',
-    image: 'assets/onboarding/photo-3d-asset-choice.png',
+    image: 'assets/onboarding/photo-3d-asset-choice.webp',
   },
 ] as const;
 
