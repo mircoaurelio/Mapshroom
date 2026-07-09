@@ -3371,7 +3371,26 @@ a {
   flex-wrap: wrap;
 }
 
+.timeline-sequence-toolbar-actions {
+  --timeline-toolbar-control-height: 38px;
+  align-items: flex-end;
+}
+
+.timeline-sequence-toolbar-actions > .icon-button,
+.timeline-sequence-toolbar-actions > .timeline-mode-switch,
+.timeline-sequence-toolbar-actions > .timeline-shared-transition-toolbar,
+.timeline-sequence-toolbar-actions > .timeline-sequence-playback-actions {
+  min-height: var(--timeline-toolbar-control-height);
+}
+
+.timeline-sequence-toolbar-actions > .icon-button,
+.timeline-sequence-playback-actions .icon-button {
+  width: var(--timeline-toolbar-control-height);
+  height: var(--timeline-toolbar-control-height);
+}
+
 .timeline-sequence-playback-actions {
+  align-items: flex-end;
   flex-wrap: wrap;
 }
 
@@ -3443,6 +3462,8 @@ a {
 
 .timeline-mode-switch {
   display: inline-flex;
+  align-items: center;
+  height: var(--timeline-toolbar-control-height, 38px);
   padding: 0.16rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -3450,7 +3471,8 @@ a {
 }
 
 .timeline-mode-button {
-  min-height: 24px;
+  height: calc(var(--timeline-toolbar-control-height, 38px) - 8px);
+  min-height: 0;
   padding: 0.22rem 0.58rem;
   border-radius: 999px;
   background: transparent;
@@ -3467,11 +3489,35 @@ a {
 }
 
 .timeline-shared-transition-toolbar {
+  min-height: var(--timeline-toolbar-control-height, 38px);
+  align-items: flex-end;
   flex-wrap: wrap;
 }
 
 .timeline-shared-transition-field {
   min-width: 88px;
+  height: var(--timeline-toolbar-control-height, 38px);
+  justify-content: flex-end;
+}
+
+.timeline-shared-transition-field .text-field,
+.timeline-shared-transition-field .select-field {
+  height: 100%;
+  min-height: var(--timeline-toolbar-control-height, 38px);
+  padding: 0.45rem 0.65rem;
+}
+
+.timeline-shared-transition-field:focus-within {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.timeline-shared-transition-field:focus-within .text-field,
+.timeline-shared-transition-field:focus-within .select-field {
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.28);
 }
 
 .timeline-card-size-field {
