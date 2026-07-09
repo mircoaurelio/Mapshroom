@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-labelledby="title desc">
+  <title id="title">Depth map placeholder</title>
+  <desc id="desc">A temporary grayscale depth map illustration for projection mapping.</desc>
+  <rect width="320" height="200" fill="#111114"/>
+  <rect x="24" y="24" width="272" height="152" rx="8" fill="#18181b" stroke="#3f3f46"/>
+  <path d="M36 164c46-64 84-82 126-58 47 27 88 7 122-42v100H36z" fill="#27272a"/>
+  <rect x="130" y="78" width="60" height="76" rx="8" fill="#d4d4d8"/>
+  <path d="M108 78c8-34 32-48 52-48s44 14 52 48H108z" fill="#8b8b91"/>
+  <circle cx="138" cy="62" r="8" fill="#f4f4f5"/>
+  <circle cx="181" cy="58" r="7" fill="#f4f4f5"/>
+  <path d="M50 48h46" stroke="#f4f4f5" stroke-width="8" stroke-linecap="round"/>
+  <path d="M50 72h92" stroke="#a1a1aa" stroke-width="8" stroke-linecap="round"/>
+  <path d="M50 96h128" stroke="#71717a" stroke-width="8" stroke-linecap="round"/>
+  <path d="M222 54h42m-42 24h32m-32 24h20" stroke="#34d399" stroke-width="6" stroke-linecap="round"/>
+</svg>

@@ -235,6 +235,69 @@ a {
   box-shadow: var(--shadow);
 }
 
+.loading-screen-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.mushroom-loader {
+  position: relative;
+  width: 92px;
+  height: 110px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.mushroom-loader-glow {
+  position: absolute;
+  inset: 13px 8px 21px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 42% 36%, rgba(244, 244, 245, 0.3), transparent 35%),
+    radial-gradient(circle at 54% 54%, rgba(52, 211, 153, 0.24), transparent 58%),
+    radial-gradient(circle at 50% 50%, rgba(248, 113, 113, 0.2), transparent 66%);
+  filter: blur(12px);
+  animation: mushroom-loader-glow 1.8s ease-in-out infinite;
+}
+
+.mushroom-loader-icon {
+  position: relative;
+  z-index: 1;
+  width: 64px;
+  height: 80px;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.42));
+  transform-origin: 50% 82%;
+  animation: mushroom-loader-bounce 1.25s cubic-bezier(0.45, 0, 0.35, 1) infinite;
+}
+
+.mushroom-loader-shadow {
+  position: absolute;
+  bottom: 7px;
+  width: 48px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  filter: blur(4px);
+  animation: mushroom-loader-shadow 1.25s cubic-bezier(0.45, 0, 0.35, 1) infinite;
+}
+
+.loading-screen-card::after {
+  content: '';
+  width: min(100%, 220px);
+  height: 3px;
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.85), transparent) -90px
+      0 / 90px 100% no-repeat,
+    rgba(63, 63, 70, 0.55);
+  animation: loading-screen-track 1.15s ease-in-out infinite;
+}
+
 .loading-screen-card h1,
 .output-waiting-card h1 {
   margin: 0.35rem 0 0.65rem;
@@ -246,6 +309,71 @@ a {
 .output-waiting-card p {
   margin: 0;
   color: var(--text-muted);
+}
+
+@keyframes mushroom-loader-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+
+  42% {
+    transform: translateY(-13px) scale(1.02, 0.98);
+  }
+
+  70% {
+    transform: translateY(0) scale(1.05, 0.94);
+  }
+}
+
+@keyframes mushroom-loader-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes mushroom-loader-shadow {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scaleX(1);
+  }
+
+  42% {
+    opacity: 0.18;
+    transform: scaleX(0.68);
+  }
+
+  70% {
+    opacity: 0.5;
+    transform: scaleX(1.08);
+  }
+}
+
+@keyframes loading-screen-track {
+  0% {
+    background-position: -90px 0, 0 0;
+  }
+
+  100% {
+    background-position: 220px 0, 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mushroom-loader-icon,
+  .mushroom-loader-glow,
+  .mushroom-loader-shadow,
+  .loading-screen-card::after {
+    animation: none;
+  }
 }
 
 .workspace-shell {
@@ -1613,6 +1741,232 @@ a {
   background: rgba(127, 29, 29, 0.42);
   border-color: rgba(248, 113, 113, 0.46);
   color: #fee2e2;
+}
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: calc(1rem + var(--safe-top)) calc(1rem + var(--safe-right))
+    calc(1rem + var(--safe-bottom)) calc(1rem + var(--safe-left));
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.onboarding-panel {
+  width: min(1180px, 100%);
+  max-height: min(860px, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+}
+
+.onboarding-header,
+.onboarding-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.onboarding-header h2,
+.onboarding-section-heading h3,
+.onboarding-workflow-card h4,
+.onboarding-area-card h4 {
+  margin: 0;
+  color: var(--text-bright);
+}
+
+.onboarding-header h2 {
+  margin-top: 0.3rem;
+  font-size: 1.35rem;
+}
+
+.onboarding-close {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+}
+
+.onboarding-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.onboarding-section {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.onboarding-section + .onboarding-section {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.onboarding-section-heading {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.onboarding-section-heading h3 {
+  font-size: 1rem;
+}
+
+.onboarding-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.onboarding-workflow-card {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-soft);
+}
+
+.onboarding-workflow-image {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  display: block;
+  object-fit: cover;
+  border: 1px solid rgba(63, 63, 70, 0.72);
+  border-radius: var(--radius-sm);
+  background: #111114;
+}
+
+.onboarding-step-index {
+  position: absolute;
+  top: 0.95rem;
+  left: 0.95rem;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 999px;
+  background: rgba(9, 9, 11, 0.86);
+  color: #86efac;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.onboarding-workflow-card h4,
+.onboarding-area-card h4 {
+  font-size: 0.88rem;
+}
+
+.onboarding-workflow-card p,
+.onboarding-area-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.onboarding-ui-section {
+  grid-template-columns: 260px minmax(0, 1fr);
+  align-items: start;
+}
+
+.onboarding-area-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.onboarding-area-card {
+  min-width: 0;
+  min-height: 156px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(63, 63, 70, 0.86);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(180deg, rgba(52, 211, 153, 0.08), transparent 42%),
+    var(--bg-panel-raised);
+}
+
+.onboarding-area-card span {
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.onboarding-footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}
+
+@media (max-width: 980px) {
+  .onboarding-workflow-grid,
+  .onboarding-area-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .onboarding-ui-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .onboarding-overlay {
+    align-items: stretch;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  }
+
+  .onboarding-panel {
+    width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .onboarding-header,
+  .onboarding-body,
+  .onboarding-footer {
+    padding: 0.85rem;
+  }
+
+  .onboarding-header h2 {
+    font-size: 1.08rem;
+  }
+
+  .onboarding-workflow-grid,
+  .onboarding-area-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-area-card {
+    min-height: 0;
+  }
+
+  .onboarding-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }
 
 .asset-list,

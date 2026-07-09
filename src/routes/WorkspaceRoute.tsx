@@ -131,6 +131,57 @@ const MIDI_MIX_DURATION_STEP_SECONDS = 0.25;
 const MIDI_MANUAL_MIX_MIN_TRIGGER = 0.02;
 const MIDI_MANUAL_MIX_MAX_TRIGGER = 0.97;
 const TIMELINE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
+const ONBOARDING_ENTRY_COOKIE = 'mapshroom_onboarding_entries';
+const ONBOARDING_ENTRY_SESSION_KEY = 'mapshroom:onboarding-entry-counted';
+const ONBOARDING_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+const ONBOARDING_WORKFLOW_STEPS = [
+  {
+    title: 'Capture the subject',
+    copy:
+      'Take a photo of the subject from the same perspective as the projector used for the mapping. This keeps the projection, photo, and physical object aligned.',
+    image: 'assets/onboarding/capture-subject.svg',
+  },
+  {
+    title: 'Remove the background',
+    copy:
+      'Separate the subject from the original photo background so the shader and projection can focus only on the object you want to map.',
+    image: 'assets/onboarding/remove-background.svg',
+  },
+  {
+    title: 'Prepare a depth map',
+    copy:
+      'Create or import a depth map for the image you want to map. Brighter areas are closer, darker areas are farther away.',
+    image: 'assets/onboarding/depth-map.svg',
+  },
+] as const;
+
+const ONBOARDING_UI_AREAS = [
+  {
+    title: 'Canvas',
+    eyebrow: 'Preview',
+    copy:
+      'The canvas shows the active mapping result. Use it to check the photo, shader, timeline playback, and projector framing.',
+  },
+  {
+    title: 'Code Control',
+    eyebrow: 'Shader',
+    copy:
+      'The code panel controls the GLSL shader. Edit the shader, browse presets, save versions, and fix compile errors from here.',
+  },
+  {
+    title: 'Slider And Position Control',
+    eyebrow: 'Mapping',
+    copy:
+      'Sliders tune shader values. Position controls move and resize the mapped image so it lines up with the real subject.',
+  },
+  {
+    title: 'Timeline',
+    eyebrow: 'Sequence',
+    copy:
+      'The timeline arranges shader steps over time. Use it to build transitions, choose assets per step, and control playback.',
+  },
+] as const;
 
 function createTimelineRandomSeedToken(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -138,6 +189,44 @@ function createTimelineRandomSeedToken(): string {
   }
 
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getCookieValue(name: string): string | null {
+  const encodedName = `${encodeURIComponent(name)}=`;
+  const cookie = document.cookie
+    .split(';')
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(encodedName));
+
+  return cookie ? decodeURIComponent(cookie.slice(encodedName.length)) : null;
+}
+
+function setCookieValue(name: string, value: string): void {
+  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(
+    value,
+  )}; Max-Age=${ONBOARDING_COOKIE_MAX_AGE_SECONDS}; Path=/; SameSite=Lax`;
+}
+
+function readOnboardingEntryCount(): number {
+  const rawValue = getCookieValue(ONBOARDING_ENTRY_COOKIE);
+  const count = rawValue ? Number.parseInt(rawValue, 10) : 0;
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+function registerOnboardingEntry(): number {
+  if (sessionStorage.getItem(ONBOARDING_ENTRY_SESSION_KEY) === 'true') {
+    return readOnboardingEntryCount();
+  }
+
+  const nextCount = readOnboardingEntryCount() + 1;
+  setCookieValue(ONBOARDING_ENTRY_COOKIE, String(nextCount));
+  sessionStorage.setItem(ONBOARDING_ENTRY_SESSION_KEY, 'true');
+  return nextCount;
+}
+
+function dismissOnboardingPermanently(): void {
+  setCookieValue(ONBOARDING_ENTRY_COOKIE, '99');
+  sessionStorage.setItem(ONBOARDING_ENTRY_SESSION_KEY, 'true');
 }
 
 function useIsMobile(breakpoint = 960): boolean {
@@ -152,6 +241,82 @@ function useIsMobile(breakpoint = 960): boolean {
   }, [breakpoint]);
 
   return isMobile;
+}
+
+interface OnboardingGuideProps {
+  onClose: () => void;
+  onDismissPermanently: () => void;
+}
+
+function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
+  return (
+    <div className="onboarding-overlay" role="presentation">
+      <section
+        className="onboarding-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
+      >
+        <div className="onboarding-header">
+          <div>
+            <span className="panel-eyebrow">First Setup</span>
+            <h2 id="onboarding-title">Projection mapping workflow</h2>
+          </div>
+          <button type="button" className="icon-button onboarding-close" onClick={onClose} aria-label="Close guide">
+            X
+          </button>
+        </div>
+
+        <div className="onboarding-body">
+          <section className="onboarding-section">
+            <div className="onboarding-section-heading">
+              <span className="panel-eyebrow">Subject Preparation</span>
+              <h3>Start with aligned source material</h3>
+            </div>
+            <div className="onboarding-workflow-grid">
+              {ONBOARDING_WORKFLOW_STEPS.map((step, index) => (
+                <article className="onboarding-workflow-card" key={step.title}>
+                  <img
+                    src={`${import.meta.env.BASE_URL}${step.image}`}
+                    alt=""
+                    className="onboarding-workflow-image"
+                  />
+                  <div className="onboarding-step-index">{index + 1}</div>
+                  <h4>{step.title}</h4>
+                  <p>{step.copy}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="onboarding-section onboarding-ui-section">
+            <div className="onboarding-section-heading">
+              <span className="panel-eyebrow">Workspace Areas</span>
+              <h3>What each macro area controls</h3>
+            </div>
+            <div className="onboarding-area-grid">
+              {ONBOARDING_UI_AREAS.map((area) => (
+                <article className="onboarding-area-card" key={area.title}>
+                  <span>{area.eyebrow}</span>
+                  <h4>{area.title}</h4>
+                  <p>{area.copy}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="onboarding-footer">
+          <button type="button" className="secondary-button" onClick={onDismissPermanently}>
+            Don't show again
+          </button>
+          <button type="button" className="primary-button" onClick={onClose}>
+            Start mapping
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function detectAssetKind(file: File): AssetKind | null {
@@ -887,6 +1052,7 @@ export function WorkspaceRoute() {
   const [midiManualMixSeedToken, setMidiManualMixSeedToken] = useState(() =>
     createTimelineRandomSeedToken(),
   );
+  const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
   const [midiManualMix, setMidiManualMix] = useState({
     stepIndex: 0,
     nextEndpoint: 'max' as 'max' | 'min',
@@ -910,6 +1076,15 @@ export function WorkspaceRoute() {
   } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
   const pinnedTimelineStepId = project?.timeline.stub.shaderSequence.pinnedStepId ?? null;
+
+  useEffect(() => {
+    const entryCount = registerOnboardingEntry();
+    const timeoutId = window.setTimeout(() => {
+      setShowOnboardingGuide(entryCount <= 2);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const updateProject = useCallback((updater: (currentProject: ProjectDocument) => ProjectDocument) => {
     setProject((currentProject) => {
@@ -4029,7 +4204,16 @@ ${errorSnapshot}`,
   if (!project) {
     return (
       <div className="loading-screen">
-        <div className="loading-screen-card">
+        <div className="loading-screen-card" role="status" aria-live="polite">
+          <div className="mushroom-loader" aria-hidden="true">
+            <span className="mushroom-loader-glow" />
+            <img
+              className="mushroom-loader-icon"
+              src={`${import.meta.env.BASE_URL}assets/icons/mushroom-favicon.svg`}
+              alt=""
+            />
+            <span className="mushroom-loader-shadow" />
+          </div>
           <span className="panel-eyebrow">Mapshroom V3</span>
           <h1>Loading workspace</h1>
           <p>Preparing the React stage, project document, and local media cache.</p>
@@ -4886,6 +5070,16 @@ ${errorSnapshot}`,
           setIsPresetBrowserOpen(false);
         }}
       />
+
+      {showOnboardingGuide ? (
+        <OnboardingGuide
+          onClose={() => setShowOnboardingGuide(false)}
+          onDismissPermanently={() => {
+            dismissOnboardingPermanently();
+            setShowOnboardingGuide(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
