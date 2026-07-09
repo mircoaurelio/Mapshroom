@@ -423,13 +423,38 @@ a {
 
 .mobile-header-meta {
   display: block;
-  max-width: min(34vw, 180px);
+  max-width: min(28vw, 120px);
   overflow: hidden;
   color: var(--text-dim);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.62rem;
   letter-spacing: 0.08em;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-header-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mobile-header-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-header-actions .secondary-button {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0.28rem 0.42rem;
+  font-size: 0.56rem;
+  letter-spacing: 0.09em;
   white-space: nowrap;
 }
 
@@ -4308,6 +4333,12 @@ a {
   top: 0;
   left: 0;
   right: 0;
+  flex-wrap: nowrap;
+}
+
+.mobile-header-logo {
+  flex: 0 1 auto;
+  max-width: 38%;
 }
 
 .mobile-dock {

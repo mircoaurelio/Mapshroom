@@ -57,7 +57,7 @@ export function MobileChrome({
           <strong>Mapshroom</strong>
           <span className="mobile-header-meta">{activeAssetName}</span>
         </button>
-        <div className="button-row">
+        <div className="mobile-header-actions">
           <button type="button" className="secondary-button" onClick={onOpenProjects}>
             Project
           </button>
