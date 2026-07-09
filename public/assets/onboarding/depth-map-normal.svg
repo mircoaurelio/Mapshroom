@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-labelledby="title desc">
+  <title id="title">Normal depth map placeholder</title>
+  <desc id="desc">A grayscale depth map where lighter values are closer and darker values are farther.</desc>
+  <rect width="320" height="200" fill="#111114"/>
+  <rect x="22" y="22" width="276" height="156" rx="8" fill="#18181b" stroke="#3f3f46"/>
+  <path d="M40 166c48-70 86-84 126-58 47 31 86 6 114-46v104H40z" fill="#27272a"/>
+  <rect x="132" y="80" width="56" height="74" rx="9" fill="#d4d4d8"/>
+  <path d="M110 80c8-36 32-50 50-50s42 14 50 50H110z" fill="#8b8b91"/>
+  <circle cx="139" cy="64" r="8" fill="#f4f4f5"/>
+  <circle cx="181" cy="60" r="7" fill="#f4f4f5"/>
+  <path d="M48 48h56" stroke="#f4f4f5" stroke-width="8" stroke-linecap="round"/>
+  <path d="M48 74h98" stroke="#a1a1aa" stroke-width="8" stroke-linecap="round"/>
+  <path d="M48 100h132" stroke="#71717a" stroke-width="8" stroke-linecap="round"/>
+  <path d="M224 56h48m-48 26h36m-36 26h24" stroke="#34d399" stroke-width="6" stroke-linecap="round"/>
+</svg>

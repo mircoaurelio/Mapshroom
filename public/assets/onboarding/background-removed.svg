@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-labelledby="title desc">
+  <title id="title">Background removed photo placeholder</title>
+  <desc id="desc">A subject isolated from its background on a transparent checkerboard.</desc>
+  <defs>
+    <pattern id="checker" width="24" height="24" patternUnits="userSpaceOnUse">
+      <rect width="24" height="24" fill="#18181b"/>
+      <rect width="12" height="12" fill="#27272a"/>
+      <rect x="12" y="12" width="12" height="12" fill="#27272a"/>
+    </pattern>
+  </defs>
+  <rect width="320" height="200" fill="#111114"/>
+  <rect x="22" y="22" width="276" height="156" rx="8" fill="url(#checker)" stroke="#3f3f46"/>
+  <path d="M116 152h88" stroke="#34d399" stroke-width="3" stroke-linecap="round"/>
+  <rect x="132" y="78" width="56" height="74" rx="9" fill="#f4f4f5"/>
+  <path d="M110 78c9-34 32-46 50-46s41 12 50 46H110z" fill="#ef4444"/>
+  <circle cx="141" cy="64" r="8" fill="#fff"/>
+  <circle cx="179" cy="60" r="7" fill="#fff"/>
+  <path d="M52 58l34 34m0-34L52 92" stroke="#f87171" stroke-width="5" stroke-linecap="round"/>
+  <path d="M232 60l12 13 25-28" stroke="#34d399" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

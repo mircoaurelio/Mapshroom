@@ -137,22 +137,39 @@ const ONBOARDING_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 const ONBOARDING_WORKFLOW_STEPS = [
   {
-    title: 'Capture the subject',
+    title: 'Prepare the material',
     copy:
-      'Take a photo of the subject from the same perspective as the projector used for the mapping. This keeps the projection, photo, and physical object aligned.',
-    image: 'assets/onboarding/capture-subject.svg',
+      'Start with a projector, a phone for the reference photo, and a reliable way to connect the projector to a phone or computer.',
+    image: 'assets/onboarding/materials-needed.png',
   },
+  {
+    title: 'Shoot from the projector view',
+    copy:
+      'Stand where the projector sees the subject and take the photo from that same perspective. This keeps the image aligned with the projection.',
+    image: 'assets/onboarding/capture-from-projector-view.png',
+  },
+  {
+    title: 'Match the lens position',
+    copy:
+      'Hold the phone close to the projector lens direction while shooting. The closer the camera perspective is to the projector perspective, the easier the mapping will be.',
+    image: 'assets/onboarding/align-phone-camera.png',
+  },
+] as const;
+
+const ONBOARDING_PHOTO_PREPARATION_STEPS = [
   {
     title: 'Remove the background',
+    badge: 'Required',
     copy:
-      'Separate the subject from the original photo background so the shader and projection can focus only on the object you want to map.',
-    image: 'assets/onboarding/remove-background.svg',
+      'Export the subject with the background removed. A clean cutout gives the shader a clear shape to map and avoids projecting onto unwanted areas.',
+    image: 'assets/onboarding/background-removed.svg',
   },
   {
-    title: 'Prepare a depth map',
+    title: 'Add a depth map',
+    badge: 'Optional',
     copy:
-      'Create or import a depth map for the image you want to map. Brighter areas are closer, darker areas are farther away.',
-    image: 'assets/onboarding/depth-map.svg',
+      'If the subject has visible depth, prepare a normal grayscale depth map. Use brighter values for closer surfaces and darker values for deeper areas.',
+    image: 'assets/onboarding/depth-map-normal.svg',
   },
 ] as const;
 
@@ -160,26 +177,42 @@ const ONBOARDING_UI_AREAS = [
   {
     title: 'Canvas',
     eyebrow: 'Preview',
-    copy:
-      'The canvas shows the active mapping result. Use it to check the photo, shader, timeline playback, and projector framing.',
+    placement: 'canvas',
+    points: [
+      'Check the live projection preview.',
+      'Compare the mapped image with the real subject.',
+      'Use move mode when the projection needs alignment.',
+    ],
   },
   {
     title: 'Code Control',
     eyebrow: 'Shader',
-    copy:
-      'The code panel controls the GLSL shader. Edit the shader, browse presets, save versions, and fix compile errors from here.',
+    placement: 'code',
+    points: [
+      'Edit or paste shader code.',
+      'Use presets when starting from a known effect.',
+      'Save versions before major changes.',
+    ],
   },
   {
     title: 'Slider And Position Control',
     eyebrow: 'Mapping',
-    copy:
-      'Sliders tune shader values. Position controls move and resize the mapped image so it lines up with the real subject.',
+    placement: 'controls',
+    points: [
+      'Tune shader values with sliders.',
+      'Move, resize, and reset the mapped image.',
+      'Use smaller precision values for final alignment.',
+    ],
   },
   {
     title: 'Timeline',
     eyebrow: 'Sequence',
-    copy:
-      'The timeline arranges shader steps over time. Use it to build transitions, choose assets per step, and control playback.',
+    placement: 'timeline',
+    points: [
+      'Arrange shader steps over time.',
+      'Control transitions between looks.',
+      'Play the full sequence before projecting.',
+    ],
   },
 ] as const;
 
@@ -251,8 +284,17 @@ interface OnboardingGuideProps {
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
   return (
     <div className="onboarding-overlay" role="presentation">
+      <div className="onboarding-ui-highlights" aria-hidden="true">
+        {ONBOARDING_UI_AREAS.map((area) => (
+          <span
+            className={`onboarding-ui-highlight onboarding-ui-highlight-${area.placement}`}
+            key={area.placement}
+          />
+        ))}
+      </div>
+
       <section
-        className="onboarding-panel"
+        className="onboarding-panel onboarding-setup-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
@@ -270,8 +312,8 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
         <div className="onboarding-body">
           <section className="onboarding-section">
             <div className="onboarding-section-heading">
-              <span className="panel-eyebrow">Subject Preparation</span>
-              <h3>Start with aligned source material</h3>
+              <span className="panel-eyebrow">Step 1</span>
+              <h3>Capture aligned source material</h3>
             </div>
             <div className="onboarding-workflow-grid">
               {ONBOARDING_WORKFLOW_STEPS.map((step, index) => (
@@ -289,17 +331,22 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
             </div>
           </section>
 
-          <section className="onboarding-section onboarding-ui-section">
+          <section className="onboarding-section">
             <div className="onboarding-section-heading">
-              <span className="panel-eyebrow">Workspace Areas</span>
-              <h3>What each macro area controls</h3>
+              <span className="panel-eyebrow">Step 2</span>
+              <h3>Prepare the photo</h3>
             </div>
-            <div className="onboarding-area-grid">
-              {ONBOARDING_UI_AREAS.map((area) => (
-                <article className="onboarding-area-card" key={area.title}>
-                  <span>{area.eyebrow}</span>
-                  <h4>{area.title}</h4>
-                  <p>{area.copy}</p>
+            <div className="onboarding-photo-grid">
+              {ONBOARDING_PHOTO_PREPARATION_STEPS.map((step) => (
+                <article className="onboarding-workflow-card onboarding-photo-card" key={step.title}>
+                  <img
+                    src={`${import.meta.env.BASE_URL}${step.image}`}
+                    alt=""
+                    className="onboarding-workflow-image"
+                  />
+                  <span className="onboarding-photo-badge">{step.badge}</span>
+                  <h4>{step.title}</h4>
+                  <p>{step.copy}</p>
                 </article>
               ))}
             </div>
@@ -314,6 +361,27 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
             Start mapping
           </button>
         </div>
+      </section>
+
+      <section className="onboarding-ui-callouts" aria-label="Workspace area guide">
+        <div className="onboarding-ui-callout-heading">
+          <span className="panel-eyebrow">Step 3</span>
+          <h3>What each macro area controls</h3>
+        </div>
+        {ONBOARDING_UI_AREAS.map((area) => (
+          <article
+            className={`onboarding-area-card onboarding-area-card-${area.placement}`}
+            key={area.title}
+          >
+            <span>{area.eyebrow}</span>
+            <h4>{area.title}</h4>
+            <ul>
+              {area.points.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </article>
+        ))}
       </section>
     </div>
   );
