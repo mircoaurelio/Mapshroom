@@ -34,6 +34,7 @@ import { UniformPanel } from '../components/UniformPanel';
 import type { TimelineSelectionInfo } from '../components/TimelineSelectionBanner';
 import { MidiControllerPanel } from '../components/MidiControllerPanel';
 import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDialog';
+import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_STAGE_TRANSFORM,
@@ -1404,6 +1405,7 @@ export function WorkspaceRoute() {
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [presetSelectionAddsToTimeline, setPresetSelectionAddsToTimeline] = useState(false);
   const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
@@ -3440,7 +3442,8 @@ export function WorkspaceRoute() {
       isAssetLibraryOpen ||
       isProjectDialogOpen ||
       isShareDialogOpen ||
-      isPresetBrowserOpen);
+      isPresetBrowserOpen ||
+      isSliceStudioDialogOpen);
 
   const cyclePreviewShader = (direction: 1 | -1) => {
     if (!project) {
@@ -5146,6 +5149,11 @@ ${errorSnapshot}`,
         onClose={() => setMidiGuideOpen(false)}
       />
 
+      <SliceStudioDialog
+        open={isSliceStudioDialogOpen}
+        onClose={() => setIsSliceStudioDialogOpen(false)}
+      />
+
       {!isMobile && uiPreferences.chromeVisible ? (
         <WorkspaceToolbar
           isPlaying={project.playback.transport.isPlaying}
@@ -5172,6 +5180,7 @@ ${errorSnapshot}`,
           onToggleWorkspaceMode={() =>
             updateWorkspaceMode(uiPreferences.workspaceMode === 'immersive' ? 'split' : 'immersive')
           }
+          onOpenSliceStudio={() => setIsSliceStudioDialogOpen(true)}
         />
       ) : null}
 

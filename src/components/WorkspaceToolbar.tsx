@@ -23,6 +23,7 @@ interface WorkspaceToolbarProps {
   midiEnabled: boolean;
   midiPanelVisible: boolean;
   onToggleMidi: () => void;
+  onOpenSliceStudio: () => void;
 }
 
 function PlayIcon() {
@@ -62,6 +63,7 @@ export function WorkspaceToolbar({
   midiEnabled,
   midiPanelVisible,
   onToggleMidi,
+  onOpenSliceStudio,
 }: WorkspaceToolbarProps) {
   const [openMenu, setOpenMenu] = useState<ToolbarMenuKey | null>(null);
   const toolbarMenusRef = useRef<HTMLDivElement | null>(null);
@@ -295,6 +297,10 @@ export function WorkspaceToolbar({
               </div>
             ) : null}
           </div>
+
+          <button type="button" className="secondary-button toolbar-menu-button" onClick={onOpenSliceStudio}>
+            Slider
+          </button>
         </div>
 
         <div className="toolbar-runtime-actions" data-onboarding-area="topbar">

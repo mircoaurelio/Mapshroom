@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#09090b" />
+<title>Mapshroom · Slice Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍄</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="./theme.css" />
+</head>
+<body>
+<div class="workspace-shell">
+  <header class="workspace-toolbar">
+    <div class="toolbar-leading">
+      <a id="backToMapshroomLink" class="secondary-button toolbar-back-link" href="../">← Back to Mapshroom</a>
+      <strong class="toolbar-brand">Mapshroom</strong>
+    </div>
+    <span class="toolbar-meta">Slice Studio</span>
+  </header>
+
+  <div class="workspace-body">
+    <div class="workspace-stage-column" id="viewer">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <aside class="workspace-sidebar">
+      <div class="workspace-sidebar-scroll" id="sidebar">
+        <section class="panel-section">
+          <h2 class="panel-title">OBJ → Slice PDF</h2>
+          <div class="field">
+            <label for="fileInput">Upload OBJ</label>
+            <input id="fileInput" type="file" accept=".obj" />
+            <div id="status" class="muted">No model loaded.</div>
+            <div id="uploadLoading" class="loading-container">
+              <div class="loading-bar">
+                <div id="uploadProgress" class="loading-progress"></div>
+              </div>
+              <div id="uploadText" class="loading-text">
+                <span class="loading-spinner"></span>Loading OBJ file...
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section row">
+          <div class="field">
+            <label for="panelThicknessCm">Panel thickness (cm)</label>
+            <input id="panelThicknessCm" class="text-field" type="number" step="0.1" min="0.1" value="1" />
+          </div>
+          <div class="field">
+            <label for="cmPerUnit">CM per OBJ unit <span class="pill" title="Scale factor: how many centimeters correspond to 1 OBJ unit.">?</span></label>
+            <input id="cmPerUnit" class="text-field" type="number" step="0.01" min="0.001" value="285.3" />
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2 class="panel-title">Model Physical Dimensions (cm) <span class="pill" title="These are for reference only. Panel count is calculated from actual model geometry.">?</span></h2>
+          <div class="row">
+            <div class="field">
+              <label for="modelHeightCm">Height (Z-axis)</label>
+              <input id="modelHeightCm" class="text-field" type="number" step="0.1" min="0.1" value="200" />
+            </div>
+            <div class="field">
+              <label for="modelWidthCm">Width (X-axis)</label>
+              <input id="modelWidthCm" class="text-field" type="number" step="0.1" min="0.1" value="150" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 0.55rem;">
+            <div class="field">
+              <label for="modelDepthCm">Depth (Y-axis)</label>
+              <input id="modelDepthCm" class="text-field" type="number" step="0.1" min="0.1" value="100" />
+            </div>
+            <div class="field">
+              <label>Panel Info</label>
+              <div id="panelInfo" class="status-card">Panels: — | Model height: — cm</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2 class="panel-title">Resize Model <span class="pill" title="Scale the model by percentage or set exact dimensions">?</span></h2>
+          <div class="row">
+            <div class="field">
+              <label for="scaleXPercent">Scale X (%)</label>
+              <input id="scaleXPercent" class="text-field" type="number" step="1" min="1" max="1000" value="100" />
+            </div>
+            <div class="field">
+              <label for="scaleYPercent">Scale Y (%)</label>
+              <input id="scaleYPercent" class="text-field" type="number" step="1" min="1" max="1000" value="100" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 0.55rem;">
+            <div class="field">
+              <label for="scaleZPercent">Scale Z (%)</label>
+              <input id="scaleZPercent" class="text-field" type="number" step="1" min="1" max="1000" value="100" />
+            </div>
+            <div class="field">
+              <label for="uniformScalePercent">Uniform Scale (%)</label>
+              <input id="uniformScalePercent" class="text-field" type="number" step="1" min="1" max="1000" value="100" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 0.55rem;">
+            <div class="field">
+              <label for="targetWidthM">Target Width (m)</label>
+              <input id="targetWidthM" class="text-field" type="number" step="0.01" min="0.01" value="1.5" />
+            </div>
+            <div class="field">
+              <label for="targetHeightM">Target Height (m)</label>
+              <input id="targetHeightM" class="text-field" type="number" step="0.01" min="0.01" value="2.0" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 0.55rem;">
+            <div class="field">
+              <label for="targetDepthM">Target Depth (m)</label>
+              <input id="targetDepthM" class="text-field" type="number" step="0.01" min="0.01" value="1.0" />
+            </div>
+            <div class="field">
+              <label>Resize Actions</label>
+              <div class="button-row">
+                <button id="applyScaleBtn" class="secondary-button" disabled>Apply Scale</button>
+                <button id="applyTargetSizeBtn" class="secondary-button" disabled>Apply Target</button>
+                <button id="resetScaleBtn" class="ghost-button" disabled>Reset</button>
+              </div>
+            </div>
+          </div>
+          <div id="currentSizeInfo" class="muted" style="margin-top: 0.55rem;">Current size: — | Original size: —</div>
+        </section>
+
+        <section class="panel-section">
+          <h2 class="panel-title">Block Division <span class="pill" title="Divide the model into manageable blocks for construction">?</span></h2>
+          <div class="row">
+            <div class="field">
+              <label for="blockWidthCm">Block Width (cm)</label>
+              <input id="blockWidthCm" class="text-field" type="number" step="1" min="10" value="100" />
+            </div>
+            <div class="field">
+              <label for="blockHeightCm">Block Height (cm)</label>
+              <input id="blockHeightCm" class="text-field" type="number" step="1" min="10" value="50" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 0.55rem;">
+            <div class="field">
+              <label for="blockDepthCm">Block Depth (cm)</label>
+              <input id="blockDepthCm" class="text-field" type="number" step="1" min="1" value="5" />
+            </div>
+            <div class="field">
+              <label>Block Info</label>
+              <div id="blockInfo" class="status-card">Blocks: — | Total: —</div>
+            </div>
+          </div>
+          <div class="button-row" style="margin-top: 0.55rem;">
+            <button id="toggleBlockMode" class="secondary-button" disabled>Enable Block Mode</button>
+            <button id="selectAllBlocks" class="ghost-button" disabled>Select All</button>
+            <button id="deselectAllBlocks" class="ghost-button" disabled>Deselect All</button>
+          </div>
+          <div class="button-row" style="margin-top: 0.55rem;">
+            <button id="toggleWireframes" class="ghost-button" disabled>Hide Wireframes</button>
+          </div>
+        </section>
+
+        <section class="panel-section" id="blockCheckboxesSection" style="display: none;">
+          <h2 class="panel-title">Visible Blocks</h2>
+          <div id="blockCheckboxes" class="checklist-panel"></div>
+        </section>
+
+        <section class="panel-section">
+          <h2 class="panel-title">LEGO Mode <span class="pill" title="Convert model to voxelized LEGO blocks for construction">🧱</span></h2>
+          <div class="row">
+            <div class="field">
+              <label for="legoVoxelWidth">Voxel Width (cm)</label>
+              <input id="legoVoxelWidth" class="text-field" type="number" step="1" min="1" value="150" />
+            </div>
+            <div class="field">
+              <label for="legoVoxelHeight">Voxel Height (cm)</label>
+              <input id="legoVoxelHeight" class="text-field" type="number" step="1" min="1" value="50" />
+            </div>
+          </div>
+          <div class="row" style="margin-top: 0.55rem;">
+            <div class="field">
+              <label for="legoVoxelDepth">Voxel Depth (cm)</label>
+              <input id="legoVoxelDepth" class="text-field" type="number" step="1" min="1" value="5" />
+            </div>
+            <div class="field">
+              <label>LEGO Info</label>
+              <div id="legoInfo" class="status-card">Voxels: — | Total: —</div>
+            </div>
+          </div>
+          <div class="button-row" style="margin-top: 0.55rem;">
+            <button id="toggleLegoMode" class="secondary-button" disabled>Enable LEGO Mode</button>
+            <button id="selectAllVoxels" class="ghost-button" disabled>Select All</button>
+            <button id="deselectAllVoxels" class="ghost-button" disabled>Deselect All</button>
+          </div>
+          <div class="button-row" style="margin-top: 0.55rem;">
+            <button id="toggleVoxelBorders" class="ghost-button" disabled>Hide Borders</button>
+            <button id="exportLegoData" class="ghost-button" disabled>Export Data</button>
+          </div>
+        </section>
+
+        <section class="panel-section" id="legoVoxelsSection" style="display: none;">
+          <h2 class="panel-title">Visible Voxels</h2>
+          <div id="legoVoxels" class="checklist-panel"></div>
+        </section>
+
+        <section class="panel-section row">
+          <div class="field">
+            <label for="axis">Axis</label>
+            <select id="axis" class="select-field">
+              <option value="Z" selected>Z (vertical)</option>
+              <option value="Y">Y</option>
+              <option value="X">X</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="marginCm">Margin (cm) on page</label>
+            <input id="marginCm" class="text-field" type="number" step="0.1" min="0" value="1.5" />
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2 class="panel-title">Preview slice position</h2>
+          <div class="flex">
+            <button id="prevSliceBtn" class="secondary-button icon-button" disabled>←</button>
+            <input id="sliceSlider" type="range" min="0" max="0" value="0" style="flex: 1;" />
+            <button id="nextSliceBtn" class="secondary-button icon-button" disabled>→</button>
+          </div>
+          <div class="muted"><span id="sliceInfo">—</span></div>
+        </section>
+
+        <section class="panel-section" id="imagePreviewSection" style="display: none;">
+          <h2 class="panel-title">Current Slice</h2>
+          <div class="preview-card">
+            <img id="sliceImage" class="slice-preview-large" style="display: none;" alt="Current slice preview" />
+            <div id="imagePlaceholder" class="muted">Generating slice preview...</div>
+          </div>
+        </section>
+
+        <section class="panel-section" id="sliceGallerySection" style="display: none;">
+          <div class="slice-gallery-header">
+            <h2 class="panel-title" style="margin: 0;">Slice Gallery</h2>
+            <span id="sliceGalleryCount" class="slice-gallery-count">0 slices</span>
+          </div>
+          <div id="sliceGalleryLoading" class="loading-container">
+            <div class="loading-bar">
+              <div id="sliceGalleryProgress" class="loading-progress"></div>
+            </div>
+            <div id="sliceGalleryText" class="loading-text">
+              <span class="loading-spinner"></span>Building thumbnails...
+            </div>
+          </div>
+          <div id="sliceGalleryGrid" class="slice-gallery-grid">
+            <div class="slice-gallery-empty">Load a model to see all slice thumbnails here.</div>
+          </div>
+        </section>
+
+        <section class="panel-section button-row">
+          <button id="exportBtn" class="primary-button" disabled>Export Current Slice</button>
+          <button id="extractImgBtn" class="secondary-button" disabled>Extract Image</button>
+        </section>
+
+        <section class="panel-section button-row">
+          <button id="downloadAllBtn" class="secondary-button" disabled>Download All Images</button>
+        </section>
+
+        <section class="panel-section button-row">
+          <button id="downloadObjBtn" class="secondary-button" disabled>Download Modified OBJ</button>
+        </section>
+
+        <section class="panel-section button-row">
+          <button id="downloadGridImgBtn" class="secondary-button" disabled>Download Front View Grid</button>
+        </section>
+
+        <section class="panel-section button-row">
+          <button id="showInteractiveGridBtn" class="secondary-button" disabled>Show Interactive Grid</button>
+        </section>
+
+        <section class="panel-section button-row">
+          <button id="centerBtn" class="ghost-button" disabled>Center &amp; Fit</button>
+        </section>
+
+        <section class="panel-section" id="exportLoadingSection">
+          <div id="exportLoading" class="loading-container">
+            <div class="loading-bar">
+              <div id="exportProgress" class="loading-progress"></div>
+            </div>
+            <div id="exportText" class="loading-text">
+              <span class="loading-spinner"></span>Generating PDF...
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <button id="toggleClipping" class="ghost-button" disabled>Show Full Object</button>
+        </section>
+
+        <section class="panel-section muted helper-copy">
+          <strong style="color: var(--text-bright); letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.68rem;">How it works</strong><br/>
+          Upload an OBJ file and view it in 3D. Use the slider to preview slice positions, then export slices to PDF for printing. Ideal for cross-sections of sculptures and large builds.
+        </section>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Interactive Grid Modal -->
+<div id="interactiveGridModal" class="dialog-backdrop dialog-backdrop-fullscreen" style="display: none;">
+  <div class="dialog-panel dialog-panel-fullscreen">
+    <div class="dialog-header">
+      <h2 class="dialog-title">Interactive Cross-Sections View</h2>
+      <button type="button" class="dialog-close" id="closeInteractiveModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <div class="controls-section">
+        <label class="field-label" for="zLevelSlider">Z Level: <span id="zLevelValue">0.0cm</span></label>
+        <input type="range" id="zLevelSlider" min="0" max="100" value="0" step="1" />
+        <div class="button-row" style="margin-top: 0.55rem;">
+          <button id="showAllLevelsBtn" class="secondary-button">Show All</button>
+          <button id="showMainLevelsBtn" class="secondary-button">Show Main Only</button>
+          <button id="showIntermediateLevelsBtn" class="secondary-button">Show Intermediate</button>
+          <button id="hideAllLevelsBtn" class="ghost-button">Hide All</button>
+          <button id="downloadCurrentViewBtn" class="primary-button">Download Current View</button>
+        </div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="interactiveCanvas" width="1200" height="1200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel Detail Modal -->
+<div id="panelDetailModal" class="dialog-backdrop dialog-backdrop-fullscreen" style="display: none;">
+  <div class="dialog-panel dialog-panel-fullscreen">
+    <div class="dialog-header">
+      <h2 class="dialog-title">Panel Detail View</h2>
+      <button type="button" class="dialog-close" id="closePanelModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="dialog-body">
+      <div class="controls-section">
+        <label class="field-label" for="panelZSlider">Z Level: <span id="panelZValue">0.0cm</span></label>
+        <input type="range" id="panelZSlider" min="0" max="100" value="0" step="1" />
+        <div class="button-row" style="margin-top: 0.55rem;">
+          <button id="showAllPanelLevelsBtn" class="secondary-button">Show All</button>
+          <button id="hideAllPanelLevelsBtn" class="ghost-button">Hide All</button>
+          <button id="downloadPanelViewBtn" class="primary-button">Download Panel View</button>
+        </div>
+        <div id="panelDetailInfo" class="status-card" style="margin-top: 0.55rem;"></div>
+      </div>
+      <div class="canvas-container">
+        <canvas id="panelCanvas" width="1000" height="1000"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
