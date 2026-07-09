@@ -1769,7 +1769,7 @@ a {
 .onboarding-panel {
   position: relative;
   z-index: 2;
-  width: min(760px, calc(100vw - 2rem));
+  width: min(1120px, calc(100vw - 4rem));
   max-height: min(820px, calc(100vh - 2rem));
   display: flex;
   flex-direction: column;
@@ -1863,17 +1863,27 @@ a {
   background: var(--bg-panel-soft);
 }
 
-.onboarding-workflow-image {
+.onboarding-workflow-image-frame {
   width: 100%;
   aspect-ratio: 16 / 10;
-  display: block;
-  object-fit: cover;
+  overflow: hidden;
   border: 1px solid rgba(63, 63, 70, 0.72);
   border-radius: var(--radius-sm);
   background: #111114;
 }
 
-.onboarding-photo-card .onboarding-workflow-image {
+.onboarding-workflow-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.onboarding-workflow-image-zoom {
+  transform: scale(1.1);
+}
+
+.onboarding-photo-card .onboarding-workflow-image-frame {
   aspect-ratio: 16 / 9;
 }
 

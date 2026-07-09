@@ -436,11 +436,15 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
                 <div className="onboarding-workflow-grid">
                   {ONBOARDING_WORKFLOW_STEPS.map((step, index) => (
                     <article className="onboarding-workflow-card" key={step.title}>
-                      <img
-                        src={`${import.meta.env.BASE_URL}${step.image}`}
-                        alt=""
-                        className="onboarding-workflow-image"
-                      />
+                      <div className="onboarding-workflow-image-frame">
+                        <img
+                          src={`${import.meta.env.BASE_URL}${step.image}`}
+                          alt=""
+                          className={`onboarding-workflow-image ${
+                            index < 2 ? 'onboarding-workflow-image-zoom' : ''
+                          }`}
+                        />
+                      </div>
                       <div className="onboarding-step-index">{index + 1}</div>
                       <h4>{step.title}</h4>
                       <p>{step.copy}</p>
@@ -459,11 +463,13 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
                 <div className="onboarding-photo-grid">
                   {ONBOARDING_PHOTO_PREPARATION_STEPS.map((step) => (
                     <article className="onboarding-workflow-card onboarding-photo-card" key={step.title}>
-                      <img
-                        src={`${import.meta.env.BASE_URL}${step.image}`}
-                        alt=""
-                        className="onboarding-workflow-image"
-                      />
+                      <div className="onboarding-workflow-image-frame">
+                        <img
+                          src={`${import.meta.env.BASE_URL}${step.image}`}
+                          alt=""
+                          className="onboarding-workflow-image"
+                        />
+                      </div>
                       <span className="onboarding-photo-badge">{step.badge}</span>
                       <h4>{step.title}</h4>
                       <p>{step.copy}</p>
