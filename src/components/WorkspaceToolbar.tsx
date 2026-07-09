@@ -102,21 +102,6 @@ export function WorkspaceToolbar({
     <header className="workspace-toolbar">
       <strong className="toolbar-brand">Mapshroom</strong>
       <div className="toolbar-actions">
-        <div className="toolbar-runtime-actions">
-          <button type="button" className="primary-button" onClick={onOpenOutput}>
-            Output
-          </button>
-          <button
-            type="button"
-            className="icon-button toolbar-transport-button"
-            aria-label={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-            title={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-            onClick={onPlayToggle}
-          >
-            {isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
-        </div>
-
         <div className="toolbar-menu-group toolbar-menu-group-right" ref={toolbarMenusRef}>
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
             <button
@@ -312,6 +297,20 @@ export function WorkspaceToolbar({
           </div>
         </div>
 
+        <div className="toolbar-runtime-actions">
+          <button type="button" className="primary-button" onClick={onOpenOutput}>
+            Output
+          </button>
+          <button
+            type="button"
+            className="icon-button toolbar-transport-button"
+            aria-label={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+            title={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+            onClick={onPlayToggle}
+          >
+            {isPlaying ? <PauseIcon /> : <PlayIcon />}
+          </button>
+        </div>
       </div>
     </header>
   );
