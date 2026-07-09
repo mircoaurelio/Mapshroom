@@ -183,11 +183,12 @@ const ONBOARDING_PHOTO_PREPARATION_STEPS = [
 
 const ONBOARDING_UI_AREAS = [
   {
-    title: 'Top Bar And Output',
+    title: 'Load Assets And Output',
     eyebrow: 'Windows',
     placement: 'topbar',
     points: [
       'Use File, Shader, and View for project, shader, and layout commands.',
+      'Click Load Asset to open the asset window and choose or import the image to map.',
       'Click Output to open the dedicated projection window.',
       'Drag the opened Output window onto the projector screen and use it there.',
     ],
