@@ -191,6 +191,7 @@ const ONBOARDING_UI_AREAS = [
     placement: 'code',
     points: [
       'Edit or paste shader code.',
+      'Ask AI to generate a shader from a prompt when an API key is configured.',
       'Use presets when starting from a known effect.',
       'Save versions before major changes.',
     ],
