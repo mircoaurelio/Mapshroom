@@ -1755,6 +1755,15 @@ a {
   overflow: auto;
 }
 
+.onboarding-overlay-setup-step {
+  display: grid;
+  place-items: center;
+}
+
+.onboarding-overlay-ui-step {
+  overflow: hidden;
+}
+
 .onboarding-panel {
   position: relative;
   z-index: 2;
@@ -1988,7 +1997,7 @@ a {
 .onboarding-area-card {
   position: absolute;
   min-width: 0;
-  width: min(300px, 24vw);
+  width: min(360px, 28vw);
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
@@ -2000,6 +2009,21 @@ a {
     var(--bg-panel-raised);
   box-shadow: var(--shadow);
   pointer-events: auto;
+}
+
+.onboarding-area-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid rgba(63, 63, 70, 0.72);
+}
+
+.onboarding-area-card-header h3 {
+  margin: 0.25rem 0 0;
+  color: var(--text-bright);
+  font-size: 0.9rem;
 }
 
 .onboarding-area-card span {
@@ -2043,6 +2067,27 @@ a {
   border-bottom: 0;
 }
 
+.onboarding-navigation {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.onboarding-step-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.onboarding-area-card .onboarding-navigation {
+  margin-top: 0.25rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(63, 63, 70, 0.72);
+}
+
 @media (max-width: 980px) {
   .onboarding-overlay {
     display: grid;
@@ -2078,6 +2123,10 @@ a {
   }
 
   .onboarding-ui-callout-heading {
+    grid-column: 1 / -1;
+  }
+
+  .onboarding-area-card {
     grid-column: 1 / -1;
   }
 }
@@ -2118,6 +2167,12 @@ a {
   }
 
   .onboarding-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .onboarding-navigation,
+  .onboarding-step-controls {
     flex-direction: column-reverse;
     align-items: stretch;
   }

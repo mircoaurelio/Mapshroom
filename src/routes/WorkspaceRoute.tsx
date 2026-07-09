@@ -215,6 +215,8 @@ const ONBOARDING_UI_AREAS = [
     ],
   },
 ] as const;
+const ONBOARDING_SETUP_STEP_COUNT = 2;
+const ONBOARDING_TOTAL_STEP_COUNT = ONBOARDING_SETUP_STEP_COUNT + ONBOARDING_UI_AREAS.length;
 
 function createTimelineRandomSeedToken(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -282,107 +284,170 @@ interface OnboardingGuideProps {
 }
 
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
-  return (
-    <div className="onboarding-overlay" role="presentation">
-      <div className="onboarding-ui-highlights" aria-hidden="true">
-        {ONBOARDING_UI_AREAS.map((area) => (
-          <span
-            className={`onboarding-ui-highlight onboarding-ui-highlight-${area.placement}`}
-            key={area.placement}
-          />
-        ))}
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const activeUiArea =
+    activeStepIndex >= ONBOARDING_SETUP_STEP_COUNT
+      ? ONBOARDING_UI_AREAS[activeStepIndex - ONBOARDING_SETUP_STEP_COUNT]
+      : null;
+  const isLastStep = activeStepIndex === ONBOARDING_TOTAL_STEP_COUNT - 1;
+  const stepLabel = `Step ${activeStepIndex + 1} of ${ONBOARDING_TOTAL_STEP_COUNT}`;
+  const goToPreviousStep = () => setActiveStepIndex((currentValue) => Math.max(0, currentValue - 1));
+  const goToNextStep = () => {
+    if (isLastStep) {
+      onClose();
+      return;
+    }
+
+    setActiveStepIndex((currentValue) =>
+      Math.min(ONBOARDING_TOTAL_STEP_COUNT - 1, currentValue + 1),
+    );
+  };
+
+  const navigationControls = (
+    <div className="onboarding-navigation">
+      <button type="button" className="secondary-button" onClick={onDismissPermanently}>
+        Don't show again
+      </button>
+      <div className="onboarding-step-controls">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={activeStepIndex === 0}
+          onClick={goToPreviousStep}
+        >
+          Back
+        </button>
+        <button type="button" className="primary-button" onClick={goToNextStep}>
+          {isLastStep ? 'Start mapping' : 'Next'}
+        </button>
       </div>
+    </div>
+  );
 
-      <section
-        className="onboarding-panel onboarding-setup-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboarding-title"
-      >
-        <div className="onboarding-header">
-          <div>
-            <span className="panel-eyebrow">First Setup</span>
-            <h2 id="onboarding-title">Projection mapping workflow</h2>
+  return (
+    <div
+      className={`onboarding-overlay ${
+        activeUiArea ? 'onboarding-overlay-ui-step' : 'onboarding-overlay-setup-step'
+      }`}
+      role="presentation"
+    >
+      {activeUiArea ? (
+        <div className="onboarding-ui-highlights" aria-hidden="true">
+          <span
+            className={`onboarding-ui-highlight onboarding-ui-highlight-${activeUiArea.placement}`}
+          />
+        </div>
+      ) : null}
+
+      {!activeUiArea ? (
+        <section
+          className="onboarding-panel onboarding-setup-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="onboarding-title"
+        >
+          <div className="onboarding-header">
+            <div>
+              <span className="panel-eyebrow">{stepLabel}</span>
+              <h2 id="onboarding-title">Projection mapping workflow</h2>
+            </div>
+            <button
+              type="button"
+              className="icon-button onboarding-close"
+              onClick={onClose}
+              aria-label="Close guide"
+            >
+              X
+            </button>
           </div>
-          <button type="button" className="icon-button onboarding-close" onClick={onClose} aria-label="Close guide">
-            X
-          </button>
-        </div>
 
-        <div className="onboarding-body">
-          <section className="onboarding-section">
-            <div className="onboarding-section-heading">
-              <span className="panel-eyebrow">Step 1</span>
-              <h3>Capture aligned source material</h3>
-            </div>
-            <div className="onboarding-workflow-grid">
-              {ONBOARDING_WORKFLOW_STEPS.map((step, index) => (
-                <article className="onboarding-workflow-card" key={step.title}>
-                  <img
-                    src={`${import.meta.env.BASE_URL}${step.image}`}
-                    alt=""
-                    className="onboarding-workflow-image"
-                  />
-                  <div className="onboarding-step-index">{index + 1}</div>
-                  <h4>{step.title}</h4>
-                  <p>{step.copy}</p>
-                </article>
-              ))}
-            </div>
-          </section>
+          <div className="onboarding-body">
+            {activeStepIndex === 0 ? (
+              <section className="onboarding-section">
+                <div className="onboarding-section-heading">
+                  <span className="panel-eyebrow">Step 1</span>
+                  <h3>Capture aligned source material</h3>
+                </div>
+                <div className="onboarding-workflow-grid">
+                  {ONBOARDING_WORKFLOW_STEPS.map((step, index) => (
+                    <article className="onboarding-workflow-card" key={step.title}>
+                      <img
+                        src={`${import.meta.env.BASE_URL}${step.image}`}
+                        alt=""
+                        className="onboarding-workflow-image"
+                      />
+                      <div className="onboarding-step-index">{index + 1}</div>
+                      <h4>{step.title}</h4>
+                      <p>{step.copy}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
-          <section className="onboarding-section">
-            <div className="onboarding-section-heading">
-              <span className="panel-eyebrow">Step 2</span>
-              <h3>Prepare the photo</h3>
-            </div>
-            <div className="onboarding-photo-grid">
-              {ONBOARDING_PHOTO_PREPARATION_STEPS.map((step) => (
-                <article className="onboarding-workflow-card onboarding-photo-card" key={step.title}>
-                  <img
-                    src={`${import.meta.env.BASE_URL}${step.image}`}
-                    alt=""
-                    className="onboarding-workflow-image"
-                  />
-                  <span className="onboarding-photo-badge">{step.badge}</span>
-                  <h4>{step.title}</h4>
-                  <p>{step.copy}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        </div>
+            {activeStepIndex === 1 ? (
+              <section className="onboarding-section">
+                <div className="onboarding-section-heading">
+                  <span className="panel-eyebrow">Step 2</span>
+                  <h3>Prepare the photo to upload</h3>
+                </div>
+                <div className="onboarding-photo-grid">
+                  {ONBOARDING_PHOTO_PREPARATION_STEPS.map((step) => (
+                    <article className="onboarding-workflow-card onboarding-photo-card" key={step.title}>
+                      <img
+                        src={`${import.meta.env.BASE_URL}${step.image}`}
+                        alt=""
+                        className="onboarding-workflow-image"
+                      />
+                      <span className="onboarding-photo-badge">{step.badge}</span>
+                      <h4>{step.title}</h4>
+                      <p>{step.copy}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
 
-        <div className="onboarding-footer">
-          <button type="button" className="secondary-button" onClick={onDismissPermanently}>
-            Don't show again
-          </button>
-          <button type="button" className="primary-button" onClick={onClose}>
-            Start mapping
-          </button>
-        </div>
-      </section>
+          <div className="onboarding-footer">{navigationControls}</div>
+        </section>
+      ) : null}
 
-      <section className="onboarding-ui-callouts" aria-label="Workspace area guide">
-        <div className="onboarding-ui-callout-heading">
-          <span className="panel-eyebrow">Step 3</span>
-          <h3>What each macro area controls</h3>
-        </div>
-        {ONBOARDING_UI_AREAS.map((area) => (
+      {activeUiArea ? (
+        <section
+          className="onboarding-ui-callouts"
+          aria-label="Workspace area guide"
+          role="dialog"
+          aria-modal="true"
+        >
           <article
-            className={`onboarding-area-card onboarding-area-card-${area.placement}`}
-            key={area.title}
+            className={`onboarding-area-card onboarding-area-card-${activeUiArea.placement}`}
           >
-            <span>{area.eyebrow}</span>
-            <h4>{area.title}</h4>
+            <div className="onboarding-area-card-header">
+              <div>
+                <span className="panel-eyebrow">{stepLabel}</span>
+                <h3>What each macro area controls</h3>
+              </div>
+              <button
+                type="button"
+                className="icon-button onboarding-close"
+                onClick={onClose}
+                aria-label="Close guide"
+              >
+                X
+              </button>
+            </div>
+            <span>{activeUiArea.eyebrow}</span>
+            <h4>{activeUiArea.title}</h4>
             <ul>
-              {area.points.map((point) => (
+              {activeUiArea.points.map((point) => (
                 <li key={point}>{point}</li>
               ))}
             </ul>
+            {navigationControls}
           </article>
-        ))}
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }
