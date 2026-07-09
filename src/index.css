@@ -441,6 +441,18 @@ a {
   align-items: center;
 }
 
+.toolbar-actions {
+  flex: 1;
+  justify-content: space-between;
+}
+
+.toolbar-menu-group,
+.toolbar-runtime-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .shader-studio-action-row {
   flex-wrap: nowrap;
   width: 100%;

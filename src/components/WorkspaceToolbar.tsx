@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceMode } from '../types';
 
+type ToolbarMenuKey = 'file' | 'shader' | 'view';
+
 interface WorkspaceToolbarProps {
   isPlaying: boolean;
   workspaceMode: WorkspaceMode;
@@ -61,24 +63,24 @@ export function WorkspaceToolbar({
   midiPanelVisible,
   onToggleMidi,
 }: WorkspaceToolbarProps) {
-  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
-  const viewMenuRef = useRef<HTMLDivElement | null>(null);
+  const [openMenu, setOpenMenu] = useState<ToolbarMenuKey | null>(null);
+  const toolbarMenusRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!isViewMenuOpen) {
+    if (!openMenu) {
       return;
     }
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (viewMenuRef.current?.contains(event.target as Node)) {
+      if (toolbarMenusRef.current?.contains(event.target as Node)) {
         return;
       }
-      setIsViewMenuOpen(false);
+      setOpenMenu(null);
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsViewMenuOpen(false);
+        setOpenMenu(null);
       }
     };
 
@@ -88,114 +90,227 @@ export function WorkspaceToolbar({
       window.removeEventListener('mousedown', handlePointerDown);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isViewMenuOpen]);
+  }, [openMenu]);
+
+  const toggleMenu = (menu: ToolbarMenuKey) => {
+    setOpenMenu((currentMenu) => (currentMenu === menu ? null : menu));
+  };
+
+  const closeMenu = () => setOpenMenu(null);
 
   return (
     <header className="workspace-toolbar">
       <strong className="toolbar-brand">Mapshroom</strong>
       <div className="toolbar-actions">
-        <button type="button" className="primary-button" onClick={onNewShader}>
-          New Shader
-        </button>
+        <div className="toolbar-menu-group" ref={toolbarMenusRef}>
+          <div className="toolbar-menu-shell">
+            <button
+              type="button"
+              className={`secondary-button toolbar-menu-button ${
+                openMenu === 'file' ? 'toolbar-menu-button-active' : ''
+              }`}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'file'}
+              onClick={() => toggleMenu('file')}
+            >
+              File
+            </button>
 
-        <button type="button" className="secondary-button" onClick={onOpenPresetBrowser}>
-          Add Shader
-        </button>
+            {openMenu === 'file' ? (
+              <div className="toolbar-menu-panel" role="menu" aria-label="File options">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenProjects();
+                    closeMenu();
+                  }}
+                >
+                  Projects
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenAssets();
+                    closeMenu();
+                  }}
+                >
+                  Assets
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenShare();
+                    closeMenu();
+                  }}
+                >
+                  Share
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenExport();
+                    closeMenu();
+                  }}
+                >
+                  Export
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenSettings();
+                    closeMenu();
+                  }}
+                >
+                  Settings
+                </button>
+              </div>
+            ) : null}
+          </div>
 
-        <div className="toolbar-menu-shell" ref={viewMenuRef}>
-          <button
-            type="button"
-            className={`secondary-button toolbar-menu-button ${
-              isViewMenuOpen ? 'toolbar-menu-button-active' : ''
-            }`}
-            aria-haspopup="menu"
-            aria-expanded={isViewMenuOpen}
-            onClick={() => setIsViewMenuOpen((currentValue) => !currentValue)}
-          >
-            View
-          </button>
+          <div className="toolbar-menu-shell">
+            <button
+              type="button"
+              className={`secondary-button toolbar-menu-button ${
+                openMenu === 'shader' ? 'toolbar-menu-button-active' : ''
+              }`}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'shader'}
+              onClick={() => toggleMenu('shader')}
+            >
+              Shader
+            </button>
 
-          {isViewMenuOpen ? (
-            <div className="toolbar-menu-panel" role="menu" aria-label="View options">
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={sidebarVisible}
-                className="toolbar-menu-item"
-                onClick={() => {
-                  onToggleSidebarVisibility();
-                  setIsViewMenuOpen(false);
-                }}
-              >
-                <span>{sidebarVisible ? 'On' : 'Off'}</span>
-                Panels
-              </button>
-              <button
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={desktopSlidersWindowEnabled}
-                className="toolbar-menu-item"
-                onClick={() => {
-                  onToggleDesktopSlidersWindow();
-                  setIsViewMenuOpen(false);
-                }}
-              >
-                <span>{desktopSlidersWindowEnabled ? 'On' : 'Off'}</span>
-                Sliders Window
-              </button>
-            </div>
-          ) : null}
+            {openMenu === 'shader' ? (
+              <div className="toolbar-menu-panel" role="menu" aria-label="Shader options">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onNewShader();
+                    closeMenu();
+                  }}
+                >
+                  New Shader
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenPresetBrowser();
+                    closeMenu();
+                  }}
+                >
+                  Presets
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="toolbar-menu-shell">
+            <button
+              type="button"
+              className={`secondary-button toolbar-menu-button ${
+                openMenu === 'view' ? 'toolbar-menu-button-active' : ''
+              }`}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'view'}
+              onClick={() => toggleMenu('view')}
+            >
+              View
+            </button>
+
+            {openMenu === 'view' ? (
+              <div className="toolbar-menu-panel" role="menu" aria-label="View options">
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={sidebarVisible}
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onToggleSidebarVisibility();
+                    closeMenu();
+                  }}
+                >
+                  <span>{sidebarVisible ? 'On' : 'Off'}</span>
+                  Panels
+                </button>
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={desktopSlidersWindowEnabled}
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onToggleDesktopSlidersWindow();
+                    closeMenu();
+                  }}
+                >
+                  <span>{desktopSlidersWindowEnabled ? 'On' : 'Off'}</span>
+                  Sliders
+                </button>
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={workspaceMode === 'immersive'}
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onToggleWorkspaceMode();
+                    closeMenu();
+                  }}
+                >
+                  <span>{workspaceMode === 'immersive' ? 'On' : 'Off'}</span>
+                  Immersive
+                </button>
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={midiEnabled}
+                  className="toolbar-menu-item"
+                  title={
+                    midiEnabled
+                      ? midiPanelVisible
+                        ? 'Disable MIDI controller'
+                        : 'Show MIDI monitor'
+                      : 'Enable MIDI controller'
+                  }
+                  onClick={() => {
+                    onToggleMidi();
+                    closeMenu();
+                  }}
+                >
+                  <span>{midiEnabled ? 'On' : 'Off'}</span>
+                  MIDI
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <button type="button" className="secondary-button" onClick={onOpenProjects}>
-          Project
-        </button>
-        <button type="button" className="secondary-button" onClick={onOpenShare}>
-          Share
-        </button>
-        <button type="button" className="secondary-button" onClick={onOpenExport}>
-          Export
-        </button>
-        <button type="button" className="secondary-button" onClick={onOpenAssets}>
-          Assets
-        </button>
-        <button type="button" className="secondary-button" onClick={onOpenSettings}>
-          Settings
-        </button>
-        <button
-          type="button"
-          className={`toggle-chip ${midiEnabled ? 'toggle-chip-active' : ''}`}
-          aria-pressed={midiEnabled}
-          title={
-            midiEnabled
-              ? midiPanelVisible
-                ? 'Disable MIDI controller'
-                : 'Show MIDI monitor'
-              : 'Enable MIDI controller'
-          }
-          onClick={onToggleMidi}
-        >
-          MIDI
-        </button>
-        <button
-          type="button"
-          className="icon-button toolbar-transport-button"
-          aria-label={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-          title={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-          onClick={onPlayToggle}
-        >
-          {isPlaying ? <PauseIcon /> : <PlayIcon />}
-        </button>
-        <button type="button" className="secondary-button" onClick={onOpenOutput}>
-          Output
-        </button>
-        <button
-          type="button"
-          className={`toggle-chip ${workspaceMode === 'immersive' ? 'toggle-chip-active' : ''}`}
-          onClick={onToggleWorkspaceMode}
-        >
-          {workspaceMode === 'immersive' ? 'Immersive' : 'Split'}
-        </button>
+        <div className="toolbar-runtime-actions">
+          <button type="button" className="primary-button" onClick={onOpenOutput}>
+            Output
+          </button>
+          <button
+            type="button"
+            className="icon-button toolbar-transport-button"
+            aria-label={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+            title={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
+            onClick={onPlayToggle}
+          >
+            {isPlaying ? <PauseIcon /> : <PlayIcon />}
+          </button>
+        </div>
       </div>
     </header>
   );
