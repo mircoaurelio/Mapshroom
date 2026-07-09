@@ -443,7 +443,7 @@ a {
 
 .toolbar-actions {
   flex: 1;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
 .toolbar-menu-group,
@@ -451,6 +451,12 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+}
+
+.toolbar-menu-group-right .toolbar-menu-panel,
+.toolbar-menu-shell-align-right .toolbar-menu-panel {
+  right: 0;
+  left: auto;
 }
 
 .shader-studio-action-row {
