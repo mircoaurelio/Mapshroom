@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type ChangeEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -217,6 +218,8 @@ const ONBOARDING_UI_AREAS = [
 ] as const;
 const ONBOARDING_SETUP_STEP_COUNT = 2;
 const ONBOARDING_TOTAL_STEP_COUNT = ONBOARDING_SETUP_STEP_COUNT + ONBOARDING_UI_AREAS.length;
+const ONBOARDING_CALLOUT_GAP_PX = 16;
+const ONBOARDING_CALLOUT_MARGIN_PX = 16;
 
 function createTimelineRandomSeedToken(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -264,6 +267,96 @@ function dismissOnboardingPermanently(): void {
   sessionStorage.setItem(ONBOARDING_ENTRY_SESSION_KEY, 'true');
 }
 
+function clampOnboardingCalloutPosition(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function resolveOnboardingCalloutStyle(
+  highlightRect: { top: number; left: number; width: number; height: number },
+  calloutRect: { width: number; height: number },
+): CSSProperties {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const minLeft = ONBOARDING_CALLOUT_MARGIN_PX;
+  const minTop = ONBOARDING_CALLOUT_MARGIN_PX;
+  const maxLeft = Math.max(minLeft, viewportWidth - calloutRect.width - ONBOARDING_CALLOUT_MARGIN_PX);
+  const maxTop = Math.max(minTop, viewportHeight - calloutRect.height - ONBOARDING_CALLOUT_MARGIN_PX);
+  const rightSpace =
+    viewportWidth - (highlightRect.left + highlightRect.width) - ONBOARDING_CALLOUT_GAP_PX;
+  const leftSpace = highlightRect.left - ONBOARDING_CALLOUT_GAP_PX;
+  const topSpace = highlightRect.top - ONBOARDING_CALLOUT_GAP_PX;
+  const bottomSpace =
+    viewportHeight - (highlightRect.top + highlightRect.height) - ONBOARDING_CALLOUT_GAP_PX;
+  const centeredTop = clampOnboardingCalloutPosition(
+    highlightRect.top + highlightRect.height / 2 - calloutRect.height / 2,
+    minTop,
+    maxTop,
+  );
+  const centeredLeft = clampOnboardingCalloutPosition(
+    highlightRect.left + highlightRect.width / 2 - calloutRect.width / 2,
+    minLeft,
+    maxLeft,
+  );
+
+  if (rightSpace >= calloutRect.width + ONBOARDING_CALLOUT_MARGIN_PX) {
+    return {
+      left: `${highlightRect.left + highlightRect.width + ONBOARDING_CALLOUT_GAP_PX}px`,
+      top: `${centeredTop}px`,
+    };
+  }
+
+  if (leftSpace >= calloutRect.width + ONBOARDING_CALLOUT_MARGIN_PX) {
+    return {
+      left: `${highlightRect.left - calloutRect.width - ONBOARDING_CALLOUT_GAP_PX}px`,
+      top: `${centeredTop}px`,
+    };
+  }
+
+  if (topSpace >= calloutRect.height + ONBOARDING_CALLOUT_MARGIN_PX) {
+    return {
+      left: `${centeredLeft}px`,
+      top: `${highlightRect.top - calloutRect.height - ONBOARDING_CALLOUT_GAP_PX}px`,
+    };
+  }
+
+  if (bottomSpace >= calloutRect.height + ONBOARDING_CALLOUT_MARGIN_PX) {
+    return {
+      left: `${centeredLeft}px`,
+      top: `${highlightRect.top + highlightRect.height + ONBOARDING_CALLOUT_GAP_PX}px`,
+    };
+  }
+
+  const bestSide = [
+    { side: 'right', space: rightSpace },
+    { side: 'left', space: leftSpace },
+    { side: 'top', space: topSpace },
+    { side: 'bottom', space: bottomSpace },
+  ].sort((a, b) => b.space - a.space)[0]?.side;
+
+  switch (bestSide) {
+    case 'right':
+      return {
+        left: `${maxLeft}px`,
+        top: `${centeredTop}px`,
+      };
+    case 'left':
+      return {
+        left: `${minLeft}px`,
+        top: `${centeredTop}px`,
+      };
+    case 'top':
+      return {
+        left: `${centeredLeft}px`,
+        top: `${minTop}px`,
+      };
+    default:
+      return {
+        left: `${centeredLeft}px`,
+        top: `${maxTop}px`,
+      };
+  }
+}
+
 function useIsMobile(breakpoint = 960): boolean {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint);
 
@@ -284,6 +377,7 @@ interface OnboardingGuideProps {
 }
 
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
+  const calloutCardRef = useRef<HTMLElement | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [highlightRect, setHighlightRect] = useState<{
     top: number;
@@ -291,19 +385,26 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
     width: number;
     height: number;
   } | null>(null);
+  const [calloutStyle, setCalloutStyle] = useState<CSSProperties | undefined>(undefined);
   const activeUiArea =
     activeStepIndex >= ONBOARDING_SETUP_STEP_COUNT
       ? ONBOARDING_UI_AREAS[activeStepIndex - ONBOARDING_SETUP_STEP_COUNT]
       : null;
   const isLastStep = activeStepIndex === ONBOARDING_TOTAL_STEP_COUNT - 1;
   const stepLabel = `Step ${activeStepIndex + 1} of ${ONBOARDING_TOTAL_STEP_COUNT}`;
-  const goToPreviousStep = () => setActiveStepIndex((currentValue) => Math.max(0, currentValue - 1));
+  const goToPreviousStep = () => {
+    setHighlightRect(null);
+    setCalloutStyle(undefined);
+    setActiveStepIndex((currentValue) => Math.max(0, currentValue - 1));
+  };
   const goToNextStep = () => {
     if (isLastStep) {
       onClose();
       return;
     }
 
+    setHighlightRect(null);
+    setCalloutStyle(undefined);
     setActiveStepIndex((currentValue) =>
       Math.min(ONBOARDING_TOTAL_STEP_COUNT - 1, currentValue + 1),
     );
@@ -378,6 +479,54 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
       resizeObserver?.disconnect();
     };
   }, [activeUiArea]);
+
+  useEffect(() => {
+    if (!activeUiArea || !highlightRect) {
+      return;
+    }
+
+    let animationFrameId = window.requestAnimationFrame(() => {
+      const calloutCard = calloutCardRef.current;
+
+      if (!calloutCard) {
+        return;
+      }
+
+      const rect = calloutCard.getBoundingClientRect();
+      setCalloutStyle(
+        resolveOnboardingCalloutStyle(highlightRect, {
+          width: rect.width,
+          height: rect.height,
+        }),
+      );
+    });
+
+    const updateCalloutStyle = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = window.requestAnimationFrame(() => {
+        const calloutCard = calloutCardRef.current;
+
+        if (!calloutCard) {
+          return;
+        }
+
+        const rect = calloutCard.getBoundingClientRect();
+        setCalloutStyle(
+          resolveOnboardingCalloutStyle(highlightRect, {
+            width: rect.width,
+            height: rect.height,
+          }),
+        );
+      });
+    };
+
+    window.addEventListener('resize', updateCalloutStyle);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', updateCalloutStyle);
+    };
+  }, [activeUiArea, highlightRect]);
 
   const highlightStyle = highlightRect
     ? {
@@ -492,7 +641,11 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
           aria-modal="true"
         >
           <article
-            className={`onboarding-area-card onboarding-area-card-${activeUiArea.placement}`}
+            ref={calloutCardRef}
+            className={`onboarding-area-card onboarding-area-card-${activeUiArea.placement} ${
+              calloutStyle ? 'onboarding-area-card-positioned' : 'onboarding-area-card-measuring'
+            }`}
+            style={calloutStyle}
           >
             <div className="onboarding-area-card-header">
               <div>

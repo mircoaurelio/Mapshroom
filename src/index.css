@@ -2026,24 +2026,10 @@ a {
   padding-left: 1rem;
 }
 
-.onboarding-area-card-canvas {
-  top: 34%;
-  left: 30%;
-}
-
-.onboarding-area-card-code {
-  top: 18%;
-  right: calc(1rem + var(--safe-right));
-}
-
-.onboarding-area-card-controls {
-  top: 28%;
+.onboarding-area-card-measuring {
+  top: calc(1rem + var(--safe-top));
   left: calc(1rem + var(--safe-left));
-}
-
-.onboarding-area-card-timeline {
-  right: 22%;
-  bottom: calc(1rem + var(--safe-bottom));
+  visibility: hidden;
 }
 
 .onboarding-footer {
