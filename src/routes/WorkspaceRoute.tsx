@@ -285,6 +285,12 @@ interface OnboardingGuideProps {
 
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [highlightRect, setHighlightRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const activeUiArea =
     activeStepIndex >= ONBOARDING_SETUP_STEP_COUNT
       ? ONBOARDING_UI_AREAS[activeStepIndex - ONBOARDING_SETUP_STEP_COUNT]
@@ -324,6 +330,64 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
     </div>
   );
 
+  useEffect(() => {
+    if (!activeUiArea) {
+      return;
+    }
+
+    let animationFrameId = 0;
+    const targetSelector = `[data-onboarding-area="${activeUiArea.placement}"]`;
+    const updateHighlightRect = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = window.requestAnimationFrame(() => {
+        const targetElement = document.querySelector<HTMLElement>(targetSelector);
+
+        if (!targetElement) {
+          setHighlightRect(null);
+          return;
+        }
+
+        const rect = targetElement.getBoundingClientRect();
+        const padding = 6;
+        setHighlightRect({
+          top: Math.max(0, rect.top - padding),
+          left: Math.max(0, rect.left - padding),
+          width: Math.min(window.innerWidth, rect.width + padding * 2),
+          height: Math.min(window.innerHeight, rect.height + padding * 2),
+        });
+      });
+    };
+
+    updateHighlightRect();
+    window.addEventListener('resize', updateHighlightRect);
+    window.addEventListener('scroll', updateHighlightRect, true);
+
+    const targetElement = document.querySelector<HTMLElement>(targetSelector);
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateHighlightRect)
+      : null;
+
+    if (targetElement) {
+      resizeObserver?.observe(targetElement);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', updateHighlightRect);
+      window.removeEventListener('scroll', updateHighlightRect, true);
+      resizeObserver?.disconnect();
+    };
+  }, [activeUiArea]);
+
+  const highlightStyle = highlightRect
+    ? {
+        top: `${highlightRect.top}px`,
+        left: `${highlightRect.left}px`,
+        width: `${highlightRect.width}px`,
+        height: `${highlightRect.height}px`,
+      }
+    : undefined;
+
   return (
     <div
       className={`onboarding-overlay ${
@@ -335,6 +399,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
         <div className="onboarding-ui-highlights" aria-hidden="true">
           <span
             className={`onboarding-ui-highlight onboarding-ui-highlight-${activeUiArea.placement}`}
+            style={highlightStyle}
           />
         </div>
       ) : null}
@@ -4729,6 +4794,7 @@ ${errorSnapshot}`,
   const stageViewport = (
     <section
       ref={stageViewportRef}
+      data-onboarding-area="canvas"
       className={`workspace-stage-column ${
         desktopStageKeyboardArmed ? 'workspace-stage-column-keyboard-active' : ''
       }`}
@@ -4937,6 +5003,7 @@ ${errorSnapshot}`,
                   <>
                     <aside
                       className="workspace-pane workspace-pane-left"
+                      data-onboarding-area="controls"
                       style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
                     >
                       <div className="workspace-pane-scroll">
@@ -4970,7 +5037,10 @@ ${errorSnapshot}`,
               />
 
               <section className="workspace-pane-section workspace-pane-timeline">
-                <div className="workspace-pane-scroll workspace-pane-scroll-timeline">
+                <div
+                  className="workspace-pane-scroll workspace-pane-scroll-timeline"
+                  data-onboarding-area="timeline"
+                >
                   {timelineBar}
                 </div>
               </section>
@@ -4987,6 +5057,7 @@ ${errorSnapshot}`,
 
             <aside
               className="workspace-pane workspace-pane-right"
+              data-onboarding-area="code"
               style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
             >
               <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
@@ -5002,7 +5073,7 @@ ${errorSnapshot}`,
             {stageViewport}
 
             {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
-              <aside className="workspace-sidebar">
+              <aside className="workspace-sidebar" data-onboarding-area="controls">
                 <div className="workspace-sidebar-scroll">
                   {aiPanel}
                   {studioPanel}
@@ -5016,7 +5087,9 @@ ${errorSnapshot}`,
       </div>
 
       {!isMobile && uiPreferences.chromeVisible && !useDesktopPaneLayout ? (
-        <div className="workspace-timeline-shell">{timelineBar}</div>
+        <div className="workspace-timeline-shell" data-onboarding-area="timeline">
+          {timelineBar}
+        </div>
       ) : null}
 
       <AssetLibraryDialog

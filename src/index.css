@@ -1762,6 +1762,8 @@ a {
 
 .onboarding-overlay-ui-step {
   overflow: hidden;
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .onboarding-panel {
@@ -1933,40 +1935,13 @@ a {
 
 .onboarding-ui-highlight {
   position: absolute;
-  border: 1px solid rgba(52, 211, 153, 0.52);
+  border: 2px solid rgba(52, 211, 153, 0.72);
   border-radius: var(--radius-md);
-  background: rgba(52, 211, 153, 0.08);
+  background: rgba(52, 211, 153, 0.04);
   box-shadow:
-    0 0 0 1px rgba(52, 211, 153, 0.16),
-    0 0 34px rgba(52, 211, 153, 0.18);
-}
-
-.onboarding-ui-highlight-canvas {
-  top: 18%;
-  left: 27%;
-  width: 37%;
-  height: 44%;
-}
-
-.onboarding-ui-highlight-code {
-  top: 10%;
-  right: 1.2rem;
-  width: min(360px, 22vw);
-  height: 46%;
-}
-
-.onboarding-ui-highlight-controls {
-  top: 12%;
-  left: 1.2rem;
-  width: min(360px, 21vw);
-  height: 42%;
-}
-
-.onboarding-ui-highlight-timeline {
-  left: 20%;
-  right: 20%;
-  bottom: 1.2rem;
-  height: min(220px, 22vh);
+    0 0 0 9999px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(52, 211, 153, 0.2),
+    0 0 34px rgba(52, 211, 153, 0.26);
 }
 
 .onboarding-ui-callouts {
