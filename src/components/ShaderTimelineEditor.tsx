@@ -75,7 +75,7 @@ interface ShaderTimelineEditorProps {
   ) => void;
   onPinnedStepToggle: (stepId: string) => void;
   onAssignStepAsset: (stepId: string, assetId: string | null) => void;
-  onImportAsset: () => void;
+  onImportAsset: (stepId: string) => void;
   assetPickerRequestStepId: string | null;
   assetPickerRequestToken: number;
   onAssetPickerRequestHandled: () => void;
@@ -1215,7 +1215,7 @@ export function ShaderTimelineEditor({
                     <button
                       type="button"
                       className="secondary-button"
-                      onClick={onImportAsset}
+                      onClick={() => onImportAsset(assetPickerStep.id)}
                     >
                       Import Media
                     </button>

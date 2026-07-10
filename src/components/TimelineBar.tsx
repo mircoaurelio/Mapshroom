@@ -68,7 +68,7 @@ interface TimelineBarProps {
   ) => void;
   onSequencePinnedStepToggle: (stepId: string) => void;
   onAssignSequenceStepAsset: (stepId: string, assetId: string | null) => void;
-  onImportSequenceAsset: () => void;
+  onImportSequenceAsset: (stepId: string) => void;
   assetPickerRequestStepId: string | null;
   assetPickerRequestToken: number;
   onAssetPickerRequestHandled: () => void;

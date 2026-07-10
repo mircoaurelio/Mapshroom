@@ -1510,6 +1510,122 @@ function pruneTemporaryTimelineShaders(
   };
 }
 
+function assignTimelineStepAssetToProject(
+  currentProject: ProjectDocument,
+  stepId: string,
+  assetId: string | null,
+  shouldSyncActiveShader: boolean,
+): { project: ProjectDocument; statusMessage: string } {
+  const nextInputAssetId = assetId?.trim() || null;
+  const step = currentProject.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
+  if (!step) {
+    return { project: currentProject, statusMessage: '' };
+  }
+
+  const sourceShader =
+    currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId) ?? null;
+  if (!sourceShader) {
+    return { project: currentProject, statusMessage: '' };
+  }
+
+  const isOwnedDraft = sourceShader.isTemporary && sourceShader.ownerTimelineStepId === stepId;
+  const editableShader = isOwnedDraft
+    ? sourceShader
+    : createSavedShaderRecord(
+        sourceShader.name,
+        sourceShader.code,
+        sourceShader.uniformValues,
+        {
+          description: 'Linked timeline shader.',
+          template: sourceShader.template ?? 'stage',
+          group: 'Timeline',
+          inputAssetId: sourceShader.inputAssetId ?? null,
+          isTemporary: true,
+          isDirty: sourceShader.isDirty,
+          sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
+          ownerTimelineStepId: stepId,
+          versions: sourceShader.versions,
+          lastValidCode: sourceShader.lastValidCode,
+          lastValidUniformValues: sourceShader.lastValidUniformValues,
+          compileError: sourceShader.compileError,
+        },
+      );
+  const nextSavedShaders = (isOwnedDraft
+    ? currentProject.studio.savedShaders
+    : [...currentProject.studio.savedShaders, editableShader]
+  ).map((shader) =>
+    shader.id === editableShader.id
+      ? {
+          ...shader,
+          inputAssetId: nextInputAssetId,
+          isDirty: true,
+          hasUnreadAiResult: false,
+        }
+      : shader,
+  );
+  const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
+    item.id === stepId
+      ? {
+          ...item,
+          shaderId: editableShader.id,
+          ...(nextInputAssetId
+            ? {}
+            : {
+                assetSettings: normalizeTimelineStepAssetSettings({
+                  ...item.assetSettings,
+                  useStepAssetAsShaderBase: false,
+                }),
+              }),
+        }
+      : item,
+  );
+  const assignedAssetName = nextInputAssetId
+    ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId)?.name ??
+      'selected asset'
+    : null;
+  const statusMessage = nextInputAssetId
+    ? `Assigned "${assignedAssetName}" to "${editableShader.name}".`
+    : `"${editableShader.name}" now uses the live stage asset.`;
+
+  return {
+    project: pruneTemporaryTimelineShaders({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        activeShaderId: shouldSyncActiveShader
+          ? editableShader.id
+          : currentProject.studio.activeShaderId,
+        activeShaderName: shouldSyncActiveShader
+          ? editableShader.name
+          : currentProject.studio.activeShaderName,
+        activeShaderCode: shouldSyncActiveShader
+          ? editableShader.code
+          : currentProject.studio.activeShaderCode,
+        shaderVersions: shouldSyncActiveShader
+          ? currentProject.studio.activeShaderId === editableShader.id
+            ? currentProject.studio.shaderVersions
+            : getShaderVersionTrail(editableShader)
+          : currentProject.studio.shaderVersions,
+        uniformValues: shouldSyncActiveShader
+          ? getSyncedShaderUniformValues(editableShader.code, editableShader.uniformValues)
+          : currentProject.studio.uniformValues,
+        savedShaders: nextSavedShaders,
+      },
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            focusedStepId: stepId,
+            steps: nextSteps,
+          },
+        },
+      },
+    }),
+    statusMessage,
+  };
+}
+
 function getPreferredTimelineStepId(
   steps: ProjectDocument['timeline']['stub']['shaderSequence']['steps'],
   preferredStepId?: string | null,
@@ -1530,6 +1646,7 @@ export function WorkspaceRoute() {
   const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const filePickerSourceRef = useRef<FilePickerSource>('library');
+  const timelineImportStepIdRef = useRef<string | null>(null);
   const stageViewportRef = useRef<HTMLElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
   const [outputWindowOpen, setOutputWindowOpen] = useState(false);
@@ -2212,8 +2329,9 @@ export function WorkspaceRoute() {
     setStatusMessage(`Stored asset "${activeAsset.name}" could not be restored. Load it again.`);
   }, [activeAsset, activeAssetResolution.status]);
 
-  const openFilePicker = (source: FilePickerSource = 'library') => {
+  const openFilePicker = (source: FilePickerSource = 'library', timelineStepId: string | null = null) => {
     filePickerSourceRef.current = source;
+    timelineImportStepIdRef.current = source === 'timeline-picker' ? timelineStepId : null;
     fileInputRef.current?.click();
   };
 
@@ -2232,7 +2350,9 @@ export function WorkspaceRoute() {
 
   const handleFileSelection = async (event: ChangeEvent<HTMLInputElement>) => {
     const filePickerSource = filePickerSourceRef.current;
+    const timelineImportStepId = timelineImportStepIdRef.current;
     filePickerSourceRef.current = 'library';
+    timelineImportStepIdRef.current = null;
     const files = Array.from(event.target.files ?? []);
     if (!files.length) {
       return;
@@ -2269,6 +2389,8 @@ export function WorkspaceRoute() {
       return;
     }
 
+    let timelineAssignmentMessage = '';
+
     updateProject((currentProject) => {
       const nextAssets = [...currentProject.library.assets, ...uploadedAssets];
       const currentActiveId =
@@ -2282,7 +2404,7 @@ export function WorkspaceRoute() {
           currentProject.playback.activeAssetId;
       const shouldAutoPlay = currentProject.library.assets.length === 0 && Boolean(nextActiveId);
 
-      return {
+      const projectWithUploads = {
         ...currentProject,
         library: {
           ...currentProject.library,
@@ -2297,10 +2419,41 @@ export function WorkspaceRoute() {
             : currentProject.playback.transport,
         },
       };
+
+      if (filePickerSource !== 'timeline-picker' || !timelineImportStepId) {
+        return projectWithUploads;
+      }
+
+      const importedAssetId = uploadedAssets[0]?.id ?? null;
+      if (!importedAssetId) {
+        return projectWithUploads;
+      }
+
+      const step = projectWithUploads.timeline.stub.shaderSequence.steps.find(
+        (item) => item.id === timelineImportStepId,
+      );
+      const sourceShader = step
+        ? projectWithUploads.studio.savedShaders.find((shader) => shader.id === step.shaderId) ?? null
+        : null;
+      const shouldSyncActiveShader =
+        editingTimelineStepId === timelineImportStepId ||
+        (sourceShader !== null &&
+          (projectWithUploads.studio.activeShaderId === sourceShader.id ||
+            projectWithUploads.studio.activeShaderId === step?.shaderId));
+      const assignment = assignTimelineStepAssetToProject(
+        projectWithUploads,
+        timelineImportStepId,
+        importedAssetId,
+        shouldSyncActiveShader,
+      );
+      timelineAssignmentMessage = assignment.statusMessage;
+      return assignment.project;
     });
 
     setStatusMessage(
-      filePickerSource === 'timeline-picker'
+      timelineAssignmentMessage
+        ? timelineAssignmentMessage
+        : filePickerSource === 'timeline-picker'
         ? `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added to the library.`
         : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`,
     );
@@ -2647,115 +2800,20 @@ export function WorkspaceRoute() {
 
     updateProject((currentProject) => {
       const step = currentProject.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
-      if (!step) {
-        return currentProject;
-      }
-
-      const sourceShader =
-        currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId) ?? null;
-      if (!sourceShader) {
-        return currentProject;
-      }
-
-      const isOwnedDraft = sourceShader.isTemporary && sourceShader.ownerTimelineStepId === stepId;
-      const editableShader = isOwnedDraft
-        ? sourceShader
-        : createSavedShaderRecord(
-            sourceShader.name,
-            sourceShader.code,
-            sourceShader.uniformValues,
-            {
-              description: 'Linked timeline shader.',
-              template: sourceShader.template ?? 'stage',
-              group: 'Timeline',
-              inputAssetId: sourceShader.inputAssetId ?? null,
-              isTemporary: true,
-              isDirty: sourceShader.isDirty,
-              sourceShaderId: sourceShader.sourceShaderId ?? sourceShader.id,
-              ownerTimelineStepId: stepId,
-              versions: sourceShader.versions,
-              lastValidCode: sourceShader.lastValidCode,
-              lastValidUniformValues: sourceShader.lastValidUniformValues,
-              compileError: sourceShader.compileError,
-            },
-          );
-      const nextSavedShaders = (isOwnedDraft
-        ? currentProject.studio.savedShaders
-        : [...currentProject.studio.savedShaders, editableShader]
-      ).map((shader) =>
-        shader.id === editableShader.id
-          ? {
-              ...shader,
-              inputAssetId: nextInputAssetId,
-              isDirty: true,
-              hasUnreadAiResult: false,
-            }
-          : shader,
-      );
-      const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
-        item.id === stepId
-          ? {
-              ...item,
-              shaderId: editableShader.id,
-              ...(nextInputAssetId
-                ? {}
-                : {
-                    assetSettings: normalizeTimelineStepAssetSettings({
-                      ...item.assetSettings,
-                      useStepAssetAsShaderBase: false,
-                    }),
-                  }),
-            }
-          : item,
-      );
+      const sourceShader = step
+        ? currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId) ?? null
+        : null;
       const shouldSyncActiveShader =
         editingTimelineStepId === stepId ||
-        currentProject.studio.activeShaderId === sourceShader.id ||
-        currentProject.studio.activeShaderId === editableShader.id;
-      const assignedAssetName =
-        nextInputAssetId
-          ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId)?.name ??
-            'selected asset'
-          : null;
-
-      nextStatusMessage = nextInputAssetId
-        ? `Assigned "${assignedAssetName}" to "${editableShader.name}".`
-        : `"${editableShader.name}" now uses the live stage asset.`;
-
-      return pruneTemporaryTimelineShaders({
-        ...currentProject,
-        studio: {
-          ...currentProject.studio,
-          activeShaderId: shouldSyncActiveShader
-            ? editableShader.id
-            : currentProject.studio.activeShaderId,
-          activeShaderName: shouldSyncActiveShader
-            ? editableShader.name
-            : currentProject.studio.activeShaderName,
-          activeShaderCode: shouldSyncActiveShader
-            ? editableShader.code
-            : currentProject.studio.activeShaderCode,
-          shaderVersions: shouldSyncActiveShader
-            ? currentProject.studio.activeShaderId === editableShader.id
-              ? currentProject.studio.shaderVersions
-              : getShaderVersionTrail(editableShader)
-            : currentProject.studio.shaderVersions,
-          uniformValues: shouldSyncActiveShader
-            ? getSyncedShaderUniformValues(editableShader.code, editableShader.uniformValues)
-            : currentProject.studio.uniformValues,
-          savedShaders: nextSavedShaders,
-        },
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              focusedStepId: stepId,
-              steps: nextSteps,
-            },
-          },
-        },
-      });
+        (sourceShader !== null && currentProject.studio.activeShaderId === sourceShader.id);
+      const assignment = assignTimelineStepAssetToProject(
+        currentProject,
+        stepId,
+        nextInputAssetId,
+        shouldSyncActiveShader,
+      );
+      nextStatusMessage = assignment.statusMessage;
+      return assignment.project;
     });
 
     if (nextStatusMessage) {
@@ -5065,7 +5123,9 @@ ${errorSnapshot}`,
           : null
       }
       onChooseAsset={inspectorTimelineStep ? () => requestTimelineAssetPicker(inspectorTimelineStep.id) : null}
-      onImportAsset={inspectorTimelineStep ? () => openFilePicker('timeline-picker') : null}
+      onImportAsset={
+        inspectorTimelineStep ? () => openFilePicker('timeline-picker', inspectorTimelineStep.id) : null
+      }
       onUseLiveStageAsset={
         inspectorTimelineStep && inspectorTimelineShader?.inputAssetId
           ? () => handleTimelineAssignStepAsset(inspectorTimelineStep.id, null)
@@ -5104,7 +5164,7 @@ ${errorSnapshot}`,
       onSequenceStepChange={handleTimelineStepChange}
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
-      onImportSequenceAsset={() => openFilePicker('timeline-picker')}
+      onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
       assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
       assetPickerRequestToken={timelineAssetPickerRequest.token}
       onAssetPickerRequestHandled={() =>
@@ -5510,7 +5570,7 @@ ${errorSnapshot}`,
         onSequenceStepChange={handleTimelineStepChange}
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
-        onImportSequenceAsset={() => openFilePicker('timeline-picker')}
+        onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
         assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
         assetPickerRequestToken={timelineAssetPickerRequest.token}
         onAssetPickerRequestHandled={() =>
