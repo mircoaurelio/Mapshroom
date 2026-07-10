@@ -21,6 +21,7 @@ import {
   normalizeTimelineStepAssetSettings,
 } from '../lib/timelineAssetSettings';
 import {
+  buildTimelineInputShaderCode,
   buildTimelineOverlayShaderCode,
   buildTimelinePinStackShaderOutputShaderCode,
   buildTimelinePinShaderAlphaOverlayShaderCode,
@@ -61,6 +62,7 @@ const MODE_LAYER_WARMUP_DURATION_MS = 900;
 const MODE_LAYER_FADE_DURATION_MS = 1_000;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
+const timelineDecodedAssetAspectRatios = new Map<string, number>();
 
 function getStageRenderLayerWarmupKey(
   layer: Pick<
@@ -208,6 +210,20 @@ function buildOverlayUniformValues(
     [`${namespace}_blend_mode`]: getTimelineAssetBlendModeIndex(settings.blendMode),
     [`${namespace}_fit_mode`]: getTimelineAssetFitModeIndex(settings.fitMode),
     [`${namespace}_quality`]: getTimelineAssetQualityIndex(settings.quality),
+  };
+}
+
+function buildInputUniformValues(
+  settings: TimelineStepAssetSettings,
+  aspectRatio: number,
+): ShaderUniformValueMap {
+  return {
+    u_timeline_input_scale_x: settings.scaleX,
+    u_timeline_input_scale_y: settings.scaleY,
+    u_timeline_input_offset_x: settings.offsetX,
+    u_timeline_input_offset_y: settings.offsetY,
+    u_timeline_input_fit_mode: getTimelineAssetFitModeIndex(settings.fitMode),
+    u_timeline_input_aspect_ratio: Math.max(0.0001, aspectRatio),
   };
 }
 
@@ -489,6 +505,7 @@ export function TimelineStageRenderer({
       URL.revokeObjectURL(cachedObjectUrl);
       timelineAssetUrlCache.delete(cachedAssetId);
       timelineDecodedAssetIds.delete(cachedAssetId);
+      timelineDecodedAssetAspectRatios.delete(cachedAssetId);
     }
 
     const nextKnownSources = referencedInputAssetIds.reduce<
@@ -594,6 +611,10 @@ export function TimelineStageRenderer({
             return;
           }
 
+          timelineDecodedAssetAspectRatios.set(
+            assetId,
+            image.naturalWidth / Math.max(image.naturalHeight, 1),
+          );
           timelineDecodedAssetIds.add(assetId);
           setDecodedAssetVersion((currentValue) => currentValue + 1);
         };
@@ -619,6 +640,10 @@ export function TimelineStageRenderer({
           return;
         }
 
+        timelineDecodedAssetAspectRatios.set(
+          assetId,
+          video.videoWidth / Math.max(video.videoHeight, 1),
+        );
         timelineDecodedAssetIds.add(assetId);
         setDecodedAssetVersion((currentValue) => currentValue + 1);
       };
@@ -1011,11 +1036,36 @@ export function TimelineStageRenderer({
     );
     const overlaySource = useAssignedAssetAsBase ? null : assignedSource;
     const inputSource = useAssignedAssetAsBase ? assignedSource : null;
+    const mapAssignedInput = (
+      shaderCode: string,
+      uniformValues: ShaderUniformValueMap,
+    ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues'> => {
+      if (!useAssignedAssetAsBase || !assignedSource) {
+        return { shaderCode, uniformValues };
+      }
+
+      return {
+        shaderCode: buildTimelineInputShaderCode({ shaderCode }),
+        uniformValues: {
+          ...buildInputUniformValues(
+            assetSettings,
+            timelineDecodedAssetAspectRatios.get(assignedSource.assetId) ?? 1,
+          ),
+          ...prefixUniformValueKeys({
+            sourceValues: uniformValues,
+            namespace: 'timeline_input',
+          }),
+        },
+      };
+    };
 
     if (isActiveShader) {
+      const mappedInput = mapAssignedInput(
+        previewActiveShaderCode,
+        previewActiveUniformValues,
+      );
       return {
-        shaderCode: previewActiveShaderCode,
-        uniformValues: previewActiveUniformValues,
+        ...mappedInput,
         usedFallback:
           !preferActiveShaderCompilePreview && hasShaderCompileError(activeSavedShader),
         inputSource,
@@ -1035,9 +1085,12 @@ export function TimelineStageRenderer({
       };
     }
 
+    const mappedInput = mapAssignedInput(
+      getRenderableShaderCode(targetShader),
+      getRenderableShaderUniformValues(targetShader),
+    );
     return {
-      shaderCode: getRenderableShaderCode(targetShader),
-      uniformValues: getRenderableShaderUniformValues(targetShader),
+      ...mappedInput,
       usedFallback: hasShaderCompileError(targetShader),
       inputSource,
       overlaySource,

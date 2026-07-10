@@ -30,6 +30,7 @@ function createShaderCodeMemo(limit = 128) {
 const namespaceShaderCodeMemo = createShaderCodeMemo(256);
 const transitionShaderCodeMemo = createShaderCodeMemo(128);
 const overlayShaderCodeMemo = createShaderCodeMemo(128);
+const inputShaderCodeMemo = createShaderCodeMemo(128);
 const pinShaderCodeMemo = createShaderCodeMemo(64);
 const doubleShaderCodeMemo = createShaderCodeMemo(64);
 
@@ -656,6 +657,49 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
         u_timeline_overlay_fit_mode,
         u_timeline_overlay_quality
     );
+}`;
+  });
+}
+
+export function buildTimelineInputShaderCode({
+  shaderCode,
+}: {
+  shaderCode: string;
+}): string {
+  return inputShaderCodeMemo(shaderCode, () => {
+    const inputCode = namespaceShaderCode(shaderCode, 'timeline_input');
+    const overlayComposer = buildTimelineOverlayComposer();
+
+    return `// NAME: Timeline Mapped Input
+uniform float u_timeline_input_scale_x; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_input_scale_y; // @min 0.1 @max 4.0 @default 1.0
+uniform float u_timeline_input_offset_x; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_input_offset_y; // @min -1.5 @max 1.5 @default 0.0
+uniform float u_timeline_input_fit_mode; // @min 0.0 @max 4.0 @default 2.0
+uniform float u_timeline_input_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
+
+${inputCode}
+
+${overlayComposer}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec2 inputUv = getTimelineOverlayUv(
+        uv,
+        resolution,
+        u_timeline_input_aspect_ratio,
+        u_timeline_input_scale_x,
+        u_timeline_input_scale_y,
+        u_timeline_input_offset_x,
+        u_timeline_input_offset_y,
+        u_timeline_input_fit_mode
+    );
+    float inputMask = getTimelineOverlayMask(inputUv);
+    if (inputMask <= 0.001) {
+        return vec4(0.0);
+    }
+
+    vec4 mappedColor = timeline_input_processColor(tex, inputUv, time, resolution);
+    return vec4(mappedColor.rgb, mappedColor.a * inputMask);
 }`;
   });
 }
