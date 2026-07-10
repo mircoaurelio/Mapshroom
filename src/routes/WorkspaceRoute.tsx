@@ -137,119 +137,268 @@ const ONBOARDING_ENTRY_COOKIE = 'mapshroom_onboarding_entries';
 const ONBOARDING_ENTRY_SESSION_KEY = 'mapshroom:onboarding-entry-counted';
 const ONBOARDING_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
-const ONBOARDING_WORKFLOW_STEPS = [
-  {
-    title: 'Prepare the material',
-    copy:
-      'Start with a projector, a phone for the reference photo, and a reliable way to connect the projector to a phone or computer.',
-    image: 'assets/onboarding/materials-needed.webp',
-  },
-  {
-    title: 'Shoot from the projector view',
-    copy:
-      'Stand where the projector sees the subject and take the photo from that same perspective. This keeps the image aligned with the projection.',
-    image: 'assets/onboarding/capture-from-projector-view.webp',
-  },
-  {
-    title: 'Match the lens position',
-    copy:
-      'Hold the phone close to the projector lens direction while shooting. The closer the camera perspective is to the projector perspective, the easier the mapping will be.',
-    image: 'assets/onboarding/align-phone-camera.webp',
-  },
-] as const;
-
-const ONBOARDING_PHOTO_PREPARATION_STEPS = [
-  {
-    title: 'Start from the source photo',
-    badge: 'Source',
-    copy:
-      'Use the captured subject photo as the starting point. This is the image you will clean, adapt, and prepare for the projection workflow.',
-    image: 'assets/onboarding/photo-source-garden.webp',
-  },
-  {
-    title: 'Remove the background',
-    badge: 'Required',
-    copy:
-      'Remove the background with AI. Nano Banana is recommended, or use the app AI tools when configured as a paid feature with an API key.',
-    image: 'assets/onboarding/photo-background-removed.webp',
-  },
-  {
-    title: 'Choose the final 3D photo',
-    badge: 'Creative',
-    copy:
-      'In the 3D photo step, modify the image as much as needed and choose the asset that best matches the subject and the final projected look.',
-    image: 'assets/onboarding/photo-3d-asset-choice.webp',
-  },
-] as const;
-
-const ONBOARDING_UI_AREAS = [
-  {
-    title: 'Load Assets And Output',
-    eyebrow: 'Windows',
-    placement: 'topbar',
-    points: [
-      'Use File, Shader, and View for project, shader, and layout commands.',
-      'Click Load Asset to open the asset window and choose or import the image to map.',
-      'Click Output to open the dedicated projection window.',
-      'Drag the opened Output window onto the projector screen and use it there.',
-    ],
-  },
-  {
-    title: 'Canvas',
-    eyebrow: 'Preview',
-    placement: 'canvas',
-    points: [
-      'Check the live projection preview.',
-      'Compare the mapped image with the real subject.',
-      'Use move mode when the projection needs alignment.',
-    ],
-  },
-  {
-    title: 'Code Control',
-    eyebrow: 'Shader',
-    placement: 'code',
-    points: [
-      'Edit or paste shader code.',
-      'Ask AI to generate a shader from a prompt when an API key is configured.',
-      'Use presets when starting from a known effect.',
-      'Save versions before major changes.',
-    ],
-  },
-  {
-    title: 'Slider And Position Control',
-    eyebrow: 'Mapping',
-    placement: 'controls',
-    points: [
-      'Tune shader values with sliders.',
-      'Move, resize, and reset the mapped image.',
-      'Use smaller precision values for final alignment.',
-    ],
-  },
-  {
-    title: 'Move The Mapping',
-    eyebrow: 'Tap Grid',
-    placement: 'mapping',
-    points: [
-      'Scroll to Stage Mapping and Tap Grid in the left controls.',
-      'Turn Move Mode On before aligning the projection.',
-      'Use Tap Grid to nudge, resize, and rotate the image onto the real subject.',
-    ],
-  },
-  {
-    title: 'Timeline',
-    eyebrow: 'Sequence',
-    placement: 'timeline',
-    points: [
-      'Arrange shader steps over time.',
-      'Control transitions between looks.',
-      'Play the full sequence before projecting.',
-    ],
-  },
-] as const;
 const ONBOARDING_SETUP_STEP_COUNT = 2;
-const ONBOARDING_TOTAL_STEP_COUNT = ONBOARDING_SETUP_STEP_COUNT + ONBOARDING_UI_AREAS.length;
 const ONBOARDING_CALLOUT_GAP_PX = 16;
 const ONBOARDING_CALLOUT_MARGIN_PX = 16;
+const ONBOARDING_COPY = {
+  en: {
+    stepLabel: (currentStep: number, totalSteps: number) => `Step ${currentStep} of ${totalSteps}`,
+    dismissPermanently: "Don't show again",
+    back: 'Back',
+    next: 'Next',
+    startMapping: 'Start mapping',
+    closeGuide: 'Close guide',
+    workflowTitle: 'Projection mapping workflow',
+    setupStepOneEyebrow: 'Step 1',
+    setupStepOneTitle: 'Capture aligned source material',
+    setupStepTwoEyebrow: 'Step 2',
+    setupStepTwoTitle: 'Prepare the photo to upload',
+    uiGuideLabel: 'Workspace area guide',
+    uiGuideTitle: 'What each macro area controls',
+    workflowSteps: [
+      {
+        title: 'Prepare the material',
+        copy:
+          'Start with a projector, a phone for the reference photo, and a reliable way to connect the projector to a phone or computer.',
+        image: 'assets/onboarding/materials-needed.webp',
+      },
+      {
+        title: 'Shoot from the projector view',
+        copy:
+          'Stand where the projector sees the subject and take the photo from that same perspective. This keeps the image aligned with the projection.',
+        image: 'assets/onboarding/capture-from-projector-view.webp',
+      },
+      {
+        title: 'Match the lens position',
+        copy:
+          'Hold the phone close to the projector lens direction while shooting. The closer the camera perspective is to the projector perspective, the easier the mapping will be.',
+        image: 'assets/onboarding/align-phone-camera.webp',
+      },
+    ],
+    photoPreparationSteps: [
+      {
+        title: 'Start from the source photo',
+        badge: 'Source',
+        copy:
+          'Use the captured subject photo as the starting point. This is the image you will clean, adapt, and prepare for the projection workflow.',
+        image: 'assets/onboarding/photo-source-garden.webp',
+      },
+      {
+        title: 'Remove the background',
+        badge: 'Required',
+        copy:
+          'Remove the background with AI. Nano Banana is recommended, or use the app AI tools when configured as a paid feature with an API key.',
+        image: 'assets/onboarding/photo-background-removed.webp',
+      },
+      {
+        title: 'Choose the final 3D photo',
+        badge: 'Creative',
+        copy:
+          'In the 3D photo step, modify the image as much as needed and choose the asset that best matches the subject and the final projected look.',
+        image: 'assets/onboarding/photo-3d-asset-choice.webp',
+      },
+    ],
+    uiAreas: [
+      {
+        title: 'Load Assets And Output',
+        eyebrow: 'Windows',
+        placement: 'topbar',
+        points: [
+          'Use File, Shader, and View for project, shader, and layout commands.',
+          'Click Load Asset to open the asset window and choose or import the image to map.',
+          'Click Output to open the dedicated projection window.',
+          'Drag the opened Output window onto the projector screen and use it there.',
+        ],
+      },
+      {
+        title: 'Canvas',
+        eyebrow: 'Preview',
+        placement: 'canvas',
+        points: [
+          'Check the live projection preview.',
+          'Compare the mapped image with the real subject.',
+          'Use move mode when the projection needs alignment.',
+        ],
+      },
+      {
+        title: 'Code Control',
+        eyebrow: 'Shader',
+        placement: 'code',
+        points: [
+          'Edit or paste shader code.',
+          'Ask AI to generate a shader from a prompt when an API key is configured.',
+          'Use presets when starting from a known effect.',
+          'Save versions before major changes.',
+        ],
+      },
+      {
+        title: 'Slider And Position Control',
+        eyebrow: 'Mapping',
+        placement: 'controls',
+        points: [
+          'Tune shader values with sliders.',
+          'Move, resize, and reset the mapped image.',
+          'Use smaller precision values for final alignment.',
+        ],
+      },
+      {
+        title: 'Move The Mapping',
+        eyebrow: 'Tap Grid',
+        placement: 'mapping',
+        points: [
+          'Scroll to Stage Mapping and Tap Grid in the left controls.',
+          'Turn Move Mode On before aligning the projection.',
+          'Use Tap Grid to nudge, resize, and rotate the image onto the real subject.',
+        ],
+      },
+      {
+        title: 'Timeline',
+        eyebrow: 'Sequence',
+        placement: 'timeline',
+        points: [
+          'Arrange shader steps over time.',
+          'Control transitions between looks.',
+          'Play the full sequence before projecting.',
+        ],
+      },
+    ],
+  },
+  it: {
+    stepLabel: (currentStep: number, totalSteps: number) => `Passo ${currentStep} di ${totalSteps}`,
+    dismissPermanently: 'Non mostrare più',
+    back: 'Indietro',
+    next: 'Avanti',
+    startMapping: 'Inizia mapping',
+    closeGuide: 'Chiudi guida',
+    workflowTitle: 'Flusso di projection mapping',
+    setupStepOneEyebrow: 'Passo 1',
+    setupStepOneTitle: 'Acquisisci materiale sorgente allineato',
+    setupStepTwoEyebrow: 'Passo 2',
+    setupStepTwoTitle: 'Prepara la foto da caricare',
+    uiGuideLabel: "Guida alle aree dell'area di lavoro",
+    uiGuideTitle: 'Cosa controlla ogni macro area',
+    workflowSteps: [
+      {
+        title: 'Prepara il materiale',
+        copy:
+          'Parti da un proiettore, un telefono per la foto di riferimento e un modo affidabile per collegare il proiettore a un telefono o a un computer.',
+        image: 'assets/onboarding/materials-needed.webp',
+      },
+      {
+        title: 'Scatta dalla vista del proiettore',
+        copy:
+          "Mettiti dove il proiettore vede il soggetto e scatta la foto dalla stessa prospettiva. Così l'immagine resta allineata alla proiezione.",
+        image: 'assets/onboarding/capture-from-projector-view.webp',
+      },
+      {
+        title: "Allinea la posizione dell'obiettivo",
+        copy:
+          "Tieni il telefono vicino alla direzione dell'obiettivo del proiettore mentre scatti. Più la prospettiva della camera è vicina a quella del proiettore, più semplice sarà il mapping.",
+        image: 'assets/onboarding/align-phone-camera.webp',
+      },
+    ],
+    photoPreparationSteps: [
+      {
+        title: 'Parti dalla foto sorgente',
+        badge: 'Sorgente',
+        copy:
+          'Usa la foto acquisita del soggetto come punto di partenza. Questa è l\'immagine che pulirai, adatterai e preparerai per il flusso di proiezione.',
+        image: 'assets/onboarding/photo-source-garden.webp',
+      },
+      {
+        title: 'Rimuovi lo sfondo',
+        badge: 'Richiesto',
+        copy:
+          "Rimuovi lo sfondo con l'AI. Nano Banana è consigliato, oppure usa gli strumenti AI dell'app quando sono configurati come funzione a pagamento con una chiave API.",
+        image: 'assets/onboarding/photo-background-removed.webp',
+      },
+      {
+        title: 'Scegli la foto 3D finale',
+        badge: 'Creativo',
+        copy:
+          "Nel passaggio della foto 3D, modifica l'immagine quanto serve e scegli l'asset più adatto al soggetto e al risultato finale proiettato.",
+        image: 'assets/onboarding/photo-3d-asset-choice.webp',
+      },
+    ],
+    uiAreas: [
+      {
+        title: 'Carica asset e output',
+        eyebrow: 'Finestre',
+        placement: 'topbar',
+        points: [
+          'Usa File, Shader e View per i comandi di progetto, shader e layout.',
+          "Clicca Load Asset per aprire la finestra degli asset e scegliere o importare l'immagine da mappare.",
+          'Clicca Output per aprire la finestra dedicata alla proiezione.',
+          'Trascina la finestra Output aperta sullo schermo del proiettore e usala lì.',
+        ],
+      },
+      {
+        title: 'Canvas',
+        eyebrow: 'Anteprima',
+        placement: 'canvas',
+        points: [
+          "Controlla l'anteprima live della proiezione.",
+          "Confronta l'immagine mappata con il soggetto reale.",
+          'Usa la modalità di spostamento quando la proiezione deve essere allineata.',
+        ],
+      },
+      {
+        title: 'Controllo codice',
+        eyebrow: 'Shader',
+        placement: 'code',
+        points: [
+          'Modifica o incolla codice shader.',
+          "Chiedi all'AI di generare uno shader da un prompt quando è configurata una chiave API.",
+          'Usa i preset quando parti da un effetto noto.',
+          'Salva le versioni prima delle modifiche importanti.',
+        ],
+      },
+      {
+        title: 'Slider e controllo posizione',
+        eyebrow: 'Mapping',
+        placement: 'controls',
+        points: [
+          'Regola i valori dello shader con gli slider.',
+          "Sposta, ridimensiona e reimposta l'immagine mappata.",
+          "Usa valori di precisione più piccoli per l'allineamento finale.",
+        ],
+      },
+      {
+        title: 'Sposta il mapping',
+        eyebrow: 'Tap Grid',
+        placement: 'mapping',
+        points: [
+          'Scorri fino a Stage Mapping e Tap Grid nei controlli a sinistra.',
+          'Attiva Move Mode prima di allineare la proiezione.',
+          "Usa Tap Grid per spostare, ridimensionare e ruotare l'immagine sul soggetto reale.",
+        ],
+      },
+      {
+        title: 'Timeline',
+        eyebrow: 'Sequenza',
+        placement: 'timeline',
+        points: [
+          'Disponi nel tempo i passaggi shader.',
+          'Controlla le transizioni tra i look.',
+          "Riproduci l'intera sequenza prima di proiettare.",
+        ],
+      },
+    ],
+  },
+} as const;
+
+type OnboardingLocale = keyof typeof ONBOARDING_COPY;
+
+function resolveOnboardingLocale(): OnboardingLocale {
+  const preferredLanguages =
+    typeof navigator !== 'undefined'
+      ? [...navigator.languages, navigator.language].filter(Boolean)
+      : [];
+
+  return preferredLanguages.some((language) => language.toLowerCase().startsWith('it'))
+    ? 'it'
+    : 'en';
+}
 
 function createTimelineRandomSeedToken(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -409,6 +558,7 @@ interface OnboardingGuideProps {
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
   const calloutCardRef = useRef<HTMLElement | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
   const [highlightRect, setHighlightRect] = useState<{
     top: number;
     left: number;
@@ -416,12 +566,14 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
     height: number;
   } | null>(null);
   const [calloutStyle, setCalloutStyle] = useState<CSSProperties | undefined>(undefined);
+  const onboardingCopy = ONBOARDING_COPY[locale];
+  const onboardingTotalStepCount = ONBOARDING_SETUP_STEP_COUNT + onboardingCopy.uiAreas.length;
   const activeUiArea =
     activeStepIndex >= ONBOARDING_SETUP_STEP_COUNT
-      ? ONBOARDING_UI_AREAS[activeStepIndex - ONBOARDING_SETUP_STEP_COUNT]
+      ? onboardingCopy.uiAreas[activeStepIndex - ONBOARDING_SETUP_STEP_COUNT]
       : null;
-  const isLastStep = activeStepIndex === ONBOARDING_TOTAL_STEP_COUNT - 1;
-  const stepLabel = `Step ${activeStepIndex + 1} of ${ONBOARDING_TOTAL_STEP_COUNT}`;
+  const isLastStep = activeStepIndex === onboardingTotalStepCount - 1;
+  const stepLabel = onboardingCopy.stepLabel(activeStepIndex + 1, onboardingTotalStepCount);
   const goToPreviousStep = () => {
     setHighlightRect(null);
     setCalloutStyle(undefined);
@@ -436,14 +588,14 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
     setHighlightRect(null);
     setCalloutStyle(undefined);
     setActiveStepIndex((currentValue) =>
-      Math.min(ONBOARDING_TOTAL_STEP_COUNT - 1, currentValue + 1),
+      Math.min(onboardingTotalStepCount - 1, currentValue + 1),
     );
   };
 
   const navigationControls = (
     <div className="onboarding-navigation">
       <button type="button" className="secondary-button" onClick={onDismissPermanently}>
-        Don't show again
+        {onboardingCopy.dismissPermanently}
       </button>
       <div className="onboarding-step-controls">
         <button
@@ -452,10 +604,10 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
           disabled={activeStepIndex === 0}
           onClick={goToPreviousStep}
         >
-          Back
+          {onboardingCopy.back}
         </button>
         <button type="button" className="primary-button" onClick={goToNextStep}>
-          {isLastStep ? 'Start mapping' : 'Next'}
+          {isLastStep ? onboardingCopy.startMapping : onboardingCopy.next}
         </button>
       </div>
     </div>
@@ -595,13 +747,13 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
           <div className="onboarding-header">
             <div>
               <span className="panel-eyebrow">{stepLabel}</span>
-              <h2 id="onboarding-title">Projection mapping workflow</h2>
+              <h2 id="onboarding-title">{onboardingCopy.workflowTitle}</h2>
             </div>
             <button
               type="button"
               className="icon-button onboarding-close"
               onClick={onClose}
-              aria-label="Close guide"
+              aria-label={onboardingCopy.closeGuide}
             >
               X
             </button>
@@ -611,11 +763,11 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
             {activeStepIndex === 0 ? (
               <section className="onboarding-section">
                 <div className="onboarding-section-heading">
-                  <span className="panel-eyebrow">Step 1</span>
-                  <h3>Capture aligned source material</h3>
+                  <span className="panel-eyebrow">{onboardingCopy.setupStepOneEyebrow}</span>
+                  <h3>{onboardingCopy.setupStepOneTitle}</h3>
                 </div>
                 <div className="onboarding-workflow-grid">
-                  {ONBOARDING_WORKFLOW_STEPS.map((step, index) => (
+                  {onboardingCopy.workflowSteps.map((step, index) => (
                     <article className="onboarding-workflow-card" key={step.title}>
                       <div className="onboarding-workflow-image-frame">
                         <img
@@ -638,11 +790,11 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
             {activeStepIndex === 1 ? (
               <section className="onboarding-section">
                 <div className="onboarding-section-heading">
-                  <span className="panel-eyebrow">Step 2</span>
-                  <h3>Prepare the photo to upload</h3>
+                  <span className="panel-eyebrow">{onboardingCopy.setupStepTwoEyebrow}</span>
+                  <h3>{onboardingCopy.setupStepTwoTitle}</h3>
                 </div>
                 <div className="onboarding-photo-grid">
-                  {ONBOARDING_PHOTO_PREPARATION_STEPS.map((step) => (
+                  {onboardingCopy.photoPreparationSteps.map((step) => (
                     <article className="onboarding-workflow-card onboarding-photo-card" key={step.title}>
                       <div className="onboarding-workflow-image-frame">
                         <img
@@ -668,7 +820,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
       {activeUiArea ? (
         <section
           className="onboarding-ui-callouts"
-          aria-label="Workspace area guide"
+          aria-label={onboardingCopy.uiGuideLabel}
           role="dialog"
           aria-modal="true"
         >
@@ -682,13 +834,13 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
             <div className="onboarding-area-card-header">
               <div>
                 <span className="panel-eyebrow">{stepLabel}</span>
-                <h3>What each macro area controls</h3>
+                <h3>{onboardingCopy.uiGuideTitle}</h3>
               </div>
               <button
                 type="button"
                 className="icon-button onboarding-close"
                 onClick={onClose}
-                aria-label="Close guide"
+                aria-label={onboardingCopy.closeGuide}
               >
                 X
               </button>
