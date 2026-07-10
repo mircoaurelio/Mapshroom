@@ -1048,19 +1048,6 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
       : defaultProject.timeline.stub.shaderSequence.steps
   ).map((step) => {
     const durationSeconds = clampTimelineStepDuration(step.durationSeconds);
-    const assetSettings = normalizeTimelineStepAssetSettings(step.assetSettings);
-    const assignedAssetId =
-      mergedSavedShaders.find((shader) => shader.id === step.shaderId)?.inputAssetId ?? null;
-    const assignedAsset =
-      assignedAssetId ? mergedLibraryAssets.find((asset) => asset.id === assignedAssetId) ?? null : null;
-    const shouldUpgradeLegacyImageFit =
-      assignedAsset?.kind === 'image' &&
-      assetSettings.fitMode === 'cover' &&
-      assetSettings.scaleX === 1 &&
-      assetSettings.scaleY === 1 &&
-      assetSettings.offsetX === 0 &&
-      assetSettings.offsetY === 0;
-
     return {
       ...step,
       disabled: Boolean(step.disabled),
@@ -1070,9 +1057,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         step.transitionDurationSeconds,
       ),
       transitionEffect: normalizeTimelineTransitionEffect(step.transitionEffect),
-      assetSettings: shouldUpgradeLegacyImageFit
-        ? { ...assetSettings, fitMode: 'stretch' as const }
-        : assetSettings,
+      assetSettings: normalizeTimelineStepAssetSettings(step.assetSettings),
     };
   });
   const requestedPinnedStepId =
@@ -1578,23 +1563,13 @@ function assignTimelineStepAssetToProject(
         }
       : shader,
   );
-  const assignedAsset = nextInputAssetId
-    ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId) ?? null
-    : null;
   const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
     item.id === stepId
       ? {
           ...item,
           shaderId: editableShader.id,
-          ...(nextInputAssetId && assignedAsset?.kind === 'image'
-            ? {
-                assetSettings: normalizeTimelineStepAssetSettings({
-                  ...item.assetSettings,
-                  fitMode: 'stretch',
-                }),
-              }
-            : nextInputAssetId
-              ? {}
+          ...(nextInputAssetId
+            ? {}
             : {
                 assetSettings: normalizeTimelineStepAssetSettings({
                   ...item.assetSettings,
@@ -1604,7 +1579,10 @@ function assignTimelineStepAssetToProject(
         }
       : item,
   );
-  const assignedAssetName = nextInputAssetId ? assignedAsset?.name ?? 'selected asset' : null;
+  const assignedAssetName = nextInputAssetId
+    ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId)?.name ??
+      'selected asset'
+    : null;
   const statusMessage = nextInputAssetId
     ? `Assigned "${assignedAssetName}" to "${editableShader.name}".`
     : `"${editableShader.name}" now uses the live stage asset.`;
