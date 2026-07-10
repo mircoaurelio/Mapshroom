@@ -675,7 +675,7 @@ uniform float u_timeline_input_scale_x; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_input_scale_y; // @min 0.1 @max 4.0 @default 1.0
 uniform float u_timeline_input_offset_x; // @min -1.5 @max 1.5 @default 0.0
 uniform float u_timeline_input_offset_y; // @min -1.5 @max 1.5 @default 0.0
-uniform float u_timeline_input_fit_mode; // @min 0.0 @max 4.0 @default 2.0
+uniform float u_timeline_input_fit_mode; // @min 0.0 @max 4.0 @default 1.0
 uniform float u_timeline_input_aspect_ratio; // @min 0.1 @max 8.0 @default 1.0
 
 ${inputCode}

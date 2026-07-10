@@ -61,7 +61,7 @@ export const DEFAULT_TIMELINE_STEP_ASSET_SETTINGS: TimelineStepAssetSettings = {
   offsetY: 0,
   opacity: 0.85,
   blendMode: 'maskedReveal',
-  fitMode: 'cover',
+  fitMode: 'contain',
   quality: 'balanced',
   clipStartSeconds: 0,
   clipDurationSeconds: null,

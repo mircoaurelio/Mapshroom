@@ -1563,13 +1563,25 @@ function assignTimelineStepAssetToProject(
         }
       : shader,
   );
+  const assignedAsset = nextInputAssetId
+    ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId) ?? null
+    : null;
+  const shouldApplyInitialImageFit =
+    assignedAsset?.kind === 'image' && !sourceShader.inputAssetId;
   const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
     item.id === stepId
       ? {
           ...item,
           shaderId: editableShader.id,
-          ...(nextInputAssetId
-            ? {}
+          ...(nextInputAssetId && shouldApplyInitialImageFit
+            ? {
+                assetSettings: normalizeTimelineStepAssetSettings({
+                  ...item.assetSettings,
+                  fitMode: 'contain',
+                }),
+              }
+            : nextInputAssetId
+              ? {}
             : {
                 assetSettings: normalizeTimelineStepAssetSettings({
                   ...item.assetSettings,
@@ -1579,10 +1591,7 @@ function assignTimelineStepAssetToProject(
         }
       : item,
   );
-  const assignedAssetName = nextInputAssetId
-    ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId)?.name ??
-      'selected asset'
-    : null;
+  const assignedAssetName = nextInputAssetId ? assignedAsset?.name ?? 'selected asset' : null;
   const statusMessage = nextInputAssetId
     ? `Assigned "${assignedAssetName}" to "${editableShader.name}".`
     : `"${editableShader.name}" now uses the live stage asset.`;
