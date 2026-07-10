@@ -201,7 +201,11 @@ a {
 }
 
 .hidden-input {
-  display: none;
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sr-only {
@@ -1812,6 +1816,7 @@ a {
   overflow: hidden;
   background: transparent;
   backdrop-filter: none;
+  pointer-events: none;
 }
 
 .onboarding-panel {
@@ -2149,6 +2154,15 @@ a {
   .onboarding-area-card {
     grid-column: 1 / -1;
   }
+}
+
+.onboarding-overlay-ui-step .onboarding-ui-callouts {
+  pointer-events: none;
+}
+
+.onboarding-overlay-ui-step .onboarding-ui-callout-heading,
+.onboarding-overlay-ui-step .onboarding-area-card {
+  pointer-events: auto;
 }
 
 @media (max-width: 640px) {
