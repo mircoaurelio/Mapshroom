@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TimelineStageRenderer } from './TimelineStageRenderer';
 import type { StageFrameInfo, StageRendererState } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
+import { DEFAULT_STAGE_TRANSFORM } from '../config';
 import type {
   AssetRecord,
   PlaybackTransport,
@@ -27,6 +28,7 @@ const EXPORT_CODEC_CANDIDATES = [
   'avc1.42001f',
 ] as const;
 const MICROSECONDS_PER_SECOND = 1_000_000;
+const MIN_STAGE_SCALE = 0.05;
 
 type ExportResolutionPreset = (typeof EXPORT_RESOLUTION_PRESETS)[number]['value'];
 
@@ -86,35 +88,37 @@ function waitForTimeout(milliseconds: number): Promise<void> {
   });
 }
 
-function getCanvasCssSize(canvas: HTMLCanvasElement): { width: number; height: number } {
-  const styleWidth = Number.parseFloat(canvas.style.width);
-  const styleHeight = Number.parseFloat(canvas.style.height);
-  const dpr = window.devicePixelRatio || 1;
-
-  return {
-    width: Number.isFinite(styleWidth) && styleWidth > 0 ? styleWidth : canvas.width / dpr,
-    height: Number.isFinite(styleHeight) && styleHeight > 0 ? styleHeight : canvas.height / dpr,
-  };
-}
-
 function getMappedDrawRect({
-  canvas,
+  drawWidth,
+  drawHeight,
   frameWidth,
   frameHeight,
   stageTransform,
 }: {
-  canvas: HTMLCanvasElement;
+  drawWidth: number;
+  drawHeight: number;
   frameWidth: number;
   frameHeight: number;
   stageTransform: StageTransform;
 }) {
-  const canvasSize = getCanvasCssSize(canvas);
+  const frameCenterX = frameWidth * 0.5;
+  const frameCenterY = frameHeight * 0.5;
+  const sourceAspectRatio = drawWidth / drawHeight;
+  const targetAspectRatio = frameWidth / frameHeight;
+  const baseWidth =
+    sourceAspectRatio > targetAspectRatio ? frameWidth : Math.round(frameHeight * sourceAspectRatio);
+  const baseHeight =
+    sourceAspectRatio > targetAspectRatio ? Math.round(frameWidth / sourceAspectRatio) : frameHeight;
+  const baseX = Math.round((frameWidth - baseWidth) * 0.5);
+  const baseY = Math.round((frameHeight - baseHeight) * 0.5);
+  const scaleX = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / frameWidth);
+  const scaleY = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.heightAdjust / frameHeight);
 
   return {
-    x: Math.round((frameWidth - canvasSize.width) * 0.5 + stageTransform.offsetX),
-    y: Math.round((frameHeight - canvasSize.height) * 0.5 + stageTransform.offsetY),
-    width: canvasSize.width,
-    height: canvasSize.height,
+    x: frameCenterX + stageTransform.offsetX + (baseX - frameCenterX) * scaleX,
+    y: frameCenterY + stageTransform.offsetY + (baseY - frameCenterY) * scaleY,
+    width: baseWidth * scaleX,
+    height: baseHeight * scaleY,
   };
 }
 
@@ -533,7 +537,8 @@ export function TimelineExportDialog({
         }
 
         const targetRect = getMappedDrawRect({
-          canvas: sourceCanvas,
+          drawWidth,
+          drawHeight,
           frameWidth: nextWidth,
           frameHeight: nextHeight,
           stageTransform,
@@ -767,7 +772,7 @@ export function TimelineExportDialog({
                 savedShaders={savedShaders}
                 timeline={timeline}
                 pinnedStepId={pinnedStepId}
-                stageTransform={stageTransform}
+                stageTransform={DEFAULT_STAGE_TRANSFORM}
                 transport={exportTransport}
                 forceActiveShaderPreview={forceActiveShaderPreview}
                 onCanvasReady={(canvas) => {
