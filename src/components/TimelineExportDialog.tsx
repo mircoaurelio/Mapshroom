@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TimelineStageRenderer } from './TimelineStageRenderer';
 import type { StageFrameInfo, StageRendererState } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
-import { DEFAULT_STAGE_TRANSFORM } from '../config';
 import type {
   AssetRecord,
   PlaybackTransport,
@@ -28,7 +27,6 @@ const EXPORT_CODEC_CANDIDATES = [
   'avc1.42001f',
 ] as const;
 const MICROSECONDS_PER_SECOND = 1_000_000;
-const MIN_STAGE_SCALE = 0.05;
 
 type ExportResolutionPreset = (typeof EXPORT_RESOLUTION_PRESETS)[number]['value'];
 
@@ -89,36 +87,26 @@ function waitForTimeout(milliseconds: number): Promise<void> {
 }
 
 function getMappedDrawRect({
-  drawWidth,
-  drawHeight,
+  canvas,
+  renderShell,
   frameWidth,
   frameHeight,
-  stageTransform,
 }: {
-  drawWidth: number;
-  drawHeight: number;
+  canvas: HTMLCanvasElement;
+  renderShell: HTMLElement;
   frameWidth: number;
   frameHeight: number;
-  stageTransform: StageTransform;
 }) {
-  const frameCenterX = frameWidth * 0.5;
-  const frameCenterY = frameHeight * 0.5;
-  const sourceAspectRatio = drawWidth / drawHeight;
-  const targetAspectRatio = frameWidth / frameHeight;
-  const baseWidth =
-    sourceAspectRatio > targetAspectRatio ? frameWidth : Math.round(frameHeight * sourceAspectRatio);
-  const baseHeight =
-    sourceAspectRatio > targetAspectRatio ? Math.round(frameWidth / sourceAspectRatio) : frameHeight;
-  const baseX = Math.round((frameWidth - baseWidth) * 0.5);
-  const baseY = Math.round((frameHeight - baseHeight) * 0.5);
-  const scaleX = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / frameWidth);
-  const scaleY = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.heightAdjust / frameHeight);
+  const canvasRect = canvas.getBoundingClientRect();
+  const shellRect = renderShell.getBoundingClientRect();
+  const scaleX = frameWidth / Math.max(1, shellRect.width);
+  const scaleY = frameHeight / Math.max(1, shellRect.height);
 
   return {
-    x: frameCenterX + stageTransform.offsetX + (baseX - frameCenterX) * scaleX,
-    y: frameCenterY + stageTransform.offsetY + (baseY - frameCenterY) * scaleY,
-    width: baseWidth * scaleX,
-    height: baseHeight * scaleY,
+    x: (canvasRect.left - shellRect.left) * scaleX,
+    y: (canvasRect.top - shellRect.top) * scaleY,
+    width: canvasRect.width * scaleX,
+    height: canvasRect.height * scaleY,
   };
 }
 
@@ -200,6 +188,7 @@ export function TimelineExportDialog({
     externalClockEnabled: false,
   });
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const exportRenderShellRef = useRef<HTMLDivElement | null>(null);
   const renderStateRef = useRef<StageRendererState | null>(null);
   const lastRenderedFrameRef = useRef<StageFrameInfo | null>(null);
   const renderErrorRef = useRef('');
@@ -451,8 +440,9 @@ export function TimelineExportDialog({
       await waitForRendererReady(exportSessionToken);
 
       const sourceCanvas = exportCanvasRef.current;
-      if (!sourceCanvas) {
-        throw new Error('Unable to access the export canvas.');
+      const renderShell = exportRenderShellRef.current;
+      if (!sourceCanvas || !renderShell) {
+        throw new Error('Unable to access the export surface.');
       }
 
       const compositeCanvas = document.createElement('canvas');
@@ -537,11 +527,10 @@ export function TimelineExportDialog({
         }
 
         const targetRect = getMappedDrawRect({
-          drawWidth,
-          drawHeight,
+          canvas: sourceCanvas,
+          renderShell,
           frameWidth: nextWidth,
           frameHeight: nextHeight,
-          stageTransform,
         });
 
         compositeContext.fillStyle = '#000000';
@@ -759,7 +748,7 @@ export function TimelineExportDialog({
           </section>
 
           <div className="timeline-export-render-host" aria-hidden="true">
-            <div className="timeline-export-render-shell" style={hiddenRendererStyle}>
+            <div ref={exportRenderShellRef} className="timeline-export-render-shell" style={hiddenRendererStyle}>
               <TimelineStageRenderer
                 asset={activeAsset}
                 assets={assets}
@@ -772,7 +761,7 @@ export function TimelineExportDialog({
                 savedShaders={savedShaders}
                 timeline={timeline}
                 pinnedStepId={pinnedStepId}
-                stageTransform={DEFAULT_STAGE_TRANSFORM}
+                stageTransform={stageTransform}
                 transport={exportTransport}
                 forceActiveShaderPreview={forceActiveShaderPreview}
                 onCanvasReady={(canvas) => {
