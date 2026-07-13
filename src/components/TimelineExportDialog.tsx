@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TimelineStageRenderer } from './TimelineStageRenderer';
 import type { StageFrameInfo, StageRendererState } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
+import { loadOutputViewportSnapshot } from '../lib/outputViewport';
 import type {
   AssetRecord,
   PlaybackTransport,
@@ -32,6 +33,7 @@ type ExportResolutionPreset = (typeof EXPORT_RESOLUTION_PRESETS)[number]['value'
 
 interface TimelineExportDialogProps {
   open: boolean;
+  sessionId: string;
   projectName: string;
   activeAsset: AssetRecord | null;
   activeAssetUrl: string | null;
@@ -149,6 +151,7 @@ async function resolveSupportedVideoEncoderConfig({
 
 export function TimelineExportDialog({
   open,
+  sessionId,
   projectName,
   activeAsset,
   activeAssetUrl,
@@ -263,11 +266,15 @@ export function TimelineExportDialog({
   }, [activeAsset?.kind, assetMap, savedShaders, timeline.shaderSequence.steps]);
 
   const hiddenRendererStyle = useMemo(
-    () => ({
-      width: `${width}px`,
-      height: `${height}px`,
-    }),
-    [height, width],
+    () => {
+      const outputViewport = loadOutputViewportSnapshot(sessionId);
+
+      return {
+        width: `${outputViewport?.width ?? width}px`,
+        height: `${outputViewport?.height ?? height}px`,
+      };
+    },
+    [height, open, sessionId, width],
   );
 
   const waitForRendererReady = async (sessionToken: number) => {

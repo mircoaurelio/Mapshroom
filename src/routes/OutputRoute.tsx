@@ -7,6 +7,7 @@ import {
   loadMidiOutputMixState,
   type MidiOutputLiveState,
 } from '../lib/midi/outputSync';
+import { saveOutputViewportSnapshot } from '../lib/outputViewport';
 import { createSessionSync } from '../lib/sessionSync';
 import { loadProjectDocument } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
@@ -45,6 +46,24 @@ export function OutputRoute() {
   const [midiOutputMix, setMidiOutputMix] = useState<MidiOutputLiveState | null>(() =>
     sessionId ? loadMidiOutputMixState(sessionId) : null,
   );
+
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    saveOutputViewportSnapshot(sessionId);
+    const handleResize = () => saveOutputViewportSnapshot(sessionId);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    document.addEventListener('fullscreenchange', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      document.removeEventListener('fullscreenchange', handleResize);
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) {

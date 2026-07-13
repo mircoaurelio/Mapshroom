@@ -5639,6 +5639,7 @@ ${errorSnapshot}`,
 
       <TimelineExportDialog
         open={isExportDialogOpen}
+        sessionId={project.sessionId}
         projectName={project.name}
         activeAsset={activeAsset}
         activeAssetUrl={activeAssetUrl}
