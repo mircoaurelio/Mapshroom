@@ -86,6 +86,10 @@ function waitForTimeout(milliseconds: number): Promise<void> {
   });
 }
 
+function getOutputCssPixelRatio(): number {
+  return Math.max(1, window.devicePixelRatio || 1);
+}
+
 function getMappedDrawRect({
   canvas,
   renderShell,
@@ -263,10 +267,14 @@ export function TimelineExportDialog({
   }, [activeAsset?.kind, assetMap, savedShaders, timeline.shaderSequence.steps]);
 
   const hiddenRendererStyle = useMemo(
-    () => ({
-      width: `${width}px`,
-      height: `${height}px`,
-    }),
+    () => {
+      const cssPixelRatio = getOutputCssPixelRatio();
+
+      return {
+        width: `${width / cssPixelRatio}px`,
+        height: `${height / cssPixelRatio}px`,
+      };
+    },
     [height, width],
   );
 
