@@ -27,6 +27,7 @@ const EXPORT_CODEC_CANDIDATES = [
   'avc1.42001f',
 ] as const;
 const MICROSECONDS_PER_SECOND = 1_000_000;
+const MIN_STAGE_SCALE = 0.05;
 
 type ExportResolutionPreset = (typeof EXPORT_RESOLUTION_PRESETS)[number]['value'];
 
@@ -84,6 +85,40 @@ function waitForTimeout(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+function getMappedDrawRect({
+  drawWidth,
+  drawHeight,
+  frameWidth,
+  frameHeight,
+  stageTransform,
+}: {
+  drawWidth: number;
+  drawHeight: number;
+  frameWidth: number;
+  frameHeight: number;
+  stageTransform: StageTransform;
+}) {
+  const frameCenterX = frameWidth * 0.5;
+  const frameCenterY = frameHeight * 0.5;
+  const sourceAspectRatio = drawWidth / drawHeight;
+  const targetAspectRatio = frameWidth / frameHeight;
+  const baseWidth =
+    sourceAspectRatio > targetAspectRatio ? frameWidth : Math.round(frameHeight * sourceAspectRatio);
+  const baseHeight =
+    sourceAspectRatio > targetAspectRatio ? Math.round(frameWidth / sourceAspectRatio) : frameHeight;
+  const baseX = Math.round((frameWidth - baseWidth) * 0.5);
+  const baseY = Math.round((frameHeight - baseHeight) * 0.5);
+  const scaleX = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / frameWidth);
+  const scaleY = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.heightAdjust / frameHeight);
+
+  return {
+    x: frameCenterX + stageTransform.offsetX + (baseX - frameCenterX) * scaleX,
+    y: frameCenterY + stageTransform.offsetY + (baseY - frameCenterY) * scaleY,
+    width: baseWidth * scaleX,
+    height: baseHeight * scaleY,
+  };
 }
 
 async function resolveSupportedVideoEncoderConfig({
@@ -500,23 +535,22 @@ export function TimelineExportDialog({
           throw new Error('The export canvas produced an invalid frame.');
         }
 
-        const sourceAspectRatio = drawWidth / drawHeight;
-        const targetAspectRatio = nextWidth / nextHeight;
-        const targetDrawWidth =
-          sourceAspectRatio > targetAspectRatio ? nextWidth : Math.round(nextHeight * sourceAspectRatio);
-        const targetDrawHeight =
-          sourceAspectRatio > targetAspectRatio ? Math.round(nextWidth / sourceAspectRatio) : nextHeight;
-        const targetOffsetX = Math.round((nextWidth - targetDrawWidth) * 0.5);
-        const targetOffsetY = Math.round((nextHeight - targetDrawHeight) * 0.5);
+        const targetRect = getMappedDrawRect({
+          drawWidth,
+          drawHeight,
+          frameWidth: nextWidth,
+          frameHeight: nextHeight,
+          stageTransform,
+        });
 
         compositeContext.fillStyle = '#000000';
         compositeContext.fillRect(0, 0, nextWidth, nextHeight);
         compositeContext.drawImage(
           sourceCanvas,
-          targetOffsetX,
-          targetOffsetY,
-          targetDrawWidth,
-          targetDrawHeight,
+          targetRect.x,
+          targetRect.y,
+          targetRect.width,
+          targetRect.height,
         );
 
         const videoFrame = new VideoFrame(compositeCanvas, {
