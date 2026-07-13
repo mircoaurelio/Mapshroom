@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { TimelineStageRenderer } from './TimelineStageRenderer';
 import type { StageFrameInfo, StageRendererState } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
+import { DEFAULT_STAGE_TRANSFORM } from '../config';
 import type {
   AssetRecord,
   PlaybackTransport,
@@ -771,7 +772,7 @@ export function TimelineExportDialog({
                 savedShaders={savedShaders}
                 timeline={timeline}
                 pinnedStepId={pinnedStepId}
-                stageTransform={stageTransform}
+                stageTransform={DEFAULT_STAGE_TRANSFORM}
                 transport={exportTransport}
                 forceActiveShaderPreview={forceActiveShaderPreview}
                 onCanvasReady={(canvas) => {
