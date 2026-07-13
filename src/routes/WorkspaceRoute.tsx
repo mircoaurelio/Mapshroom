@@ -5653,10 +5653,6 @@ ${errorSnapshot}`,
         pinnedStepId={pinnedTimelineStepId}
         stageTransform={project.mapping.stageTransform}
         durationSeconds={timelineDurationSeconds}
-        forceActiveShaderPreview={
-          timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
-          editingTimelineStepId !== null
-        }
         onClose={() => setIsExportDialogOpen(false)}
         onExportRequested={() => {
           updateProject((currentProject) => ({
