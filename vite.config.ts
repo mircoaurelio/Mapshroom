@@ -53,7 +53,9 @@ export default defineConfig(({ command }) => {
           // Default stage assets are large PNGs; raise the precache ceiling so offline install includes them.
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json,webmanifest}'],
+          // HashRouter handles in-app routes; only fall back for direct path visits.
           navigateFallback: 'index.html',
+          navigateFallbackDenylist: [/^\/Mapshroom\/slicer\//, /^\/Mapshroom\/download\//],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
 
 type ToolbarMenuKey = 'file' | 'shader' | 'view';
@@ -66,7 +66,6 @@ export function WorkspaceToolbar({
   onToggleMidi,
   onOpenSliceStudio,
 }: WorkspaceToolbarProps) {
-  const navigate = useNavigate();
   const [openMenu, setOpenMenu] = useState<ToolbarMenuKey | null>(null);
   const toolbarMenusRef = useRef<HTMLDivElement | null>(null);
 
@@ -177,17 +176,14 @@ export function WorkspaceToolbar({
                 >
                   Settings
                 </button>
-                <button
-                  type="button"
+                <Link
+                  to="/download"
                   role="menuitem"
                   className="toolbar-menu-item"
-                  onClick={() => {
-                    navigate('/download');
-                    closeMenu();
-                  }}
+                  onClick={closeMenu}
                 >
                   Install offline
-                </button>
+                </Link>
               </div>
             ) : null}
           </div>

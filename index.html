@@ -20,6 +20,14 @@
       rel="stylesheet"
     />
     <title>Mapshroom V3</title>
+    <script>
+      (function () {
+        var path = location.pathname;
+        if (/\/download\/?$/.test(path) && !location.hash) {
+          location.replace(path.replace(/\/download\/?$/, '/') + '#/download');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
