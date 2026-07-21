@@ -20,10 +20,17 @@ export function AnalyticsConsentBanner() {
     <div className="analytics-consent-banner" role="dialog" aria-label={copy.dialogLabel}>
       <div className="analytics-consent-copy">
         <strong>{copy.title}</strong>
+        <p>{copy.lead}</p>
+        <p>{copy.ask}</p>
+        <ul className="analytics-consent-list">
+          {copy.bullets.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
         <p>
-          {copy.bodyBeforeLink}
+          {copy.privacyBeforeLink}
           <Link to="/privacy">{copy.privacyLink}</Link>
-          {copy.bodyAfterLink}
+          {copy.privacyAfterLink}
         </p>
       </div>
       <div className="analytics-consent-actions">

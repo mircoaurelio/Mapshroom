@@ -27,6 +27,15 @@ export function PrivacyRoute() {
         <p className="helper-copy">{copy.intro}</p>
 
         <section className="privacy-section">
+          <h2>{copy.promisesTitle}</h2>
+          <ul className="privacy-list">
+            {copy.promises.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="privacy-section">
           <h2>{copy.analyticsTitle}</h2>
           <p className="helper-copy">
             {copy.analyticsIntroBefore}
