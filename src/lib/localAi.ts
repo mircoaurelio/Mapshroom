@@ -12,7 +12,24 @@ export const LOCAL_SHADER_MODELS = [
 
 export type LocalModelProgress = { phase: 'vision' | 'shader' | 'ready'; percent: number; file?: string };
 type CallablePipeline = (input: unknown, options?: Record<string, unknown>) => Promise<unknown>;
-let visionPipeline: CallablePipeline | null = null;
+type FlorenceModel = {
+  generate: (inputs: Record<string, unknown>) => Promise<unknown>;
+};
+type FlorenceProcessor = {
+  (image: unknown, prompts: string[]): Promise<Record<string, unknown>>;
+  construct_prompts: (task: string) => string[];
+  batch_decode: (tokens: unknown, options: { skip_special_tokens: boolean }) => string[];
+  post_process_generation: (
+    text: string,
+    task: string,
+    imageSize: [number, number],
+  ) => Record<string, unknown>;
+};
+type VisionImage = { size: [number, number] };
+
+let visionModel: FlorenceModel | null = null;
+let visionProcessor: FlorenceProcessor | null = null;
+let loadVisionImage: ((input: string) => Promise<VisionImage>) | null = null;
 const shaderPipelines = new Map<string, CallablePipeline>();
 
 function options() {
@@ -23,15 +40,26 @@ function progress(phase: LocalModelProgress['phase'], callback?: (value: LocalMo
   return (event: { status?: string; progress?: number; file?: string }) => callback?.({ phase, percent: event.status === 'ready' ? 100 : Math.round(event.progress ?? 0), file: event.file });
 }
 export function isLocalModelReady(modelId: string, includeVision: boolean): boolean {
-  return shaderPipelines.has(modelId) && (!includeVision || Boolean(visionPipeline));
+  return shaderPipelines.has(modelId) && (
+    !includeVision || Boolean(visionModel && visionProcessor && loadVisionImage)
+  );
 }
 export async function prepareLocalModel(modelId: string, includeVision: boolean, onProgress?: (value: LocalModelProgress) => void) {
-  const { pipeline } = await import('@huggingface/transformers');
-  if (includeVision && !visionPipeline) {
-    visionPipeline = await pipeline('image-to-text', LOCAL_VISION_MODEL.id, { ...options(), progress_callback: progress('vision', onProgress) }) as unknown as CallablePipeline;
+  const transformers = await import('@huggingface/transformers');
+  if (includeVision && (!visionModel || !visionProcessor || !loadVisionImage)) {
+    const visionProgress = progress('vision', onProgress);
+    visionModel = await transformers.Florence2ForConditionalGeneration.from_pretrained(
+      LOCAL_VISION_MODEL.id,
+      { ...options(), progress_callback: visionProgress },
+    ) as unknown as FlorenceModel;
+    visionProcessor = await transformers.AutoProcessor.from_pretrained(
+      LOCAL_VISION_MODEL.id,
+      { progress_callback: visionProgress },
+    ) as unknown as FlorenceProcessor;
+    loadVisionImage = transformers.load_image as (input: string) => Promise<VisionImage>;
   }
   if (!shaderPipelines.has(modelId)) {
-    shaderPipelines.set(modelId, await pipeline('text-generation', modelId, { ...options(), progress_callback: progress('shader', onProgress) }) as unknown as CallablePipeline);
+    shaderPipelines.set(modelId, await transformers.pipeline('text-generation', modelId, { ...options(), progress_callback: progress('shader', onProgress) }) as unknown as CallablePipeline);
   }
   onProgress?.({ phase: 'ready', percent: 100 });
 }
@@ -43,8 +71,17 @@ function generatedText(output: unknown): string {
   return last && typeof last === 'object' && 'content' in last ? String((last as { content: unknown }).content ?? '') : '';
 }
 async function describe(stageImage?: string) {
-  if (!stageImage || !visionPipeline) return '';
-  return generatedText(await visionPipeline(stageImage, { prompt: '<MORE_DETAILED_CAPTION>', max_new_tokens: 160 }));
+  if (!stageImage || !visionModel || !visionProcessor || !loadVisionImage) return '';
+  const task = '<MORE_DETAILED_CAPTION>';
+  const image = await loadVisionImage(stageImage);
+  const inputs = await visionProcessor(image, visionProcessor.construct_prompts(task));
+  const generatedIds = await visionModel.generate({ ...inputs, max_new_tokens: 160 });
+  const generated = visionProcessor.batch_decode(generatedIds, {
+    skip_special_tokens: false,
+  })[0] ?? '';
+  const result = visionProcessor.post_process_generation(generated, task, image.size);
+  const caption = result[task];
+  return typeof caption === 'string' ? caption : '';
 }
 export async function requestLocalShaderMutation({ modelId, prompt, currentCode, stageImage, visionEnabled }: { modelId: string; prompt: string; currentCode: string; stageImage?: string; visionEnabled: boolean }) {
   await prepareLocalModel(modelId, visionEnabled);
