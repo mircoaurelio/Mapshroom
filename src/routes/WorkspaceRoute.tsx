@@ -37,9 +37,11 @@ import { MidiControllerPanel } from '../components/MidiControllerPanel';
 import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDialog';
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
+import { signalProjectReady } from '../components/BootScreenController';
 import {
   getAnalyticsConsent,
   setAnalyticsAiPresence,
+  signalOnboardingComplete,
   track,
   trackApiPresence,
   trackAppOpen,
@@ -1717,7 +1719,6 @@ export function WorkspaceRoute() {
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
-  const [bootOverlayPhase, setBootOverlayPhase] = useState<'loading' | 'fading' | 'gone'>('loading');
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() =>
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
   );
@@ -1808,7 +1809,11 @@ export function WorkspaceRoute() {
   useEffect(() => {
     const entryCount = registerOnboardingEntry();
     const timeoutId = window.setTimeout(() => {
-      setShowOnboardingGuide(entryCount <= ONBOARDING_AUTO_OPEN_LIMIT);
+      const shouldShow = entryCount <= ONBOARDING_AUTO_OPEN_LIMIT;
+      setShowOnboardingGuide(shouldShow);
+      if (!shouldShow) {
+        signalOnboardingComplete();
+      }
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
@@ -1959,6 +1964,13 @@ export function WorkspaceRoute() {
   useEffect(() => {
     saveUiPreferences(uiPreferences);
   }, [uiPreferences]);
+
+  useEffect(() => {
+    document.documentElement.dataset.colorTheme = uiPreferences.colorTheme;
+    return () => {
+      delete document.documentElement.dataset.colorTheme;
+    };
+  }, [uiPreferences.colorTheme]);
 
   useEffect(() => {
     if (!isProjectDialogOpen) {
@@ -5024,42 +5036,14 @@ ${errorSnapshot}`,
   }, [midiEnabled, midiManualMix, midiManualMixArmed, midiManualMixSeedToken, midiMode, project]);
 
   useEffect(() => {
-    if (!project || bootOverlayPhase !== 'loading') {
+    if (!project) {
       return;
     }
-
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion) {
-      setBootOverlayPhase('gone');
-      return;
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      setBootOverlayPhase('fading');
-    });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [bootOverlayPhase, project]);
+    signalProjectReady();
+  }, [project]);
 
   if (!project) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-screen-card" role="status" aria-label="Mapshroom is opening">
-          <div className="loading-brand-lockup">
-            <img
-              className="loading-brand-logo"
-              src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
-              alt=""
-            />
-            <span className="loading-brand-name" aria-hidden="true">
-              <span>Map</span>shroom
-            </span>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   const stageTransform = project.mapping.stageTransform;
@@ -5621,6 +5605,7 @@ ${errorSnapshot}`,
           workspaceMode={uiPreferences.workspaceMode}
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
+          colorTheme={uiPreferences.colorTheme}
           onOpenProjects={() => {
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
@@ -5661,6 +5646,12 @@ ${errorSnapshot}`,
           }}
           onToggleSidebarVisibility={toggleSidebarVisibility}
           onToggleDesktopSlidersWindow={toggleDesktopSlidersWindow}
+          onToggleColorTheme={() =>
+            setUiPreferences((currentPreferences) => ({
+              ...currentPreferences,
+              colorTheme: currentPreferences.colorTheme === 'pink' ? 'green' : 'pink',
+            }))
+          }
           midiEnabled={midiEnabled}
           midiPanelVisible={midiPanelVisible}
           onToggleMidi={() => {
@@ -5994,46 +5985,15 @@ ${errorSnapshot}`,
           onClose={() => {
             track('onboarding_complete');
             setShowOnboardingGuide(false);
+            signalOnboardingComplete();
           }}
           onDismissPermanently={() => {
             track('onboarding_dismiss');
             dismissOnboardingPermanently();
             setShowOnboardingGuide(false);
+            signalOnboardingComplete();
           }}
         />
-      ) : null}
-
-      {bootOverlayPhase !== 'gone' ? (
-        <div
-          className={`loading-screen loading-screen-boot-overlay ${
-            bootOverlayPhase === 'fading' ? 'loading-screen-boot-overlay-fading' : ''
-          }`}
-          role="status"
-          aria-label="Mapshroom is opening"
-          aria-hidden={bootOverlayPhase === 'fading'}
-          onTransitionEnd={(event) => {
-            if (
-              event.target === event.currentTarget &&
-              event.propertyName === 'opacity' &&
-              bootOverlayPhase === 'fading'
-            ) {
-              setBootOverlayPhase('gone');
-            }
-          }}
-        >
-          <div className="loading-screen-card">
-            <div className="loading-brand-lockup">
-              <img
-                className="loading-brand-logo"
-                src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
-                alt=""
-              />
-              <span className="loading-brand-name" aria-hidden="true">
-                <span>Map</span>shroom
-              </span>
-            </div>
-          </div>
-        </div>
       ) : null}
     </div>
   );

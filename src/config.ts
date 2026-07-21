@@ -68,6 +68,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   sidebarVisible: true,
   mobileUiMode: 'bar',
   desktopSlidersWindowEnabled: true,
+  colorTheme: 'green',
 };
 
 if (shaderPresetList.length === 0) {

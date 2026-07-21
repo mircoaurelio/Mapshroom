@@ -3,6 +3,16 @@ import posthog from 'posthog-js';
 export const ANALYTICS_CONSENT_STORAGE_KEY = 'mapshroom-v3:analytics-consent';
 export type AnalyticsConsent = 'granted' | 'denied';
 
+/** Fired when projection-mapping onboarding is done or skipped, so consent can appear. */
+export const ONBOARDING_COMPLETE_EVENT = 'mapshroom:onboarding-complete';
+
+export function signalOnboardingComplete() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.dispatchEvent(new Event(ONBOARDING_COMPLETE_EVENT));
+}
+
 let initialized = false;
 
 function readConsent(): AnalyticsConsent | null {

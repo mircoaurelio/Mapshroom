@@ -222,4 +222,5 @@ export interface UiPreferences {
   sidebarVisible: boolean;
   mobileUiMode: MobileUiMode;
   desktopSlidersWindowEnabled: boolean;
+  colorTheme: 'green' | 'pink';
 }
