@@ -174,10 +174,17 @@ let clipMaterial = new THREE.MeshStandardMaterial({
   clippingPlanes: [previewPlane]
 });
 
-// Thin ring to show the current plane visually
-const planeHelper = new THREE.PlaneHelper(previewPlane, 1.0, 0x34d399);
-planeHelper.visible = false;
-scene.add(planeHelper);
+// Bounds-aware guide to show the current slice plane visually.
+// THREE.PlaneHelper is centered around the origin inside the plane, which no
+// longer matches the model after the geometry is moved up onto the floor.
+const sliceGuideMaterial = new THREE.LineBasicMaterial({
+  color: 0x34d399,
+  transparent: true,
+  opacity: 0.95
+});
+const sliceGuide = new THREE.LineSegments(new THREE.BufferGeometry(), sliceGuideMaterial);
+sliceGuide.visible = false;
+scene.add(sliceGuide);
 
 // Load bundled default model on page initialization
 async function loadDefaultModel() {
@@ -1799,11 +1806,7 @@ function updatePanelInfo() {
 
 function attachPlaneHelperToMesh(targetMesh) {
   if (!targetMesh) return;
-
-  if (planeHelper.parent) {
-    planeHelper.parent.remove(planeHelper);
-  }
-  targetMesh.add(planeHelper);
+  updateSliceGuide(activeSliceIndex);
 }
 
 function placeGeometryOnFloor(geometry, floorY = 0) {
@@ -1860,15 +1863,76 @@ function setSlicePreviewEnabled(enabled) {
 
   if (isClippingEnabled) {
     clipMaterial.clippingPlanes = [previewPlane];
-    planeHelper.visible = true;
+    sliceGuide.visible = true;
     toggleClippingBtn.textContent = 'Show Full Object';
   } else {
     clipMaterial.clippingPlanes = [];
-    planeHelper.visible = false;
+    sliceGuide.visible = false;
     toggleClippingBtn.textContent = 'Show Slice Preview';
   }
 
   syncMeshFloorAlignment();
+  updateSliceGuide(activeSliceIndex);
+}
+
+function updateSliceGuide(sliceIndex = activeSliceIndex) {
+  if (!geom || slicePositions.length === 0) {
+    sliceGuide.visible = false;
+    return;
+  }
+
+  const i = clamp(sliceIndex, 0, slicePositions.length - 1);
+  const box = geom.boundingBox ?? new THREE.Box3().setFromBufferAttribute(geom.getAttribute('position'));
+  const axisIndex = axisToIndex(currentAxis);
+  const planePosition = slicePositions[i];
+  const displayOffset = mesh ? mesh.position : new THREE.Vector3();
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  const axes = [0, 1, 2].filter((axis) => axis !== axisIndex);
+  const padA = Math.max(size.getComponent(axes[0]) * 0.04, 0.01);
+  const padB = Math.max(size.getComponent(axes[1]) * 0.04, 0.01);
+
+  const mins = [box.min.x, box.min.y, box.min.z];
+  const maxs = [box.max.x, box.max.y, box.max.z];
+  mins[axes[0]] -= padA;
+  maxs[axes[0]] += padA;
+  mins[axes[1]] -= padB;
+  maxs[axes[1]] += padB;
+
+  const makePoint = (aValue, bValue) => {
+    const values = [0, 0, 0];
+    values[axisIndex] = planePosition;
+    values[axes[0]] = aValue;
+    values[axes[1]] = bValue;
+    return new THREE.Vector3(values[0], values[1], values[2]).add(displayOffset);
+  };
+
+  const p0 = makePoint(mins[axes[0]], mins[axes[1]]);
+  const p1 = makePoint(maxs[axes[0]], mins[axes[1]]);
+  const p2 = makePoint(maxs[axes[0]], maxs[axes[1]]);
+  const p3 = makePoint(mins[axes[0]], maxs[axes[1]]);
+
+  const points = [
+    p0, p1,
+    p1, p2,
+    p2, p3,
+    p3, p0,
+    p0, p2,
+    p1, p3
+  ];
+
+  const positions = new Float32Array(points.length * 3);
+  points.forEach((point, pointIndex) => {
+    positions[pointIndex * 3] = point.x;
+    positions[pointIndex * 3 + 1] = point.y;
+    positions[pointIndex * 3 + 2] = point.z;
+  });
+
+  sliceGuide.geometry.dispose();
+  sliceGuide.geometry = new THREE.BufferGeometry();
+  sliceGuide.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  sliceGuide.visible = isClippingEnabled;
 }
 
 function updateSliceInfoDisplay(sliceIndex = activeSliceIndex) {
@@ -1907,7 +1971,7 @@ function fitViewToBox(box) {
   controls.target.copy(center);
   controls.update();
 
-  planeHelper.size = maxDim * 1.1;
+  updateSliceGuide(activeSliceIndex);
 }
 
 function mergeGroupGeometries(group) {
@@ -2004,10 +2068,8 @@ function updatePreviewPlane(i){
     clipMaterial.clippingPlanes = [];
   }
   
-  planeHelper.plane = previewPlane;
-  planeHelper.updateMatrixWorld(true);
-
   syncMeshFloorAlignment();
+  updateSliceGuide(i);
   updateSliceInfoDisplay(i);
 
   prevSliceBtn.disabled = i <= 0;

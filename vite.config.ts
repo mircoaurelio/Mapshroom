@@ -91,11 +91,10 @@ export default defineConfig(({ command }) => {
     base,
     build: {
       rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html'),
-        slider: resolve(__dirname, 'slider/index.html'),
-        segmentation: resolve(__dirname, 'segmentation/index.html'),
-      },
+        input: {
+          main: resolve(__dirname, 'index.html'),
+          slicer: resolve(__dirname, 'slicer/index.html'),
+        },
       },
     },
   };
