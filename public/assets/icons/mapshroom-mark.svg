@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Mapshroom</title>
+  <desc id="desc">An asymmetric red and white mushroom with subtle projection-mapped facets.</desc>
+  <defs>
+    <linearGradient id="cap" x1="90" y1="92" x2="428" y2="302" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff4d52"/>
+      <stop offset=".48" stop-color="#ed2932"/>
+      <stop offset="1" stop-color="#bd1722"/>
+    </linearGradient>
+    <linearGradient id="stem" x1="215" y1="278" x2="310" y2="446" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4e4e7"/>
+    </linearGradient>
+    <filter id="mark-shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#000000" flood-opacity=".34"/>
+    </filter>
+    <filter id="cap-glow" x="-30%" y="-40%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#ef4444" flood-opacity=".35"/>
+    </filter>
+    <clipPath id="cap-mask">
+      <path d="M76 276C78 168 142 83 250 69c87-11 151 43 170 139 12 28 10 57-4 82-88 35-244 35-340-14Z"/>
+    </clipPath>
+  </defs>
+
+  <g filter="url(#mark-shadow)">
+    <path d="M214 276c20 7 48 11 75 8-1 49 2 101 20 148-22 16-58 21-91 7 8-53 4-108-4-163Z" fill="url(#stem)" stroke="#a1a1aa" stroke-opacity=".35" stroke-width="4"/>
+    <path d="M214 294c21 8 49 11 76 8l3 29c-24 8-51 6-75-4l-4-33Z" fill="#b9b9c0" fill-opacity=".42"/>
+
+    <path d="M76 276C78 168 142 83 250 69c87-11 151 43 170 139 12 28 10 57-4 82-88 35-244 35-340-14Z" fill="url(#cap)" filter="url(#cap-glow)"/>
+    <g clip-path="url(#cap-mask)" fill="none" stroke="#ffffff" stroke-opacity=".1" stroke-width="5">
+      <path d="m66 284 188-72 180 69M138 111l116 101 111-111M254 63v245M120 302l134-90 125 96"/>
+    </g>
+    <path d="M77 276c94 48 250 49 339 14" fill="none" stroke="#ff8588" stroke-opacity=".5" stroke-width="11"/>
+    <path d="M98 282c34 13 72 22 112 27l-2 22c-43-7-82-19-116-35l6-14Z" fill="#ffffff" fill-opacity=".18"/>
+
+    <g fill="#ffffff" stroke="#f4f4f5" stroke-width="4">
+      <ellipse cx="165" cy="170" rx="33" ry="35" transform="rotate(-10 165 170)"/>
+      <ellipse cx="294" cy="189" rx="24" ry="27" transform="rotate(8 294 189)"/>
+      <ellipse cx="365" cy="218" rx="31" ry="29" transform="rotate(12 365 218)"/>
+      <ellipse cx="245" cy="230" rx="20" ry="19" transform="rotate(-7 245 230)"/>
+    </g>
+  </g>
+</svg>

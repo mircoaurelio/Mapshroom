@@ -15,7 +15,12 @@ export default defineConfig(({ command }) => {
         registerType: 'autoUpdate',
         includeAssets: [
           'assets/icons/mapshroom-mark.svg',
-          'assets/icons/mapshroom-maskable.svg',
+          'assets/icons/favicon-16.png',
+          'assets/icons/favicon-32.png',
+          'assets/icons/apple-touch-icon.png',
+          'assets/icons/mapshroom-pwa-192.png',
+          'assets/icons/mapshroom-pwa-512.png',
+          'favicon.ico',
           'browserconfig.xml',
         ],
         manifest: {
@@ -31,27 +36,27 @@ export default defineConfig(({ command }) => {
           orientation: 'any',
           icons: [
             {
-              src: 'assets/icons/mapshroom-maskable.svg',
+              src: 'assets/icons/mapshroom-mark.svg',
               sizes: 'any',
               type: 'image/svg+xml',
               purpose: 'any',
             },
             {
-              src: 'assets/icons/mapshroom-maskable.svg',
+              src: 'assets/icons/mapshroom-pwa-192.png',
               sizes: '192x192',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'any',
             },
             {
-              src: 'assets/icons/mapshroom-maskable.svg',
+              src: 'assets/icons/mapshroom-pwa-512.png',
               sizes: '512x512',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'any',
             },
             {
-              src: 'assets/icons/mapshroom-maskable.svg',
+              src: 'assets/icons/mapshroom-pwa-512.png',
               sizes: '512x512',
-              type: 'image/svg+xml',
+              type: 'image/png',
               purpose: 'maskable',
             },
           ],

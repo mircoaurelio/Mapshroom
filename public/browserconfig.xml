@@ -2,8 +2,8 @@
 <browserconfig>
   <msapplication>
     <tile>
-      <square150x150logo src="assets/icons/mushroom-favicon.svg"/>
-      <TileColor>#ef4444</TileColor>
+      <square150x150logo src="assets/icons/mapshroom-pwa-192.png"/>
+      <TileColor>#09090b</TileColor>
     </tile>
   </msapplication>
 </browserconfig>

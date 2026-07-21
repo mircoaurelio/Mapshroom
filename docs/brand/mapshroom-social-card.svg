@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#09090b" stop-opacity=".42"/>
+      <stop offset=".7" stop-color="#09090b" stop-opacity=".08"/>
+      <stop offset="1" stop-color="#09090b" stop-opacity=".2"/>
+    </linearGradient>
+    <filter id="logo-shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#000000" flood-opacity=".65"/>
+    </filter>
+    <filter id="red-glow" x="-30%" y="-80%" width="160%" height="260%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <linearGradient id="social-cap" x1="112" y1="104" x2="402" y2="282" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff5a5f"/>
+      <stop offset=".52" stop-color="#ef2f36"/>
+      <stop offset="1" stop-color="#c81e28"/>
+    </linearGradient>
+    <linearGradient id="social-stem" x1="216" y1="260" x2="310" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e4e4e7"/>
+    </linearGradient>
+    <clipPath id="social-cap-mask">
+      <path d="M76 276C78 168 142 83 250 69c87-11 151 43 170 139 12 28 10 57-4 82-88 35-244 35-340-14Z"/>
+    </clipPath>
+  </defs>
+
+  <image href="mapshroom-social-background.png" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1200" height="630" fill="url(#shade)"/>
+  <ellipse cx="269" cy="324" rx="190" ry="136" fill="#ef4444" fill-opacity=".12" filter="url(#red-glow)"/>
+
+  <g transform="translate(96 154) scale(.54)" filter="url(#logo-shadow)">
+    <path d="M214 276c20 7 48 11 75 8-1 49 2 101 20 148-22 16-58 21-91 7 8-53 4-108-4-163Z" fill="url(#social-stem)"/>
+    <path d="M214 294c21 8 49 11 76 8l3 29c-24 8-51 6-75-4l-4-33Z" fill="#b9b9c0" fill-opacity=".42"/>
+    <path d="M76 276C78 168 142 83 250 69c87-11 151 43 170 139 12 28 10 57-4 82-88 35-244 35-340-14Z" fill="url(#social-cap)"/>
+    <g clip-path="url(#social-cap-mask)" fill="none" stroke="#ffffff" stroke-opacity=".12" stroke-width="5">
+      <path d="m66 284 188-72 180 69M138 111l116 101 111-111M254 63v245M120 302l134-90 125 96"/>
+    </g>
+    <path d="M77 276c94 48 250 49 339 14" fill="none" stroke="#ff7a7e" stroke-opacity=".5" stroke-width="11"/>
+    <path d="M98 282c34 13 72 22 112 27l-2 22c-43-7-82-19-116-35l6-14Z" fill="#ffffff" fill-opacity=".18"/>
+    <g fill="#ffffff" stroke="#f4f4f5" stroke-width="4">
+      <ellipse cx="165" cy="170" rx="33" ry="35" transform="rotate(-10 165 170)"/>
+      <ellipse cx="294" cy="189" rx="24" ry="27" transform="rotate(8 294 189)"/>
+      <ellipse cx="365" cy="218" rx="31" ry="29" transform="rotate(12 365 218)"/>
+      <ellipse cx="245" cy="230" rx="20" ry="19" transform="rotate(-7 245 230)"/>
+    </g>
+  </g>
+
+</svg>
