@@ -13,12 +13,16 @@ export default defineConfig(({ command }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['assets/icons/mushroom-favicon.svg', 'browserconfig.xml'],
+        includeAssets: [
+          'assets/icons/mapshroom-mark.svg',
+          'assets/icons/mapshroom-maskable.svg',
+          'browserconfig.xml',
+        ],
         manifest: {
           name: 'Mapshroom Pocket',
           short_name: 'Mapshroom',
           id: base,
-          description: 'Mapshroom Pocket - Video editing and AI content creation',
+          description: 'Mapshroom Pocket - AI-powered projection mapping studio',
           start_url: base,
           scope: base,
           display: 'standalone',
@@ -27,25 +31,25 @@ export default defineConfig(({ command }) => {
           orientation: 'any',
           icons: [
             {
-              src: 'assets/icons/mushroom-favicon.svg',
+              src: 'assets/icons/mapshroom-maskable.svg',
               sizes: 'any',
               type: 'image/svg+xml',
               purpose: 'any',
             },
             {
-              src: 'assets/icons/mushroom-favicon.svg',
+              src: 'assets/icons/mapshroom-maskable.svg',
               sizes: '192x192',
               type: 'image/svg+xml',
               purpose: 'any',
             },
             {
-              src: 'assets/icons/mushroom-favicon.svg',
+              src: 'assets/icons/mapshroom-maskable.svg',
               sizes: '512x512',
               type: 'image/svg+xml',
               purpose: 'any',
             },
             {
-              src: 'assets/icons/mushroom-favicon.svg',
+              src: 'assets/icons/mapshroom-maskable.svg',
               sizes: '512x512',
               type: 'image/svg+xml',
               purpose: 'maskable',
@@ -57,7 +61,7 @@ export default defineConfig(({ command }) => {
           clientsClaim: true,
           cleanupOutdatedCaches: true,
           // Default stage assets are large; raise the precache ceiling so offline install includes them.
-          maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
+          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,webmanifest}'],
           runtimeCaching: [
             {

@@ -6,13 +6,18 @@ export const BUNDLED_STAGE_ASSET_ID = 'bundled-palco-stage';
 export const BUNDLED_STAGE_1B_ASSET_ID = 'bundled-stage-1b';
 export const BUNDLED_STAGE_2A_ASSET_ID = 'bundled-stage-2a';
 export const BUNDLED_STAGE_2B_ASSET_ID = 'bundled-stage-2b';
-/** Live stage media for new projects (psychedelic Default Stage art). */
+/** Fallback live stage media when a random starter pick is unavailable. */
 export const DEFAULT_BUNDLED_ASSET_ID = BUNDLED_STAGE_ASSET_ID;
+
+/** Pick Base Statue or Default Stage with equal probability for new projects. */
+export function pickStarterBundledAssetId(): string {
+  return Math.random() < 0.5 ? BUNDLED_STAGE_ASSET_ID : BUNDLED_STATUE_ASSET_ID;
+}
 
 const BUNDLED_ASSET_URLS: Record<string, string> = {
   [BUNDLED_STATUE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue.png`,
   [BUNDLED_STATUE_DEPTH_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue-depth.png`,
-  [BUNDLED_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-palco.jpg`,
+  [BUNDLED_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-palco.png`,
   [BUNDLED_STAGE_1B_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-1b.png`,
   [BUNDLED_STAGE_2A_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-2a.jpg`,
   [BUNDLED_STAGE_2B_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-2b.png`,
@@ -43,10 +48,10 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
     id: BUNDLED_STAGE_ASSET_ID,
     name: 'Default Stage',
     kind: 'image',
-    mimeType: 'image/jpeg',
-    size: 17710821,
-    lastModified: 1753105200000,
-    createdAt: '2026-07-21T15:40:00.000Z',
+    mimeType: 'image/png',
+    size: 7422090,
+    lastModified: 1753106400000,
+    createdAt: '2026-07-21T16:00:00.000Z',
     sourceType: 'bundled',
   },
   {
