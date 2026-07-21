@@ -2,12 +2,11 @@ name = "mapshroom-analytics-proxy"
 main = "src/index.ts"
 compatibility_date = "2025-07-01"
 
-# Attach this Worker to mapshroom.dev so /a/* is first-party.
-# Adjust zone_name if the apex zone differs in your Cloudflare account.
+# Only /a/... — not /assets (a* would steal static JS/CSS).
 [[routes]]
-pattern = "mapshroom.dev/a*"
+pattern = "mapshroom.dev/a/*"
 zone_name = "mapshroom.dev"
 
 [[routes]]
-pattern = "www.mapshroom.dev/a*"
+pattern = "www.mapshroom.dev/a/*"
 zone_name = "mapshroom.dev"
