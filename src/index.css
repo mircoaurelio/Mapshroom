@@ -5745,8 +5745,9 @@ a.download-link-open-app {
   position: fixed;
   left: 1rem;
   right: 1rem;
-  bottom: 1rem;
-  z-index: 80;
+  top: 1rem;
+  bottom: auto;
+  z-index: 130;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -5863,6 +5864,7 @@ a.download-link-open-app {
   .analytics-consent-banner {
     left: 0.65rem;
     right: 0.65rem;
-    bottom: 0.65rem;
+    top: 0.65rem;
+    bottom: auto;
   }
 }

@@ -5,22 +5,25 @@ import {
   getAnalyticsConsent,
   grantAnalyticsConsent,
 } from '../lib/analytics';
+import { ANALYTICS_CONSENT_COPY, resolveAppLocale } from '../lib/privacyCopy';
 
 export function AnalyticsConsentBanner() {
   const [consent, setConsent] = useState(() => getAnalyticsConsent());
+  const [locale] = useState(() => resolveAppLocale());
+  const copy = ANALYTICS_CONSENT_COPY[locale];
 
   if (consent !== null) {
     return null;
   }
 
   return (
-    <div className="analytics-consent-banner" role="dialog" aria-label="Analytics consent">
+    <div className="analytics-consent-banner" role="dialog" aria-label={copy.dialogLabel}>
       <div className="analytics-consent-copy">
-        <strong>Optional usage analytics</strong>
+        <strong>{copy.title}</strong>
         <p>
-          Help improve Mapshroom with anonymous product analytics (features used, return visits,
-          country). Creative content, prompts, and API keys stay on your device. Details in the{' '}
-          <Link to="/privacy">Privacy</Link> note.
+          {copy.bodyBeforeLink}
+          <Link to="/privacy">{copy.privacyLink}</Link>
+          {copy.bodyAfterLink}
         </p>
       </div>
       <div className="analytics-consent-actions">
@@ -32,7 +35,7 @@ export function AnalyticsConsentBanner() {
             setConsent('denied');
           }}
         >
-          Decline
+          {copy.decline}
         </button>
         <button
           type="button"
@@ -42,7 +45,7 @@ export function AnalyticsConsentBanner() {
             setConsent('granted');
           }}
         >
-          Accept
+          {copy.accept}
         </button>
       </div>
     </div>
