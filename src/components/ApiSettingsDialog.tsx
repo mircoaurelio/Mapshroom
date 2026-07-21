@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DEFAULT_GOOGLE_MODEL_OPTIONS } from '../config';
-import { isLocalModelReady, LOCAL_SHADER_MODELS, LOCAL_VISION_MODEL, prepareLocalModel, type LocalModelProgress } from '../lib/localAi';
+import { isLocalModelReady, LOCAL_SHADER_MODELS, LOCAL_VISION_MODEL, prepareLocalModel } from '../lib/localAi';
 import type { AiSettings, ShaderRuntime } from '../types';
 
 interface ApiSettingsDialogProps {
@@ -13,9 +13,18 @@ interface ApiSettingsDialogProps {
 }
 
 export function ApiSettingsDialog({ open, settings, isClearingLocalData = false, onClose, onChange, onClearLocalData }: ApiSettingsDialogProps) {
-  const [download, setDownload] = useState<LocalModelProgress | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadError, setDownloadError] = useState('');
   const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => {
+    if (!downloading) return;
+    const intervalId = window.setInterval(() => {
+      setDownloadProgress((current) => Math.min(92, current + Math.max(0.35, (92 - current) * 0.025)));
+    }, 250);
+    return () => window.clearInterval(intervalId);
+  }, [downloading]);
+
   if (!open) return null;
 
   const chooseRuntime = (runtime: ShaderRuntime) => onChange('shaderRuntime', runtime);
@@ -24,10 +33,13 @@ export function ApiSettingsDialog({ open, settings, isClearingLocalData = false,
   const handleDownload = async () => {
     if (!settings.localShaderModel) return;
     setDownloading(true);
+    setDownloadProgress(3);
     setDownloadError('');
     try {
-      await prepareLocalModel(settings.localShaderModel, settings.visionEnabled, setDownload);
+      await prepareLocalModel(settings.localShaderModel, settings.visionEnabled);
+      setDownloadProgress(100);
     } catch (error) {
+      setDownloadProgress(0);
       setDownloadError(error instanceof Error ? error.message : 'The model download failed.');
     } finally {
       setDownloading(false);
@@ -71,10 +83,14 @@ export function ApiSettingsDialog({ open, settings, isClearingLocalData = false,
                 <span><strong>Enable vision context</strong><small>Optional. Downloads {LOCAL_VISION_MODEL.label} ({LOCAL_VISION_MODEL.size}) and lets it inspect the current stage frame before GLSL generation.</small></span>
               </label>
               <div className="local-download-row">
-                <div>{selectedLocal ? <><strong>{ready ? 'Ready on this page' : `${selectedLocal.tier} selected`}</strong><small>{download ? `${download.phase === 'vision' ? 'Vision' : download.phase === 'shader' ? 'Shader model' : 'Ready'} · ${download.percent}%${download.file ? ` · ${download.file}` : ''}` : 'Download once; the browser keeps the files cached.'}</small></> : <small>Select a model to continue.</small>}</div>
+                <div>{selectedLocal ? <><strong>{ready ? 'Ready to make pixels dance' : downloading ? 'Teaching pixels a few new tricks…' : `${selectedLocal.tier} selected`}</strong><small>{downloading ? 'Good things are growing in your browser.' : 'Download once; the browser keeps the files cached.'}</small></> : <small>Select a model to continue.</small>}</div>
                 <button type="button" className="primary-button" disabled={!selectedLocal || downloading || ready} onClick={() => void handleDownload()}>{downloading ? 'Downloading…' : ready ? 'Downloaded' : 'Download model'}</button>
               </div>
-              {download && downloading ? <progress className="model-download-progress" value={download.percent} max="100" /> : null}
+              {downloading || ready ? (
+                <div className="model-download-progress" role="progressbar" aria-label="Model download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(downloadProgress)}>
+                  <span style={{ width: `${downloadProgress}%` }} />
+                </div>
+              ) : null}
               {downloadError ? <p className="dialog-error-copy">{downloadError}</p> : null}
             </section>
           ) : null}
