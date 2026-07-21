@@ -10,12 +10,6 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "assets/icons/mapshroom-mark.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
       "src": "assets/icons/mapshroom-pwa-192.png",
       "sizes": "192x192",
       "type": "image/png",

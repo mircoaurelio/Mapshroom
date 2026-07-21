@@ -14,7 +14,7 @@ export default defineConfig(({ command }) => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: [
-          'assets/icons/mapshroom-mark.svg',
+          'assets/icons/mapshroom-icon-transparent-512.png',
           'assets/icons/favicon-16.png',
           'assets/icons/favicon-32.png',
           'assets/icons/apple-touch-icon.png',
@@ -35,12 +35,6 @@ export default defineConfig(({ command }) => {
           theme_color: '#09090b',
           orientation: 'any',
           icons: [
-            {
-              src: 'assets/icons/mapshroom-mark.svg',
-              sizes: 'any',
-              type: 'image/svg+xml',
-              purpose: 'any',
-            },
             {
               src: 'assets/icons/mapshroom-pwa-192.png',
               sizes: '192x192',
