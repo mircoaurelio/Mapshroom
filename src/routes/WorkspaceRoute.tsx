@@ -59,6 +59,7 @@ import {
 import { isBundledProjectSessionId } from '../lib/bundledProjects';
 import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
+import { LEGACY_ULTRA_MODEL_ID, ULTRA_MODEL_ID } from '../lib/localAi';
 import {
   getRenderableShaderUniformValues,
   validateShaderCodeCompilation,
@@ -1037,6 +1038,9 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     openaiShaderModel: legacySettings.openaiShaderModel ?? legacySettings.shaderModel ?? '',
     googleShaderModel:
       legacySettings.googleShaderModel ?? DEFAULT_GOOGLE_SHADER_MODEL,
+    localShaderModel: legacySettings.localShaderModel === LEGACY_ULTRA_MODEL_ID
+      ? ULTRA_MODEL_ID
+      : legacySettings.localShaderModel ?? defaultProject.ai.settings.localShaderModel,
     videoGenProvider: 'runway',
   };
   const normalizedActiveShader =

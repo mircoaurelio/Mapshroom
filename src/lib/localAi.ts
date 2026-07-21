@@ -4,11 +4,13 @@ import { extractGlslCode, validateGeneratedShader } from './shader';
 
 export const LOCAL_VISION_MODEL = { id: 'onnx-community/Florence-2-base-ft', label: 'Florence-2 Vision', size: '~0.8 GB quantized' } as const;
 export const LOCAL_SHADER_MODELS = [
-  { id: 'onnx-community/Qwen2.5-Coder-0.5B-Instruct', tier: 'Small', label: 'Qwen 2.5 Coder 0.5B', size: '~0.4 GB', memory: '2 GB+ free RAM', note: 'Fastest; simple shader edits.' },
-  { id: 'onnx-community/Qwen2.5-Coder-1.5B-Instruct', tier: 'Medium', label: 'Qwen 2.5 Coder 1.5B', size: '~1.1 GB', memory: '4 GB+ free RAM', note: 'Recommended balance.' },
-  { id: 'onnx-community/Qwen2.5-Coder-3B-Instruct', tier: 'Big', label: 'Qwen 2.5 Coder 3B', size: '~2.4 GB', memory: '8 GB+ free RAM', note: 'Better multi-pass GLSL reasoning.' },
-  { id: 'onnx-community/Qwen3-4B-ONNX', tier: 'Ultra', label: 'Qwen 3 4B', size: '~2.9 GB', memory: '12 GB+ free RAM', note: 'Highest local quality; desktop WebGPU only.' },
+  { id: 'onnx-community/SmolLM2-360M-Instruct-ONNX', tier: 'Small', label: 'SmolLM2 360M', size: '~0.3 GB', memory: '2 GB+ free RAM', note: 'Fastest; simple shader edits.' },
+  { id: 'onnx-community/Qwen2.5-Coder-0.5B-Instruct', tier: 'Medium', label: 'Qwen 2.5 Coder 0.5B', size: '~0.4 GB', memory: '2 GB+ free RAM', note: 'Compact code-specialized model.' },
+  { id: 'onnx-community/Qwen2.5-Coder-1.5B-Instruct', tier: 'Big', label: 'Qwen 2.5 Coder 1.5B', size: '~1.1 GB', memory: '4 GB+ free RAM', note: 'Recommended balance.' },
+  { id: 'onnx-community/Qwen2.5-Coder-3B-Instruct', tier: 'Ultra', label: 'Qwen 2.5 Coder 3B', size: '~2.4 GB', memory: '8 GB+ free RAM', note: 'Highest local quality; desktop WebGPU only.' },
 ] as const;
+export const LEGACY_ULTRA_MODEL_ID = 'onnx-community/Qwen3-4B-ONNX';
+export const ULTRA_MODEL_ID = 'onnx-community/Qwen2.5-Coder-3B-Instruct';
 
 export type LocalModelProgress = { phase: 'vision' | 'shader' | 'ready'; percent: number; file?: string };
 type CallablePipeline = (input: unknown, options?: Record<string, unknown>) => Promise<unknown>;
@@ -36,6 +38,23 @@ function options() {
   const webgpu = 'gpu' in navigator;
   return { device: webgpu ? 'webgpu' as const : 'wasm' as const, dtype: webgpu ? 'q4f16' as const : 'q4' as const };
 }
+async function ensureUltraCompatibility(modelId: string): Promise<void> {
+  if (modelId !== ULTRA_MODEL_ID) return;
+  const gpu = (navigator as Navigator & {
+    gpu?: { requestAdapter: () => Promise<unknown | null> };
+  }).gpu;
+  if (!gpu || !await gpu.requestAdapter()) {
+    throw new Error('Ultra needs WebGPU. Try Big on this browser, or enable hardware acceleration and reload.');
+  }
+}
+
+function localModelError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  if (/aborted|memory|allocation|out of bounds/i.test(message)) {
+    return new Error('This model exceeded the browser\'s available memory. Close other tabs or try a smaller model.');
+  }
+  return error instanceof Error ? error : new Error('The local model could not be loaded.');
+}
 function progress(phase: LocalModelProgress['phase'], callback?: (value: LocalModelProgress) => void) {
   return (event: { status?: string; progress?: number; file?: string }) => callback?.({ phase, percent: event.status === 'ready' ? 100 : Math.round(event.progress ?? 0), file: event.file });
 }
@@ -45,6 +64,7 @@ export function isLocalModelReady(modelId: string, includeVision: boolean): bool
   );
 }
 export async function prepareLocalModel(modelId: string, includeVision: boolean, onProgress?: (value: LocalModelProgress) => void) {
+  await ensureUltraCompatibility(modelId);
   const transformers = await import('@huggingface/transformers');
   if (includeVision && (!visionModel || !visionProcessor || !loadVisionImage)) {
     const visionProgress = progress('vision', onProgress);
@@ -59,7 +79,11 @@ export async function prepareLocalModel(modelId: string, includeVision: boolean,
     loadVisionImage = transformers.load_image as (input: string) => Promise<VisionImage>;
   }
   if (!shaderPipelines.has(modelId)) {
-    shaderPipelines.set(modelId, await transformers.pipeline('text-generation', modelId, { ...options(), progress_callback: progress('shader', onProgress) }) as unknown as CallablePipeline);
+    try {
+      shaderPipelines.set(modelId, await transformers.pipeline('text-generation', modelId, { ...options(), progress_callback: progress('shader', onProgress) }) as unknown as CallablePipeline);
+    } catch (error) {
+      throw localModelError(error);
+    }
   }
   onProgress?.({ phase: 'ready', percent: 100 });
 }

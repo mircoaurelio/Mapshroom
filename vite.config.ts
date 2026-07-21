@@ -10,7 +10,7 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         includeAssets: ['assets/icons/mushroom-favicon.svg', 'browserconfig.xml'],
         manifest: {
           name: 'Mapshroom Pocket',
@@ -51,6 +51,9 @@ export default defineConfig(({ command }) => {
           ],
         },
         workbox: {
+          skipWaiting: true,
+          clientsClaim: true,
+          cleanupOutdatedCaches: true,
           // Default stage assets are large PNGs; raise the precache ceiling so offline install includes them.
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json,webmanifest}'],

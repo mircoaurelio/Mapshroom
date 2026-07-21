@@ -7,8 +7,11 @@ import './index.css';
 
 captureInstallPrompt();
 
-registerSW({
+const updateServiceWorker = registerSW({
   immediate: true,
+  onNeedRefresh() {
+    void updateServiceWorker(true);
+  },
   onOfflineReady() {
     window.dispatchEvent(new Event('mapshroom:offline-ready'));
   },
