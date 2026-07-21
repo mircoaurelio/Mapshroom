@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
+import { track, trackUiClick } from '../lib/analytics';
 
 type ToolbarMenuKey = 'file' | 'shader';
 
@@ -253,7 +254,11 @@ export function WorkspaceToolbar({
                   to="/download"
                   role="menuitem"
                   className="toolbar-menu-item"
-                  onClick={closeMenu}
+                  onClick={() => {
+                    trackUiClick('install_offline');
+                    track('install_offline');
+                    closeMenu();
+                  }}
                 >
                   Install offline
                 </Link>

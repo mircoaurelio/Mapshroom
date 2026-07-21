@@ -68,6 +68,7 @@ export default defineConfig(({ command }) => {
           // Default stage assets are large; raise the precache ceiling so offline install includes them.
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,webmanifest}'],
+          navigateFallbackDenylist: [/^\/a/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

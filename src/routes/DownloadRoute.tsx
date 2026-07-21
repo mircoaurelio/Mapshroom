@@ -7,6 +7,7 @@ import {
   onInstallAvailable,
   promptInstall,
 } from '../lib/pwaInstall';
+import { track, trackAppOpen, trackUiClick, getAnalyticsConsent } from '../lib/analytics';
 
 type InstallState = 'idle' | 'available' | 'installed' | 'manual';
 type OfflineState = 'checking' | 'ready' | 'pending';
@@ -55,6 +56,9 @@ export function DownloadRoute() {
     }
 
     document.body.classList.add('download-page-active');
+    if (getAnalyticsConsent() === 'granted') {
+      trackAppOpen({ path: '#/download' });
+    }
     return () => {
       document.body.classList.remove('download-page-active');
     };
@@ -130,6 +134,8 @@ export function DownloadRoute() {
   }, []);
 
   const handleInstall = async () => {
+    trackUiClick('install_offline');
+    track('install_offline');
     if (!getDeferredInstallPrompt()) {
       setInstallState('manual');
       setInstallMessage(getManualInstallHint(platform));
@@ -142,8 +148,10 @@ export function DownloadRoute() {
       const outcome = await promptInstall();
       if (outcome === 'accepted') {
         setInstallState('installed');
+        track('install_offline', { outcome: 'accepted' });
         navigate('/', { replace: true });
-      } else if (outcome === 'dismissed') {        setInstallMessage('Install cancelled. Use the manual steps below.');
+      } else if (outcome === 'dismissed') {
+        setInstallMessage('Install cancelled. Use the manual steps below.');
         setInstallState('manual');
       } else {
         setInstallState('manual');

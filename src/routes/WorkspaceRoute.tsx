@@ -38,6 +38,15 @@ import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDial
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
+  getAnalyticsConsent,
+  setAnalyticsAiPresence,
+  track,
+  trackApiPresence,
+  trackAppOpen,
+  trackLlmRequest,
+  trackUiClick,
+} from '../lib/analytics';
+import {
   ANTHROPIC_API_KEY_STORAGE_KEY,
   DEFAULT_ANTHROPIC_SHADER_MODEL,
   DEFAULT_STAGE_TRANSFORM,
@@ -146,6 +155,14 @@ function hasConfiguredShaderAi(settings: AiSettings): boolean {
   return Boolean(settings.googleApiKey.trim() && settings.googleShaderModel);
 }
 
+function getAnalyticsAiPresence(settings: AiSettings) {
+  return {
+    has_api_key: hasConfiguredShaderAi(settings),
+    shader_provider: settings.shaderProvider,
+    shader_runtime: settings.shaderRuntime,
+  };
+}
+
 const MIDI_MIX_DURATION_MIN_SECONDS = 0.05;
 const MIDI_MIX_DURATION_MAX_SECONDS = 8;
 const MIDI_MIX_DURATION_STEP_SECONDS = 0.25;
@@ -155,6 +172,7 @@ const TIMELINE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const ONBOARDING_ENTRY_COOKIE = 'mapshroom_onboarding_entries';
 const ONBOARDING_ENTRY_SESSION_KEY = 'mapshroom:onboarding-entry-counted';
 const ONBOARDING_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const ONBOARDING_AUTO_OPEN_LIMIT = 3;
 
 const ONBOARDING_SETUP_STEP_COUNT = 2;
 const ONBOARDING_CALLOUT_GAP_PX = 16;
@@ -1759,6 +1777,7 @@ export function WorkspaceRoute() {
     createTimelineRandomSeedToken(),
   );
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
+  const appOpenTrackedRef = useRef(false);
   const [midiManualMix, setMidiManualMix] = useState({
     stepIndex: 0,
     nextEndpoint: 'max' as 'max' | 'min',
@@ -1786,11 +1805,24 @@ export function WorkspaceRoute() {
   useEffect(() => {
     const entryCount = registerOnboardingEntry();
     const timeoutId = window.setTimeout(() => {
-      setShowOnboardingGuide(entryCount <= 2);
+      setShowOnboardingGuide(entryCount <= ONBOARDING_AUTO_OPEN_LIMIT);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  useEffect(() => {
+    if (!project || appOpenTrackedRef.current) {
+      return;
+    }
+    if (getAnalyticsConsent() !== 'granted') {
+      return;
+    }
+    appOpenTrackedRef.current = true;
+    const presence = getAnalyticsAiPresence(project.ai.settings);
+    setAnalyticsAiPresence(presence);
+    trackAppOpen(presence);
+  }, [project]);
 
   const updateProject = useCallback((updater: (currentProject: ProjectDocument) => ProjectDocument) => {
     setProject((currentProject) => {
@@ -1953,6 +1985,8 @@ export function WorkspaceRoute() {
       persistActiveSessionId(nextProject.sessionId);
       setStatusMessage(`Saved "${trimmedName}" as a new project.`);
       setIsProjectDialogOpen(false);
+      trackUiClick('save_project');
+      track('save_project', { mode: 'from_bundled' });
       return;
     }
 
@@ -1967,6 +2001,8 @@ export function WorkspaceRoute() {
     persistActiveSessionId(nextProject.sessionId);
     setStatusMessage(`Saved project "${trimmedName}".`);
     setIsProjectDialogOpen(false);
+    trackUiClick('save_project');
+    track('save_project');
   }, [project]);
 
   const handleSaveAsNewProject = useCallback((name: string) => {
@@ -1987,6 +2023,8 @@ export function WorkspaceRoute() {
     persistActiveSessionId(nextProject.sessionId);
     setStatusMessage(`Saved "${trimmedName}" as a new project.`);
     setIsProjectDialogOpen(false);
+    trackUiClick('save_project_as');
+    track('save_project_as');
   }, [project]);
 
   const handleCreateNewProject = useCallback(() => {
@@ -2009,6 +2047,8 @@ export function WorkspaceRoute() {
     clearGeneratedShaderRetry();
     setCompilerError('');
     setStatusMessage('Created a new project.');
+    trackUiClick('create_project');
+    track('create_project');
   }, []);
 
   const handleOpenSavedProject = useCallback((sessionId: string) => {
@@ -2028,6 +2068,8 @@ export function WorkspaceRoute() {
     persistActiveSessionId(sessionId);
     setIsProjectDialogOpen(false);
     setStatusMessage(`Opened project "${normalizedProject.name}".`);
+    trackUiClick('open_saved_project');
+    track('open_saved_project');
   }, []);
 
   const handleGenerateShareLink = useCallback(async () => {
@@ -2042,11 +2084,13 @@ export function WorkspaceRoute() {
       const nextShareLink = await createProjectShareLink(project);
       setShareLinkState(nextShareLink);
       setStatusMessage(`Share link ready for "${project.name}".`);
+      track('share_project', { outcome: 'success' });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to generate the project share link.';
       setShareLinkError(message);
       setStatusMessage(message);
+      track('share_project', { outcome: 'error' });
     } finally {
       setIsGeneratingShareLink(false);
     }
@@ -4058,12 +4102,14 @@ export function WorkspaceRoute() {
     prompt: string,
     options?: {
       historyPrompt?: string;
+      trigger?: 'generate' | 'fix' | 'quick_add';
     },
   ) => {
     if (!project) {
       return;
     }
 
+    const llmTrigger = options?.trigger ?? 'generate';
     const aiReady = hasConfiguredShaderAi(project.ai.settings);
     if (!aiReady) {
       setIsApiSettingsOpen(true);
@@ -4266,6 +4312,12 @@ export function WorkspaceRoute() {
       } else {
         setStatusMessage(`AI finished and updated "${nextName}" in the timeline.`);
       }
+      trackLlmRequest({
+        provider: project.ai.settings.shaderProvider,
+        runtime: project.ai.settings.shaderRuntime,
+        outcome: 'success',
+        trigger: llmTrigger,
+      });
     } catch (error) {
       const message = error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader generation failed.';
       let failedOnActiveShader = false;
@@ -4287,6 +4339,13 @@ export function WorkspaceRoute() {
             ),
           },
         };
+      });
+
+      trackLlmRequest({
+        provider: project.ai.settings.shaderProvider,
+        runtime: project.ai.settings.shaderRuntime,
+        outcome: 'error',
+        trigger: llmTrigger,
       });
 
       if (failedOnActiveShader) {
@@ -4439,6 +4498,12 @@ ${compilerError}`;
           setAiFeedbackMessage(`Shader auto-fixed and applied: ${nextName}.`);
           setStatusMessage(`Shader auto-fixed: ${nextName}`);
         }
+        trackLlmRequest({
+          provider: project.ai.settings.shaderProvider,
+          runtime: project.ai.settings.shaderRuntime,
+          outcome: 'success',
+          trigger: 'fix',
+        });
       })
       .catch((error) => {
         const message =
@@ -4448,6 +4513,12 @@ ${compilerError}`;
         setAiFeedbackMessage(message);
         setStatusMessage('Shader auto-fix failed.');
         clearGeneratedShaderRetry(activeShaderId);
+        trackLlmRequest({
+          provider: project.ai.settings.shaderProvider,
+          runtime: project.ai.settings.shaderRuntime,
+          outcome: 'error',
+          trigger: 'fix',
+        });
         updateProject((currentProject) => ({
           ...currentProject,
           studio: {
@@ -4478,6 +4549,7 @@ Use WebGL 1.0 GLSL syntax with texture2D().
 
 Error:
 ${errorSnapshot}`,
+      { trigger: 'fix' },
     );
   };
 
@@ -4490,7 +4562,7 @@ ${errorSnapshot}`,
     setNewUniformName('');
     await handleShaderMutation(
       `Integrate a new parameter named '${sanitized}'. Add 'uniform float ${sanitized}; // @min 0.0 @max 1.0 @default 0.5' and use it.`,
-      { historyPrompt: `Add slider: ${sanitized}` },
+      { historyPrompt: `Add slider: ${sanitized}`, trigger: 'quick_add' },
     );
   };
 
@@ -4554,6 +4626,12 @@ ${errorSnapshot}`,
       if (storageKey && value) localStorage.setItem(storageKey, value);
       else if (storageKey) localStorage.removeItem(storageKey);
     }
+    const nextSettings = project
+      ? {
+          ...project.ai.settings,
+          [field]: value,
+        }
+      : null;
     updateProject((currentProject) => ({
       ...currentProject,
       ai: {
@@ -4563,6 +4641,9 @@ ${errorSnapshot}`,
         },
       },
     }));
+    if (nextSettings) {
+      trackApiPresence(getAnalyticsAiPresence(nextSettings));
+    }
   };
 
   const updateWorkspaceMode = (mode: WorkspaceMode) => {
@@ -4941,19 +5022,17 @@ ${errorSnapshot}`,
   if (!project) {
     return (
       <div className="loading-screen">
-        <div className="loading-screen-card" role="status" aria-live="polite">
-          <div className="brand-loader" aria-hidden="true">
-            <span className="brand-loader-glow" />
+        <div className="loading-screen-card" role="status" aria-label="Mapshroom is opening">
+          <div className="loading-brand-lockup">
             <img
-              className="brand-loader-icon"
-              src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-mark.svg`}
+              className="loading-brand-logo"
+              src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
               alt=""
             />
-            <span className="brand-loader-scan" />
+            <span className="loading-brand-name" aria-hidden="true">
+              <span>Map</span>shroom
+            </span>
           </div>
-          <span className="panel-eyebrow">Mapshroom V3</span>
-          <h1>Loading workspace</h1>
-          <p>Preparing the React stage, project document, and local media cache.</p>
         </div>
       </div>
     );
@@ -5515,27 +5594,61 @@ ${errorSnapshot}`,
           workspaceMode={uiPreferences.workspaceMode}
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
-          onOpenProjects={() => setIsProjectDialogOpen(true)}
-          onOpenShare={handleOpenShareDialog}
-          onOpenExport={() => setIsExportDialogOpen(true)}
-          onOpenAssets={() => setIsAssetLibraryOpen(true)}
-          onOpenSettings={() => setIsApiSettingsOpen(true)}
+          onOpenProjects={() => {
+            trackUiClick('open_projects');
+            setIsProjectDialogOpen(true);
+          }}
+          onOpenShare={() => {
+            trackUiClick('open_share');
+            handleOpenShareDialog();
+          }}
+          onOpenExport={() => {
+            trackUiClick('open_export');
+            setIsExportDialogOpen(true);
+          }}
+          onOpenAssets={() => {
+            trackUiClick('open_assets');
+            setIsAssetLibraryOpen(true);
+          }}
+          onOpenSettings={() => {
+            trackUiClick('open_settings');
+            setIsApiSettingsOpen(true);
+          }}
           onNewShader={() => {
+            trackUiClick('new_shader');
+            track('new_shader');
             createNewShader();
             setMobilePanel(null);
           }}
-          onOpenPresetBrowser={() => setIsPresetBrowserOpen(true)}
-          onPlayToggle={handlePlayToggle}
-          onOpenOutput={handleOutputWindowOpen}
+          onOpenPresetBrowser={() => {
+            trackUiClick('open_presets');
+            track('open_presets');
+            setIsPresetBrowserOpen(true);
+          }}
+          onPlayToggle={() => {
+            trackUiClick(project.playback.transport.isPlaying ? 'timeline_pause' : 'timeline_play');
+            handlePlayToggle();
+          }}
+          onOpenOutput={() => {
+            trackUiClick('open_output');
+            track('open_output');
+            handleOutputWindowOpen();
+          }}
           onToggleSidebarVisibility={toggleSidebarVisibility}
           onToggleDesktopSlidersWindow={toggleDesktopSlidersWindow}
           midiEnabled={midiEnabled}
           midiPanelVisible={midiPanelVisible}
-          onToggleMidi={handleToggleMidi}
+          onToggleMidi={() => {
+            trackUiClick('toggle_midi');
+            handleToggleMidi();
+          }}
           onToggleWorkspaceMode={() =>
             updateWorkspaceMode(uiPreferences.workspaceMode === 'immersive' ? 'split' : 'immersive')
           }
-          onOpenSliceStudio={() => setIsSliceStudioDialogOpen(true)}
+          onOpenSliceStudio={() => {
+            trackUiClick('open_slicer');
+            setIsSliceStudioDialogOpen(true);
+          }}
         />
       ) : null}
 
@@ -5674,10 +5787,19 @@ ${errorSnapshot}`,
           isTimelineOpen={isMobileTimelineOpen}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
-          onOpenProjects={() => setIsProjectDialogOpen(true)}
-          onOpenShare={handleOpenShareDialog}
+          onOpenProjects={() => {
+            trackUiClick('open_projects');
+            setIsProjectDialogOpen(true);
+          }}
+          onOpenShare={() => {
+            trackUiClick('open_share');
+            handleOpenShareDialog();
+          }}
           onLoadAsset={() => openFilePicker('library')}
-          onOpenSettings={() => setIsApiSettingsOpen(true)}
+          onOpenSettings={() => {
+            trackUiClick('open_settings');
+            setIsApiSettingsOpen(true);
+          }}
           onOpenTimeline={handleOpenMobileTimeline}
           onToggleMapping={handleMobileToggleMapping}
           onHide={handleMobileHide}
@@ -5812,6 +5934,7 @@ ${errorSnapshot}`,
           }));
         }}
         onExportCompleted={({ filename, bytes }) => {
+          track('export_mp4', { bytes });
           setStatusMessage(
             `Downloaded ${filename} (${(bytes / (1024 * 1024)).toFixed(1)} MB).`,
           );
@@ -5840,8 +5963,12 @@ ${errorSnapshot}`,
 
       {showOnboardingGuide ? (
         <OnboardingGuide
-          onClose={() => setShowOnboardingGuide(false)}
+          onClose={() => {
+            track('onboarding_complete');
+            setShowOnboardingGuide(false);
+          }}
           onDismissPermanently={() => {
+            track('onboarding_dismiss');
             dismissOnboardingPermanently();
             setShowOnboardingGuide(false);
           }}
