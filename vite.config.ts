@@ -10,11 +10,12 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['assets/icons/mushroom-favicon.svg', 'browserconfig.xml'],
         manifest: {
           name: 'Mapshroom Pocket',
           short_name: 'Mapshroom',
+          id: base,
           description: 'Mapshroom Pocket - Video editing and AI content creation',
           start_url: base,
           scope: base,
@@ -53,9 +54,6 @@ export default defineConfig(({ command }) => {
           // Default stage assets are large PNGs; raise the precache ceiling so offline install includes them.
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json,webmanifest}'],
-          // HashRouter handles in-app routes; only fall back for direct path visits.
-          navigateFallback: 'index.html',
-          navigateFallbackDenylist: [/^\/Mapshroom\/slicer\//, /^\/Mapshroom\/download\//],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -96,6 +94,7 @@ export default defineConfig(({ command }) => {
         input: {
           main: resolve(__dirname, 'index.html'),
           slicer: resolve(__dirname, 'slicer/index.html'),
+          segmentation: resolve(__dirname, 'segmentation/index.html'),
         },
       },
     },

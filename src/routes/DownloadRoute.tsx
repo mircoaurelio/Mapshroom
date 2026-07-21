@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 type BeforeInstallPromptEvent = Event & {
@@ -6,7 +6,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
-type InstallState = 'idle' | 'available' | 'installed' | 'unsupported';
+type InstallState = 'idle' | 'available' | 'installed' | 'manual';
 type OfflineState = 'checking' | 'ready' | 'pending';
 
 function detectPlatform(): 'ios' | 'android' | 'desktop' {
@@ -20,12 +20,23 @@ function detectPlatform(): 'ios' | 'android' | 'desktop' {
   return 'desktop';
 }
 
+function getManualInstallHint(platform: ReturnType<typeof detectPlatform>): string {
+  if (platform === 'ios') {
+    return 'Tap Share in Safari, then choose Add to Home Screen.';
+  }
+  if (platform === 'android') {
+    return 'Open the browser menu (⋮) and choose Install app or Add to Home screen.';
+  }
+  return 'Click the install icon in the Chrome or Edge address bar (⊕ or computer icon).';
+}
+
 export function DownloadRoute() {
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const installPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
   const [installState, setInstallState] = useState<InstallState>('idle');
   const [offlineState, setOfflineState] = useState<OfflineState>('checking');
   const [installing, setInstalling] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [installMessage, setInstallMessage] = useState<string | null>(null);
   const platform = detectPlatform();
   const appUrl = useMemo(
     () => new URL(import.meta.env.BASE_URL, window.location.origin).href,
@@ -47,28 +58,31 @@ export function DownloadRoute() {
 
     if (standalone) {
       setInstallState('installed');
+      return;
     }
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
+      installPromptRef.current = event as BeforeInstallPromptEvent;
       setInstallState('available');
+      setInstallMessage(null);
     };
 
     const handleAppInstalled = () => {
-      setInstallPrompt(null);
+      installPromptRef.current = null;
       setInstallState('installed');
+      setInstallMessage('Mapshroom is installed on this device.');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    const unsupportedTimer = window.setTimeout(() => {
-      setInstallState((current) => (current === 'idle' ? 'unsupported' : current));
-    }, 1500);
+    const manualTimer = window.setTimeout(() => {
+      setInstallState((current) => (current === 'idle' ? 'manual' : current));
+    }, 2000);
 
     return () => {
-      window.clearTimeout(unsupportedTimer);
+      window.clearTimeout(manualTimer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
@@ -118,7 +132,11 @@ export function DownloadRoute() {
   }, []);
 
   const handleInstall = async () => {
+    const installPrompt = installPromptRef.current;
     if (!installPrompt) {
+      setInstallState('manual');
+      setInstallMessage(getManualInstallHint(platform));
+      document.getElementById('install-steps')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
 
@@ -128,8 +146,12 @@ export function DownloadRoute() {
       const choice = await installPrompt.userChoice;
       if (choice.outcome === 'accepted') {
         setInstallState('installed');
+        setInstallMessage('Mapshroom is installed on this device.');
+      } else {
+        setInstallMessage('Install cancelled. Use the manual steps below.');
+        setInstallState('manual');
       }
-      setInstallPrompt(null);
+      installPromptRef.current = null;
     } finally {
       setInstalling(false);
     }
@@ -141,7 +163,7 @@ export function DownloadRoute() {
       setCopyState('copied');
       window.setTimeout(() => setCopyState('idle'), 2000);
     } catch {
-      window.prompt('Copy this link to download Mapshroom offline:', downloadPageUrl);
+      window.prompt('Copy this link to install Mapshroom offline:', downloadPageUrl);
     }
   };
 
@@ -156,8 +178,8 @@ export function DownloadRoute() {
           <p className="download-page-kicker">Mapshroom V3</p>
           <h1 className="download-page-title">Install offline</h1>
           <p className="download-page-lead">
-            Cache Mapshroom on this device and open it like a native app — no store, no network
-            required after the first install.
+            Install Mapshroom on this device like a native app. After the first visit, the editor
+            keeps working without a network connection.
           </p>
         </header>
 
@@ -173,8 +195,8 @@ export function DownloadRoute() {
             </strong>
             <p className="download-status-hint">
               {offlineState === 'ready'
-                ? 'App shell is cached for offline use.'
-                : 'Open this page once online so assets can finish downloading.'}
+                ? 'App files are cached on this device.'
+                : 'Stay on this page online until caching finishes.'}
             </p>
           </div>
           <div className="download-status-card">
@@ -183,66 +205,64 @@ export function DownloadRoute() {
               {installState === 'installed'
                 ? 'Installed'
                 : installState === 'available'
-                  ? 'Available'
-                  : installState === 'unsupported'
+                  ? 'Ready'
+                  : installState === 'manual'
                     ? 'Manual'
-                    : 'Detecting…'}
+                    : 'Preparing…'}
             </strong>
             <p className="download-status-hint">
               {installState === 'installed'
-                ? 'Mapshroom is already installed on this device.'
-                : 'Use the button below or follow the platform steps.'}
+                ? 'Launch Mapshroom from your home screen or app launcher.'
+                : installState === 'available'
+                  ? 'One-click install is available on this browser.'
+                  : 'Use the install button, then follow the steps for your device.'}
             </p>
           </div>
         </section>
 
-        <section className="download-actions">
+        <section className="download-actions" aria-label="Install actions">
           {installState === 'installed' ? (
             <Link to="/" className="primary-button primary-button-hero download-install-button">
               Open Mapshroom
             </Link>
-          ) : installState === 'available' && installPrompt ? (
+          ) : (
             <button
               type="button"
               className="primary-button primary-button-hero download-install-button"
               onClick={() => void handleInstall()}
               disabled={installing}
             >
-              {installing ? 'Downloading…' : 'Download Mapshroom'}
+              {installing ? 'Installing…' : 'Install Mapshroom offline'}
             </button>
-          ) : (
-            <a
-              href={appUrl}
-              className="primary-button primary-button-hero download-install-button"
-            >
-              Download Mapshroom
-            </a>
           )}
 
+          {installMessage ? <p className="download-actions-message">{installMessage}</p> : null}
+
+          {installState === 'manual' ? (
+            <p className="download-actions-note download-actions-note-prominent">
+              {getManualInstallHint(platform)}
+            </p>
+          ) : null}
+
           <div className="download-link-card">
-            <span className="download-link-label">Download link</span>
-            <a href={downloadPageUrl} className="download-page-direct-link">
-              {downloadPageUrl}
-            </a>
+            <span className="download-link-label">Share install link</span>
+            <span className="download-page-direct-link">{downloadPageUrl}</span>
             <div className="download-link-actions">
               <button type="button" className="secondary-button" onClick={() => void handleCopyLink()}>
                 {copyState === 'copied' ? 'Copied' : 'Copy link'}
               </button>
-              <a href={appUrl} className="secondary-button download-link-open-app">
-                Open app
-              </a>
+              <Link to="/" className="secondary-button download-link-open-app">
+                Open workspace
+              </Link>
             </div>
           </div>
-
-          {installState === 'unsupported' || installState === 'idle' ? (
-            <p className="download-actions-note">
-              If the button does not start a download, open the link above in Chrome or Edge, wait for
-              the offline cache to finish, then use your browser&apos;s install option.
-            </p>
-          ) : null}
         </section>
 
-        <section className="download-steps" aria-label="Platform install steps">
+        <section
+          id="install-steps"
+          className="download-steps"
+          aria-label="Platform install steps"
+        >
           <h2 className="download-steps-title">How to install</h2>
 
           <article
@@ -250,9 +270,9 @@ export function DownloadRoute() {
           >
             <h3>Desktop (Chrome / Edge)</h3>
             <ol>
-              <li>Visit Mapshroom while online so the offline cache can finish.</li>
-              <li>Click the install icon in the address bar, or use the Install button above.</li>
-              <li>Open Mapshroom from your desktop or app launcher — it runs offline.</li>
+              <li>Stay on this page until offline cache shows Ready.</li>
+              <li>Click <strong>Install Mapshroom offline</strong> above, or use the install icon in the address bar.</li>
+              <li>Launch Mapshroom from your desktop or app launcher.</li>
             </ol>
           </article>
 
@@ -261,9 +281,9 @@ export function DownloadRoute() {
           >
             <h3>Android (Chrome)</h3>
             <ol>
-              <li>Open this page in Chrome while online.</li>
+              <li>Stay on this page while online until caching finishes.</li>
               <li>Tap the menu (⋮) → <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-              <li>Launch Mapshroom from the home screen icon for the standalone offline app.</li>
+              <li>Open Mapshroom from the home screen icon.</li>
             </ol>
           </article>
 
@@ -272,17 +292,17 @@ export function DownloadRoute() {
           >
             <h3>iPhone / iPad (Safari)</h3>
             <ol>
-              <li>Open Mapshroom in Safari while online.</li>
+              <li>Open this page in Safari while online.</li>
               <li>Tap Share → <strong>Add to Home Screen</strong>.</li>
-              <li>Open the home screen icon — Safari caches the app for offline use.</li>
+              <li>Open the home screen icon to launch Mapshroom.</li>
             </ol>
           </article>
         </section>
 
         <footer className="download-page-footer">
           <p>
-            Projects and media stay on this device (local storage). AI features still need a network
-            connection when you use them.
+            Projects and media stay on this device. AI features still need a network connection when
+            you use them.
           </p>
           <Link to="/" className="secondary-button">
             Back to workspace
