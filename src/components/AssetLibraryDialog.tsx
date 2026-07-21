@@ -21,6 +21,58 @@ function SparkleIcon() {
   );
 }
 
+function BananaMoonIcon() {
+  return (
+    <svg className="asset-generate-hero-icon" viewBox="0 0 72 72" fill="none" aria-hidden="true">
+      <circle cx="36" cy="36" r="28" fill="rgba(167,139,250,.12)" stroke="rgba(196,181,253,.45)" strokeWidth="1.6" />
+      <path
+        d="M44 18c-9 1.5-16 9.5-16 19.5S35 56 44 57.5c-12-1-21-11.2-21-23.5S32 12.5 44 18Z"
+        fill="rgba(251,191,36,.18)"
+        stroke="#fbbf24"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M40 24.5c4.5 2.2 7.5 7 7.5 12.4 0 5.6-3.2 10.5-7.9 12.7"
+        stroke="#c4b5fd"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        opacity=".85"
+      />
+      <path d="M28 22l1.2 3.4 3.4 1.1-3.4 1.2L28 31l-1.2-3.3-3.4-1.2 3.4-1.1L28 22Z" fill="#c4b5fd" />
+      <path d="M49 41l.8 2.2 2.2.7-2.2.8L49 47l-.8-2.3-2.2-.8 2.2-.7.8-2.2Z" fill="#fde68a" opacity=".8" />
+    </svg>
+  );
+}
+
+function EditToolIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4.5 13.2 8.8 17.5 10 13.2 11.2 12 15.5 10.8 11.2 6.5 10 10.8 8.8 12 4.5Z" />
+      <path d="M5 17.5h14" />
+      <path d="M7.5 20h9" />
+    </svg>
+  );
+}
+
+function ImportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 14V4m0 10 4-4m-4 4-4-4" />
+      <path d="M5 16.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5" />
+    </svg>
+  );
+}
+
+function DepthMapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 17 9 8l3.5 6 2-3.5L20 17H4Z" />
+      <path d="M7 20h10" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -38,7 +90,7 @@ interface AssetLibraryDialogProps {
   onLoadAsset: () => void;
   onSelectAsset: (assetId: string) => void;
   onRenameAsset: (assetId: string, name: string) => void;
-  onEditMask: (assetId: string) => void;
+  onEditMask: (assetId: string, panel?: 'refine' | 'depth') => void;
   onRemoveAsset: (assetId: string) => void;
   onClose: () => void;
 }
@@ -94,7 +146,7 @@ export function AssetLibraryDialog({
           <div className="asset-browser-header-actions">
             <button
               type="button"
-              className="asset-browser-generate"
+              className="asset-browser-generate asset-browser-shine"
               onClick={() => setIsGeneratePanelOpen(true)}
               title="Generate with Nano Banana"
             >
@@ -194,9 +246,22 @@ export function AssetLibraryDialog({
             <div className="asset-browser-preview-shell">
               {activeAsset?.kind === 'image' && assetUrl ? (
                 <div className="asset-browser-preview-actions">
-                  <button type="button" className="asset-browser-remove-background" onClick={() => onEditMask(activeAsset.id)}>
+                  <button
+                    type="button"
+                    className="asset-browser-remove-background asset-browser-shine"
+                    onClick={() => onEditMask(activeAsset.id, 'refine')}
+                  >
                     <MaskToolIcon />
                     <span>Remove background</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="asset-browser-depth-map asset-browser-shine asset-browser-shine-reverse"
+                    onClick={() => onEditMask(activeAsset.id, 'depth')}
+                    title="Create depth map"
+                  >
+                    <DepthMapIcon />
+                    <span>Depth map</span>
                   </button>
                   <a className="asset-browser-preview-action" href={assetUrl} download={activeAsset.name} aria-label={`Download ${activeAsset.name}`} title="Download image">
                     <DownloadIcon />
@@ -230,15 +295,41 @@ export function AssetLibraryDialog({
               aria-labelledby="asset-generate-title"
               aria-describedby="asset-generate-copy"
             >
-              <span className="panel-eyebrow">Nano Banana</span>
-              <h3 id="asset-generate-title">Beta access ended for today</h3>
-              <p id="asset-generate-copy">
-                Nano Banana beta access has ended for now. It returns tomorrow for your spot.
-              </p>
-              <p className="asset-generate-workaround">
-                Meanwhile, download an image from the library, edit it in Gemini or another image tool, then reupload
-                it here with Import.
-              </p>
+              <div className="asset-generate-hero">
+                <BananaMoonIcon />
+                <div>
+                  <span className="panel-eyebrow">Nano Banana</span>
+                  <h3 id="asset-generate-title">Beta paused until tomorrow</h3>
+                  <p id="asset-generate-copy">
+                    Your Nano Banana spot is resting for tonight. Access returns tomorrow — keep mapping in the meantime.
+                  </p>
+                </div>
+              </div>
+
+              <div className="asset-generate-steps" aria-label="What to do meanwhile">
+                <article className="asset-generate-step">
+                  <span className="asset-generate-step-icon" aria-hidden="true">
+                    <DownloadIcon />
+                  </span>
+                  <strong>1. Download</strong>
+                  <span>Grab an image from the library with the download control.</span>
+                </article>
+                <article className="asset-generate-step">
+                  <span className="asset-generate-step-icon" aria-hidden="true">
+                    <EditToolIcon />
+                  </span>
+                  <strong>2. Edit outside</strong>
+                  <span>Open it in Gemini or another image tool and remix it.</span>
+                </article>
+                <article className="asset-generate-step">
+                  <span className="asset-generate-step-icon" aria-hidden="true">
+                    <ImportIcon />
+                  </span>
+                  <strong>3. Reupload</strong>
+                  <span>Bring the new version back here with Import.</span>
+                </article>
+              </div>
+
               <div className="asset-delete-confirm-actions">
                 <button
                   type="button"

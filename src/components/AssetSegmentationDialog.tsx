@@ -4,6 +4,7 @@ import type { AssetRecord } from '../types';
 interface AssetSegmentationDialogProps {
   asset: AssetRecord | null;
   assetUrl: string | null;
+  initialPanel?: 'refine' | 'depth';
   onApply: (blob: Blob, resultKind: 'mask' | 'draw' | 'depth') => Promise<boolean>;
   onClose: () => void;
 }
@@ -13,6 +14,7 @@ type EditorStatus = 'loading' | 'processing' | 'ready' | 'error';
 export function AssetSegmentationDialog({
   asset,
   assetUrl,
+  initialPanel = 'refine',
   onApply,
   onClose,
 }: AssetSegmentationDialogProps) {
@@ -144,7 +146,7 @@ export function AssetSegmentationDialog({
           <iframe
             ref={frameRef}
             className="asset-segmentation-frame"
-            src={`${import.meta.env.BASE_URL}segmentation/?embed=1`}
+            src={`${import.meta.env.BASE_URL}segmentation/?embed=1${initialPanel === 'depth' ? '&panel=depth' : ''}`}
             title="Mapshroom Mask Studio"
             onLoad={() => {
               editorReadyRef.current = true;

@@ -1,5 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const embeddedInMapshroom = new URLSearchParams(window.location.search).get('embed') === '1';
+const embeddedStartPanel = new URLSearchParams(window.location.search).get('panel') === 'depth' ? 'depth' : 'refine';
 
 const elements = {
   fileInput: $('#fileInput'), dropzone: $('#dropzone'), emptyUpload: $('#emptyUploadButton'), sample: $('#sampleButton'),
@@ -1390,7 +1391,7 @@ window.addEventListener('message', (event) => {
 
 if (embeddedInMapshroom) {
   document.body.classList.add('embedded-in-mapshroom');
-  selectEmbeddedPanel('refine');
+  selectEmbeddedPanel(embeddedStartPanel);
   document.querySelectorAll('[data-editor-panel]').forEach((button) => {
     button.addEventListener('click', () => selectEmbeddedPanel(button.dataset.editorPanel));
   });

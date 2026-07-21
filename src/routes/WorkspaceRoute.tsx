@@ -1737,6 +1737,7 @@ export function WorkspaceRoute() {
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
   const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
+  const [segmentationPanel, setSegmentationPanel] = useState<'refine' | 'depth'>('refine');
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -2614,12 +2615,17 @@ export function WorkspaceRoute() {
     }));
   };
 
-  const handleAssetMaskOpen = useCallback((assetId: string) => {
+  const handleAssetMaskOpen = useCallback((assetId: string, panel: 'refine' | 'depth' = 'refine') => {
     const asset = project?.library.assets.find((item) => item.id === assetId);
     if (!asset || asset.kind !== 'image') {
-      setStatusMessage('Background removal is available for image assets.');
+      setStatusMessage(
+        panel === 'depth'
+          ? 'Depth map is available for image assets.'
+          : 'Background removal is available for image assets.',
+      );
       return;
     }
+    setSegmentationPanel(panel);
     setSegmentationQueue([assetId]);
   }, [project]);
 
@@ -5774,6 +5780,7 @@ ${errorSnapshot}`,
       <AssetSegmentationDialog
         asset={segmentationAsset}
         assetUrl={segmentationAssetResolution.url}
+        initialPanel={segmentationPanel}
         onApply={handleAssetMaskApply}
         onClose={handleAssetMaskClose}
       />
