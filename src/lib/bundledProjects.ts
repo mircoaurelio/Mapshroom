@@ -37,7 +37,7 @@ const STATUE_PROJECT_TIMELINE = {
     "stagePreviewMode": "focused",
     "focusedStepId": "0e1f1ed3-6af7-46c8-a7a7-152f218da989",
     "pinnedStepId": null,
-    "randomSeedToken": "bundled-statue-share-seed",
+    "randomSeedToken": "ab048560-9508-4d48-964c-30bc49e46da6",
     "singleStepLoopEnabled": false,
     "randomChoiceEnabled": false,
     "sharedTransitionEnabled": false,
@@ -51,7 +51,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.02,
         "transitionDurationSeconds": 2.02,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -62,7 +62,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -82,7 +86,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -91,7 +99,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.04,
         "transitionDurationSeconds": 2.04,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -102,7 +110,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -111,7 +123,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 7.79,
         "transitionDurationSeconds": 7.79,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -122,7 +134,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -131,7 +147,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.01,
         "transitionDurationSeconds": 2.01,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -142,7 +158,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -162,7 +182,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -171,7 +195,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 7.74,
         "transitionDurationSeconds": 6.12,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -182,7 +206,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -202,7 +230,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -222,7 +254,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -242,7 +278,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -262,7 +302,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -271,7 +315,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 17.61,
         "transitionDurationSeconds": 8.94,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -282,7 +326,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -302,7 +350,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -322,7 +374,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -342,7 +398,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -351,7 +411,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.18,
         "transitionDurationSeconds": 1.13,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -362,7 +422,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -371,7 +435,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.18,
         "transitionDurationSeconds": 1.13,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -382,7 +446,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -391,7 +459,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.18,
         "transitionDurationSeconds": 1.13,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -402,7 +470,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -411,7 +483,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.31,
         "transitionDurationSeconds": 0.96,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -422,7 +494,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -431,7 +507,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.31,
         "transitionDurationSeconds": 0.96,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -442,7 +518,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -451,7 +531,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 2.31,
         "transitionDurationSeconds": 0.96,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -462,7 +542,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -471,7 +555,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 3.79,
         "transitionDurationSeconds": 1.67,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -482,7 +566,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -491,7 +579,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 3.79,
         "transitionDurationSeconds": 1.67,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -502,7 +590,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -511,7 +603,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 3.79,
         "transitionDurationSeconds": 1.67,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -522,7 +614,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -542,7 +638,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -562,7 +662,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -582,7 +686,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -602,7 +710,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -622,7 +734,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -631,7 +747,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 28.24,
         "transitionDurationSeconds": 12.83,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -642,7 +758,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -651,7 +771,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 28.24,
         "transitionDurationSeconds": 12.83,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -662,7 +782,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -682,7 +806,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -702,7 +830,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -722,7 +854,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -742,7 +878,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -762,7 +902,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -782,7 +926,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -802,7 +950,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -811,7 +963,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 3.46,
         "transitionDurationSeconds": 0.32,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -822,7 +974,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -842,7 +998,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "contain",
           "quality": "draft",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -862,7 +1022,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "contain",
           "quality": "draft",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -871,7 +1035,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 3.46,
         "transitionDurationSeconds": 0.32,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -882,7 +1046,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -902,7 +1070,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -922,7 +1094,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -942,7 +1118,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -962,7 +1142,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -982,7 +1166,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1002,7 +1190,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1022,7 +1214,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1031,7 +1227,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 28.9,
         "transitionDurationSeconds": 1.65,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1042,7 +1238,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1051,7 +1251,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 9.15,
         "transitionDurationSeconds": 9.03,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1062,7 +1262,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1071,7 +1275,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 21.7,
         "transitionDurationSeconds": 21.7,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1082,7 +1286,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1091,7 +1299,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 21.7,
         "transitionDurationSeconds": 21.7,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1102,7 +1310,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1111,7 +1323,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 69.25,
         "transitionDurationSeconds": 41.19,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1122,7 +1334,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1131,7 +1347,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 9.31,
         "transitionDurationSeconds": 6.16,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1142,7 +1358,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1151,7 +1371,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 11.36,
         "transitionDurationSeconds": 9.45,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1162,7 +1382,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1171,7 +1395,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 150.08,
         "transitionDurationSeconds": 13.96,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1182,7 +1406,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1202,7 +1430,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1211,7 +1443,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 7.75,
         "transitionDurationSeconds": 0.72,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1222,7 +1454,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1231,7 +1467,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 7.75,
         "transitionDurationSeconds": 0.72,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1242,7 +1478,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1251,7 +1491,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 7.75,
         "transitionDurationSeconds": 0.72,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1262,7 +1502,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1271,7 +1515,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 6.63,
         "transitionDurationSeconds": 0.63,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1282,7 +1526,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1302,7 +1550,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1322,7 +1574,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1342,7 +1598,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1362,7 +1622,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1371,7 +1635,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 25.55,
         "transitionDurationSeconds": 2.43,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1382,7 +1646,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1391,7 +1659,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 25.55,
         "transitionDurationSeconds": 2.43,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1402,7 +1670,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1411,7 +1683,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 25.55,
         "transitionDurationSeconds": 2.43,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1422,7 +1694,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1431,7 +1707,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 6.63,
         "transitionDurationSeconds": 0.63,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1442,7 +1718,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1451,7 +1731,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 4.92,
         "transitionDurationSeconds": 0.46,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1462,7 +1742,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1482,7 +1766,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1502,7 +1790,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1522,7 +1814,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1531,7 +1827,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 1.88,
         "transitionDurationSeconds": 0.18,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 4,
           "scaleY": 2,
@@ -1542,7 +1838,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "contain",
           "quality": "draft",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1551,7 +1851,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 3.56,
         "transitionDurationSeconds": 0.34,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1562,7 +1862,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1571,7 +1875,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 7.25,
         "transitionDurationSeconds": 0.7,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1582,7 +1886,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1591,7 +1899,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 7.25,
         "transitionDurationSeconds": 0.7,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1602,7 +1910,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1611,7 +1923,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 1.88,
         "transitionDurationSeconds": 0.18,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1622,7 +1934,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1631,7 +1947,7 @@ const STATUE_PROJECT_TIMELINE = {
         "durationSeconds": 1.88,
         "transitionDurationSeconds": 0.18,
         "transitionEffect": "mix",
-        "disabled": true,
+        "disabled": false,
         "assetSettings": {
           "scaleX": 1,
           "scaleY": 1,
@@ -1642,7 +1958,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1662,7 +1982,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1682,7 +2006,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1702,7 +2030,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1722,7 +2054,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1742,7 +2078,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1762,7 +2102,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1782,7 +2126,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1802,7 +2150,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1822,7 +2174,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1842,7 +2198,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1862,7 +2222,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1882,7 +2246,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1902,7 +2270,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1922,7 +2294,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1942,7 +2318,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1962,7 +2342,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -1982,7 +2366,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2002,7 +2390,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2022,7 +2414,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2042,7 +2438,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2062,7 +2462,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2082,7 +2486,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2102,7 +2510,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2122,7 +2534,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2142,7 +2558,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2162,7 +2582,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2182,7 +2606,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2202,7 +2630,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2222,7 +2654,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2242,7 +2678,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2262,7 +2702,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2282,7 +2726,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2302,7 +2750,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2322,7 +2774,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2342,7 +2798,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2362,7 +2822,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2382,7 +2846,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2402,7 +2870,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2422,7 +2894,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2442,7 +2918,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2462,7 +2942,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2482,7 +2966,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2502,7 +2990,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2522,7 +3014,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2542,7 +3038,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2562,7 +3062,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2582,7 +3086,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2602,7 +3110,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2622,7 +3134,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2642,7 +3158,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2662,7 +3182,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2682,7 +3206,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2702,7 +3230,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2722,7 +3254,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2742,7 +3278,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2762,7 +3302,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2782,7 +3326,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2802,7 +3350,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2822,7 +3374,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2842,7 +3398,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2862,7 +3422,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2882,7 +3446,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2902,7 +3470,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2922,7 +3494,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2942,7 +3518,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2962,7 +3542,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -2982,7 +3566,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3002,7 +3590,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3022,7 +3614,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3042,7 +3638,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3062,7 +3662,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3082,7 +3686,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3102,7 +3710,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3122,7 +3734,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3142,7 +3758,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3162,7 +3782,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3182,7 +3806,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3202,7 +3830,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3222,7 +3854,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3242,7 +3878,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3262,7 +3902,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3282,7 +3926,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3302,7 +3950,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3322,7 +3974,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3342,7 +3998,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3362,7 +4022,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3382,7 +4046,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3402,7 +4070,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3422,7 +4094,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3442,7 +4118,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3462,7 +4142,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3482,7 +4166,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3502,7 +4190,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3522,7 +4214,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3542,7 +4238,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3562,7 +4262,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3582,7 +4286,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3602,7 +4310,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3622,7 +4334,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3642,7 +4358,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3662,7 +4382,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3682,7 +4406,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3702,7 +4430,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3722,7 +4454,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3742,7 +4478,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3762,7 +4502,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3782,7 +4526,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3802,7 +4550,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       },
       {
@@ -3822,7 +4574,11 @@ const STATUE_PROJECT_TIMELINE = {
           "fitMode": "cover",
           "quality": "balanced",
           "clipStartSeconds": 0,
-          "clipDurationSeconds": null
+          "clipDurationSeconds": null,
+          "useStepAssetAsShaderBase": true,
+          "pinnedCompositeMode": "stackOnTop",
+          "pinnedStackMaskMode": "nonBlack",
+          "pinnedStackMaskThreshold": 0.04
         }
       }
     ]

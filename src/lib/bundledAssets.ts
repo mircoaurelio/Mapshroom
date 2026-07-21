@@ -23,7 +23,7 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
     name: 'Base Statue',
     kind: 'image',
     mimeType: 'image/png',
-    size: 4486271,
+    size: 4531246,
     lastModified: 1753104000000,
     createdAt: '2026-07-21T14:00:00.000Z',
     sourceType: 'bundled',

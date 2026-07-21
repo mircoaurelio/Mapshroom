@@ -47,6 +47,7 @@ const GROUP_ORDER: Record<ShaderTemplate, string[]> = {
     'Patina Flow',
     'Recovered Timeline',
     'Recovered Online',
+    'Imported',
     'Saved',
     'Halos',
     'Scanners',
