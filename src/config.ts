@@ -7,8 +7,9 @@ import {
 } from './lib/bundledProjects';
 import { getShaderTimelineDuration } from './lib/timeline';
 import {
-  DEFAULT_BUNDLED_ASSET_ID,
+  BUNDLED_STAGE_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
+  pickStarterBundledAssetId,
 } from './lib/bundledAssets';
 
 export const APP_VERSION = 3;
@@ -74,10 +75,12 @@ if (shaderPresetList.length === 0) {
 }
 
 export function createDefaultProject(sessionId: string): ProjectDocument {
-  const sculpturePool = shaderPresetList.filter((preset) => preset.template === 'sculpture');
+  const activeAssetId = pickStarterBundledAssetId();
+  const preferredTemplate = activeAssetId === BUNDLED_STAGE_ASSET_ID ? 'stage' : 'sculpture';
+  const preferredPool = shaderPresetList.filter((preset) => preset.template === preferredTemplate);
   const starterPresets = pickRandomShaderPresets(
     STARTER_TIMELINE_SHADER_COUNT,
-    sculpturePool.length >= STARTER_TIMELINE_SHADER_COUNT ? sculpturePool : shaderPresetList,
+    preferredPool.length >= STARTER_TIMELINE_SHADER_COUNT ? preferredPool : shaderPresetList,
   );
   const activeShader = starterPresets[0]!;
   const steps = createStarterTimelineSteps(starterPresets);
@@ -97,7 +100,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
     name: 'Untitled Project',
     library: {
       assets: DEFAULT_BUNDLED_ASSETS,
-      activeAssetId: DEFAULT_BUNDLED_ASSET_ID,
+      activeAssetId,
     },
     studio: {
       activeShaderId: activeShader.id,
@@ -126,7 +129,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
       stageTransform: { ...DEFAULT_STAGE_TRANSFORM },
     },
     playback: {
-      activeAssetId: DEFAULT_BUNDLED_ASSET_ID,
+      activeAssetId,
       transport: {
         isPlaying: true,
         currentTimeSeconds: 0,

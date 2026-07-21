@@ -1733,6 +1733,7 @@ export function WorkspaceRoute() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanelKey>(null);
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
+  const [apiSettingsVariant, setApiSettingsVariant] = useState<'setup' | 'settings'>('settings');
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
   const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
@@ -4107,6 +4108,7 @@ export function WorkspaceRoute() {
     const llmTrigger = options?.trigger ?? 'generate';
     const aiReady = hasConfiguredShaderAi(project.ai.settings);
     if (!aiReady) {
+      setApiSettingsVariant('setup');
       setIsApiSettingsOpen(true);
       setAiFeedbackTone('idle');
       setAiFeedbackMessage('Choose a local model or connect an AI provider to generate shaders.');
@@ -5202,7 +5204,10 @@ ${errorSnapshot}`,
       onPromptIntent={() => {
         const settings = project.ai.settings;
         const configured = hasConfiguredShaderAi(settings);
-        if (!configured) setIsApiSettingsOpen(true);
+        if (!configured) {
+          setApiSettingsVariant('setup');
+          setIsApiSettingsOpen(true);
+        }
       }}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
@@ -5607,6 +5612,7 @@ ${errorSnapshot}`,
           }}
           onOpenSettings={() => {
             trackUiClick('open_settings');
+            setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
           onNewShader={() => {
@@ -5790,6 +5796,7 @@ ${errorSnapshot}`,
           onLoadAsset={() => openFilePicker('library')}
           onOpenSettings={() => {
             trackUiClick('open_settings');
+            setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
           onOpenTimeline={handleOpenMobileTimeline}
@@ -5857,6 +5864,7 @@ ${errorSnapshot}`,
       <ApiSettingsDialog
         open={isApiSettingsOpen}
         settings={project.ai.settings}
+        variant={apiSettingsVariant}
         isClearingLocalData={isClearingLocalData}
         onClose={() => setIsApiSettingsOpen(false)}
         onChange={updateAiSetting}

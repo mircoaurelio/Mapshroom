@@ -11,6 +11,16 @@ function DownloadIcon() {
   );
 }
 
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3.5 13.6 9.2 19 10.8 13.6 12.4 12 18.1 10.4 12.4 5 10.8 10.4 9.2 12 3.5Z" />
+      <path d="M18.5 4.5 19.1 6.4 21 7 19.1 7.6 18.5 9.5 17.9 7.6 16 7 17.9 6.4 18.5 4.5Z" />
+      <path d="M6.2 15.2 6.7 16.7 8.2 17.2 6.7 17.7 6.2 19.2 5.7 17.7 4.2 17.2 5.7 16.7 6.2 15.2Z" />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -49,10 +59,13 @@ export function AssetLibraryDialog({
   const previewUrls = useAssetPreviewUrls(assets, open, activeAssetId, assetUrl);
   const orderedAssets = [...assets].reverse();
   const [pendingDeleteAsset, setPendingDeleteAsset] = useState<AssetRecord | null>(null);
+  const [isGeneratePanelOpen, setIsGeneratePanelOpen] = useState(false);
 
   if (!open) {
     return null;
   }
+
+  const closeGeneratePanel = () => setIsGeneratePanelOpen(false);
 
   return (
     <div
@@ -60,6 +73,7 @@ export function AssetLibraryDialog({
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
+          setIsGeneratePanelOpen(false);
           onClose();
         }
       }}
@@ -78,6 +92,15 @@ export function AssetLibraryDialog({
             </h2>
           </div>
           <div className="asset-browser-header-actions">
+            <button
+              type="button"
+              className="asset-browser-generate"
+              onClick={() => setIsGeneratePanelOpen(true)}
+              title="Generate with Nano Banana"
+            >
+              <SparkleIcon />
+              <span>Generate</span>
+            </button>
             <button type="button" className="primary-button asset-browser-import" onClick={onLoadAsset}>
               Import
             </button>
@@ -192,6 +215,43 @@ export function AssetLibraryDialog({
             </div>
           </div>
         </div>
+        {isGeneratePanelOpen ? (
+          <div
+            className="asset-delete-confirm-backdrop"
+            role="presentation"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeGeneratePanel();
+            }}
+          >
+            <section
+              className="asset-generate-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="asset-generate-title"
+              aria-describedby="asset-generate-copy"
+            >
+              <span className="panel-eyebrow">Nano Banana</span>
+              <h3 id="asset-generate-title">Beta access ended for today</h3>
+              <p id="asset-generate-copy">
+                Nano Banana beta access has ended for now. It returns tomorrow for your spot.
+              </p>
+              <p className="asset-generate-workaround">
+                Meanwhile, download an image from the library, edit it in Gemini or another image tool, then reupload
+                it here with Import.
+              </p>
+              <div className="asset-delete-confirm-actions">
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={closeGeneratePanel}
+                  autoFocus
+                >
+                  Got it
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
         {pendingDeleteAsset ? (
           <div
             className="asset-delete-confirm-backdrop"
