@@ -11,6 +11,7 @@ export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
 export const PROJECT_LIBRARY_STORAGE_KEY = 'mapshroom-v3:projects';
 export const UI_STORAGE_KEY = 'mapshroom-v3:ui';
 export const ACTIVE_SESSION_KEY = 'mapshroom-v3:active-session';
+export const GOOGLE_API_KEY_STORAGE_KEY = 'mapshroom-v3:google-api-key';
 export const ASSET_DB_NAME = 'mapshroom-v3';
 export const ASSET_DB_VERSION = 1;
 export const ASSET_STORE_NAME = 'asset-blobs';
@@ -24,6 +25,7 @@ export const DEFAULT_GOOGLE_MODEL_OPTIONS = [
   'gemini-3.1-flash-lite-preview',
 ];
 export const SHADER_GENERATION_TEMPERATURE = 0.1;
+export const DEFAULT_LOCAL_SHADER_MODEL = '';
 
 export const DEFAULT_SHADERS = shaderPresets;
 
@@ -116,6 +118,9 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
         shaderProvider: 'google',
         openaiShaderModel: '',
         googleShaderModel: DEFAULT_GOOGLE_SHADER_MODEL,
+        shaderRuntime: '',
+        localShaderModel: DEFAULT_LOCAL_SHADER_MODEL,
+        visionEnabled: false,
         videoGenProvider: 'runway',
       },
     },

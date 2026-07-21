@@ -40,6 +40,7 @@ import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
   DEFAULT_STAGE_TRANSFORM,
   DEFAULT_GOOGLE_SHADER_MODEL,
+  GOOGLE_API_KEY_STORAGE_KEY,
   DEFAULT_SHADERS,
   DEFAULT_UI_PREFERENCES,
   createDefaultProject,
@@ -1028,7 +1029,9 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     ...defaultProject.ai.settings,
     ...legacySettings,
     openaiApiKey: legacySettings.openaiApiKey ?? '',
-    googleApiKey: legacySettings.googleApiKey ?? '',
+    googleApiKey: legacySettings.googleApiKey?.trim()
+      ? legacySettings.googleApiKey
+      : localStorage.getItem(GOOGLE_API_KEY_STORAGE_KEY) ?? '',
     runwayApiKey: legacySettings.runwayApiKey ?? '',
     shaderProvider: 'google',
     openaiShaderModel: legacySettings.openaiShaderModel ?? legacySettings.shaderModel ?? '',
@@ -1658,6 +1661,7 @@ export function WorkspaceRoute() {
   const filePickerSourceRef = useRef<FilePickerSource>('library');
   const timelineImportStepIdRef = useRef<string | null>(null);
   const stageViewportRef = useRef<HTMLElement | null>(null);
+  const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
   const [outputWindowOpen, setOutputWindowOpen] = useState(false);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
@@ -4017,6 +4021,18 @@ export function WorkspaceRoute() {
       return;
     }
 
+    const aiReady = project.ai.settings.shaderRuntime === 'local'
+      ? Boolean(project.ai.settings.localShaderModel)
+      : project.ai.settings.shaderRuntime === 'api'
+        ? Boolean(project.ai.settings.googleApiKey.trim() && project.ai.settings.googleShaderModel)
+        : false;
+    if (!aiReady) {
+      setIsApiSettingsOpen(true);
+      setAiFeedbackTone('idle');
+      setAiFeedbackMessage('Choose a local model or connect Gemini to generate shaders.');
+      return;
+    }
+
     const trimmedPrompt = prompt.trim();
     const historyPrompt = options?.historyPrompt?.trim() || trimmedPrompt;
     if (!trimmedPrompt) {
@@ -4106,6 +4122,9 @@ export function WorkspaceRoute() {
         prompt: trimmedPrompt,
         currentCode,
         chatHistory: chatHistorySnapshot,
+        stageImage: project.ai.settings.visionEnabled
+          ? stageCanvasRef.current?.toDataURL('image/jpeg', 0.82)
+          : undefined,
       });
       const nextName = parseShaderName(nextCode);
       const validationError = validateShaderCodeCompilation(nextCode);
@@ -4484,7 +4503,11 @@ ${errorSnapshot}`,
     return () => window.clearInterval(intervalId);
   }, [outputWindowOpen]);
 
-  const updateAiSetting = (field: keyof AiSettings, value: string) => {
+  const updateAiSetting = (field: keyof AiSettings, value: string | boolean) => {
+    if (field === 'googleApiKey' && typeof value === 'string') {
+      if (value) localStorage.setItem(GOOGLE_API_KEY_STORAGE_KEY, value);
+      else localStorage.removeItem(GOOGLE_API_KEY_STORAGE_KEY);
+    }
     updateProject((currentProject) => ({
       ...currentProject,
       ai: {
@@ -5056,6 +5079,15 @@ ${errorSnapshot}`,
       feedbackTone={aiFeedbackTone}
       shaderError={compilerError}
       onPromptChange={setAiPrompt}
+      onPromptIntent={() => {
+        const settings = project.ai.settings;
+        const configured = settings.shaderRuntime === 'local'
+          ? Boolean(settings.localShaderModel)
+          : settings.shaderRuntime === 'api'
+            ? Boolean(settings.googleApiKey.trim() && settings.googleShaderModel)
+            : false;
+        if (!configured) setIsApiSettingsOpen(true);
+      }}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
       }}
@@ -5317,6 +5349,7 @@ ${errorSnapshot}`,
         onPinnedIndicatorClick={handlePinnedIndicatorClick}
         onNavigateToTimelineStep={handleStageNavigateToTimelineStep}
         onCompilerError={applyCompilerFeedback}
+        onCanvasReady={(canvas) => { stageCanvasRef.current = canvas; }}
       />
 
       {aiLoading ? (

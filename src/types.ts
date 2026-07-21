@@ -3,7 +3,8 @@ export type AssetSourceType = 'uploaded' | 'generated' | 'bundled';
 export type ShaderUniformType = 'float' | 'int' | 'vec3' | 'bool';
 export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
-export type ShaderProvider = 'openai' | 'google';
+export type ShaderProvider = 'openai' | 'google' | 'local';
+export type ShaderRuntime = '' | 'local' | 'api';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
 export type ShaderTemplate = 'stage' | 'drawing' | 'sculpture';
 export type TimelineTransitionEffect = 'mix' | 'wipe' | 'radial' | 'random' | 'noise';
@@ -82,6 +83,9 @@ export interface AiSettings {
   shaderProvider: ShaderProvider;
   openaiShaderModel: string;
   googleShaderModel: string;
+  shaderRuntime: ShaderRuntime;
+  localShaderModel: string;
+  visionEnabled: boolean;
   videoGenProvider: 'runway';
 }
 

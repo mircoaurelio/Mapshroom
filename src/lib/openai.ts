@@ -10,6 +10,7 @@ export interface ShaderRequestOptions {
   prompt: string;
   currentCode: string;
   chatHistory?: ShaderChatTurn[];
+  stageImage?: string;
 }
 
 interface ResponsesApiPayload {

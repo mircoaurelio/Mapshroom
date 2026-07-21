@@ -13,6 +13,7 @@ export async function requestGoogleShaderMutation({
   prompt,
   currentCode,
   chatHistory,
+  stageImage,
 }: ShaderRequestOptions): Promise<string> {
   const trimmedKey = apiKey.trim();
   if (!trimmedKey) {
@@ -38,9 +39,18 @@ export async function requestGoogleShaderMutation({
   }));
 
   const userMessage = buildShaderMutationPrompt(prompt, currentCode);
+  const imagePart = stageImage?.startsWith('data:image/') ? {
+    inlineData: {
+      mimeType: stageImage.slice(5, stageImage.indexOf(';')),
+      data: stageImage.slice(stageImage.indexOf(',') + 1),
+    },
+  } : null;
   const contents = [
     ...historyContents,
-    { role: 'user' as const, parts: [{ text: userMessage }] },
+    { role: 'user' as const, parts: [
+      ...(imagePart ? [imagePart] : []),
+      { text: imagePart ? `${userMessage}\n\nUse the attached current stage frame as visual context.` : userMessage },
+    ] },
   ];
 
   const response = await client.models.generateContent({
