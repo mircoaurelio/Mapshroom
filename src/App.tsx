@@ -9,6 +9,9 @@ const WorkspaceRoute = lazy(() =>
 const OutputRoute = lazy(() =>
   import('./routes/OutputRoute').then((module) => ({ default: module.OutputRoute })),
 );
+const DownloadRoute = lazy(() =>
+  import('./routes/DownloadRoute').then((module) => ({ default: module.DownloadRoute })),
+);
 
 export default function App() {
   return (
@@ -17,6 +20,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<WorkspaceRoute />} />
           <Route path="/output/:sessionId" element={<OutputRoute />} />
+          <Route path="/download" element={<DownloadRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

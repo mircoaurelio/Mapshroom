@@ -5374,3 +5374,232 @@ a {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* —— Download / offline install page —— */
+
+body.download-page-active {
+  overflow: auto;
+}
+
+.download-page {
+  position: relative;
+  min-height: 100vh;
+  padding: calc(1.5rem + var(--safe-top)) 1.25rem calc(2rem + var(--safe-bottom));
+  overflow: auto;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(52, 211, 153, 0.14), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(63, 63, 70, 0.35), transparent 50%),
+    linear-gradient(180deg, #0c0c0f 0%, var(--bg) 45%, #070708 100%);
+}
+
+.download-page-glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 12% 20% auto;
+  height: 18rem;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.08), transparent 70%);
+  filter: blur(40px);
+}
+
+.download-page-inner {
+  position: relative;
+  z-index: 1;
+  width: min(44rem, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.75rem;
+}
+
+.download-page-header {
+  display: grid;
+  gap: 0.65rem;
+  padding-top: 0.5rem;
+}
+
+.download-page-back {
+  justify-self: start;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.download-page-back:hover {
+  color: var(--accent);
+}
+
+.download-page-kicker {
+  margin: 0.85rem 0 0;
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.download-page-title {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.download-page-lead {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.download-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.download-status-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(13, 13, 16, 0.72);
+}
+
+.download-status-label {
+  color: var(--text-dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.download-status-value {
+  color: var(--text-bright);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.download-status-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.download-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.download-install-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 2.75rem;
+  font-size: 0.78rem;
+}
+
+a.download-install-button {
+  box-sizing: border-box;
+}
+
+.download-actions-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.download-steps {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.download-steps-title {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.download-step-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-soft);
+  opacity: 0.72;
+  transition:
+    opacity 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.download-step-card-active {
+  opacity: 1;
+  border-color: rgba(52, 211, 153, 0.35);
+  background: linear-gradient(160deg, rgba(52, 211, 153, 0.08), rgba(13, 13, 16, 0.9));
+}
+
+.download-step-card h3 {
+  margin: 0 0 0.55rem;
+  color: var(--text-bright);
+  font-size: 0.95rem;
+}
+
+.download-step-card ol {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.4rem;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.download-step-card strong {
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+.download-page-footer {
+  display: grid;
+  gap: 0.9rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.download-page-footer p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.download-page-footer .secondary-button {
+  justify-self: start;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .download-status-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .download-page {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
