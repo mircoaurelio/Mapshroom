@@ -3,12 +3,18 @@ import type { AssetRecord } from '../types';
 export const BUNDLED_STATUE_ASSET_ID = 'bundled-basestatue';
 export const BUNDLED_STATUE_DEPTH_ASSET_ID = 'bundled-basestatue-depth';
 export const BUNDLED_STAGE_ASSET_ID = 'bundled-palco-stage';
+export const BUNDLED_STAGE_1B_ASSET_ID = 'bundled-stage-1b';
+export const BUNDLED_STAGE_2A_ASSET_ID = 'bundled-stage-2a';
+export const BUNDLED_STAGE_2B_ASSET_ID = 'bundled-stage-2b';
 export const DEFAULT_BUNDLED_ASSET_ID = BUNDLED_STATUE_ASSET_ID;
 
 const BUNDLED_ASSET_URLS: Record<string, string> = {
   [BUNDLED_STATUE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue.png`,
   [BUNDLED_STATUE_DEPTH_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue-depth.png`,
   [BUNDLED_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-palco.png`,
+  [BUNDLED_STAGE_1B_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-1b.png`,
+  [BUNDLED_STAGE_2A_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-2a.jpg`,
+  [BUNDLED_STAGE_2B_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-2b.png`,
 };
 
 export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
@@ -40,6 +46,36 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
     size: 7690909,
     lastModified: 1779634800000,
     createdAt: '2026-05-24T15:00:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STAGE_1B_ASSET_ID,
+    name: 'Stage 1b',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 6308666,
+    lastModified: 1775415619000,
+    createdAt: '2026-04-05T20:20:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STAGE_2A_ASSET_ID,
+    name: 'Stage 2a',
+    kind: 'image',
+    mimeType: 'image/jpeg',
+    size: 214572,
+    lastModified: 1775415619000,
+    createdAt: '2026-04-05T20:20:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STAGE_2B_ASSET_ID,
+    name: 'Stage 2b',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 6439447,
+    lastModified: 1775415619000,
+    createdAt: '2026-04-05T20:20:00.000Z',
     sourceType: 'bundled',
   },
 ];
