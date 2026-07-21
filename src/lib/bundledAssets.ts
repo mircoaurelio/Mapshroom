@@ -40,12 +40,12 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
   },
   {
     id: BUNDLED_STAGE_ASSET_ID,
-    name: 'Palco Stage',
+    name: 'Default Stage',
     kind: 'image',
     mimeType: 'image/png',
-    size: 7690909,
-    lastModified: 1779634800000,
-    createdAt: '2026-05-24T15:00:00.000Z',
+    size: 8368534,
+    lastModified: 1753104000000,
+    createdAt: '2026-07-21T15:00:00.000Z',
     sourceType: 'bundled',
   },
   {
