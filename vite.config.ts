@@ -94,7 +94,6 @@ export default defineConfig(({ command }) => {
         input: {
           main: resolve(__dirname, 'index.html'),
           slicer: resolve(__dirname, 'slicer/index.html'),
-          segmentation: resolve(__dirname, 'segmentation/index.html'),
         },
       },
     },
