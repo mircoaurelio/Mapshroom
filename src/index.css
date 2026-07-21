@@ -229,6 +229,38 @@ a {
   background: var(--bg);
 }
 
+.loading-screen-boot-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  min-height: 100%;
+  opacity: 1;
+  transition: opacity 560ms ease, visibility 560ms ease;
+  pointer-events: auto;
+}
+
+.loading-screen-boot-overlay-fading {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loading-screen-boot-overlay .loading-brand-lockup {
+  transition: opacity 560ms ease, transform 560ms ease;
+}
+
+.loading-screen-boot-overlay-fading .loading-brand-lockup {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen-boot-overlay,
+  .loading-screen-boot-overlay .loading-brand-lockup {
+    transition: none;
+  }
+}
+
 .loading-screen-card,
 .output-waiting-card {
   width: min(100%, 560px);

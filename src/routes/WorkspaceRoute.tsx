@@ -1717,6 +1717,7 @@ export function WorkspaceRoute() {
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
+  const [bootOverlayPhase, setBootOverlayPhase] = useState<'loading' | 'fading' | 'gone'>('loading');
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() =>
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
   );
@@ -5022,6 +5023,26 @@ ${errorSnapshot}`,
     return () => window.clearInterval(intervalId);
   }, [midiEnabled, midiManualMix, midiManualMixArmed, midiManualMixSeedToken, midiMode, project]);
 
+  useEffect(() => {
+    if (!project || bootOverlayPhase !== 'loading') {
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      setBootOverlayPhase('gone');
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      setBootOverlayPhase('fading');
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [bootOverlayPhase, project]);
+
   if (!project) {
     return (
       <div className="loading-screen">
@@ -5980,6 +6001,39 @@ ${errorSnapshot}`,
             setShowOnboardingGuide(false);
           }}
         />
+      ) : null}
+
+      {bootOverlayPhase !== 'gone' ? (
+        <div
+          className={`loading-screen loading-screen-boot-overlay ${
+            bootOverlayPhase === 'fading' ? 'loading-screen-boot-overlay-fading' : ''
+          }`}
+          role="status"
+          aria-label="Mapshroom is opening"
+          aria-hidden={bootOverlayPhase === 'fading'}
+          onTransitionEnd={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              event.propertyName === 'opacity' &&
+              bootOverlayPhase === 'fading'
+            ) {
+              setBootOverlayPhase('gone');
+            }
+          }}
+        >
+          <div className="loading-screen-card">
+            <div className="loading-brand-lockup">
+              <img
+                className="loading-brand-logo"
+                src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
+                alt=""
+              />
+              <span className="loading-brand-name" aria-hidden="true">
+                <span>Map</span>shroom
+              </span>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
