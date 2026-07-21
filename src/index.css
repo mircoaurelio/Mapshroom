@@ -457,7 +457,8 @@ a {
   justify-content: center;
 }
 
-.toolbar-transport-button {
+.toolbar-transport-button,
+.toolbar-settings-button {
   width: 30px;
   height: 30px;
 }

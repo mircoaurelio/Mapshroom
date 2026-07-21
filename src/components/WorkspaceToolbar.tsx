@@ -45,6 +45,15 @@ function PauseIcon() {
   );
 }
 
+function SettingsIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="2.25" />
+      <path d="M8 2.4v1.3M8 12.3v1.3M2.4 8h1.3M12.3 8h1.3M4.05 4.05l.92.92M11.03 11.03l.92.92M11.95 4.05l-.92.92M4.97 11.03l-.92.92" />
+    </svg>
+  );
+}
+
 export function WorkspaceToolbar({
   isPlaying,
   workspaceMode,
@@ -323,6 +332,15 @@ export function WorkspaceToolbar({
             onClick={onPlayToggle}
           >
             {isPlaying ? <PauseIcon /> : <PlayIcon />}
+          </button>
+          <button
+            type="button"
+            className="icon-button toolbar-settings-button"
+            aria-label="Open settings"
+            title="Settings"
+            onClick={onOpenSettings}
+          >
+            <SettingsIcon />
           </button>
         </div>
       </div>
