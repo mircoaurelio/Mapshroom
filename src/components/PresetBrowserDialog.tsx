@@ -105,7 +105,7 @@ function getPresetGroup(preset: SavedShader): string {
 }
 
 function getPresetTemplate(preset: SavedShader): ShaderTemplate {
-  return preset.template ?? 'stage';
+  return preset.template ?? 'sculpture';
 }
 
 function sortGroups(template: ShaderTemplate, left: string, right: string): number {
@@ -686,6 +686,9 @@ export function PresetBrowserDialog({
   };
   const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'sculpture';
   const normalizedQuery = deferredQuery.trim().toLowerCase();
+  const presetOrder = new Map(presets.map((preset, index) => [preset.id, index]));
+  const sortMostRecentFirst = (left: SavedShader, right: SavedShader) =>
+    (presetOrder.get(right.id) ?? -1) - (presetOrder.get(left.id) ?? -1);
   const filteredPresets = presets.filter((preset) => {
     if (getPresetTemplate(preset) !== selectedTemplate) {
       return false;
@@ -710,9 +713,10 @@ export function PresetBrowserDialog({
   });
   const favoritePresets = filteredPresets
     .filter((preset) => favoritePresetIds.has(preset.id))
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort(sortMostRecentFirst);
   const groupedPresets = Array.from(
-    filteredPresets
+    [...filteredPresets]
+      .sort(sortMostRecentFirst)
       .filter((preset) => !favoritePresetIds.has(preset.id))
       .reduce((groups, preset) => {
         const group = getPresetGroup(preset);
@@ -722,10 +726,12 @@ export function PresetBrowserDialog({
         return groups;
       }, new Map<string, SavedShader[]>()),
   )
-    .sort(([left], [right]) => sortGroups(selectedTemplate, left, right))
+    .sort(([left], [right]) =>
+      selectedTemplate === 'sculpture' ? 0 : sortGroups(selectedTemplate, left, right),
+    )
     .map(([group, items]) => ({
       group,
-      items: [...items].sort((left, right) => left.name.localeCompare(right.name)),
+      items: [...items].sort(sortMostRecentFirst),
     }));
   const renderPresetCard = (preset: SavedShader) => (
     <PreviewCard

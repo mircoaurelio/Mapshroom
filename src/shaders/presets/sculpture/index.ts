@@ -1,6 +1,8 @@
 import type { ShaderPresetDefinition } from '../types';
+import { importedSculpturePresetList } from './importedFromProjects';
 
 export const sculpturePresetList: ShaderPresetDefinition[] = [
+  ...importedSculpturePresetList,
   {
     id: "sculpture_statue_rim_base",
     name: "Statue Rim Base",

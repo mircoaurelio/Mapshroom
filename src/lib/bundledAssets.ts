@@ -1,11 +1,13 @@
 import type { AssetRecord } from '../types';
 
 export const BUNDLED_STATUE_ASSET_ID = 'bundled-basestatue';
+export const BUNDLED_STATUE_DEPTH_ASSET_ID = 'bundled-basestatue-depth';
 export const BUNDLED_STAGE_ASSET_ID = 'bundled-palco-stage';
 export const DEFAULT_BUNDLED_ASSET_ID = BUNDLED_STATUE_ASSET_ID;
 
 const BUNDLED_ASSET_URLS: Record<string, string> = {
   [BUNDLED_STATUE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue.png`,
+  [BUNDLED_STATUE_DEPTH_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue-depth.png`,
   [BUNDLED_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-palco.png`,
 };
 
@@ -15,9 +17,19 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
     name: 'Base Statue',
     kind: 'image',
     mimeType: 'image/png',
-    size: 2288415,
-    lastModified: 1779634800000,
-    createdAt: '2026-05-24T15:00:00.000Z',
+    size: 4486271,
+    lastModified: 1753104000000,
+    createdAt: '2026-07-21T14:00:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STATUE_DEPTH_ASSET_ID,
+    name: 'Base Statue Depth',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 993425,
+    lastModified: 1753104000000,
+    createdAt: '2026-07-21T14:00:00.000Z',
     sourceType: 'bundled',
   },
   {

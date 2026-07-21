@@ -20,6 +20,10 @@ _scaffold
 *.key
 secrets/
 
+# Local extraction / import scratch
+.tmp-*/
+.tmp-*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
