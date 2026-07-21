@@ -53,6 +53,25 @@ const modelInfo = {
   'Xenova/depth-anything-large-hf': ['HIGH DETAIL', 'Larger model with finer depth transitions; slower on CPU.'],
 };
 
+const FUNNY_LOAD_LINES = [
+  'Bribing tiny browser elves with espresso…',
+  'Teaching mushrooms to feel near and far…',
+  'Unfolding a pocket-sized depth spell…',
+  'Convincing ONNX to stop being mysterious…',
+  'Warming up the pixel gossip network…',
+  'Herding weights into a cozy browser den…',
+  'Polishing a crystal ball full of Z-buffer dreams…',
+  'Asking the void politely for smarter relief…',
+];
+
+function funnyLoadDetail(percent = 0) {
+  const line = FUNNY_LOAD_LINES[Math.floor((Math.max(0, percent) / 12.5)) % FUNNY_LOAD_LINES.length];
+  const tip = percent < 55
+    ? 'First time is slower — after that it usually zips.'
+    : 'Almost caffeinated.';
+  return `${line} ${Math.round(percent)}% · ${tip}`;
+}
+
 let sourceFile = null;
 let sourceUrl = '';
 let sourceWidth = 1;
@@ -451,8 +470,8 @@ async function estimateDepth() {
   if (!sourceFile || busy) return;
   busy = true;
   elements.busy.classList.remove('hidden');
-  elements.busyTitle.textContent = 'Preparing depth model…';
-  elements.busyDetail.textContent = 'First use downloads model weights; later runs use the browser cache.';
+  elements.busyTitle.textContent = 'Preparing depth mushrooms…';
+  elements.busyDetail.textContent = 'First time is slower while the browser learns the spell. Later runs feel snappier.';
   elements.progress.style.width = '3%';
   elements.estimate.disabled = true;
   const buffer = await sourceFile.arrayBuffer();
@@ -468,8 +487,8 @@ async function estimateDepth() {
 worker.onmessage = ({ data }) => {
   if (data.type === 'progress') {
     elements.progress.style.width = `${Math.max(3, data.percent)}%`;
-    if (data.status === 'progress') elements.busyDetail.textContent = `Downloading ${data.file || 'model'} · ${data.percent}%`;
-    if (data.status === 'ready') elements.busyDetail.textContent = 'Model ready in this browser.';
+    if (data.status === 'progress') elements.busyDetail.textContent = funnyLoadDetail(data.percent);
+    if (data.status === 'ready') elements.busyDetail.textContent = 'Spell cached — measuring near and far…';
   }
   if (data.type === 'phase') {
     elements.busyTitle.textContent = data.message;

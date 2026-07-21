@@ -87,7 +87,7 @@ export function ApiSettingsDialog({ open, settings, isClearingLocalData = false,
                 <span><strong>Enable vision context</strong><small>Optional. Downloads {LOCAL_VISION_MODEL.label} ({LOCAL_VISION_MODEL.size}) and lets it inspect the current stage frame before GLSL generation.</small></span>
               </label>
               <div className="local-download-row">
-                <div>{selectedLocal ? <><strong>{ready ? 'Ready to make pixels dance' : downloading ? 'Teaching pixels a few new tricks…' : `${selectedLocal.tier} selected`}</strong><small>{downloading ? 'Good things are growing in your browser.' : 'Download once; the browser keeps the files cached.'}</small></> : <small>Select a model to continue.</small>}</div>
+                <div>{selectedLocal ? <><strong>{ready ? 'Ready to make pixels dance' : downloading ? 'Teaching pixels a few new tricks…' : `${selectedLocal.tier} selected`}</strong><small>{downloading ? 'First time is slower — later runs usually zip. Good things are growing in your browser.' : 'Download once; the browser keeps the files cached. First setup is the slowest.'}</small></> : <small>Select a model to continue.</small>}</div>
                 <button type="button" className="primary-button" disabled={!selectedLocal || downloading || ready} onClick={() => void handleDownload()}>{downloading ? 'Preparing…' : ready ? 'Downloaded' : 'Download model'}</button>
               </div>
               {downloading || ready ? (

@@ -34,6 +34,25 @@ const modelInfo = {
   'Xenova/modnet': ['FAST', 'A lightweight model tuned primarily for people and portraits.'],
 };
 
+const FUNNY_LOAD_LINES = [
+  'Bribing tiny browser elves with espresso…',
+  'Teaching mushrooms which pixels are shy…',
+  'Unfolding a pocket-sized magic trick…',
+  'Convincing ONNX to stop being mysterious…',
+  'Warming up the pixel gossip network…',
+  'Herding weights into a cozy browser den…',
+  'Polishing a crystal ball full of RGBA…',
+  'Asking the void politely for smarter edges…',
+];
+
+function funnyLoadDetail(percent = 0) {
+  const line = FUNNY_LOAD_LINES[Math.floor((Math.max(0, percent) / 12.5)) % FUNNY_LOAD_LINES.length];
+  const tip = percent < 55
+    ? 'First time is slower — after that it usually zips.'
+    : 'Almost caffeinated.';
+  return `${line} ${Math.round(percent)}% · ${tip}`;
+}
+
 let sourceFile = null;
 let sourceUrl = '';
 let basePixels = null;
@@ -327,10 +346,10 @@ async function segment() {
   busy = true;
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Waking the mask mushrooms…';
-  elements.busyDetail.textContent = 'They are arguing politely about which pixels are background.';
+  elements.busyDetail.textContent = 'First time is slower while the browser learns the spell. Later runs feel snappier.';
   elements.progress.style.width = '3%';
   elements.segment.disabled = true;
-  notifyMapshroom('processing', 'Removing the background with the selected model…');
+  notifyMapshroom('processing', 'First load can be slow — then masking gets quicker.');
   await runSegmentation(selectedDevice());
 }
 
@@ -342,7 +361,7 @@ async function runSegmentation(device) {
 worker.onmessage = ({ data }) => {
   if (data.type === 'progress') {
     elements.progress.style.width = `${Math.max(3, data.percent)}%`;
-    if (data.status === 'progress') elements.busyDetail.textContent = `Downloading ${data.file || 'model'} · ${data.percent}%`;
+    if (data.status === 'progress') elements.busyDetail.textContent = funnyLoadDetail(data.percent);
     if (data.status === 'ready') elements.busyDetail.textContent = 'Almost there — the stubborn edge pixels are negotiating.';
   }
   if (data.type === 'phase') {
@@ -573,11 +592,11 @@ async function generateDepthMap() {
   busy = true;
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Teaching the mushroom to see in 3D…';
-  elements.busyDetail.textContent = 'Near, far, and everything dramatically in between.';
+  elements.busyDetail.textContent = 'First depth pass can crawl; later ones usually sprint.';
   elements.progress.style.width = '3%';
   elements.generateDepth.disabled = true;
   elements.depthStatus.textContent = 'Generating depth from the isolated subject…';
-  notifyMapshroom('processing', 'Generating depth after background removal…', 'depth');
+  notifyMapshroom('processing', 'Depth first-run is slower — hang tight.', 'depth');
   const buffer = await maskedBlob.arrayBuffer();
   depthWorker.postMessage({ type: 'estimate', buffer, mimeType: 'image/png', model: 'onnx-community/depth-anything-v2-small', device: 'wasm' }, [buffer]);
 }
@@ -585,7 +604,7 @@ async function generateDepthMap() {
 depthWorker.onmessage = ({ data }) => {
   if (data.type === 'progress') {
     elements.progress.style.width = `${Math.max(3, data.percent || 0)}%`;
-    if (data.status === 'progress') elements.busyDetail.textContent = `Gathering 3D clues · ${data.percent}%`;
+    if (data.status === 'progress') elements.busyDetail.textContent = funnyLoadDetail(data.percent || 0);
   } else if (data.type === 'phase') {
     elements.busyTitle.textContent = 'Measuring every pixel’s distance from destiny…';
     elements.progress.style.width = '92%';
@@ -822,7 +841,7 @@ async function confirmWandRemoval() {
   busy = true;
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Giving the AI wand a tiny espresso…';
-  elements.busyDetail.textContent = 'One dramatic pause while it studies your violet scribble.';
+  elements.busyDetail.textContent = 'First wand use is slower; after that it mostly remembers the recipe.';
   elements.progress.style.width = '3%';
   elements.wandConfirm.disabled = true;
   elements.wandModeMinus.disabled = true;
