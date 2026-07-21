@@ -5578,8 +5578,8 @@ ${errorSnapshot}`,
               <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
                 {aiPanel}
                 {desktopShaderToolsPanel}
-                {desktopHistoryPanel}
                 {desktopCodePanel}
+                {desktopHistoryPanel}
               </div>
             </aside>
           </>

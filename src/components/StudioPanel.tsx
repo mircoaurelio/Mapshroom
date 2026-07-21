@@ -196,7 +196,7 @@ function getUniformNames(shaderCode: string): Set<string> {
 }
 
 function highlightGlslCodePart(value: string, uniformNames: Set<string>): string {
-  const tokenPattern = /[A-Za-z_]\w*|\d*\.\d+(?:[eE][+-]?\d+)?|\d+(?:[eE][+-]?\d+)?|[{}()[\];,.+\-*\/%=<>!&|?:]/g;
+  const tokenPattern = /[A-Za-z_]\w*|\d*\.\d+(?:[eE][+-]?\d+)?|\d+(?:[eE][+-]?\d+)?|[{}()[\];,.+\-*/%=<>!&|?:]/g;
   let output = '';
   let cursor = 0;
   for (const match of value.matchAll(tokenPattern)) {
@@ -214,7 +214,7 @@ function highlightGlslCodePart(value: string, uniformNames: Set<string>): string
       output += wrapToken('glsl-token-function', token);
     } else if (/^\d/.test(token) || token.startsWith('.')) {
       output += wrapToken('glsl-token-number', token);
-    } else if (/^[{}()[\];,.+\-*\/%=<>!&|?:]$/.test(token)) {
+    } else if (/^[{}()[\];,.+\-*/%=<>!&|?:]$/.test(token)) {
       output += wrapToken('glsl-token-operator', token);
     } else {
       output += escapeHtml(token);
@@ -636,8 +636,6 @@ export function StudioPanel({
         />
       ) : null}
 
-      <ShaderVersionTrailSection versions={versions} onRestoreVersion={onRestoreVersion} />
-
       <ShaderCodeSection
         shaderCode={shaderCode}
         onShaderCodeChange={onShaderCodeChange}
@@ -646,6 +644,8 @@ export function StudioPanel({
         onFixError={onFixError}
         onReloadShaderCode={onReloadShaderCode}
       />
+
+      <ShaderVersionTrailSection versions={versions} onRestoreVersion={onRestoreVersion} />
     </>
   );
 }
