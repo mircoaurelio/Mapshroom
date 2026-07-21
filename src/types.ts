@@ -3,7 +3,7 @@ export type AssetSourceType = 'uploaded' | 'generated' | 'bundled';
 export type ShaderUniformType = 'float' | 'int' | 'vec3' | 'bool';
 export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
-export type ShaderProvider = 'openai' | 'google' | 'local';
+export type ShaderProvider = 'openai' | 'anthropic' | 'google';
 export type ShaderRuntime = '' | 'local' | 'api';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
 export type ShaderTemplate = 'stage' | 'drawing' | 'sculpture';
@@ -78,10 +78,12 @@ export interface PlaybackTransport {
 
 export interface AiSettings {
   openaiApiKey: string;
+  anthropicApiKey: string;
   googleApiKey: string;
   runwayApiKey: string;
   shaderProvider: ShaderProvider;
   openaiShaderModel: string;
+  anthropicShaderModel: string;
   googleShaderModel: string;
   shaderRuntime: ShaderRuntime;
   localShaderModel: string;

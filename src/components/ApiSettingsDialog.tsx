@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_GOOGLE_MODEL_OPTIONS } from '../config';
+import {
+  DEFAULT_ANTHROPIC_MODEL_OPTIONS,
+  DEFAULT_GOOGLE_MODEL_OPTIONS,
+  DEFAULT_OPENAI_MODEL_OPTIONS,
+} from '../config';
 import { isLocalModelReady, LOCAL_SHADER_MODELS, LOCAL_VISION_MODEL, prepareLocalModel } from '../lib/localAi';
 import type { AiSettings, ShaderRuntime } from '../types';
 
@@ -54,20 +58,20 @@ export function ApiSettingsDialog({ open, settings, isClearingLocalData = false,
           <button type="button" className="ghost-button" onClick={onClose}>Close</button>
         </header>
         <div className="dialog-body">
-          <p className="dialog-note">Run open models entirely in this browser, or connect directly to Gemini. Local model files remain in the browser cache. API keys remain in this browser's local storage so you only enter them once.</p>
+          <p className="dialog-note">Run open models entirely in this browser, or connect directly to OpenAI, Anthropic, or Gemini. Model files and API keys remain in this browser so you only set them up once.</p>
 
           <div className="ai-runtime-choice" role="radiogroup" aria-label="AI runtime">
             <button type="button" className={`ai-runtime-card ${settings.shaderRuntime === 'local' ? 'active' : ''}`} onClick={() => chooseRuntime('local')}>
-              <strong>Use local models</strong><span>Private, offline after download, no usage fee</span>
+              <strong>Use local models</strong><span>Free, private, and offline after download</span>
             </button>
             <button type="button" className={`ai-runtime-card ${settings.shaderRuntime === 'api' ? 'active' : ''}`} onClick={() => chooseRuntime('api')}>
-              <strong>Use Gemini API</strong><span>Fastest setup and strongest results</span>
+              <strong>Use a cloud API</strong><span>Recommended for consistent, higher-quality results</span>
             </button>
           </div>
 
           {settings.shaderRuntime === 'local' ? (
             <section className="dialog-section ai-model-section">
-              <div className="ai-section-heading"><div><span className="panel-eyebrow">Local shader model</span><p className="helper-copy">Choose for your device. Sizes are approximate quantized downloads.</p></div><span className="ai-local-badge">WebGPU · browser cache</span></div>
+              <div className="ai-section-heading"><div><span className="panel-eyebrow">Local shader model</span><p className="helper-copy">The local version is free and private, but browser-sized models can produce lower-quality or less consistent shaders. For repeatable production work, a cloud API is the better choice.</p></div><span className="ai-local-badge">WebGPU · browser cache</span></div>
               <div className="local-model-list">
                 {LOCAL_SHADER_MODELS.map((model) => (
                   <label key={model.id} className={`local-model-card ${settings.localShaderModel === model.id ? 'active' : ''}`}>
@@ -84,7 +88,7 @@ export function ApiSettingsDialog({ open, settings, isClearingLocalData = false,
               </label>
               <div className="local-download-row">
                 <div>{selectedLocal ? <><strong>{ready ? 'Ready to make pixels dance' : downloading ? 'Teaching pixels a few new tricks…' : `${selectedLocal.tier} selected`}</strong><small>{downloading ? 'Good things are growing in your browser.' : 'Download once; the browser keeps the files cached.'}</small></> : <small>Select a model to continue.</small>}</div>
-                <button type="button" className="primary-button" disabled={!selectedLocal || downloading || ready} onClick={() => void handleDownload()}>{downloading ? 'Downloading…' : ready ? 'Downloaded' : 'Download model'}</button>
+                <button type="button" className="primary-button" disabled={!selectedLocal || downloading || ready} onClick={() => void handleDownload()}>{downloading ? 'Preparing…' : ready ? 'Downloaded' : 'Download model'}</button>
               </div>
               {downloading || ready ? (
                 <div className="model-download-progress" role="progressbar" aria-label="Model download" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(downloadProgress)}>
@@ -97,12 +101,33 @@ export function ApiSettingsDialog({ open, settings, isClearingLocalData = false,
 
           {settings.shaderRuntime === 'api' ? (
             <section className="dialog-section ai-model-section">
-              <span className="panel-eyebrow">Google Gemini</span>
+              <span className="panel-eyebrow">Cloud provider</span>
               <div className="stack gap-md">
-                <label className="field"><span>API key</span><input className="text-field" type="password" autoComplete="off" value={settings.googleApiKey} onChange={(event) => onChange('googleApiKey', event.target.value)} placeholder="AIza…" /></label>
-                <p className="helper-copy">Saved only in local browser storage for this site. It is sent directly to Google when you generate and is never embedded in the app bundle.</p>
-                <label className="field"><span>Gemini model</span><select className="select-field" value={settings.googleShaderModel} onChange={(event) => onChange('googleShaderModel', event.target.value)}>{DEFAULT_GOOGLE_MODEL_OPTIONS.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
-                <label className="vision-toggle"><input type="checkbox" checked={settings.visionEnabled} onChange={(event) => onChange('visionEnabled', event.target.checked)} /><span><strong>Enable vision context</strong><small>Optional. Sends a current stage-frame image with the shader prompt. Gemini models are multimodal, so no second model download is needed.</small></span></label>
+                <div className="ai-runtime-choice ai-provider-choice" role="radiogroup" aria-label="Cloud AI provider">
+                  {([
+                    ['openai', 'OpenAI'],
+                    ['anthropic', 'Anthropic'],
+                    ['google', 'Gemini'],
+                  ] as const).map(([provider, label]) => (
+                    <button key={provider} type="button" className={`ai-runtime-card ${settings.shaderProvider === provider ? 'active' : ''}`} onClick={() => onChange('shaderProvider', provider)}>
+                      <strong>{label}</strong>
+                    </button>
+                  ))}
+                </div>
+                {settings.shaderProvider === 'openai' ? <>
+                  <label className="field"><span>OpenAI API key</span><input className="text-field" type="password" autoComplete="off" value={settings.openaiApiKey} onChange={(event) => onChange('openaiApiKey', event.target.value)} placeholder="sk-…" /></label>
+                  <label className="field"><span>OpenAI model</span><select className="select-field" value={settings.openaiShaderModel} onChange={(event) => onChange('openaiShaderModel', event.target.value)}>{DEFAULT_OPENAI_MODEL_OPTIONS.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
+                </> : null}
+                {settings.shaderProvider === 'anthropic' ? <>
+                  <label className="field"><span>Anthropic API key</span><input className="text-field" type="password" autoComplete="off" value={settings.anthropicApiKey} onChange={(event) => onChange('anthropicApiKey', event.target.value)} placeholder="sk-ant-…" /></label>
+                  <label className="field"><span>Claude model</span><select className="select-field" value={settings.anthropicShaderModel} onChange={(event) => onChange('anthropicShaderModel', event.target.value)}>{DEFAULT_ANTHROPIC_MODEL_OPTIONS.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
+                </> : null}
+                {settings.shaderProvider === 'google' ? <>
+                  <label className="field"><span>Google API key</span><input className="text-field" type="password" autoComplete="off" value={settings.googleApiKey} onChange={(event) => onChange('googleApiKey', event.target.value)} placeholder="AIza…" /></label>
+                  <label className="field"><span>Gemini model</span><select className="select-field" value={settings.googleShaderModel} onChange={(event) => onChange('googleShaderModel', event.target.value)}>{DEFAULT_GOOGLE_MODEL_OPTIONS.map((model) => <option key={model} value={model}>{model}</option>)}</select></label>
+                </> : null}
+                <p className="helper-copy">This key is saved only in local browser storage for this site and sent directly to the selected provider when you generate. Client-side keys can be inspected on this device; use a restricted key and rotate it if the device is shared.</p>
+                <label className="vision-toggle"><input type="checkbox" checked={settings.visionEnabled} onChange={(event) => onChange('visionEnabled', event.target.checked)} /><span><strong>Enable vision context</strong><small>Optional. Sends the current stage frame with the shader prompt. All listed cloud models support image input.</small></span></label>
               </div>
             </section>
           ) : null}

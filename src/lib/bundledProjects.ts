@@ -321,10 +321,12 @@ export function createBundledProjectDocument(sessionId: string): ProjectDocument
     ai: {
       settings: {
         openaiApiKey: '',
+        anthropicApiKey: '',
         googleApiKey: '',
         runwayApiKey: '',
         shaderProvider: 'google',
-        openaiShaderModel: '',
+        openaiShaderModel: 'gpt-5.6-terra',
+        anthropicShaderModel: 'claude-sonnet-5',
         googleShaderModel: 'gemini-3.5-flash',
         shaderRuntime: '',
         localShaderModel: '',

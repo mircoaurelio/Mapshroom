@@ -38,11 +38,15 @@ import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDial
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import {
+  ANTHROPIC_API_KEY_STORAGE_KEY,
+  DEFAULT_ANTHROPIC_SHADER_MODEL,
   DEFAULT_STAGE_TRANSFORM,
   DEFAULT_GOOGLE_SHADER_MODEL,
-  GOOGLE_API_KEY_STORAGE_KEY,
+  DEFAULT_OPENAI_SHADER_MODEL,
   DEFAULT_SHADERS,
   DEFAULT_UI_PREFERENCES,
+  GOOGLE_API_KEY_STORAGE_KEY,
+  OPENAI_API_KEY_STORAGE_KEY,
   createDefaultProject,
 } from '../config';
 import {
@@ -129,6 +133,18 @@ import type {
   UiPreferences,
   WorkspaceMode,
 } from '../types';
+
+function hasConfiguredShaderAi(settings: AiSettings): boolean {
+  if (settings.shaderRuntime === 'local') return Boolean(settings.localShaderModel);
+  if (settings.shaderRuntime !== 'api') return false;
+  if (settings.shaderProvider === 'openai') {
+    return Boolean(settings.openaiApiKey.trim() && settings.openaiShaderModel);
+  }
+  if (settings.shaderProvider === 'anthropic') {
+    return Boolean(settings.anthropicApiKey.trim() && settings.anthropicShaderModel);
+  }
+  return Boolean(settings.googleApiKey.trim() && settings.googleShaderModel);
+}
 
 const MIDI_MIX_DURATION_MIN_SECONDS = 0.05;
 const MIDI_MIX_DURATION_MAX_SECONDS = 8;
@@ -1029,13 +1045,25 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
   const normalizedAiSettings: AiSettings = {
     ...defaultProject.ai.settings,
     ...legacySettings,
-    openaiApiKey: legacySettings.openaiApiKey ?? '',
+    openaiApiKey: legacySettings.openaiApiKey?.trim()
+      ? legacySettings.openaiApiKey
+      : localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY) ?? '',
+    anthropicApiKey: legacySettings.anthropicApiKey?.trim()
+      ? legacySettings.anthropicApiKey
+      : localStorage.getItem(ANTHROPIC_API_KEY_STORAGE_KEY) ?? '',
     googleApiKey: legacySettings.googleApiKey?.trim()
       ? legacySettings.googleApiKey
       : localStorage.getItem(GOOGLE_API_KEY_STORAGE_KEY) ?? '',
     runwayApiKey: legacySettings.runwayApiKey ?? '',
-    shaderProvider: 'google',
-    openaiShaderModel: legacySettings.openaiShaderModel ?? legacySettings.shaderModel ?? '',
+    shaderProvider: legacySettings.shaderProvider === 'openai' || legacySettings.shaderProvider === 'anthropic'
+      ? legacySettings.shaderProvider
+      : 'google',
+    openaiShaderModel: legacySettings.openaiShaderModel?.trim()
+      ? legacySettings.openaiShaderModel
+      : legacySettings.shaderModel?.trim() ? legacySettings.shaderModel : DEFAULT_OPENAI_SHADER_MODEL,
+    anthropicShaderModel: legacySettings.anthropicShaderModel?.trim()
+      ? legacySettings.anthropicShaderModel
+      : DEFAULT_ANTHROPIC_SHADER_MODEL,
     googleShaderModel:
       legacySettings.googleShaderModel ?? DEFAULT_GOOGLE_SHADER_MODEL,
     localShaderModel: legacySettings.localShaderModel === LEGACY_ULTRA_MODEL_ID
@@ -4025,15 +4053,11 @@ export function WorkspaceRoute() {
       return;
     }
 
-    const aiReady = project.ai.settings.shaderRuntime === 'local'
-      ? Boolean(project.ai.settings.localShaderModel)
-      : project.ai.settings.shaderRuntime === 'api'
-        ? Boolean(project.ai.settings.googleApiKey.trim() && project.ai.settings.googleShaderModel)
-        : false;
+    const aiReady = hasConfiguredShaderAi(project.ai.settings);
     if (!aiReady) {
       setIsApiSettingsOpen(true);
       setAiFeedbackTone('idle');
-      setAiFeedbackMessage('Choose a local model or connect Gemini to generate shaders.');
+      setAiFeedbackMessage('Choose a local model or connect an AI provider to generate shaders.');
       return;
     }
 
@@ -4508,9 +4532,16 @@ ${errorSnapshot}`,
   }, [outputWindowOpen]);
 
   const updateAiSetting = (field: keyof AiSettings, value: string | boolean) => {
-    if (field === 'googleApiKey' && typeof value === 'string') {
-      if (value) localStorage.setItem(GOOGLE_API_KEY_STORAGE_KEY, value);
-      else localStorage.removeItem(GOOGLE_API_KEY_STORAGE_KEY);
+    if (typeof value === 'string') {
+      const storageKey = field === 'openaiApiKey'
+        ? OPENAI_API_KEY_STORAGE_KEY
+        : field === 'anthropicApiKey'
+          ? ANTHROPIC_API_KEY_STORAGE_KEY
+          : field === 'googleApiKey'
+            ? GOOGLE_API_KEY_STORAGE_KEY
+            : null;
+      if (storageKey && value) localStorage.setItem(storageKey, value);
+      else if (storageKey) localStorage.removeItem(storageKey);
     }
     updateProject((currentProject) => ({
       ...currentProject,
@@ -5085,11 +5116,7 @@ ${errorSnapshot}`,
       onPromptChange={setAiPrompt}
       onPromptIntent={() => {
         const settings = project.ai.settings;
-        const configured = settings.shaderRuntime === 'local'
-          ? Boolean(settings.localShaderModel)
-          : settings.shaderRuntime === 'api'
-            ? Boolean(settings.googleApiKey.trim() && settings.googleShaderModel)
-            : false;
+        const configured = hasConfiguredShaderAi(settings);
         if (!configured) setIsApiSettingsOpen(true);
       }}
       onSubmit={() => {

@@ -12,7 +12,6 @@ export const LOCAL_SHADER_MODELS = [
 export const LEGACY_ULTRA_MODEL_ID = 'onnx-community/Qwen3-4B-ONNX';
 export const ULTRA_MODEL_ID = 'onnx-community/Qwen2.5-Coder-3B-Instruct';
 
-export type LocalModelProgress = { phase: 'vision' | 'shader' | 'ready'; percent: number; file?: string };
 type CallablePipeline = (input: unknown, options?: Record<string, unknown>) => Promise<unknown>;
 type FlorenceModel = {
   generate: (inputs: Record<string, unknown>) => Promise<unknown>;
@@ -55,37 +54,31 @@ function localModelError(error: unknown): Error {
   }
   return error instanceof Error ? error : new Error('The local model could not be loaded.');
 }
-function progress(phase: LocalModelProgress['phase'], callback?: (value: LocalModelProgress) => void) {
-  return (event: { status?: string; progress?: number; file?: string }) => callback?.({ phase, percent: event.status === 'ready' ? 100 : Math.round(event.progress ?? 0), file: event.file });
-}
 export function isLocalModelReady(modelId: string, includeVision: boolean): boolean {
   return shaderPipelines.has(modelId) && (
     !includeVision || Boolean(visionModel && visionProcessor && loadVisionImage)
   );
 }
-export async function prepareLocalModel(modelId: string, includeVision: boolean, onProgress?: (value: LocalModelProgress) => void) {
+export async function prepareLocalModel(modelId: string, includeVision: boolean) {
   await ensureUltraCompatibility(modelId);
   const transformers = await import('@huggingface/transformers');
   if (includeVision && (!visionModel || !visionProcessor || !loadVisionImage)) {
-    const visionProgress = progress('vision', onProgress);
     visionModel = await transformers.Florence2ForConditionalGeneration.from_pretrained(
       LOCAL_VISION_MODEL.id,
-      { ...options(), progress_callback: visionProgress },
+      options(),
     ) as unknown as FlorenceModel;
     visionProcessor = await transformers.AutoProcessor.from_pretrained(
       LOCAL_VISION_MODEL.id,
-      { progress_callback: visionProgress },
     ) as unknown as FlorenceProcessor;
     loadVisionImage = transformers.load_image as (input: string) => Promise<VisionImage>;
   }
   if (!shaderPipelines.has(modelId)) {
     try {
-      shaderPipelines.set(modelId, await transformers.pipeline('text-generation', modelId, { ...options(), progress_callback: progress('shader', onProgress) }) as unknown as CallablePipeline);
+      shaderPipelines.set(modelId, await transformers.pipeline('text-generation', modelId, options()) as unknown as CallablePipeline);
     } catch (error) {
       throw localModelError(error);
     }
   }
-  onProgress?.({ phase: 'ready', percent: 100 });
 }
 function generatedText(output: unknown): string {
   const first = Array.isArray(output) ? output[0] : output;

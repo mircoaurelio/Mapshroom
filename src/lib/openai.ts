@@ -45,6 +45,8 @@ export async function requestOpenAiShaderMutation({
   model,
   prompt,
   currentCode,
+  chatHistory,
+  stageImage,
 }: ShaderRequestOptions): Promise<string> {
   const trimmedKey = apiKey.trim();
   if (!trimmedKey) {
@@ -60,9 +62,21 @@ export async function requestOpenAiShaderMutation({
     body: JSON.stringify({
       model,
       store: false,
-      max_output_tokens: 1800,
+      max_output_tokens: 4096,
       instructions: SHADER_SYSTEM_PROMPT,
-      input: buildShaderMutationPrompt(prompt, currentCode),
+      input: [
+        ...(chatHistory ?? []).slice(-10).map((turn) => ({
+          role: turn.role === 'model' ? 'assistant' : 'user',
+          content: [{ type: 'input_text', text: turn.text }],
+        })),
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: buildShaderMutationPrompt(prompt, currentCode) },
+            ...(stageImage ? [{ type: 'input_image', image_url: stageImage, detail: 'low' }] : []),
+          ],
+        },
+      ],
     }),
   }).catch((error: unknown) => {
     if (error instanceof TypeError) {

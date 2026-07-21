@@ -4874,6 +4874,8 @@ a {
 .ai-runtime-card { display: flex; min-height: 86px; flex-direction: column; align-items: flex-start; justify-content: center; gap: .3rem; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-panel-soft); color: var(--text-bright); text-align: left; }
 .ai-runtime-card span { color: var(--text-muted); font-size: .75rem; }
 .ai-runtime-card.active { border-color: var(--accent); background: rgba(52, 211, 153, .08); box-shadow: inset 3px 0 0 var(--accent); }
+.ai-provider-choice { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 0; }
+.ai-provider-choice .ai-runtime-card { min-height: 58px; padding: .7rem .85rem; }
 .ai-model-section { margin-top: 0; }
 .ai-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
 .ai-section-heading p { margin: .3rem 0 0; }

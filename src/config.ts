@@ -11,6 +11,8 @@ export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
 export const PROJECT_LIBRARY_STORAGE_KEY = 'mapshroom-v3:projects';
 export const UI_STORAGE_KEY = 'mapshroom-v3:ui';
 export const ACTIVE_SESSION_KEY = 'mapshroom-v3:active-session';
+export const OPENAI_API_KEY_STORAGE_KEY = 'mapshroom-v3:openai-api-key';
+export const ANTHROPIC_API_KEY_STORAGE_KEY = 'mapshroom-v3:anthropic-api-key';
 export const GOOGLE_API_KEY_STORAGE_KEY = 'mapshroom-v3:google-api-key';
 export const ASSET_DB_NAME = 'mapshroom-v3';
 export const ASSET_DB_VERSION = 1;
@@ -23,6 +25,19 @@ export const DEFAULT_GOOGLE_MODEL_OPTIONS = [
   'gemini-3.1-pro-preview',
   'gemini-3-flash-preview',
   'gemini-3.1-flash-lite-preview',
+];
+export const DEFAULT_OPENAI_SHADER_MODEL = 'gpt-5.6-terra';
+export const DEFAULT_OPENAI_MODEL_OPTIONS = [
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
+];
+export const DEFAULT_ANTHROPIC_SHADER_MODEL = 'claude-sonnet-5';
+export const DEFAULT_ANTHROPIC_MODEL_OPTIONS = [
+  'claude-fable-5',
+  'claude-opus-4-8',
+  'claude-sonnet-5',
+  'claude-haiku-4-5-20251001',
 ];
 export const SHADER_GENERATION_TEMPERATURE = 0.1;
 export const DEFAULT_LOCAL_SHADER_MODEL = '';
@@ -113,10 +128,12 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
     ai: {
       settings: {
         openaiApiKey: '',
+        anthropicApiKey: '',
         googleApiKey: '',
         runwayApiKey: '',
         shaderProvider: 'google',
-        openaiShaderModel: '',
+        openaiShaderModel: DEFAULT_OPENAI_SHADER_MODEL,
+        anthropicShaderModel: DEFAULT_ANTHROPIC_SHADER_MODEL,
         googleShaderModel: DEFAULT_GOOGLE_SHADER_MODEL,
         shaderRuntime: '',
         localShaderModel: DEFAULT_LOCAL_SHADER_MODEL,
