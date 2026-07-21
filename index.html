@@ -23,6 +23,15 @@
     <script>
       (function () {
         var path = location.pathname;
+        var isStandalone =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          (window.navigator.standalone === true);
+
+        if (isStandalone && location.hash === '#/download') {
+          location.replace(path + location.search + '#/');
+          return;
+        }
+
         if (/\/download\/?$/.test(path) && !location.hash) {
           location.replace(path.replace(/\/download\/?$/, '/') + '#/download');
         }

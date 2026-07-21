@@ -57,3 +57,14 @@ export function onAppInstalled(listener: () => void) {
   window.addEventListener(APP_INSTALLED_EVENT, listener);
   return () => window.removeEventListener(APP_INSTALLED_EVENT, listener);
 }
+
+export function isStandaloneApp(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
+  );
+}

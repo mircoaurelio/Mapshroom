@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   getDeferredInstallPrompt,
+  isStandaloneApp,
   onAppInstalled,
   onInstallAvailable,
   promptInstall,
 } from '../lib/pwaInstall';
+
 type InstallState = 'idle' | 'available' | 'installed' | 'manual';
 type OfflineState = 'checking' | 'ready' | 'pending';
 
@@ -31,9 +33,11 @@ function getManualInstallHint(platform: ReturnType<typeof detectPlatform>): stri
 }
 
 export function DownloadRoute() {
+  const navigate = useNavigate();
   const [installState, setInstallState] = useState<InstallState>(() =>
     getDeferredInstallPrompt() ? 'available' : 'idle',
-  );  const [offlineState, setOfflineState] = useState<OfflineState>('checking');
+  );
+  const [offlineState, setOfflineState] = useState<OfflineState>('checking');
   const [installing, setInstalling] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [installMessage, setInstallMessage] = useState<string | null>(null);
@@ -45,18 +49,19 @@ export function DownloadRoute() {
   const downloadPageUrl = `${appUrl}#/download`;
 
   useEffect(() => {
+    if (isStandaloneApp()) {
+      navigate('/', { replace: true });
+      return;
+    }
+
     document.body.classList.add('download-page-active');
     return () => {
       document.body.classList.remove('download-page-active');
     };
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      ('standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
-
-    if (standalone) {
+    if (isStandaloneApp()) {
       setInstallState('installed');
       return;
     }
@@ -68,9 +73,8 @@ export function DownloadRoute() {
 
     const unsubscribeInstalled = onAppInstalled(() => {
       setInstallState('installed');
-      setInstallMessage('Mapshroom is installed on this device.');
+      navigate('/', { replace: true });
     });
-
     const manualTimer = window.setTimeout(() => {
       setInstallState((current) => (current === 'idle' ? 'manual' : current));
     }, 4000);
@@ -80,7 +84,8 @@ export function DownloadRoute() {
       unsubscribeAvailable();
       unsubscribeInstalled();
     };
-  }, []);
+  }, [navigate]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -137,9 +142,8 @@ export function DownloadRoute() {
       const outcome = await promptInstall();
       if (outcome === 'accepted') {
         setInstallState('installed');
-        setInstallMessage('Mapshroom is installed on this device.');
-      } else if (outcome === 'dismissed') {
-        setInstallMessage('Install cancelled. Use the manual steps below.');
+        navigate('/', { replace: true });
+      } else if (outcome === 'dismissed') {        setInstallMessage('Install cancelled. Use the manual steps below.');
         setInstallState('manual');
       } else {
         setInstallState('manual');
@@ -214,11 +218,10 @@ export function DownloadRoute() {
 
         <section className="download-actions" aria-label="Install actions">
           {installState === 'installed' ? (
-            <Link to="/" className="primary-button primary-button-hero download-install-button">
+            <Link to="/" replace className="primary-button primary-button-hero download-install-button">
               Open Mapshroom
             </Link>
-          ) : (
-            <button
+          ) : (            <button
               type="button"
               className="primary-button primary-button-hero download-install-button"
               onClick={() => void handleInstall()}
