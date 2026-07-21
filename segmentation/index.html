@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0c0d" />
+    <script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('mask-embed-boot');</script>
+    <title>Mapshroom · Artwork Segmenter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="../" aria-label="Back to Mapshroom">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <span>MAPSHROOM</span>
+        </a>
+        <div class="topbar-title">Artwork segmenter <span class="tag">LAB 01</span></div>
+        <div class="privacy"><span class="privacy-dot"></span> Private · On-device</div>
+      </header>
+
+      <main class="workspace">
+        <section class="stage" aria-label="Segmentation preview">
+          <div id="emptyState" class="empty-state">
+            <div class="empty-art" aria-hidden="true">
+              <svg viewBox="0 0 180 220"><path d="M77 19c25-8 42 11 35 33-3 10-13 15-9 29 5 17 24 18 29 39 7 29-18 78-69 78-40 0-54-29-43-53 8-18 28-23 31-43 3-18-13-34-4-57 5-13 16-22 30-26Z"/><path d="M52 84c13 10 35 10 53-2M47 133c19 12 48 13 76 1"/></svg>
+            </div>
+            <p class="eyebrow">AI segmentation studio</p>
+            <h1>Isolate the art.<br />Keep every detail.</h1>
+            <p class="intro">Drop a photo of a statue, drawing, or painting. The model runs in this browser—your image is never uploaded.</p>
+            <button id="emptyUploadButton" class="primary-button">Choose artwork <span>↗</span></button>
+            <p class="file-hint">JPG, PNG, WEBP · up to 24 MP</p>
+          </div>
+
+          <div id="canvasArea" class="canvas-area hidden">
+            <div id="checkerboard" class="checkerboard"></div>
+            <canvas id="resultCanvas"></canvas>
+            <div id="originalLayer" class="original-layer"><img id="originalImage" alt="Original artwork" /></div>
+            <div id="compareHandle" class="compare-handle" aria-hidden="true"><span>↔</span></div>
+            <div id="brushCursor" class="brush-cursor" aria-hidden="true"></div>
+            <div id="cropOverlay" class="crop-overlay" aria-hidden="true">
+              <div id="cropBox" class="crop-box">
+                <span class="crop-grid crop-grid-v one"></span><span class="crop-grid crop-grid-v two"></span>
+                <span class="crop-grid crop-grid-h one"></span><span class="crop-grid crop-grid-h two"></span>
+                <button class="crop-handle nw" data-crop-handle="nw" aria-label="Resize crop from top left"></button>
+                <button class="crop-handle n" data-crop-handle="n" aria-label="Resize crop from top"></button>
+                <button class="crop-handle ne" data-crop-handle="ne" aria-label="Resize crop from top right"></button>
+                <button class="crop-handle e" data-crop-handle="e" aria-label="Resize crop from right"></button>
+                <button class="crop-handle se" data-crop-handle="se" aria-label="Resize crop from bottom right"></button>
+                <button class="crop-handle s" data-crop-handle="s" aria-label="Resize crop from bottom"></button>
+                <button class="crop-handle sw" data-crop-handle="sw" aria-label="Resize crop from bottom left"></button>
+                <button class="crop-handle w" data-crop-handle="w" aria-label="Resize crop from left"></button>
+              </div>
+            </div>
+            <canvas id="wandCanvas" class="wand-canvas" aria-label="AI magic wand selection overlay"></canvas>
+            <input id="compareRange" class="compare-range" type="range" min="0" max="100" value="50" aria-label="Compare original and segmented result" />
+            <div class="stage-label label-original">ORIGINAL</div>
+            <div class="stage-label label-result">RESULT</div>
+          </div>
+
+          <div id="dropOverlay" class="drop-overlay"><strong>Drop artwork here</strong><span>Release to open</span></div>
+          <div id="busyOverlay" class="busy-overlay hidden" role="status">
+            <div class="scan-mushroom" aria-hidden="true">
+              <svg viewBox="0 0 120 126">
+                <defs>
+                  <linearGradient id="mushroomScanBand" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="white" stop-opacity="0" />
+                    <stop offset=".38" stop-color="white" stop-opacity=".16" />
+                    <stop offset=".5" stop-color="white" />
+                    <stop offset=".62" stop-color="white" stop-opacity=".16" />
+                    <stop offset="1" stop-color="white" stop-opacity="0" />
+                  </linearGradient>
+                  <mask id="mushroomScanMask" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="126">
+                    <rect class="mushroom-scan-mask-band" x="0" y="-28" width="120" height="36" fill="url(#mushroomScanBand)" />
+                  </mask>
+                </defs>
+                <path class="mushroom-outline mushroom-outline-ghost" d="M16 58C17 29 35 12 60 12s43 17 44 46c-12 7-26 10-44 10S28 65 16 58Zm34 8c0 14-4 24-10 38-2 5 2 10 8 10h24c6 0 10-5 8-10-6-14-10-24-10-38" />
+                <path class="mushroom-outline mushroom-outline-scan" mask="url(#mushroomScanMask)" d="M16 58C17 29 35 12 60 12s43 17 44 46c-12 7-26 10-44 10S28 65 16 58Zm34 8c0 14-4 24-10 38-2 5 2 10 8 10h24c6 0 10-5 8-10-6-14-10-24-10-38" />
+              </svg>
+              <div class="scan-beam"></div>
+            </div>
+            <p id="busyTitle">Preparing model…</p>
+            <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+            <span id="busyDetail">A tiny mushroom is learning which pixels belong together.</span>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <nav id="embeddedToolNav" class="embedded-tool-nav" aria-label="Mask editing tools">
+            <button type="button" class="active" data-editor-panel="refine"><span class="tool-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4Z"/><path d="m14 7 3 3"/></svg></span><span>Mask</span></button>
+            <button type="button" data-editor-panel="draw"><span class="tool-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 19 9-9 3 3-9 9H5v-3Z"/><path d="m13 7 2-2 4 4-2 2"/></svg></span><span>Draw</span></button>
+            <button type="button" data-editor-panel="depth"><span class="tool-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 18 9 8l4 7 2-4 5 7H4Z"/><path d="M7 21h10"/></svg></span><span>Depth</span></button>
+            <button type="button" data-editor-panel="wand"><span class="tool-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 19 9-9"/><path d="m12 7 5 5"/><path d="M18 3v3M16.5 4.5h3M6 7v2M5 8h2"/></svg></span><span>AI Wand</span></button>
+          </nav>
+          <div class="sidebar-scroll">
+            <section class="panel intro-panel">
+              <div class="step-number">01</div>
+              <div><p class="eyebrow">Source</p><h2>Choose artwork</h2></div>
+            </section>
+            <div id="dropzone" class="dropzone" tabindex="0" role="button">
+              <span class="upload-icon">↑</span>
+              <div><strong id="fileName">Drop image or browse</strong><small id="fileMeta">JPG, PNG, WEBP</small></div>
+            </div>
+            <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+            <button id="sampleButton" class="text-button">Try the Mapshroom statue sample →</button>
+
+            <section id="wandPanel" class="panel disabled-panel wand-panel">
+              <div class="section-heading"><span class="step-number">04</span><div><p class="eyebrow">Prompted AI</p><h2>AI Magic Wand</h2></div></div>
+              <div id="modelPanel" class="integrated-tool-section integrated-model-section">
+                <div class="integrated-tool-heading"><span class="tool-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg></span><div><strong>AI model</strong><small>Choose how the first mask is created</small></div></div>
+                <label class="field-label" for="modelSelect">MODEL</label>
+                <select id="modelSelect">
+                  <option value="onnx-community/ormbg-ONNX" selected>ORMBG · CPU tested · Objects</option>
+                  <option value="onnx-community/BiRefNet_lite-ONNX">BiRefNet Lite · Fine artwork edges</option>
+                  <option value="onnx-community/BEN2-ONNX">BEN2 · Highest detail, large</option>
+                  <option value="Xenova/modnet">MODNet · Fast portraits</option>
+                  <option value="manual">No model · Smart Erase + Pencil</option>
+                </select>
+                <div class="model-note"><span id="modelBadge">CPU TESTED</span><p id="modelDescription">A practical default for sculptures, paintings and mixed artwork.</p></div>
+                <label class="auto-segment-row" for="autoSegment">
+                  <span><strong>Remove background automatically</strong><small>Runs the selected model after upload or model change</small></span>
+                  <input id="autoSegment" type="checkbox" checked />
+                </label>
+                <div class="device-row">
+                  <div><span class="field-label">PROCESSOR</span><strong id="deviceLabel">Detecting…</strong></div>
+                  <button id="deviceToggle" class="mini-toggle" type="button" disabled aria-label="CPU safe mode enabled">CPU SAFE</button>
+                </div>
+                <button id="segmentButton" class="primary-button full" disabled>Remove background <span>✦</span></button>
+              </div>
+              <p class="tool-description">Paint over an object, then remove more background or restore an area the model removed by mistake.</p>
+              <button id="wandToggle" class="smart-erase-button" type="button"><span>✧</span><strong>Draw AI selection</strong><small>SlimSAM · CPU safe mode</small></button>
+              <div class="wand-mode-actions" role="group" aria-label="AI Magic Wand mode">
+                <button id="wandModeMinus" class="wand-mode active" type="button"><span>−</span><strong>Remove more</strong><small>Add to transparent area</small></button>
+                <button id="wandModePlus" class="wand-mode" type="button"><span>+</span><strong>Restore area</strong><small>Bring original back</small></button>
+              </div>
+              <label class="range-label" for="wandSizeRange"><span>Selection brush</span><output id="wandSizeValue">64 px</output></label>
+              <input id="wandSizeRange" type="range" min="12" max="320" value="64" />
+              <div class="wand-actions">
+                <button id="wandCancel" class="reset-mask-button" type="button" disabled>Cancel</button>
+                <button id="wandConfirm" class="primary-button" type="button" disabled>Confirm removal</button>
+              </div>
+              <p class="model-download-note">First use downloads the compact promptable model. The image stays on this device.</p>
+            </section>
+
+            <section id="refinePanel" class="panel disabled-panel manual-panel">
+              <div class="section-heading"><span class="step-number">05</span><div><p class="eyebrow">Manual correction</p><h2>Pencil correction</h2></div></div>
+              <div class="brush-heading">
+                <div><span class="field-label">RED MASK PENCIL</span><small>Paint the background by hand — no AI</small></div>
+                <button id="brushToggle" class="manual-pencil-toggle" type="button"><span aria-hidden="true">✎</span> PENCIL OFF</button>
+              </div>
+              <button id="magicErase" class="smart-erase-button" type="button"><span>✦</span><strong>Smart Erase</strong><small>Click a connected background section</small></button>
+              <label class="range-label" for="magicToleranceRange"><span>Smart Erase tolerance</span><output id="magicToleranceValue">24</output></label>
+              <input id="magicToleranceRange" type="range" min="2" max="80" value="24" />
+              <label class="range-label" for="magicSoftnessRange"><span>Selection softness</span><output id="magicSoftnessValue">8</output></label>
+              <input id="magicSoftnessRange" type="range" min="0" max="30" value="8" />
+              <div class="brush-actions" role="group" aria-label="Brush action">
+                <button id="eraseBrush" class="brush-action active" type="button"><span>−</span> Erase background</button>
+                <button id="restoreBrush" class="brush-action" type="button"><span>+</span> Restore artwork</button>
+              </div>
+              <label class="range-label" for="brushSizeRange"><span>Brush size</span><output id="brushSizeValue">80 px</output></label>
+              <input id="brushSizeRange" type="range" min="8" max="400" value="80" />
+              <button id="resetBrush" class="reset-mask-button" type="button">Reset manual edits</button>
+              <div class="refine-divider"></div>
+              <div class="hard-mask-row">
+                <div><strong>Hard mask</strong><small>Binary alpha · no translucent pixels</small></div>
+                <button id="hardMaskToggle" class="mini-toggle" type="button" aria-pressed="false">OFF</button>
+              </div>
+              <label class="range-label" for="thresholdRange"><span>Edge threshold</span><output id="thresholdValue">8%</output></label>
+              <input id="thresholdRange" type="range" min="0" max="80" value="8" />
+              <label class="range-label" for="featherRange"><span>Edge feather</span><output id="featherValue">4 px</output></label>
+              <input id="featherRange" type="range" min="0" max="20" value="4" />
+              <label class="range-label" for="spillRange"><span>Color decontaminate</span><output id="spillValue">20%</output></label>
+              <input id="spillRange" type="range" min="0" max="100" value="20" />
+              <div class="view-options">
+                <button class="swatch active" data-background="checker" title="Transparency grid"></button>
+                <button class="swatch white" data-background="white" title="White background"></button>
+                <button class="swatch black" data-background="black" title="Black background"></button>
+                <button class="swatch green" data-background="green" title="Projection green"></button>
+              </div>
+            </section>
+
+            <section id="drawPanel" class="panel disabled-panel draw-panel">
+              <div class="section-heading"><span class="step-number">06</span><div><p class="eyebrow">Surface paint</p><h2>Draw mapping color</h2></div></div>
+              <p class="tool-description">Paint directly onto the image. Green is ready for chroma-key mapping, or choose any color.</p>
+              <button id="drawToggle" class="draw-toggle" type="button"><span aria-hidden="true">✎</span><strong>Paint surface</strong><small>Green screen color · saved into image</small></button>
+              <label class="draw-color-field" for="drawColor">
+                <span><strong>Paint color</strong><small>Click the swatch to change</small></span>
+                <input id="drawColor" type="color" value="#00ff66" aria-label="Drawing color" />
+              </label>
+              <label class="range-label" for="drawSizeRange"><span>Brush size</span><output id="drawSizeValue">80 px</output></label>
+              <input id="drawSizeRange" type="range" min="8" max="400" value="80" />
+              <button id="resetDraw" class="reset-mask-button" type="button">Reset drawing</button>
+              <div id="cropPanel" class="integrated-tool-section integrated-crop-section disabled-panel">
+                <div class="integrated-tool-heading"><span class="tool-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v14a2 2 0 0 0 2 2h12"/><path d="M3 7h14a2 2 0 0 1 2 2v12"/></svg></span><div><strong>Crop</strong><small>Frame the painted image before saving</small></div></div>
+                <div class="crop-tool-row">
+                  <button id="cropToggle" class="crop-tool-button" type="button"><span>⌗</span> Crop tool</button>
+                  <select id="cropAspect" aria-label="Crop aspect ratio">
+                    <option value="free">Free</option>
+                    <option value="1">1 : 1</option>
+                    <option value="1.333333">4 : 3</option>
+                    <option value="1.777778">16 : 9</option>
+                    <option value="0.8">4 : 5</option>
+                  </select>
+                </div>
+                <div class="crop-size-readout"><span>OUTPUT</span><strong id="cropSizeValue">—</strong></div>
+                <div class="crop-button-row">
+                  <button id="cropReset" class="reset-mask-button" type="button">Reset frame</button>
+                  <button id="cropCancel" class="reset-mask-button" type="button" disabled>Cancel</button>
+                  <button id="cropApply" class="primary-button" type="button" disabled>Confirm crop</button>
+                </div>
+              </div>
+            </section>
+
+            <section id="depthPanel" class="panel disabled-panel depth-panel">
+              <div class="section-heading"><span class="step-number">07</span><div><p class="eyebrow">Depth output</p><h2>Create depth map</h2></div></div>
+              <p class="tool-description">Generate a projection-ready depth image from this photo, adjust it here, then save it as a new asset.</p>
+              <button id="generateDepth" class="depth-generate-button" type="button" disabled><span aria-hidden="true">◉</span><strong>Generate depth map</strong><small>Depth Anything · runs on this device</small></button>
+              <div class="depth-view-actions" role="group" aria-label="Depth map color mode">
+                <button id="depthModeBw" class="depth-view-button active" type="button">Black &amp; white</button>
+                <button id="depthModeRgb" class="depth-view-button" type="button">Color depth</button>
+              </div>
+              <label class="range-label" for="depthStrengthRange"><span>Depth amount</span><output id="depthStrengthValue">100%</output></label>
+              <input id="depthStrengthRange" type="range" min="0" max="300" value="100" />
+              <label class="range-label" for="depthDefinitionRange"><span>Definition</span><output id="depthDefinitionValue">70%</output></label>
+              <input id="depthDefinitionRange" type="range" min="0" max="100" value="70" />
+              <label class="range-label" for="depthContrastRange"><span>Contrast</span><output id="depthContrastValue">120%</output></label>
+              <input id="depthContrastRange" type="range" min="50" max="200" value="120" />
+              <label class="range-label" for="depthGammaRange"><span>Gamma</span><output id="depthGammaValue">100%</output></label>
+              <input id="depthGammaRange" type="range" min="40" max="180" value="100" />
+              <label class="depth-option-row" for="depthInvert"><span><strong>Invert depth</strong><small>Swap near and far values</small></span><input id="depthInvert" type="checkbox" /></label>
+              <p id="depthStatus" class="depth-status">Ready to generate from the loaded photo.</p>
+            </section>
+
+          </div>
+          <footer class="sidebar-footer">
+            <div class="history-actions" role="group" aria-label="Edit history">
+              <button id="undoButton" type="button" disabled title="Undo (Ctrl+Z)">↶ <span>Undo</span><kbd>Ctrl Z</kbd></button>
+              <button id="redoButton" type="button" disabled title="Redo (Ctrl+Shift+Z or Ctrl+Y)">↷ <span>Redo</span><kbd>Ctrl ⇧ Z</kbd></button>
+            </div>
+            <div class="export-actions">
+              <button id="downloadMaskButton" class="primary-button full" disabled>Download mask <span>↓</span></button>
+              <button id="downloadCompositeButton" class="secondary-export-button" disabled>Original + black mask <span>↓</span></button>
+            </div>
+            <p>Full resolution · binary PNG · black removed / white kept</p>
+          </footer>
+        </aside>
+      </main>
+    </div>
+    <div id="toast" class="toast" role="alert"></div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

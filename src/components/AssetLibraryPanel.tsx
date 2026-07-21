@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import type { AssetRecord } from '../types';
 import { PanelSection } from './PanelSection';
+import { MaskToolIcon } from './MaskToolIcon';
 
 interface AssetLibraryPanelProps {
   assets: AssetRecord[];
   activeAssetId: string | null;
   onLoadAsset: () => void;
   onSelectAsset: (assetId: string) => void;
+  onEditMask: (assetId: string) => void;
   onRemoveAsset: (assetId: string) => void;
 }
 
@@ -15,6 +17,7 @@ export function AssetLibraryPanel({
   activeAssetId,
   onLoadAsset,
   onSelectAsset,
+  onEditMask,
   onRemoveAsset,
 }: AssetLibraryPanelProps) {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -64,6 +67,17 @@ export function AssetLibraryPanel({
                 </button>
                 <span className="asset-row-actions">
                   {asset.id === activeAssetId ? <span className="status-pill">Live</span> : null}
+                  {asset.kind === 'image' ? (
+                    <button
+                      type="button"
+                      className="asset-mask-icon-button asset-row-mask"
+                      onClick={() => onEditMask(asset.id)}
+                      aria-label={`Edit mask for ${asset.name}`}
+                      title="Edit mask"
+                    >
+                      <MaskToolIcon />
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="ghost-button asset-row-remove"
@@ -114,7 +128,7 @@ export function AssetLibraryPanel({
             <div className="dialog-body asset-import-dialog-body">
               <p className="dialog-note">
                 Import opens the same file picker as the top toolbar, but keeps the library panel
-                focused on the asset list.
+                focused on the asset list. Images open Mask Studio automatically before use.
               </p>
 
               <div className="status-card asset-import-dialog-card">

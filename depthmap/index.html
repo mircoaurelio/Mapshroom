@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0c0d" />
+    <title>Mapshroom · Depth Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="../" aria-label="Back to Mapshroom">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <span>MAPSHROOM</span>
+        </a>
+        <div class="topbar-title">Depth map <span class="tag">LAB 02</span></div>
+        <div class="privacy"><span class="privacy-dot"></span> Private · On-device</div>
+      </header>
+
+      <main class="workspace">
+        <section class="stage" aria-label="Depth map preview">
+          <div id="emptyState" class="empty-state">
+            <div class="empty-art" aria-hidden="true">
+              <svg viewBox="0 0 180 220"><path d="M18 168c18-34 44-52 72-52s54 18 72 52"/><path d="M36 168h108"/><path d="M54 168v-18c0-18 12-30 36-30s36 12 36 30v18"/><path d="M72 120c8-18 28-18 36 0"/></svg>
+            </div>
+            <p class="eyebrow">AI depth studio</p>
+            <h1>Turn a photo<br />into relief.</h1>
+            <p class="intro">Drop any photo. A monocular depth model runs in this browser and builds a grayscale depth map you can export for projection mapping.</p>
+            <button id="emptyUploadButton" class="primary-button">Choose photo <span>↗</span></button>
+            <p class="file-hint">JPG, PNG, WEBP · up to 24 MP</p>
+          </div>
+
+          <div id="canvasArea" class="canvas-area hidden">
+            <div id="viewModeToggle" class="view-mode-toggle" role="radiogroup" aria-label="Depth view mode">
+              <button type="button" id="modeBw" class="view-mode-dot active" data-mode="bw" aria-pressed="true" title="Black &amp; white depth">
+                <span class="view-mode-fill swatch-bw" aria-hidden="true"></span>
+                <span class="view-mode-label">BW</span>
+              </button>
+              <button type="button" id="modeRgb" class="view-mode-dot" data-mode="rgb" aria-pressed="false" title="Color depth">
+                <span class="view-mode-fill swatch-rgb" aria-hidden="true"></span>
+                <span class="view-mode-label">RGB</span>
+              </button>
+            </div>
+            <canvas id="resultCanvas"></canvas>
+            <div id="originalLayer" class="original-layer"><img id="originalImage" alt="Original photo" /></div>
+            <div id="compareHandle" class="compare-handle" aria-hidden="true"><span>↔</span></div>
+            <input id="compareRange" class="compare-range" type="range" min="0" max="100" value="50" aria-label="Compare original and depth map" />
+            <div class="stage-label label-original">ORIGINAL</div>
+            <div class="stage-label label-result">DEPTH</div>
+          </div>
+
+          <div id="dropOverlay" class="drop-overlay"><strong>Drop photo here</strong><span>Release to open</span></div>
+          <div id="busyOverlay" class="busy-overlay hidden" role="status">
+            <div class="scan-frame"><div class="scan-line"></div></div>
+            <p id="busyTitle">Preparing model…</p>
+            <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+            <span id="busyDetail">The first run downloads the model, then it stays cached.</span>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <div class="sidebar-scroll">
+            <section class="panel intro-panel">
+              <div class="step-number">01</div>
+              <div><p class="eyebrow">Source</p><h2>Choose photo</h2></div>
+            </section>
+            <div id="dropzone" class="dropzone" tabindex="0" role="button">
+              <span class="upload-icon">↑</span>
+              <div><strong id="fileName">Drop image or browse</strong><small id="fileMeta">JPG, PNG, WEBP</small></div>
+            </div>
+            <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+            <button id="sampleButton" class="text-button">Try the Mapshroom statue sample →</button>
+
+            <section class="panel">
+              <div class="section-heading"><span class="step-number">02</span><div><p class="eyebrow">Intelligence</p><h2>Depth model</h2></div></div>
+              <label class="field-label" for="modelSelect">MODEL</label>
+              <select id="modelSelect">
+                <option value="Xenova/depth-anything-small-hf">Depth Anything Small · CPU tested</option>
+                <option value="onnx-community/depth-anything-v2-small" selected>Depth Anything V2 Small · Sharper</option>
+                <option value="Xenova/depth-anything-large-hf">Depth Anything Large · Highest detail</option>
+              </select>
+              <div class="model-note"><span id="modelBadge">V2 SMALL</span><p id="modelDescription">Newer Depth Anything V2 weights with sharper relief.</p></div>
+              <label class="auto-segment-row" for="autoEstimate">
+                <span><strong>Estimate depth automatically</strong><small>Runs the selected model after upload or model change</small></span>
+                <input id="autoEstimate" type="checkbox" checked />
+              </label>
+              <div class="device-row">
+                <div><span class="field-label">PROCESSOR</span><strong id="deviceLabel">Detecting…</strong></div>
+                <button id="deviceToggle" class="mini-toggle" type="button" disabled aria-label="CPU safe mode enabled">CPU SAFE</button>
+              </div>
+              <button id="estimateButton" class="primary-button full" disabled>Generate depth map <span>◎</span></button>
+            </section>
+
+            <section id="refinePanel" class="panel disabled-panel">
+              <div class="section-heading"><span class="step-number">03</span><div><p class="eyebrow">Finish</p><h2>Adjust visualization</h2></div></div>
+              <label class="range-label depth-amount-label" for="depthStrengthRange"><span>Depth amount</span><output id="depthStrengthValue">520%</output></label>
+              <input id="depthStrengthRange" type="range" min="0" max="900" value="520" />
+              <p class="control-hint">100% is natural relief. Push up to 900% for extreme projection-ready depth separation.</p>
+              <label class="range-label" for="definitionRange"><span>Definition</span><output id="definitionValue">90%</output></label>
+              <input id="definitionRange" type="range" min="0" max="100" value="90" />
+              <p class="control-hint">Boosts sharp relief, palm lines, and facial contours from the photo.</p>
+              <label class="invert-row" for="crispMask">
+                <span><strong>Crisp foreground mask</strong><small>Force deep background to pure black</small></span>
+                <input id="crispMask" type="checkbox" checked />
+              </label>
+              <label class="range-label" for="contrastRange"><span>Fine contrast</span><output id="contrastValue">145%</output></label>
+              <input id="contrastRange" type="range" min="50" max="200" value="145" />
+              <label class="range-label" for="gammaRange"><span>Gamma</span><output id="gammaValue">88%</output></label>
+              <input id="gammaRange" type="range" min="40" max="180" value="88" />
+              <label class="range-label" for="blendRange"><span>Overlay blend (export)</span><output id="blendValue">45%</output></label>
+              <input id="blendRange" type="range" min="0" max="100" value="45" />
+            </section>
+          </div>
+          <footer class="sidebar-footer">
+            <div class="export-actions">
+              <button id="downloadDepthButton" class="primary-button full" disabled>Download current mode <span>↓</span></button>
+              <button id="downloadAllButton" class="secondary-export-button" disabled>Download BW + RGB <span>↓</span></button>
+              <button id="downloadOverlayButton" class="secondary-export-button" disabled>Photo + depth overlay <span>↓</span></button>
+            </div>
+            <p>Full resolution · PNG · BW or RGB from canvas toggle</p>
+          </footer>
+        </aside>
+      </main>
+    </div>
+    <div id="toast" class="toast" role="alert"></div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

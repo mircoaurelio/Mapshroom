@@ -12,6 +12,7 @@ import { useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
+import { AssetSegmentationDialog } from '../components/AssetSegmentationDialog';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
@@ -1680,6 +1681,7 @@ export function WorkspaceRoute() {
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
+  const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -2269,6 +2271,11 @@ export function WorkspaceRoute() {
 
   const activeAssetResolution = useAssetObjectUrl(activeAsset);
   const activeAssetUrl = activeAssetResolution.url;
+  const segmentationAsset = useMemo(() => {
+    if (!project || !segmentationQueue[0]) return null;
+    return project.library.assets.find((asset) => asset.id === segmentationQueue[0]) ?? null;
+  }, [project, segmentationQueue]);
+  const segmentationAssetResolution = useAssetObjectUrl(segmentationAsset);
   const lastMissingAssetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -2466,6 +2473,8 @@ export function WorkspaceRoute() {
         ? `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added to the library.`
         : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`,
     );
+    const imageAssetIds = uploadedAssets.filter((asset) => asset.kind === 'image').map((asset) => asset.id);
+    if (imageAssetIds.length) setSegmentationQueue((current) => [...current, ...imageAssetIds]);
     event.target.value = '';
   };
 
@@ -2506,37 +2515,86 @@ export function WorkspaceRoute() {
     }));
   };
 
+  const handleAssetRename = (assetId: string, name: string) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      library: {
+        ...currentProject.library,
+        assets: currentProject.library.assets.map((asset) =>
+          asset.id === assetId ? { ...asset, name } : asset,
+        ),
+      },
+    }));
+  };
+
+  const handleAssetMaskOpen = useCallback((assetId: string) => {
+    const asset = project?.library.assets.find((item) => item.id === assetId);
+    if (!asset || asset.kind !== 'image') {
+      setStatusMessage('Background removal is available for image assets.');
+      return;
+    }
+    setSegmentationQueue([assetId]);
+  }, [project]);
+
+  const handleAssetMaskClose = useCallback(() => {
+    setSegmentationQueue((current) => current.slice(1));
+  }, []);
+
+  const handleAssetMaskApply = useCallback(async (blob: Blob, resultKind: 'mask' | 'draw' | 'depth') => {
+    const sourceAssetId = segmentationQueue[0];
+    const sourceAsset = project?.library.assets.find((asset) => asset.id === sourceAssetId);
+    if (!sourceAsset) {
+      setSegmentationQueue((current) => current.slice(1));
+      return false;
+    }
+    const outputSuffix = resultKind === 'depth' ? 'depth-map' : resultKind === 'draw' ? 'painted' : 'masked';
+    const maskedAsset: AssetRecord = {
+      ...sourceAsset,
+      id: crypto.randomUUID(),
+      name: `${sourceAsset.name.replace(/\.[^.]+$/, '')}-${outputSuffix}.png`,
+      mimeType: 'image/png',
+      size: blob.size,
+      lastModified: Date.now(),
+      createdAt: new Date().toISOString(),
+      sourceType: 'uploaded',
+    };
+    const saved = await putAssetBlob(maskedAsset.id, blob);
+    if (!saved) {
+      setStatusMessage('The masked asset could not be saved in this browser.');
+      return false;
+    }
+    updateProject((currentProject) => ({
+      ...currentProject,
+      library: {
+        ...currentProject.library,
+        assets: [...currentProject.library.assets, maskedAsset],
+        activeAssetId: maskedAsset.id,
+      },
+      playback: { ...currentProject.playback, activeAssetId: maskedAsset.id },
+    }));
+    setStatusMessage(`${resultKind === 'depth' ? 'Depth map' : resultKind === 'draw' ? 'Painted asset' : 'Masked asset'} “${maskedAsset.name}” added and selected.`);
+    setSegmentationQueue((current) => current.slice(1));
+    return true;
+  }, [project, segmentationQueue, updateProject]);
+
   const handleAssetRemove = (assetId: string) => {
     const removedAsset = project?.library.assets.find((asset) => asset.id === assetId) ?? null;
     void deleteAssetBlob(assetId);
-
     updateProject((currentProject) => {
       const nextAssets = currentProject.library.assets.filter((asset) => asset.id !== assetId);
-      const removedWasActive =
-        currentProject.library.activeAssetId === assetId || currentProject.playback.activeAssetId === assetId;
-      const nextActiveId = removedWasActive ? nextAssets[0]?.id ?? null : currentProject.library.activeAssetId;
-
+      const removedWasActive = currentProject.library.activeAssetId === assetId || currentProject.playback.activeAssetId === assetId;
+      const nextActiveId = removedWasActive ? nextAssets.at(-1)?.id ?? null : currentProject.library.activeAssetId;
       return {
         ...currentProject,
-        library: {
-          ...currentProject.library,
-          assets: nextAssets,
-          activeAssetId: nextActiveId,
-        },
+        library: { ...currentProject.library, assets: nextAssets, activeAssetId: nextActiveId },
         playback: {
           ...currentProject.playback,
           activeAssetId: removedWasActive ? nextActiveId : currentProject.playback.activeAssetId,
-          transport:
-            removedWasActive && nextActiveId === null
-              ? pauseTransport(currentProject.playback.transport)
-              : currentProject.playback.transport,
+          transport: removedWasActive && nextActiveId === null ? pauseTransport(currentProject.playback.transport) : currentProject.playback.transport,
         },
       };
     });
-
-    if (removedAsset) {
-      setStatusMessage(`Removed asset "${removedAsset.name}".`);
-    }
+    if (removedAsset) setStatusMessage(`Removed asset "${removedAsset.name}".`);
   };
 
   const handleTimelineSeek = useCallback((nextTimeSeconds: number) => {
@@ -5520,8 +5578,17 @@ ${errorSnapshot}`,
         activeAssetId={activeAsset?.id ?? null}
         onLoadAsset={() => openFilePicker('library')}
         onSelectAsset={handleAssetSelect}
+        onRenameAsset={handleAssetRename}
+        onEditMask={handleAssetMaskOpen}
         onRemoveAsset={handleAssetRemove}
         onClose={() => setIsAssetLibraryOpen(false)}
+      />
+
+      <AssetSegmentationDialog
+        asset={segmentationAsset}
+        assetUrl={segmentationAssetResolution.url}
+        onApply={handleAssetMaskApply}
+        onClose={handleAssetMaskClose}
       />
 
       {isMobile && mobileChromeVisible ? (
