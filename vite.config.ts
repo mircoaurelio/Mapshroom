@@ -56,9 +56,9 @@ export default defineConfig(({ command }) => {
           skipWaiting: true,
           clientsClaim: true,
           cleanupOutdatedCaches: true,
-          // Default stage assets are large PNGs; raise the precache ceiling so offline install includes them.
-          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json,webmanifest}'],
+          // Default stage assets are large; raise the precache ceiling so offline install includes them.
+          maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
+          globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,webmanifest}'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

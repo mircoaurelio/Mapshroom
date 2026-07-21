@@ -2,7 +2,7 @@ import { shaderPresetList, shaderPresets } from '../shaders/presets';
 import type { ShaderPresetDefinition } from '../shaders/presets/types';
 import type { ProjectDocument, ProjectLibraryEntry } from '../types';
 import {
-  DEFAULT_BUNDLED_ASSET_ID,
+  BUNDLED_STATUE_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
 } from './bundledAssets';
 import { createTimelineShaderStep, getShaderTimelineDuration } from './timeline';
@@ -111,7 +111,7 @@ export function createBundledProjectDocument(sessionId: string): ProjectDocument
     name: 'Statue Project',
     library: {
       assets: DEFAULT_BUNDLED_ASSETS,
-      activeAssetId: DEFAULT_BUNDLED_ASSET_ID,
+      activeAssetId: BUNDLED_STATUE_ASSET_ID,
     },
     studio: {
       activeShaderId: activeShader.id,
@@ -134,7 +134,7 @@ export function createBundledProjectDocument(sessionId: string): ProjectDocument
       },
     },
     playback: {
-      activeAssetId: DEFAULT_BUNDLED_ASSET_ID,
+      activeAssetId: BUNDLED_STATUE_ASSET_ID,
       transport: {
         isPlaying: true,
         currentTimeSeconds: 0,
