@@ -3,10 +3,7 @@ import posthog from 'posthog-js';
 export const ANALYTICS_CONSENT_STORAGE_KEY = 'mapshroom-v3:analytics-consent';
 export type AnalyticsConsent = 'granted' | 'denied';
 
-const HEARTBEAT_INTERVAL_MS = 60_000;
-
 let initialized = false;
-let heartbeatTimer: number | null = null;
 
 function readConsent(): AnalyticsConsent | null {
   try {
@@ -48,29 +45,6 @@ export function isAnalyticsActive() {
   return initialized && readConsent() === 'granted' && isAnalyticsConfigured();
 }
 
-function startHeartbeat() {
-  stopHeartbeat();
-  if (!isAnalyticsActive()) {
-    return;
-  }
-
-  const sendHeartbeat = () => {
-    if (!isAnalyticsActive() || document.visibilityState !== 'visible') {
-      return;
-    }
-    track('app_heartbeat', { path: window.location.hash || '#/' });
-  };
-
-  heartbeatTimer = window.setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
-}
-
-function stopHeartbeat() {
-  if (heartbeatTimer !== null) {
-    window.clearInterval(heartbeatTimer);
-    heartbeatTimer = null;
-  }
-}
-
 function ensureInitialized() {
   if (initialized || !isAnalyticsConfigured()) {
     return false;
@@ -81,10 +55,16 @@ function ensureInitialized() {
     api_host: apiHost,
     ui_host: 'https://eu.posthog.com',
     persistence: 'localStorage',
+    // Lean product analytics only — no extras that burn event quota.
     autocapture: false,
     capture_pageview: false,
-    capture_pageleave: true,
+    capture_pageleave: false,
     disable_session_recording: true,
+    disable_surveys: true,
+    enable_heatmaps: false,
+    capture_performance: false,
+    advanced_disable_feature_flags: true,
+    advanced_disable_feature_flags_on_first_load: true,
     opt_out_capturing_by_default: true,
     loaded: (client) => {
       if (readConsent() === 'granted') {
@@ -107,7 +87,6 @@ export function initAnalytics() {
   ensureInitialized();
   if (readConsent() === 'granted') {
     posthog.opt_in_capturing();
-    startHeartbeat();
   }
 }
 
@@ -122,12 +101,10 @@ export function grantAnalyticsConsent() {
     path: window.location.hash || '#/',
     consent: 'granted',
   });
-  startHeartbeat();
 }
 
 export function denyAnalyticsConsent() {
   writeConsent('denied');
-  stopHeartbeat();
   if (initialized) {
     posthog.opt_out_capturing();
     posthog.reset();

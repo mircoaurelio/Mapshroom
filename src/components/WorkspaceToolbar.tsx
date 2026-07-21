@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
-import { track, trackUiClick } from '../lib/analytics';
+import { trackUiClick } from '../lib/analytics';
 
 type ToolbarMenuKey = 'file' | 'shader';
 
@@ -256,7 +256,6 @@ export function WorkspaceToolbar({
                   className="toolbar-menu-item"
                   onClick={() => {
                     trackUiClick('install_offline');
-                    track('install_offline');
                     closeMenu();
                   }}
                 >

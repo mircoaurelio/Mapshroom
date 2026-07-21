@@ -1985,8 +1985,7 @@ export function WorkspaceRoute() {
       persistActiveSessionId(nextProject.sessionId);
       setStatusMessage(`Saved "${trimmedName}" as a new project.`);
       setIsProjectDialogOpen(false);
-      trackUiClick('save_project');
-      track('save_project', { mode: 'from_bundled' });
+      trackUiClick('save_project', { mode: 'from_bundled' });
       return;
     }
 
@@ -2002,7 +2001,6 @@ export function WorkspaceRoute() {
     setStatusMessage(`Saved project "${trimmedName}".`);
     setIsProjectDialogOpen(false);
     trackUiClick('save_project');
-    track('save_project');
   }, [project]);
 
   const handleSaveAsNewProject = useCallback((name: string) => {
@@ -2024,7 +2022,6 @@ export function WorkspaceRoute() {
     setStatusMessage(`Saved "${trimmedName}" as a new project.`);
     setIsProjectDialogOpen(false);
     trackUiClick('save_project_as');
-    track('save_project_as');
   }, [project]);
 
   const handleCreateNewProject = useCallback(() => {
@@ -2048,7 +2045,6 @@ export function WorkspaceRoute() {
     setCompilerError('');
     setStatusMessage('Created a new project.');
     trackUiClick('create_project');
-    track('create_project');
   }, []);
 
   const handleOpenSavedProject = useCallback((sessionId: string) => {
@@ -2069,7 +2065,6 @@ export function WorkspaceRoute() {
     setIsProjectDialogOpen(false);
     setStatusMessage(`Opened project "${normalizedProject.name}".`);
     trackUiClick('open_saved_project');
-    track('open_saved_project');
   }, []);
 
   const handleGenerateShareLink = useCallback(async () => {
@@ -5616,13 +5611,11 @@ ${errorSnapshot}`,
           }}
           onNewShader={() => {
             trackUiClick('new_shader');
-            track('new_shader');
             createNewShader();
             setMobilePanel(null);
           }}
           onOpenPresetBrowser={() => {
             trackUiClick('open_presets');
-            track('open_presets');
             setIsPresetBrowserOpen(true);
           }}
           onPlayToggle={() => {
@@ -5631,7 +5624,6 @@ ${errorSnapshot}`,
           }}
           onOpenOutput={() => {
             trackUiClick('open_output');
-            track('open_output');
             handleOutputWindowOpen();
           }}
           onToggleSidebarVisibility={toggleSidebarVisibility}

@@ -7,7 +7,7 @@ import {
   onInstallAvailable,
   promptInstall,
 } from '../lib/pwaInstall';
-import { track, trackAppOpen, trackUiClick, getAnalyticsConsent } from '../lib/analytics';
+import { trackAppOpen, trackUiClick, getAnalyticsConsent } from '../lib/analytics';
 
 type InstallState = 'idle' | 'available' | 'installed' | 'manual';
 type OfflineState = 'checking' | 'ready' | 'pending';
@@ -135,7 +135,6 @@ export function DownloadRoute() {
 
   const handleInstall = async () => {
     trackUiClick('install_offline');
-    track('install_offline');
     if (!getDeferredInstallPrompt()) {
       setInstallState('manual');
       setInstallMessage(getManualInstallHint(platform));
@@ -148,7 +147,7 @@ export function DownloadRoute() {
       const outcome = await promptInstall();
       if (outcome === 'accepted') {
         setInstallState('installed');
-        track('install_offline', { outcome: 'accepted' });
+        trackUiClick('install_offline', { outcome: 'accepted' });
         navigate('/', { replace: true });
       } else if (outcome === 'dismissed') {
         setInstallMessage('Install cancelled. Use the manual steps below.');
