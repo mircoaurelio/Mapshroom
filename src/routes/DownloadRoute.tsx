@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 type BeforeInstallPromptEvent = Event & {
@@ -25,7 +25,13 @@ export function DownloadRoute() {
   const [installState, setInstallState] = useState<InstallState>('idle');
   const [offlineState, setOfflineState] = useState<OfflineState>('checking');
   const [installing, setInstalling] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const platform = detectPlatform();
+  const appUrl = useMemo(
+    () => new URL(import.meta.env.BASE_URL, window.location.origin).href,
+    [],
+  );
+  const downloadPageUrl = `${appUrl}#/download`;
 
   useEffect(() => {
     document.body.classList.add('download-page-active');
@@ -129,6 +135,16 @@ export function DownloadRoute() {
     }
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(downloadPageUrl);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 2000);
+    } catch {
+      window.prompt('Copy this link to download Mapshroom offline:', downloadPageUrl);
+    }
+  };
+
   return (
     <main className="download-page">
       <div className="download-page-glow" aria-hidden="true" />
@@ -181,27 +197,47 @@ export function DownloadRoute() {
         </section>
 
         <section className="download-actions">
-          {installState === 'available' ? (
+          {installState === 'installed' ? (
+            <Link to="/" className="primary-button primary-button-hero download-install-button">
+              Open Mapshroom
+            </Link>
+          ) : installState === 'available' && installPrompt ? (
             <button
               type="button"
               className="primary-button primary-button-hero download-install-button"
               onClick={() => void handleInstall()}
               disabled={installing}
             >
-              {installing ? 'Installing…' : 'Install Mapshroom'}
+              {installing ? 'Downloading…' : 'Download Mapshroom'}
             </button>
-          ) : null}
+          ) : (
+            <a
+              href={appUrl}
+              className="primary-button primary-button-hero download-install-button"
+            >
+              Download Mapshroom
+            </a>
+          )}
 
-          {installState === 'installed' ? (
-            <Link to="/" className="primary-button primary-button-hero download-install-button">
-              Open workspace
-            </Link>
-          ) : null}
+          <div className="download-link-card">
+            <span className="download-link-label">Download link</span>
+            <a href={downloadPageUrl} className="download-page-direct-link">
+              {downloadPageUrl}
+            </a>
+            <div className="download-link-actions">
+              <button type="button" className="secondary-button" onClick={() => void handleCopyLink()}>
+                {copyState === 'copied' ? 'Copied' : 'Copy link'}
+              </button>
+              <a href={appUrl} className="secondary-button download-link-open-app">
+                Open app
+              </a>
+            </div>
+          </div>
 
           {installState === 'unsupported' || installState === 'idle' ? (
             <p className="download-actions-note">
-              Your browser may not show a one-click install prompt. Use the steps for your platform
-              below — the offline cache still works after this visit.
+              If the button does not start a download, open the link above in Chrome or Edge, wait for
+              the offline cache to finish, then use your browser&apos;s install option.
             </p>
           ) : null}
         </section>
