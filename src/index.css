@@ -249,30 +249,31 @@ a {
 
 .loading-brand-lockup {
   display: flex;
-  align-items: center;
-  gap: clamp(1rem, 3vw, 1.65rem);
+  align-items: flex-start;
+  gap: clamp(0.35rem, 1.2vw, 0.7rem);
 }
 
 .loading-brand-logo {
-  width: clamp(96px, 18vw, 138px);
-  height: clamp(96px, 18vw, 138px);
+  width: clamp(56px, 11vw, 78px);
+  height: clamp(56px, 11vw, 78px);
+  margin-top: 0.05em;
   object-fit: contain;
-  filter: drop-shadow(0 20px 34px rgba(0, 0, 0, 0.46));
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.42));
 }
 
 .loading-brand-name {
   color: #d4d4d8;
   font-family: 'IBM Plex Sans', sans-serif;
-  font-size: clamp(2rem, 7vw, 4.25rem);
-  font-weight: 500;
-  letter-spacing: -0.055em;
-  line-height: 1;
+  font-size: clamp(1.35rem, 4.2vw, 2.35rem);
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
   white-space: nowrap;
 }
 
 .loading-brand-name span {
   color: #ff6168;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .loading-screen-card h1,
