@@ -67,6 +67,7 @@ let depthWidth = 0;
 let depthHeight = 0;
 let depthMode = 'bw';
 let depthPreviewActive = false;
+let depthMaskAlpha = null;
 let toastTimer;
 let undoStack = [];
 let redoStack = [];
@@ -279,6 +280,7 @@ async function openFile(file) {
     depthData = null;
     depthWidth = 0;
     depthHeight = 0;
+    depthMaskAlpha = null;
     clearHistory();
     elements.canvas.width = imageWidth;
     elements.canvas.height = imageHeight;
@@ -292,7 +294,7 @@ async function openFile(file) {
     elements.drawPanel.classList.remove('disabled-panel');
     elements.depthPanel.classList.remove('disabled-panel');
     elements.generateDepth.disabled = false;
-    elements.depthStatus.textContent = 'Ready to generate from the loaded photo.';
+    elements.depthStatus.textContent = 'Finish the background mask, then generate depth.';
     setExportDisabled(false);
     renderMask();
     cropRect = { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
@@ -513,7 +515,11 @@ function renderDepthPreview() {
       depth = Math.pow(depth, 1 / gamma);
       const [red, green, blue] = depthColor(depth);
       const index = (y * imageWidth + x) * 4;
-      pixels[index] = red; pixels[index + 1] = green; pixels[index + 2] = blue; pixels[index + 3] = 255;
+      const kept = !depthMaskAlpha || depthMaskAlpha[y * imageWidth + x] >= 128;
+      pixels[index] = kept ? red : 0;
+      pixels[index + 1] = kept ? green : 0;
+      pixels[index + 2] = kept ? blue : 0;
+      pixels[index + 3] = 255;
     }
   }
   renderedPixels = pixels;
@@ -534,16 +540,46 @@ function setDepthPreviewActive(active) {
 
 async function generateDepthMap() {
   if (!sourceFile || busy) return;
+  renderMask();
+  const maskedPixels = new Uint8ClampedArray(imageWidth * imageHeight * 4);
+  const nextDepthMaskAlpha = new Uint8ClampedArray(imageWidth * imageHeight);
+  let hasRemovedBackground = false;
+  for (let pixel = 0; pixel < imageWidth * imageHeight; pixel += 1) {
+    const index = pixel * 4;
+    const kept = renderedPixels[index + 3] >= 128;
+    nextDepthMaskAlpha[pixel] = kept ? 255 : 0;
+    if (!kept) hasRemovedBackground = true;
+    maskedPixels[index] = kept ? renderedPixels[index] : 0;
+    maskedPixels[index + 1] = kept ? renderedPixels[index + 1] : 0;
+    maskedPixels[index + 2] = kept ? renderedPixels[index + 2] : 0;
+    maskedPixels[index + 3] = 255;
+  }
+  if (!hasRemovedBackground) {
+    elements.depthStatus.textContent = 'Remove the background in Mask before generating depth.';
+    showToast('Remove the background first, then create the depth map.', true);
+    notifyMapshroom('ready', 'Depth needs a finished background mask first.', 'mask');
+    return;
+  }
+  const maskedCanvas = document.createElement('canvas');
+  maskedCanvas.width = imageWidth;
+  maskedCanvas.height = imageHeight;
+  maskedCanvas.getContext('2d').putImageData(new ImageData(maskedPixels, imageWidth, imageHeight), 0, 0);
+  const maskedBlob = await new Promise((resolve) => maskedCanvas.toBlob(resolve, 'image/png'));
+  if (!maskedBlob) {
+    showToast('The masked depth input could not be prepared.', true);
+    return;
+  }
+  depthMaskAlpha = nextDepthMaskAlpha;
   busy = true;
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Teaching the mushroom to see in 3D…';
   elements.busyDetail.textContent = 'Near, far, and everything dramatically in between.';
   elements.progress.style.width = '3%';
   elements.generateDepth.disabled = true;
-  elements.depthStatus.textContent = 'Generating depth from the loaded photo…';
-  notifyMapshroom('processing', 'Generating a depth map from the photo…', 'depth');
-  const buffer = await sourceFile.arrayBuffer();
-  depthWorker.postMessage({ type: 'estimate', buffer, mimeType: sourceFile.type, model: 'onnx-community/depth-anything-v2-small', device: 'wasm' }, [buffer]);
+  elements.depthStatus.textContent = 'Generating depth from the isolated subject…';
+  notifyMapshroom('processing', 'Generating depth after background removal…', 'depth');
+  const buffer = await maskedBlob.arrayBuffer();
+  depthWorker.postMessage({ type: 'estimate', buffer, mimeType: 'image/png', model: 'onnx-community/depth-anything-v2-small', device: 'wasm' }, [buffer]);
 }
 
 depthWorker.onmessage = ({ data }) => {
@@ -651,6 +687,12 @@ async function applyCrop() {
   imageHeight = height;
   sourceWidth = width;
   sourceHeight = height;
+  depthData = null;
+  depthWidth = 0;
+  depthHeight = 0;
+  depthMaskAlpha = null;
+  depthPreviewActive = false;
+  elements.depthStatus.textContent = 'Crop applied. Generate depth from the updated mask.';
   elements.canvas.width = width;
   elements.canvas.height = height;
   elements.wandCanvas.width = width;

@@ -209,15 +209,22 @@ input[type='range']:not(.compare-range):active::-webkit-slider-thumb { backgroun
 .drop-overlay.visible { opacity: 1; visibility: visible; }
 .drop-overlay strong { font-size: 20px; }.drop-overlay span { margin-top: 6px; color: var(--muted); font-size: 11px; }
 .busy-overlay { inset: 0; border: 0; opacity: 1; visibility: visible; backdrop-filter: blur(8px); background: rgba(7,9,7,.88); }
-.scan-mushroom { position: relative; width: 120px; height: 126px; overflow: hidden; filter: drop-shadow(0 0 18px rgba(52,211,153,.16)); }
+.scan-mushroom { position: relative; width: 104px; height: 110px; overflow: hidden; filter: drop-shadow(0 0 18px rgba(52,211,153,.2)); }
 .scan-mushroom svg { width: 100%; height: 100%; overflow: visible; }
-.mushroom-outline { fill: rgba(52,211,153,.025); stroke-linecap: round; stroke-linejoin: round; }
-.mushroom-outline-ghost { stroke: rgba(167,243,208,.17); stroke-width: 2.4; stroke-dasharray: .01 7.2; }
-.mushroom-outline-scan { stroke: #a7f3d0; stroke-width: 4; stroke-dasharray: .01 7.2; filter: drop-shadow(0 0 4px #34d399); }
-.mushroom-scan-mask-band { animation: mushroom-scan-mask 1.8s cubic-bezier(.55,.08,.45,.92) infinite alternate; }
-.scan-beam { position: absolute; left: 4px; right: 4px; top: 8%; height: 34px; transform: translateY(-50%); background: linear-gradient(180deg,transparent,rgba(52,211,153,.05) 32%,rgba(167,243,208,.55) 49%,rgba(52,211,153,.12) 52%,transparent); filter: blur(.2px); animation: mushroom-scan 1.8s cubic-bezier(.55,.08,.45,.92) infinite alternate; }
+.mushroom-outline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.mushroom-outline-scan { stroke: #d1fae5; stroke-width: 2.8; filter: drop-shadow(0 0 3px #34d399) drop-shadow(0 0 7px rgba(52,211,153,.72)); }
+.mushroom-spots { fill: #fff; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px rgba(52,211,153,.72)); transform-box: view-box; transform-origin: 60px 42px; animation: mushroom-spots-react 4.4s ease-in-out infinite; }
+.mushroom-spots circle:nth-child(2n) { opacity: .72; }
+.mushroom-spots circle:nth-child(3n) { opacity: .88; }
+.mushroom-scan-mask-band { animation: mushroom-scan-mask 2.2s cubic-bezier(.55,.08,.45,.92) infinite alternate; }
+.scan-beam { position: absolute; left: 1px; right: 1px; top: 8%; height: 58px; transform: translateY(-50%); background: linear-gradient(180deg,transparent 0%,rgba(52,211,153,.025) 16%,rgba(52,211,153,.12) 34%,rgba(209,250,229,.36) 50%,rgba(52,211,153,.12) 66%,rgba(52,211,153,.025) 84%,transparent 100%); filter: blur(1.25px); animation: mushroom-scan 2.2s cubic-bezier(.55,.08,.45,.92) infinite alternate; }
 @keyframes mushroom-scan { from { top: 8%; } to { top: 92%; } }
-@keyframes mushroom-scan-mask { from { transform: translateY(0); } to { transform: translateY(140px); } }
+@keyframes mushroom-scan-mask { from { transform: translateY(0); } to { transform: translateY(166px); } }
+@keyframes mushroom-spots-react {
+  0%, 5%, 24%, 76%, 95%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px rgba(52,211,153,.58)); }
+  13% { transform: translateY(1.7px) scale(1.035); filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 9px rgba(52,211,153,.95)); }
+  87% { transform: translateY(-1.7px) scale(1.035); filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 9px rgba(52,211,153,.95)); }
+}
 .busy-overlay p { margin: 20px 0 12px; font-size: 13px; }
 .busy-overlay > span { margin-top: 9px; color: var(--muted); font-size: 10px; }
 .progress-track { width: min(340px, 60vw); height: 2px; background: #363a32; }

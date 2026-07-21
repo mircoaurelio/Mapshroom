@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAssetPreviewUrls } from '../lib/useAssetPreviewUrls';
 import type { AssetRecord } from '../types';
 import { MaskToolIcon } from './MaskToolIcon';
@@ -47,6 +48,7 @@ export function AssetLibraryDialog({
 }: AssetLibraryDialogProps) {
   const previewUrls = useAssetPreviewUrls(assets, open, activeAssetId, assetUrl);
   const orderedAssets = [...assets].reverse();
+  const [pendingDeleteAsset, setPendingDeleteAsset] = useState<AssetRecord | null>(null);
 
   if (!open) {
     return null;
@@ -150,21 +152,10 @@ export function AssetLibraryDialog({
                             if (!event.target.value.trim()) onRenameAsset(asset.id, 'Untitled asset');
                           }}
                         />
-                        {asset.kind === 'image' ? (
-                          <button
-                            type="button"
-                            className="asset-mask-icon-button asset-browser-card-mask"
-                            onClick={() => onEditMask(asset.id)}
-                            aria-label={`Edit mask for ${asset.name}`}
-                            title="Edit mask"
-                          >
-                            <MaskToolIcon />
-                          </button>
-                        ) : null}
                         <button
                           type="button"
                           className="asset-browser-card-delete"
-                          onClick={() => onRemoveAsset(asset.id)}
+                          onClick={() => setPendingDeleteAsset(asset)}
                           aria-label={`Delete ${asset.name}`}
                           title="Delete asset"
                         >
@@ -201,6 +192,44 @@ export function AssetLibraryDialog({
             </div>
           </div>
         </div>
+        {pendingDeleteAsset ? (
+          <div
+            className="asset-delete-confirm-backdrop"
+            role="presentation"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setPendingDeleteAsset(null);
+            }}
+          >
+            <section
+              className="asset-delete-confirm-panel"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="asset-delete-confirm-title"
+              aria-describedby="asset-delete-confirm-copy"
+            >
+              <span className="panel-eyebrow">Confirm removal</span>
+              <h3 id="asset-delete-confirm-title">Delete this asset?</h3>
+              <p id="asset-delete-confirm-copy">
+                <strong>{pendingDeleteAsset.name}</strong> will be removed from this project and cannot be restored.
+              </p>
+              <div className="asset-delete-confirm-actions">
+                <button type="button" className="secondary-button" onClick={() => setPendingDeleteAsset(null)} autoFocus>
+                  Keep asset
+                </button>
+                <button
+                  type="button"
+                  className="asset-delete-confirm-button"
+                  onClick={() => {
+                    onRemoveAsset(pendingDeleteAsset.id);
+                    setPendingDeleteAsset(null);
+                  }}
+                >
+                  Delete asset
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </section>
     </div>
   );

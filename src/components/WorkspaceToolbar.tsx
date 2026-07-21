@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
 
-type ToolbarMenuKey = 'file' | 'shader' | 'view';
+type ToolbarMenuKey = 'file' | 'shader';
 
 interface WorkspaceToolbarProps {
   isPlaying: boolean;
@@ -165,6 +165,79 @@ export function WorkspaceToolbar({
                 >
                   Export
                 </button>
+                <div className="toolbar-menu-divider" role="separator" />
+                <span className="toolbar-menu-section-label">View</span>
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={sidebarVisible}
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onToggleSidebarVisibility();
+                    closeMenu();
+                  }}
+                >
+                  <span>{sidebarVisible ? 'On' : 'Off'}</span>
+                  Panels
+                </button>
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={desktopSlidersWindowEnabled}
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onToggleDesktopSlidersWindow();
+                    closeMenu();
+                  }}
+                >
+                  <span>{desktopSlidersWindowEnabled ? 'On' : 'Off'}</span>
+                  Sliders
+                </button>
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={workspaceMode === 'immersive'}
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onToggleWorkspaceMode();
+                    closeMenu();
+                  }}
+                >
+                  <span>{workspaceMode === 'immersive' ? 'On' : 'Off'}</span>
+                  Immersive
+                </button>
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={midiEnabled}
+                  className="toolbar-menu-item"
+                  title={
+                    midiEnabled
+                      ? midiPanelVisible
+                        ? 'Disable MIDI controller'
+                        : 'Show MIDI monitor'
+                      : 'Enable MIDI controller'
+                  }
+                  onClick={() => {
+                    onToggleMidi();
+                    closeMenu();
+                  }}
+                >
+                  <span>{midiEnabled ? 'On' : 'Off'}</span>
+                  MIDI
+                </button>
+                <div className="toolbar-menu-divider" role="separator" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenSliceStudio();
+                    closeMenu();
+                  }}
+                >
+                  Slicer OBJ
+                </button>
                 <button
                   type="button"
                   role="menuitem"
@@ -229,91 +302,10 @@ export function WorkspaceToolbar({
             ) : null}
           </div>
 
-          <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
-            <button
-              type="button"
-              className={`secondary-button toolbar-menu-button ${
-                openMenu === 'view' ? 'toolbar-menu-button-active' : ''
-              }`}
-              aria-haspopup="menu"
-              aria-expanded={openMenu === 'view'}
-              onClick={() => toggleMenu('view')}
-            >
-              View
-            </button>
-
-            {openMenu === 'view' ? (
-              <div className="toolbar-menu-panel" role="menu" aria-label="View options">
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={sidebarVisible}
-                  className="toolbar-menu-item"
-                  onClick={() => {
-                    onToggleSidebarVisibility();
-                    closeMenu();
-                  }}
-                >
-                  <span>{sidebarVisible ? 'On' : 'Off'}</span>
-                  Panels
-                </button>
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={desktopSlidersWindowEnabled}
-                  className="toolbar-menu-item"
-                  onClick={() => {
-                    onToggleDesktopSlidersWindow();
-                    closeMenu();
-                  }}
-                >
-                  <span>{desktopSlidersWindowEnabled ? 'On' : 'Off'}</span>
-                  Sliders
-                </button>
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={workspaceMode === 'immersive'}
-                  className="toolbar-menu-item"
-                  onClick={() => {
-                    onToggleWorkspaceMode();
-                    closeMenu();
-                  }}
-                >
-                  <span>{workspaceMode === 'immersive' ? 'On' : 'Off'}</span>
-                  Immersive
-                </button>
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={midiEnabled}
-                  className="toolbar-menu-item"
-                  title={
-                    midiEnabled
-                      ? midiPanelVisible
-                        ? 'Disable MIDI controller'
-                        : 'Show MIDI monitor'
-                      : 'Enable MIDI controller'
-                  }
-                  onClick={() => {
-                    onToggleMidi();
-                    closeMenu();
-                  }}
-                >
-                  <span>{midiEnabled ? 'On' : 'Off'}</span>
-                  MIDI
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          <button type="button" className="secondary-button toolbar-menu-button" onClick={onOpenSliceStudio}>
-            Slicer OBJ
-          </button>
         </div>
 
         <div className="toolbar-runtime-actions" data-onboarding-area="topbar">
-          <button type="button" className="secondary-button" onClick={onOpenAssets}>
+          <button type="button" className="primary-button toolbar-load-asset-button" onClick={onOpenAssets}>
             Load Asset
           </button>
           <button type="button" className="primary-button" onClick={onOpenOutput}>

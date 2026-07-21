@@ -68,17 +68,30 @@
                 <defs>
                   <linearGradient id="mushroomScanBand" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0" stop-color="white" stop-opacity="0" />
-                    <stop offset=".38" stop-color="white" stop-opacity=".16" />
-                    <stop offset=".5" stop-color="white" />
-                    <stop offset=".62" stop-color="white" stop-opacity=".16" />
+                    <stop offset=".2" stop-color="white" stop-opacity=".06" />
+                    <stop offset=".36" stop-color="white" stop-opacity=".34" />
+                    <stop offset=".5" stop-color="white" stop-opacity=".92" />
+                    <stop offset=".64" stop-color="white" stop-opacity=".34" />
+                    <stop offset=".8" stop-color="white" stop-opacity=".06" />
                     <stop offset="1" stop-color="white" stop-opacity="0" />
                   </linearGradient>
                   <mask id="mushroomScanMask" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="126">
-                    <rect class="mushroom-scan-mask-band" x="0" y="-28" width="120" height="36" fill="url(#mushroomScanBand)" />
+                    <rect class="mushroom-scan-mask-band" x="0" y="-48" width="120" height="56" fill="url(#mushroomScanBand)" />
                   </mask>
+                  <clipPath id="mushroomCapClip">
+                    <path d="M16 58C17 29 35 12 60 12s43 17 44 46c-12 7-26 10-44 10S28 65 16 58Z" />
+                  </clipPath>
                 </defs>
-                <path class="mushroom-outline mushroom-outline-ghost" d="M16 58C17 29 35 12 60 12s43 17 44 46c-12 7-26 10-44 10S28 65 16 58Zm34 8c0 14-4 24-10 38-2 5 2 10 8 10h24c6 0 10-5 8-10-6-14-10-24-10-38" />
                 <path class="mushroom-outline mushroom-outline-scan" mask="url(#mushroomScanMask)" d="M16 58C17 29 35 12 60 12s43 17 44 46c-12 7-26 10-44 10S28 65 16 58Zm34 8c0 14-4 24-10 38-2 5 2 10 8 10h24c6 0 10-5 8-10-6-14-10-24-10-38" />
+                <g class="mushroom-spots" clip-path="url(#mushroomCapClip)">
+                  <circle cx="60" cy="24" r="3.2" />
+                  <circle cx="79" cy="31" r="2.6" />
+                  <circle cx="91" cy="47" r="3.5" />
+                  <circle cx="70" cy="51" r="2.2" />
+                  <circle cx="49" cy="43" r="3.8" />
+                  <circle cx="31" cy="49" r="2.7" />
+                  <circle cx="40" cy="27" r="2.1" />
+                </g>
               </svg>
               <div class="scan-beam"></div>
             </div>
@@ -216,7 +229,7 @@
 
             <section id="depthPanel" class="panel disabled-panel depth-panel">
               <div class="section-heading"><span class="step-number">07</span><div><p class="eyebrow">Depth output</p><h2>Create depth map</h2></div></div>
-              <p class="tool-description">Generate a projection-ready depth image from this photo, adjust it here, then save it as a new asset.</p>
+              <p class="tool-description">First remove the background in Mask. Depth then analyzes only the isolated subject and keeps everything outside it black.</p>
               <button id="generateDepth" class="depth-generate-button" type="button" disabled><span aria-hidden="true">◉</span><strong>Generate depth map</strong><small>Depth Anything · runs on this device</small></button>
               <div class="depth-view-actions" role="group" aria-label="Depth map color mode">
                 <button id="depthModeBw" class="depth-view-button active" type="button">Black &amp; white</button>
@@ -231,7 +244,7 @@
               <label class="range-label" for="depthGammaRange"><span>Gamma</span><output id="depthGammaValue">100%</output></label>
               <input id="depthGammaRange" type="range" min="40" max="180" value="100" />
               <label class="depth-option-row" for="depthInvert"><span><strong>Invert depth</strong><small>Swap near and far values</small></span><input id="depthInvert" type="checkbox" /></label>
-              <p id="depthStatus" class="depth-status">Ready to generate from the loaded photo.</p>
+              <p id="depthStatus" class="depth-status">Finish the background mask, then generate depth.</p>
             </section>
 
           </div>
