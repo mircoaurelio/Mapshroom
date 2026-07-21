@@ -1,6 +1,11 @@
 import type { ProjectDocument, StageTransform, UiPreferences } from './types';
 import { shaderPresetList, shaderPresets } from './shaders/presets';
-import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
+import {
+  pickRandomShaderPresets,
+  createStarterTimelineSteps,
+  STARTER_TIMELINE_SHADER_COUNT,
+} from './lib/bundledProjects';
+import { getShaderTimelineDuration } from './lib/timeline';
 import {
   DEFAULT_BUNDLED_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
@@ -42,6 +47,8 @@ export const DEFAULT_ANTHROPIC_MODEL_OPTIONS = [
 export const SHADER_GENERATION_TEMPERATURE = 0.1;
 export const DEFAULT_LOCAL_SHADER_MODEL = '';
 
+export { STARTER_TIMELINE_SHADER_COUNT };
+
 export const DEFAULT_SHADERS = shaderPresets;
 
 export const DEFAULT_STAGE_TRANSFORM: StageTransform = {
@@ -62,20 +69,24 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   desktopSlidersWindowEnabled: true,
 };
 
-const defaultShader = shaderPresetList[0];
-
-if (!defaultShader) {
+if (shaderPresetList.length === 0) {
   throw new Error('Mapshroom requires at least one shader preset.');
 }
 
 export function createDefaultProject(sessionId: string): ProjectDocument {
-  const firstTimelineStepId = crypto.randomUUID();
+  const sculpturePool = shaderPresetList.filter((preset) => preset.template === 'sculpture');
+  const starterPresets = pickRandomShaderPresets(
+    STARTER_TIMELINE_SHADER_COUNT,
+    sculpturePool.length >= STARTER_TIMELINE_SHADER_COUNT ? sculpturePool : shaderPresetList,
+  );
+  const activeShader = starterPresets[0]!;
+  const steps = createStarterTimelineSteps(starterPresets);
   const defaultShaderVersions = [
     {
       id: crypto.randomUUID(),
       prompt: 'Base Node Source',
-      name: defaultShader.name,
-      code: defaultShader.code,
+      name: activeShader.name,
+      code: activeShader.code,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -89,14 +100,14 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
       activeAssetId: DEFAULT_BUNDLED_ASSET_ID,
     },
     studio: {
-      activeShaderId: defaultShader.id,
-      activeShaderName: defaultShader.name,
-      activeShaderCode: defaultShader.code,
+      activeShaderId: activeShader.id,
+      activeShaderName: activeShader.name,
+      activeShaderCode: activeShader.code,
       shaderVersions: defaultShaderVersions,
       savedShaders: Object.values(DEFAULT_SHADERS).map((shader) => ({
         ...shader,
         versions:
-          shader.id === defaultShader.id
+          shader.id === activeShader.id
             ? defaultShaderVersions
             : [
                 {
@@ -109,7 +120,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
               ],
       })),
       shaderChatHistory: [],
-      uniformValues: defaultShader.uniformValues ?? {},
+      uniformValues: activeShader.uniformValues ?? {},
     },
     mapping: {
       stageTransform: { ...DEFAULT_STAGE_TRANSFORM },
@@ -144,18 +155,18 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
     timeline: {
       stub: {
         enabled: false,
-        durationSeconds: 180,
+        durationSeconds: getShaderTimelineDuration(steps),
         markers: ['intro', 'verse', 'drop'],
         tracks: [
           { id: 'timeline-track-assets', label: 'Assets', type: 'media' },
           { id: 'timeline-track-effects', label: 'Effects', type: 'automation' },
         ],
         shaderSequence: {
-          enabled: false,
-          mode: 'sequence',
-          editorView: 'advanced',
-          stagePreviewMode: 'timeline',
-          focusedStepId: firstTimelineStepId,
+          enabled: true,
+          mode: 'randomMix',
+          editorView: 'simple',
+          stagePreviewMode: 'focused',
+          focusedStepId: steps[0]?.id ?? null,
           pinnedStepId: null,
           randomSeedToken: crypto.randomUUID(),
           singleStepLoopEnabled: false,
@@ -164,17 +175,7 @@ export function createDefaultProject(sessionId: string): ProjectDocument {
           sharedTransitionEffect: 'mix',
           sharedTransitionDurationSeconds: 0.75,
           sharedSectionDurationSeconds: 8,
-          steps: [
-            {
-              id: firstTimelineStepId,
-              shaderId: defaultShader.id,
-              disabled: false,
-              durationSeconds: 8,
-              transitionDurationSeconds: 0.75,
-              transitionEffect: 'mix',
-              assetSettings: normalizeTimelineStepAssetSettings(),
-            },
-          ],
+          steps,
         },
       },
     },

@@ -76,6 +76,7 @@ interface TimelineBarProps {
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
   onEditSequenceStep: (stepId: string) => void;
+  onAddSequenceStep?: () => void;
   scrollToStepRequest?: { stepId: string; token: number } | null;
   onResizeSequenceBoundary: (
     leftStepId: string,
@@ -350,6 +351,7 @@ export function TimelineBar({
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
   onEditSequenceStep,
+  onAddSequenceStep,
   scrollToStepRequest = null,
   onResizeSequenceBoundary,
   variant = 'desktop',
@@ -1131,6 +1133,7 @@ export function TimelineBar({
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
         onEditStep={onEditSequenceStep}
+        onAddStep={onAddSequenceStep}
         scrollToStepRequest={scrollToStepRequest}
       />
     </div>

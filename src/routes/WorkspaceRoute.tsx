@@ -206,7 +206,7 @@ const ONBOARDING_COPY = {
         title: 'Remove the background',
         badge: 'Required',
         copy:
-          'Remove the background with AI. Nano Banana is recommended, or use the app AI tools when configured as a paid feature with an API key.',
+          'Use the AI tools built into the app to remove the background and prepare a clean subject for projection.',
         image: 'assets/onboarding/photo-background-removed.webp',
       },
       {
@@ -245,7 +245,7 @@ const ONBOARDING_COPY = {
         placement: 'code',
         points: [
           'Edit or paste shader code.',
-          'Ask AI to generate a shader from a prompt when an API key is configured.',
+          'Use the AI tools built into the app to generate a shader from a prompt.',
           'Use presets when starting from a known effect.',
           'Save versions before major changes.',
         ],
@@ -328,7 +328,7 @@ const ONBOARDING_COPY = {
         title: 'Rimuovi lo sfondo',
         badge: 'Richiesto',
         copy:
-          "Rimuovi lo sfondo con l'AI. Nano Banana è consigliato, oppure usa gli strumenti AI dell'app quando sono configurati come funzione a pagamento con una chiave API.",
+          "Usa gli strumenti AI integrati nell'app per rimuovere lo sfondo e preparare un soggetto pulito per la proiezione.",
         image: 'assets/onboarding/photo-background-removed.webp',
       },
       {
@@ -367,7 +367,7 @@ const ONBOARDING_COPY = {
         placement: 'code',
         points: [
           'Modifica o incolla codice shader.',
-          "Chiedi all'AI di generare uno shader da un prompt quando è configurata una chiave API.",
+          "Usa gli strumenti AI integrati nell'app per generare uno shader da un prompt.",
           'Usa i preset quando parti da un effetto noto.',
           'Salva le versioni prima delle modifiche importanti.',
         ],
@@ -1825,6 +1825,17 @@ export function WorkspaceRoute() {
       }
 
       const sessionId = getOrCreateSessionId();
+      // Existing installs that still point at the huge bundled Statue timeline
+      // get a fresh starter project with a small random shader set.
+      if (isBundledProjectSessionId(sessionId)) {
+        const nextSessionId = crypto.randomUUID();
+        const starterProject = normalizeProject(createDefaultProject(nextSessionId));
+        persistActiveSessionId(nextSessionId);
+        saveProjectDocument(starterProject);
+        setProject(starterProject);
+        return;
+      }
+
       persistActiveSessionId(sessionId);
       const loadedProject = loadProjectDocument(sessionId) ?? createDefaultProject(sessionId);
       const sliderCache = loadShaderSliderCache(sessionId);
@@ -4931,14 +4942,14 @@ ${errorSnapshot}`,
     return (
       <div className="loading-screen">
         <div className="loading-screen-card" role="status" aria-live="polite">
-          <div className="mushroom-loader" aria-hidden="true">
-            <span className="mushroom-loader-glow" />
+          <div className="brand-loader" aria-hidden="true">
+            <span className="brand-loader-glow" />
             <img
-              className="mushroom-loader-icon"
-              src={`${import.meta.env.BASE_URL}assets/icons/mushroom-favicon.svg`}
+              className="brand-loader-icon"
+              src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-mark.svg`}
               alt=""
             />
-            <span className="mushroom-loader-shadow" />
+            <span className="brand-loader-scan" />
           </div>
           <span className="panel-eyebrow">Mapshroom V3</span>
           <h1>Loading workspace</h1>
@@ -5307,6 +5318,7 @@ ${errorSnapshot}`,
       onRemoveSequenceStep={handleTimelineRemoveStep}
       onResizeSequenceBoundary={handleTimelineResizeBoundary}
       onEditSequenceStep={handleTimelineEditStep}
+      onAddSequenceStep={createNewShader}
       scrollToStepRequest={timelineScrollToStepRequest}
     />
   );
@@ -5723,6 +5735,7 @@ ${errorSnapshot}`,
         onRemoveSequenceStep={handleTimelineRemoveStep}
         onResizeSequenceBoundary={handleTimelineResizeBoundary}
         onEditSequenceStep={handleTimelineEditStep}
+        onAddSequenceStep={createNewShader}
         scrollToStepRequest={timelineScrollToStepRequest}
         onClose={() => setIsMobileTimelineOpen(false)}
       />

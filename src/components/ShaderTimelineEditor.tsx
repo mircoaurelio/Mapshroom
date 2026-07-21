@@ -82,6 +82,7 @@ interface ShaderTimelineEditorProps {
   onDuplicateStep: (stepId: string) => void;
   onRemoveStep: (stepId: string) => void;
   onEditStep: (stepId: string) => void;
+  onAddStep?: () => void;
   scrollToStepRequest?: { stepId: string; token: number } | null;
 }
 
@@ -241,6 +242,7 @@ export function ShaderTimelineEditor({
   onDuplicateStep,
   onRemoveStep,
   onEditStep,
+  onAddStep,
   scrollToStepRequest = null,
 }: ShaderTimelineEditorProps) {
   const flowStripRef = useRef<HTMLDivElement>(null);
@@ -1127,6 +1129,25 @@ export function ShaderTimelineEditor({
             </div>
           );
         })}
+
+        {onAddStep ? (
+          <div className="timeline-flow-node" role="listitem">
+            <button
+              type="button"
+              className={`timeline-step-card timeline-step-card-add ${
+                !isAdvancedView ? 'timeline-step-card-simple' : ''
+              }`}
+              aria-label="Add a new shader"
+              title="Add a new shader"
+              onClick={onAddStep}
+            >
+              <span className="timeline-step-add-plus" aria-hidden="true">
+                +
+              </span>
+              <span className="timeline-step-add-label">Add shader</span>
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {assetPickerStep && assetPickerShader ? (
