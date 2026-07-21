@@ -4,7 +4,9 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ command }) => {
-  const base = command === 'build' ? '/Mapshroom/' : '/';
+  // Custom domain (mapshroom.dev) and Cloudflare Pages serve from root.
+  // Override with BASE_PATH=/Mapshroom/ only if you still need GitHub Pages.
+  const base = command === 'build' ? (process.env.BASE_PATH || '/') : '/';
 
   return {
     plugins: [
