@@ -22,6 +22,12 @@
     <title>Mapshroom V3</title>
     <script>
       (function () {
+        if (location.hostname === 'mircoaurelio.github.io') {
+          var redirectedPath = location.pathname.replace(/^\/Mapshroom\/?/, '/') || '/';
+          location.replace('https://mapshroom.dev' + redirectedPath + location.search + location.hash);
+          return;
+        }
+
         var path = location.pathname;
         var isStandalone =
           window.matchMedia('(display-mode: standalone)').matches ||
@@ -37,6 +43,9 @@
         }
       })();
     </script>
+    <noscript>
+      <meta http-equiv="refresh" content="0;url=https://mapshroom.dev/" />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>
