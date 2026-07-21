@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-};
-
+import {
+  getDeferredInstallPrompt,
+  onAppInstalled,
+  onInstallAvailable,
+  promptInstall,
+} from '../lib/pwaInstall';
 type InstallState = 'idle' | 'available' | 'installed' | 'manual';
 type OfflineState = 'checking' | 'ready' | 'pending';
 
@@ -31,9 +31,9 @@ function getManualInstallHint(platform: ReturnType<typeof detectPlatform>): stri
 }
 
 export function DownloadRoute() {
-  const installPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
-  const [installState, setInstallState] = useState<InstallState>('idle');
-  const [offlineState, setOfflineState] = useState<OfflineState>('checking');
+  const [installState, setInstallState] = useState<InstallState>(() =>
+    getDeferredInstallPrompt() ? 'available' : 'idle',
+  );  const [offlineState, setOfflineState] = useState<OfflineState>('checking');
   const [installing, setInstalling] = useState(false);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const [installMessage, setInstallMessage] = useState<string | null>(null);
@@ -61,33 +61,26 @@ export function DownloadRoute() {
       return;
     }
 
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      installPromptRef.current = event as BeforeInstallPromptEvent;
+    const unsubscribeAvailable = onInstallAvailable(() => {
       setInstallState('available');
       setInstallMessage(null);
-    };
+    });
 
-    const handleAppInstalled = () => {
-      installPromptRef.current = null;
+    const unsubscribeInstalled = onAppInstalled(() => {
       setInstallState('installed');
       setInstallMessage('Mapshroom is installed on this device.');
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
+    });
 
     const manualTimer = window.setTimeout(() => {
       setInstallState((current) => (current === 'idle' ? 'manual' : current));
-    }, 2000);
+    }, 4000);
 
     return () => {
       window.clearTimeout(manualTimer);
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      unsubscribeAvailable();
+      unsubscribeInstalled();
     };
   }, []);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -132,8 +125,7 @@ export function DownloadRoute() {
   }, []);
 
   const handleInstall = async () => {
-    const installPrompt = installPromptRef.current;
-    if (!installPrompt) {
+    if (!getDeferredInstallPrompt()) {
       setInstallState('manual');
       setInstallMessage(getManualInstallHint(platform));
       document.getElementById('install-steps')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -142,21 +134,21 @@ export function DownloadRoute() {
 
     setInstalling(true);
     try {
-      await installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
+      const outcome = await promptInstall();
+      if (outcome === 'accepted') {
         setInstallState('installed');
         setInstallMessage('Mapshroom is installed on this device.');
-      } else {
+      } else if (outcome === 'dismissed') {
         setInstallMessage('Install cancelled. Use the manual steps below.');
         setInstallState('manual');
+      } else {
+        setInstallState('manual');
+        setInstallMessage(getManualInstallHint(platform));
       }
-      installPromptRef.current = null;
     } finally {
       setInstalling(false);
     }
   };
-
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(downloadPageUrl);
@@ -232,7 +224,11 @@ export function DownloadRoute() {
               onClick={() => void handleInstall()}
               disabled={installing}
             >
-              {installing ? 'Installing…' : 'Install Mapshroom offline'}
+              {installing
+                ? 'Installing…'
+                : installState === 'available'
+                  ? 'Install Mapshroom'
+                  : 'Install Mapshroom offline'}
             </button>
           )}
 
