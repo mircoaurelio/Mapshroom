@@ -153,8 +153,8 @@ export function AssetLibraryDialog({
               <SparkleIcon />
               <span>Generate</span>
             </button>
-            <button type="button" className="primary-button asset-browser-import" onClick={onLoadAsset}>
-              Import
+            <button type="button" className="primary-button asset-browser-import asset-browser-shine" onClick={onLoadAsset}>
+              <span>Import</span>
             </button>
             <button type="button" className="asset-browser-close" onClick={onClose} aria-label="Close asset library" title="Close">
               ×
