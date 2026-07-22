@@ -542,6 +542,12 @@ a {
   color: var(--text-bright);
 }
 
+.toolbar-move-button-active {
+  background: color-mix(in srgb, var(--accent) 22%, #18181b);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .toolbar-menu-panel {
   position: absolute;
   top: calc(100% + 0.4rem);

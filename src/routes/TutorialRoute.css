@@ -94,6 +94,12 @@
 .tutorial-mini-steps li { counter-increment:mini; min-height:90px; padding:18px; background:#e8e5dd; }
 .tutorial-mini-steps li:before { content:counter(mini,decimal-leading-zero); display:block; margin-bottom:8px; color:#1c7254; font:700 10px 'IBM Plex Mono',monospace; }
 .tutorial-mapping-demo { display:grid; grid-template-columns:minmax(0,1fr) 360px; min-height:620px; background:#080808; }
+.tutorial-move-toolbar { margin-bottom:16px; aspect-ratio:auto; min-height:110px; display:grid; place-items:center; border:1px solid #242426; background:#09090b; box-shadow:0 22px 60px rgba(22,22,18,.14); }
+.tutorial-move-toolbar-row { display:flex; align-items:center; gap:10px; padding:18px 28px; border:1px solid #2f2f33; border-radius:8px; background:#141416; }
+.tutorial-move-toolbar-row span,.tutorial-move-toolbar-row strong { display:inline-flex; align-items:center; justify-content:center; min-width:72px; min-height:38px; padding:0 14px; border:1px solid #3f3f46; border-radius:6px; color:#d4d4d8; font:600 12px 'IBM Plex Mono',monospace; letter-spacing:.06em; text-transform:uppercase; }
+.tutorial-move-toolbar-row strong { border-color:#79efbd; background:rgba(121,239,189,.16); color:#79efbd; box-shadow:0 0 0 4px rgba(121,239,189,.12); }
+.tutorial-move-toolbar-marker { left:52%; top:34%; }
+.tutorial-move-toolbar figcaption { position:absolute; left:18px; bottom:14px; margin:0; color:#a1a1aa; font:11px 'IBM Plex Mono',monospace; }
 .tutorial-mapping-stage { position:relative; display:grid; place-items:center; overflow:hidden; background:radial-gradient(circle,#202221,#060606 65%); }
 .tutorial-mapping-stage img { width:65%; height:70%; object-fit:contain; filter:drop-shadow(0 0 22px rgba(121,239,189,.25)); }
 .tutorial-mapping-stage span { position:absolute; width:63%; height:68%; border:2px dashed #79efbd; }

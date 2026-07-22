@@ -152,6 +152,18 @@ export function TutorialRoute() {
           <Step number="05" title={copy.steps.fit.title} stepLabel={copy.stepLabel('05')}>
             <p>{copy.steps.fit.bodyBefore}<strong>{copy.steps.fit.bodyStrong}</strong>{copy.steps.fit.bodyAfter}</p>
           </Step>
+          <figure className="tutorial-media tutorial-move-toolbar" aria-label={copy.steps.fit.toolbarHint}>
+            <div className="tutorial-move-toolbar-row">
+              <span>File</span>
+              <strong>Move</strong>
+              <span>Shader</span>
+            </div>
+            <div className="tutorial-click-marker tutorial-move-toolbar-marker">
+              <span aria-hidden="true">5</span><strong>{copy.clickHere}</strong>
+            </div>
+            <figcaption>{copy.steps.fit.toolbarHint}</figcaption>
+          </figure>
+          <div className="tutorial-action-line"><kbd>FILE</kbd><span>→</span><kbd>MOVE</kbd><span>→</span><p>{copy.steps.fit.action}</p></div>
           <div className="tutorial-mapping-demo">
             <div className="tutorial-mapping-stage"><img src="assets/onboarding/photo-background-removed.webp" alt="" /><span /></div>
             <div className="tutorial-mapping-card"><p>MOVE / SIZE</p><div className="tutorial-mapping-pad"><button type="button">H−</button><button type="button" className="active">↑</button><button type="button">H+</button><button type="button" className="active">←</button><button type="button" className="precision">Precision<strong>12</strong></button><button type="button" className="active">→</button><button type="button">W−</button><button type="button" className="active">↓</button><button type="button">W+</button></div><small>{copy.steps.fit.cardHint}</small></div>

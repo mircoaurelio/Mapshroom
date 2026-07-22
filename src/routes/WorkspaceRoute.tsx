@@ -5621,6 +5621,7 @@ ${errorSnapshot}`,
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           colorTheme={uiPreferences.colorTheme}
+          moveMode={stageTransform.moveMode}
           onOpenProjects={() => {
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
@@ -5658,6 +5659,10 @@ ${errorSnapshot}`,
           onOpenOutput={() => {
             trackUiClick('open_output');
             handleOutputWindowOpen();
+          }}
+          onToggleMoveMode={() => {
+            trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');
+            toggleMoveMode();
           }}
           onToggleSidebarVisibility={toggleSidebarVisibility}
           onToggleDesktopSlidersWindow={toggleDesktopSlidersWindow}

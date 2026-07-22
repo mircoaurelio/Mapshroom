@@ -46,6 +46,8 @@ export type TutorialCopy = {
       bodyBefore: string;
       bodyStrong: string;
       bodyAfter: string;
+      action: string;
+      toolbarHint: string;
       cardHint: string;
     };
     shader: { title: string; bodyBefore: string; bodyStrongShader: string; bodyMid: string; bodyStrongPreset: string; bodyAfter: string; action: string };
@@ -124,9 +126,11 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
       },
       fit: {
         title: 'Fit the projection to the object',
-        bodyBefore: 'Open the ',
+        bodyBefore: 'In the top bar, click ',
         bodyStrong: 'Move',
-        bodyAfter: ' card. Use Up, Down, Left, and Right to position the image; use W and H to resize it until the edges match.',
+        bodyAfter: ' (right after File) to turn move mode on. Use Up, Down, Left, and Right to position the image; use W and H to resize it until the edges match. Click Move Off when you are done.',
+        action: 'Turn move mode on, then align the projection.',
+        toolbarHint: 'Top bar — after File',
         cardHint: 'Tap for small adjustments. Keep the object and projector still.',
       },
       shader: {
@@ -221,9 +225,11 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
       },
       fit: {
         title: "Adatta la proiezione all'oggetto",
-        bodyBefore: 'Apri la card ',
+        bodyBefore: 'Nella barra in alto, clicca ',
         bodyStrong: 'Move',
-        bodyAfter: ". Usa Su, Giù, Sinistra e Destra per posizionare l'immagine; usa W e H per ridimensionarla finché i bordi coincidono.",
+        bodyAfter: " (subito dopo File) per attivare la move mode. Usa Su, Giù, Sinistra e Destra per posizionare l'immagine; usa W e H per ridimensionarla finché i bordi coincidono. Clicca Move Off quando hai finito.",
+        action: 'Attiva la move mode, poi allinea la proiezione.',
+        toolbarHint: 'Barra in alto — dopo File',
         cardHint: "Tocca per piccoli aggiustamenti. Tieni fermo l'oggetto e il proiettore.",
       },
       shader: {

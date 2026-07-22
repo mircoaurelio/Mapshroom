@@ -11,6 +11,7 @@ interface WorkspaceToolbarProps {
   sidebarVisible: boolean;
   desktopSlidersWindowEnabled: boolean;
   colorTheme: 'green' | 'pink';
+  moveMode: boolean;
   onOpenProjects: () => void;
   onOpenShare: () => void;
   onOpenExport: () => void;
@@ -20,6 +21,7 @@ interface WorkspaceToolbarProps {
   onOpenPresetBrowser: () => void;
   onPlayToggle: () => void;
   onOpenOutput: () => void;
+  onToggleMoveMode: () => void;
   onToggleWorkspaceMode: () => void;
   onToggleSidebarVisibility: () => void;
   onToggleDesktopSlidersWindow: () => void;
@@ -62,6 +64,7 @@ export function WorkspaceToolbar({
   sidebarVisible,
   desktopSlidersWindowEnabled,
   colorTheme,
+  moveMode,
   onOpenProjects,
   onOpenShare,
   onOpenExport,
@@ -71,6 +74,7 @@ export function WorkspaceToolbar({
   onOpenPresetBrowser,
   onPlayToggle,
   onOpenOutput,
+  onToggleMoveMode,
   onToggleWorkspaceMode,
   onToggleSidebarVisibility,
   onToggleDesktopSlidersWindow,
@@ -290,6 +294,18 @@ export function WorkspaceToolbar({
               </div>
             ) : null}
           </div>
+
+          <button
+            type="button"
+            className={`secondary-button toolbar-menu-button ${
+              moveMode ? 'toolbar-menu-button-active toolbar-move-button-active' : ''
+            }`}
+            aria-pressed={moveMode}
+            title={moveMode ? 'Turn move mode off' : 'Turn move mode on'}
+            onClick={onToggleMoveMode}
+          >
+            {moveMode ? 'Move Off' : 'Move'}
+          </button>
 
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
             <button
