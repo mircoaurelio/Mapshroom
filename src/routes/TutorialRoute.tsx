@@ -80,9 +80,11 @@ export function TutorialRoute() {
           <aside className="tutorial-tip"><strong>Important</strong> Take the photo from as close as possible to the projector lens. Matching viewpoints makes alignment faster.</aside>
         </section>
 
-        <section className="tutorial-step">
-          <Step number="02" title="Load the photo into Mapshroom"><p>Open the workspace, choose <strong>Load asset</strong> in the top bar, then pick your photo. It appears in the media library and on the stage.</p></Step>
-          <Media className="tutorial-ui-shot tutorial-zoom-shot" src="assets/tutorial/load-output-zoom-v2.png" alt="Zoomed Mapshroom toolbar showing the Load Asset button and an active shader" marker={{ label: '1', x: '69%', y: '5%' }} />
+        <section className="tutorial-step tutorial-step-load">
+          <div className="tutorial-load-grid">
+            <Step number="02" title="Load the photo into Mapshroom"><p>Open the workspace, choose <strong>Load asset</strong> in the top bar, then pick your photo. It appears in the media library and on the stage.</p></Step>
+            <Media className="tutorial-ui-shot tutorial-zoom-shot" src="assets/tutorial/load-output-zoom-v2.png" alt="Zoomed Mapshroom toolbar showing the Load Asset button and an active shader" marker={{ label: '1', x: '69%', y: '5%' }} />
+          </div>
           <div className="tutorial-action-line"><kbd>LOAD ASSET</kbd><span>→</span><p>Select the sculpture photo.</p></div>
         </section>
 
@@ -91,7 +93,7 @@ export function TutorialRoute() {
           <div className="tutorial-processing-demo">
             <figure className="tutorial-media tutorial-mask-video">
               <video autoPlay muted loop playsInline preload="metadata" poster="assets/tutorial/remove-background-loop-poster-v2.jpg" aria-label="Removing a background in the Mapshroom Mask Editor at double speed">
-                <source src="assets/tutorial/remove-background-loop-v2.mp4" type="video/mp4" />
+                <source src="assets/tutorial/remove-background-loop-v3.mp4" type="video/mp4" />
               </video>
               <figcaption><strong>2× loop</strong> Mask Editor — remove the background</figcaption>
             </figure>
@@ -112,7 +114,7 @@ export function TutorialRoute() {
           <Step number="04" title="Connect the projector"><p>Connect the computer to the projector with HDMI. Press <strong>Output</strong> and move the new browser window onto the projector display.</p></Step>
           <div className="tutorial-projector-grid">
             <Media src="assets/onboarding/materials-needed.webp" alt="Projector, HDMI cable, and phone" />
-            <Media className="tutorial-ui-shot tutorial-projector-ui" src="assets/tutorial/load-output-zoom-v2.png" alt="Active shader beside the zoomed Mapshroom Output button" marker={{ label: '2', x: '82%', y: '5%' }} />
+            <Media className="tutorial-ui-shot tutorial-projector-ui" src="assets/tutorial/load-output-zoom-v2.png" alt="Active shader beside the zoomed Mapshroom Output button" />
           </div>
           <ol className="tutorial-mini-steps"><li>Connect HDMI</li><li>Click <strong>Output</strong></li><li>Move the window to the projector</li><li>Enter full screen</li></ol>
         </section>
@@ -127,19 +129,19 @@ export function TutorialRoute() {
 
         <section className="tutorial-step">
           <Step number="06" title="Choose a shader"><p>Open <strong>Shader</strong>, then <strong>Preset list</strong>. Preview the styles and select one that reads clearly on the object.</p></Step>
-          <Media className="tutorial-ui-shot" src="assets/tutorial/shader-gallery.png" alt="Mapshroom shader preset gallery" marker={{ label: '3', x: '61%', y: '55%' }} />
+          <Media className="tutorial-ui-shot tutorial-hq-gallery" src="assets/tutorial/shader-gallery-hq-v3.png" alt="Mapshroom shader library over the default Palco Stage" marker={{ label: '3', x: '50%', y: '48%' }} />
           <div className="tutorial-action-line"><kbd>SHADER</kbd><span>→</span><kbd>PRESET LIST</kbd><span>→</span><p>Choose a preset.</p></div>
         </section>
 
         <section className="tutorial-step">
           <Step number="07" title="Customize the shader"><p>Use the sliders on the left to change speed, intensity, scale, relief, and color. Every change appears live.</p></Step>
-          <Media className="tutorial-ui-shot" src="assets/tutorial/shader-controls.png" alt="Mapshroom shader control sliders" marker={{ label: '4', x: '16%', y: '33%' }} />
+          <Media className="tutorial-ui-shot tutorial-hq-controls" src="assets/tutorial/shader-controls-hq-v3.png" alt="Mapshroom shader controls beside the default Palco Stage" marker={{ label: '4', x: '14%', y: '29%' }} />
           <aside className="tutorial-tip"><strong>Start simple</strong> Set the overall look first, then add motion. High contrast usually projects better.</aside>
         </section>
 
         <section className="tutorial-step">
           <Step number="08" title="Customize the timeline"><p>Add shader clips along the bottom timeline. Drag clips to reorder them, set the duration, and choose transitions.</p></Step>
-          <Media className="tutorial-ui-shot" src="assets/tutorial/timeline.png" alt="Mapshroom timeline with multiple shader clips" marker={{ label: '5', x: '50%', y: '82%' }} />
+          <Media className="tutorial-ui-shot tutorial-hq-timeline" src="assets/tutorial/timeline-hq-v3.png" alt="Mapshroom timeline beneath the default Palco Stage and shader controls" marker={{ label: '5', x: '50%', y: '70%' }} />
           <div className="tutorial-timeline-key"><span><i />Drag to reorder</span><span><i />Set duration</span><span><i />Choose transition</span></div>
         </section>
 
