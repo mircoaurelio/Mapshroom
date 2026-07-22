@@ -922,7 +922,7 @@ function detectAssetKind(file: File): AssetKind | null {
 }
 
 function clampDimension(value: number): number {
-  return Math.max(-900, Math.min(1600, value));
+  return Math.min(1600, value);
 }
 
 function applyMappingTransform(transform: StageTransform, action: MappingAction): StageTransform {
