@@ -36,7 +36,6 @@ import { UniformPanel } from '../components/UniformPanel';
 import type { TimelineSelectionInfo } from '../components/TimelineSelectionBanner';
 import { MidiControllerPanel } from '../components/MidiControllerPanel';
 import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDialog';
-import { OutputScreenDialog } from '../components/OutputScreenDialog';
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import { signalProjectReady } from '../components/BootScreenController';
@@ -107,7 +106,6 @@ import type {
 } from '../lib/midi/types';
 import { createMidiOutputSync } from '../lib/midi/outputSync';
 import { openOutputWindow } from '../lib/openOutputWindow';
-import type { OutputDisplayOption } from '../lib/screenDetails';
 import {
   createProjectShareLink,
   importProjectFromSharedUrl,
@@ -1758,7 +1756,6 @@ export function WorkspaceRoute() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
-  const [isOutputScreenDialogOpen, setIsOutputScreenDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [presetSelectionAddsToTimeline, setPresetSelectionAddsToTimeline] = useState(false);
   const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
@@ -3845,8 +3842,7 @@ export function WorkspaceRoute() {
       isProjectDialogOpen ||
       isShareDialogOpen ||
       isPresetBrowserOpen ||
-      isSliceStudioDialogOpen ||
-      isOutputScreenDialogOpen);
+      isSliceStudioDialogOpen);
 
   const cyclePreviewShader = (direction: 1 | -1) => {
     if (!project) {
@@ -4609,20 +4605,13 @@ ${errorSnapshot}`,
     sessionSyncRef.current?.publish(project);
   };
 
-  const handleOutputWindowOpen = (
-    options: {
-      display?: OutputDisplayOption | null;
-      fullscreenCurrent?: boolean;
-    } = {},
-  ) => {
+  const handleOutputWindowOpen = () => {
     if (!project) {
       return;
     }
 
     const result = openOutputWindow({
       sessionId: project.sessionId,
-      display: options.display ?? null,
-      fullscreenCurrent: options.fullscreenCurrent ?? false,
       existingWindow: outputWindowRef.current,
     });
 
@@ -4633,7 +4622,6 @@ ${errorSnapshot}`,
 
     outputWindowRef.current = result.popup;
     setOutputWindowOpen(true);
-    setIsOutputScreenDialogOpen(false);
     publishProjectToOutput();
     window.setTimeout(publishProjectToOutput, 200);
     window.setTimeout(publishProjectToOutput, 800);
@@ -5624,19 +5612,6 @@ ${errorSnapshot}`,
         onClose={() => setIsSliceStudioDialogOpen(false)}
       />
 
-      <OutputScreenDialog
-        open={isOutputScreenDialogOpen}
-        onClose={() => setIsOutputScreenDialogOpen(false)}
-        onOpenOnDisplay={(display) => {
-          trackUiClick('open_output_display');
-          handleOutputWindowOpen({ display });
-        }}
-        onOpenFullscreenHere={() => {
-          trackUiClick('open_output_fullscreen_here');
-          handleOutputWindowOpen({ fullscreenCurrent: true });
-        }}
-      />
-
       {!isMobile && uiPreferences.chromeVisible ? (
         <WorkspaceToolbar
           isPlaying={project.playback.transport.isPlaying}
@@ -5681,7 +5656,7 @@ ${errorSnapshot}`,
           }}
           onOpenOutput={() => {
             trackUiClick('open_output');
-            setIsOutputScreenDialogOpen(true);
+            handleOutputWindowOpen();
           }}
           onToggleMoveMode={() => {
             trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');

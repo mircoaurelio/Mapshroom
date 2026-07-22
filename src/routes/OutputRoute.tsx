@@ -8,6 +8,11 @@ import {
   type MidiOutputLiveState,
 } from '../lib/midi/outputSync';
 import { saveOutputViewportSnapshot } from '../lib/outputViewport';
+import {
+  queryOutputDisplays,
+  type OutputDisplayOption,
+  type OutputDisplayQueryResult,
+} from '../lib/screenDetails';
 import { createSessionSync } from '../lib/sessionSync';
 import { loadProjectDocument } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
@@ -39,13 +44,16 @@ const FALLBACK_TIMELINE_STUB = {
 export function OutputRoute() {
   const { sessionId = '' } = useParams();
   const [searchParams] = useSearchParams();
-  const requestFullscreenOnOpen = searchParams.get('fullscreen') === '1';
+  const chooseScreenOnOpen = searchParams.get('chooseScreen') === '1';
   const storedProject = useMemo(
     () => (sessionId ? loadProjectDocument(sessionId) : null),
     [sessionId],
   );
   const [liveProject, setLiveProject] = useState<ProjectDocument | null>(null);
   const [showFullscreenGate, setShowFullscreenGate] = useState(false);
+  const [showScreenPicker, setShowScreenPicker] = useState(chooseScreenOnOpen);
+  const [displayQuery, setDisplayQuery] = useState<OutputDisplayQueryResult | null>(null);
+  const [fullscreenError, setFullscreenError] = useState('');
   const [midiOutputMix, setMidiOutputMix] = useState<MidiOutputLiveState | null>(() =>
     sessionId ? loadMidiOutputMixState(sessionId) : null,
   );
@@ -69,50 +77,43 @@ export function OutputRoute() {
   }, [sessionId]);
 
   useEffect(() => {
-    if (!requestFullscreenOnOpen) {
-      setShowFullscreenGate(false);
-      return;
-    }
-
-    if (document.fullscreenElement) {
-      setShowFullscreenGate(false);
-      return;
-    }
-
-    const root = document.documentElement;
-    if (typeof root.requestFullscreen !== 'function') {
-      return;
-    }
-
-    const attemptFullscreen = () => {
-      if (document.fullscreenElement) {
-        setShowFullscreenGate(false);
-        return;
-      }
-      void root.requestFullscreen()
-        .then(() => setShowFullscreenGate(false))
-        .catch(() => setShowFullscreenGate(true));
-    };
-
-    attemptFullscreen();
-    const retryId = window.setTimeout(attemptFullscreen, 200);
-    const gateId = window.setTimeout(() => {
-      if (!document.fullscreenElement) {
-        setShowFullscreenGate(true);
-      }
-    }, 500);
-
-    const handleFullscreenChange = () => {
-      setShowFullscreenGate(!document.fullscreenElement && requestFullscreenOnOpen);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-
+    if (!showScreenPicker) return;
+    let cancelled = false;
+    void queryOutputDisplays().then((result) => {
+      if (!cancelled) setDisplayQuery(result);
+    });
     return () => {
-      window.clearTimeout(retryId);
-      window.clearTimeout(gateId);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      cancelled = true;
     };
-  }, [requestFullscreenOnOpen]);
+  }, [showScreenPicker]);
+
+  const enterFullscreenOnDisplay = (display: OutputDisplayOption | null) => {
+    setFullscreenError('');
+    if (display) {
+      try {
+        window.moveTo(display.left, display.top);
+        window.resizeTo(display.width, display.height);
+      } catch {
+        // Fullscreen can still succeed when the browser blocks window positioning.
+      }
+    }
+
+    const request = document.documentElement.requestFullscreen?.();
+    if (!request) {
+      setFullscreenError('Fullscreen is not available in this browser. Press F11 to continue.');
+      return;
+    }
+
+    void request
+      .then(() => {
+        setShowScreenPicker(false);
+        setShowFullscreenGate(false);
+      })
+      .catch(() => {
+        setShowScreenPicker(false);
+        setShowFullscreenGate(true);
+      });
+  };
 
   useEffect(() => {
     if (!sessionId) {
@@ -215,6 +216,52 @@ export function OutputRoute() {
         }}
         isOutputOnly
       />
+      {showScreenPicker ? (
+        <section className="output-screen-picker" aria-labelledby="output-screen-picker-title">
+          <div className="output-screen-picker-card">
+            <span className="panel-eyebrow">Mapshroom output</span>
+            <h1 id="output-screen-picker-title">Where should the output play?</h1>
+            <p>Choose a display. This window will move there and fill the entire screen.</p>
+            {displayQuery === null ? (
+              <p className="output-screen-picker-status">Finding connected displays...</p>
+            ) : null}
+            {displayQuery?.status === 'ready' ? (
+              <div className="output-screen-choice" role="list">
+                {displayQuery.screens.map((display) => (
+                  <button
+                    key={display.id}
+                    type="button"
+                    role="listitem"
+                    className="output-screen-card"
+                    onClick={() => enterFullscreenOnDisplay(display)}
+                  >
+                    <strong>
+                      {display.label}{display.isCurrent ? ' (this screen)' : ''}
+                    </strong>
+                    <span>{display.width} × {display.height} · Open fullscreen</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {displayQuery && displayQuery.status !== 'ready' ? (
+              <>
+                <p className="output-screen-picker-status">{displayQuery.message}</p>
+                <button
+                  type="button"
+                  className="output-screen-card"
+                  onClick={() => enterFullscreenOnDisplay(null)}
+                >
+                  <strong>Use this screen</strong>
+                  <span>Open fullscreen here</span>
+                </button>
+              </>
+            ) : null}
+            {fullscreenError ? (
+              <p className="output-screen-picker-error">{fullscreenError}</p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
       {showFullscreenGate ? (
         <button
           type="button"

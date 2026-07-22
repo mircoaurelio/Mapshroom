@@ -5240,6 +5240,55 @@ a {
   cursor: pointer;
 }
 
+.output-screen-picker {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: rgba(5, 5, 7, 0.94);
+  color: #fff;
+}
+
+.output-screen-picker-card {
+  width: min(100%, 580px);
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.output-screen-picker-card h1 {
+  margin: 0.35rem 0 0.55rem;
+  font-size: clamp(1.6rem, 5vw, 2.5rem);
+  letter-spacing: -0.04em;
+}
+
+.output-screen-picker-card > p {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+}
+
+.output-screen-picker-card > .output-screen-card {
+  width: 100%;
+}
+
+.output-screen-picker-status,
+.output-screen-picker-error {
+  margin-top: 1rem !important;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-soft);
+}
+
+.output-screen-picker-error {
+  color: #ffb4b4 !important;
+}
+
 .output-fullscreen-gate strong {
   font-size: clamp(1.6rem, 4vw, 2.4rem);
   letter-spacing: -0.04em;
