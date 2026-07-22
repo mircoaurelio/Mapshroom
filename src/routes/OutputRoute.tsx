@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
 import { DEFAULT_STAGE_TRANSFORM } from '../config';
 import {
@@ -38,6 +38,8 @@ const FALLBACK_TIMELINE_STUB = {
 
 export function OutputRoute() {
   const { sessionId = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const requestFullscreenOnOpen = searchParams.get('fullscreen') === '1';
   const storedProject = useMemo(
     () => (sessionId ? loadProjectDocument(sessionId) : null),
     [sessionId],
@@ -64,6 +66,37 @@ export function OutputRoute() {
       document.removeEventListener('fullscreenchange', handleResize);
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!requestFullscreenOnOpen) {
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      return;
+    }
+
+    const root = document.documentElement;
+    if (typeof root.requestFullscreen !== 'function') {
+      return;
+    }
+
+    const attemptFullscreen = () => {
+      if (document.fullscreenElement) {
+        return;
+      }
+      void root.requestFullscreen().catch(() => {
+        // User gesture may already be spent; opener placement still covers the target display.
+      });
+    };
+
+    attemptFullscreen();
+    const timeoutId = window.setTimeout(attemptFullscreen, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [requestFullscreenOnOpen]);
 
   useEffect(() => {
     if (!sessionId) {

@@ -36,6 +36,7 @@ import { UniformPanel } from '../components/UniformPanel';
 import type { TimelineSelectionInfo } from '../components/TimelineSelectionBanner';
 import { MidiControllerPanel } from '../components/MidiControllerPanel';
 import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDialog';
+import { OutputScreenDialog } from '../components/OutputScreenDialog';
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import { signalProjectReady } from '../components/BootScreenController';
@@ -105,6 +106,8 @@ import type {
   MidiTimelineTransportAction,
 } from '../lib/midi/types';
 import { createMidiOutputSync } from '../lib/midi/outputSync';
+import { openOutputWindow } from '../lib/openOutputWindow';
+import type { OutputDisplayOption } from '../lib/screenDetails';
 import {
   createProjectShareLink,
   importProjectFromSharedUrl,
@@ -246,8 +249,8 @@ const ONBOARDING_COPY = {
         points: [
           'Use File, Shader, and View for project, shader, and layout commands.',
           'Click Load Asset to open the asset window and choose or import the image to map.',
-          'Click Output to open the dedicated projection window.',
-          'Drag the opened Output window onto the projector screen and use it there.',
+          'Click Output to choose a secondary display and open the projection window fullscreen.',
+          'If screen listing is unavailable, open fullscreen on this display and move the window to the projector.',
         ],
       },
       {
@@ -368,8 +371,8 @@ const ONBOARDING_COPY = {
         points: [
           'Usa File, Shader e View per i comandi di progetto, shader e layout.',
           "Clicca Load Asset per aprire la finestra degli asset e scegliere o importare l'immagine da mappare.",
-          'Clicca Output per aprire la finestra dedicata alla proiezione.',
-          'Trascina la finestra Output aperta sullo schermo del proiettore e usala lì.',
+          'Clicca Output per scegliere uno schermo secondario e aprire la finestra di proiezione a schermo intero.',
+          'Se l’elenco degli schermi non è disponibile, apri a schermo intero su questo display e sposta la finestra sul proiettore.',
         ],
       },
       {
@@ -1755,6 +1758,7 @@ export function WorkspaceRoute() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
+  const [isOutputScreenDialogOpen, setIsOutputScreenDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [presetSelectionAddsToTimeline, setPresetSelectionAddsToTimeline] = useState(false);
   const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
@@ -3841,7 +3845,8 @@ export function WorkspaceRoute() {
       isProjectDialogOpen ||
       isShareDialogOpen ||
       isPresetBrowserOpen ||
-      isSliceStudioDialogOpen);
+      isSliceStudioDialogOpen ||
+      isOutputScreenDialogOpen);
 
   const cyclePreviewShader = (direction: 1 | -1) => {
     if (!project) {
@@ -4597,37 +4602,42 @@ ${errorSnapshot}`,
     );
   };
 
-  const handleOutputWindowOpen = () => {
+  const publishProjectToOutput = () => {
+    if (!project) {
+      return;
+    }
+    sessionSyncRef.current?.publish(project);
+  };
+
+  const handleOutputWindowOpen = (
+    options: {
+      display?: OutputDisplayOption | null;
+      fullscreenCurrent?: boolean;
+    } = {},
+  ) => {
     if (!project) {
       return;
     }
 
-    const nextUrl = `${window.location.origin}${window.location.pathname}#/output/${project.sessionId}`;
-    const existingWindow = outputWindowRef.current;
-    const publishProjectToOutput = () => {
-      sessionSyncRef.current?.publish(project);
-    };
+    const result = openOutputWindow({
+      sessionId: project.sessionId,
+      display: options.display ?? null,
+      fullscreenCurrent: options.fullscreenCurrent ?? false,
+      existingWindow: outputWindowRef.current,
+    });
 
-    if (existingWindow && !existingWindow.closed) {
-      existingWindow.focus();
-      publishProjectToOutput();
-      setOutputWindowOpen(true);
-      setStatusMessage('Projection window focused.');
+    if (!result.popup) {
+      setStatusMessage(result.message);
       return;
     }
 
-    const popup = window.open(nextUrl, 'mapshroom-output', 'popup,width=1440,height=900');
-    if (!popup) {
-      setStatusMessage('Popup blocked. Allow popups to open the output window.');
-      return;
-    }
-
-    outputWindowRef.current = popup;
+    outputWindowRef.current = result.popup;
     setOutputWindowOpen(true);
+    setIsOutputScreenDialogOpen(false);
     publishProjectToOutput();
     window.setTimeout(publishProjectToOutput, 200);
     window.setTimeout(publishProjectToOutput, 800);
-    setStatusMessage('Projection window opened.');
+    setStatusMessage(result.message);
   };
 
   useEffect(() => {
@@ -5614,6 +5624,19 @@ ${errorSnapshot}`,
         onClose={() => setIsSliceStudioDialogOpen(false)}
       />
 
+      <OutputScreenDialog
+        open={isOutputScreenDialogOpen}
+        onClose={() => setIsOutputScreenDialogOpen(false)}
+        onOpenOnDisplay={(display) => {
+          trackUiClick('open_output_display');
+          handleOutputWindowOpen({ display });
+        }}
+        onOpenFullscreenHere={() => {
+          trackUiClick('open_output_fullscreen_here');
+          handleOutputWindowOpen({ fullscreenCurrent: true });
+        }}
+      />
+
       {!isMobile && uiPreferences.chromeVisible ? (
         <WorkspaceToolbar
           isPlaying={project.playback.transport.isPlaying}
@@ -5658,7 +5681,7 @@ ${errorSnapshot}`,
           }}
           onOpenOutput={() => {
             trackUiClick('open_output');
-            handleOutputWindowOpen();
+            setIsOutputScreenDialogOpen(true);
           }}
           onToggleMoveMode={() => {
             trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');
