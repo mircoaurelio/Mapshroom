@@ -90,6 +90,7 @@ interface TimelineBarProps {
 interface TimelineDialogProps extends Omit<TimelineBarProps, 'variant'> {
   open: boolean;
   onClose: () => void;
+  onMobileEqualDurationChange: (durationSeconds: number) => void;
 }
 
 interface TimelineMarkerStop {
@@ -1143,11 +1144,17 @@ export function TimelineBar({
 export function TimelineDialog({
   open,
   onClose,
+  onMobileEqualDurationChange,
   ...timelineProps
 }: TimelineDialogProps) {
   if (!open) {
     return null;
   }
+
+  const enabledStepCount = timelineProps.sequence.steps.filter(isTimelineStepEnabled).length;
+  const equalDurationSeconds = timelineProps.sequence.steps.find(isTimelineStepEnabled)?.durationSeconds ?? 8;
+  const randomEnabled =
+    timelineProps.sequence.mode === 'random' || timelineProps.sequence.randomChoiceEnabled;
 
   return (
     <div
@@ -1167,9 +1174,9 @@ export function TimelineDialog({
       >
         <header className="dialog-header">
           <div>
-            <span className="timeline-dialog-label">Timeline</span>
+            <span className="timeline-dialog-label">Mobile timeline</span>
             <h2 id="timeline-dialog-title" className="dialog-title">
-              Transport and Markers
+              Playback settings
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -1177,8 +1184,46 @@ export function TimelineDialog({
           </button>
         </header>
 
-        <div className="dialog-body timeline-dialog-body">
-          <TimelineBar {...timelineProps} variant="dialog" />
+        <div className="dialog-body mobile-timeline-settings">
+          <p className="mobile-timeline-settings-copy">
+            Every shader uses the same time. Shader previews and editing live in the Shader panel.
+          </p>
+          <div className="mobile-timeline-settings-grid">
+            <button
+              type="button"
+              className={`mobile-timeline-setting-card ${randomEnabled ? 'mobile-timeline-setting-card-active' : ''}`}
+              aria-pressed={randomEnabled}
+              onClick={() => timelineProps.onSequenceModeChange(randomEnabled ? 'sequence' : 'random')}
+            >
+              <span>Order</span>
+              <strong>{randomEnabled ? 'Random' : 'In order'}</strong>
+              <small>{randomEnabled ? 'Picks a different card before repeating.' : 'Plays cards from first to last.'}</small>
+            </button>
+            <label className="mobile-timeline-setting-card mobile-timeline-duration-card">
+              <span>Time per shader</span>
+              <span className="mobile-timeline-duration-input">
+                <input
+                  type="number"
+                  min={0.5}
+                  max={36000}
+                  step={0.5}
+                  value={roundTimelineSeconds(equalDurationSeconds)}
+                  onChange={(event) => onMobileEqualDurationChange(Number(event.target.value))}
+                />
+                <b>sec</b>
+              </span>
+              <small>{enabledStepCount} shaders · {formatTimelineTime(equalDurationSeconds * enabledStepCount)} total</small>
+            </label>
+          </div>
+          <div className="mobile-timeline-transport-card">
+            <div>
+              <span>Playback</span>
+              <strong>{timelineProps.transport.isPlaying ? 'Timeline running' : 'Timeline paused'}</strong>
+            </div>
+            <button type="button" className="primary-button" onClick={timelineProps.onPlayToggle}>
+              {timelineProps.transport.isPlaying ? 'Pause' : 'Play'}
+            </button>
+          </div>
         </div>
       </section>
     </div>

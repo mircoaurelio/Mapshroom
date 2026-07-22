@@ -19,6 +19,8 @@ interface MobileChromeProps {
   onHide: () => void;
   onPlayToggle: () => void;
   onFinishShaderEditing: () => void;
+  onPreviousShader: () => void;
+  onNextShader: () => void;
   onPanelChange: (panel: MobilePanelKey) => void;
   panels: {
     studio: ReactNode;
@@ -48,6 +50,8 @@ export function MobileChrome({
   onHide,
   onPlayToggle,
   onFinishShaderEditing,
+  onPreviousShader,
+  onNextShader,
   onPanelChange,
   panels,
 }: MobileChromeProps) {
@@ -76,6 +80,14 @@ export function MobileChrome({
           </button>
         </div>
       </header>
+
+      {isShaderEditing ? (
+        <div className="mobile-shader-dot-controls" aria-label="Held shader controls">
+          <button type="button" onClick={onPreviousShader} aria-label="Previous timeline shader" title="Previous">‹</button>
+          <button type="button" className="mobile-shader-dot-control-active" onClick={onFinishShaderEditing} aria-label="Resume timeline playback" title="Play timeline">▶</button>
+          <button type="button" onClick={onNextShader} aria-label="Next timeline shader" title="Next">›</button>
+        </div>
+      ) : null}
 
       <nav className="mobile-dock">
         <button
@@ -112,7 +124,7 @@ export function MobileChrome({
           onClick={isShaderEditing ? onFinishShaderEditing : onPlayToggle}
           aria-label={isShaderEditing ? 'Finish editing shader and resume timeline' : isPlaying ? 'Pause timeline' : 'Play timeline'}
         >
-          {isShaderEditing ? <><span className="mobile-stop-icon" aria-hidden="true" />Done</> : isPlaying ? 'Pause' : 'Play'}
+          {isShaderEditing ? <><span className="mobile-circular-mode-icon" aria-hidden="true">↻</span>Resume</> : isPlaying ? 'Pause' : 'Play'}
         </button>
       </nav>
 

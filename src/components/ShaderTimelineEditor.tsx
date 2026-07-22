@@ -84,6 +84,7 @@ interface ShaderTimelineEditorProps {
   onEditStep: (stepId: string) => void;
   onAddStep?: () => void;
   scrollToStepRequest?: { stepId: string; token: number } | null;
+  mobileCardsOnly?: boolean;
 }
 
 function formatStepDuration(seconds: number): string {
@@ -244,6 +245,7 @@ export function ShaderTimelineEditor({
   onEditStep,
   onAddStep,
   scrollToStepRequest = null,
+  mobileCardsOnly = false,
 }: ShaderTimelineEditorProps) {
   const flowStripRef = useRef<HTMLDivElement>(null);
   const title =
@@ -706,6 +708,64 @@ export function ShaderTimelineEditor({
       window.clearTimeout(retryTimeoutId);
     };
   }, [scrollToStepRequest]);
+
+  if (mobileCardsOnly) {
+    return (
+      <section className="mobile-shader-sequence" aria-label="Timeline shaders">
+        <div className="mobile-shader-sequence-heading">
+          <div>
+            <span>Timeline shaders</span>
+            <strong>{sequence.steps.length} cards</strong>
+          </div>
+          <small>Tap a card to hold and edit it</small>
+        </div>
+        <div className="mobile-shader-card-grid" role="list">
+          {sequence.steps.map((step, index) => {
+            const shader = shaderMap.get(step.shaderId);
+            const assignedPreview = shader?.inputAssetId
+              ? loadedAssignedPreviews[shader.inputAssetId] ?? null
+              : null;
+            const overlayPreviewNamespace = assignedPreview?.assetUrl ??
+              (shader?.inputAssetId ? `${shader.inputAssetId}:pending` : '__no_overlay__');
+            const previewKey = shader
+              ? getTimelineShaderPreviewKey(previewNamespace, overlayPreviewNamespace, shader)
+              : '';
+            const previewSrc = shader ? previewSources[previewKey] ?? null : null;
+            const isEditing = step.id === editingStepId;
+            const isCurrent = step.id === activeStepId;
+
+            return (
+              <button
+                key={step.id}
+                type="button"
+                role="listitem"
+                className={`mobile-shader-sequence-card ${isEditing ? 'mobile-shader-sequence-card-editing' : ''} ${isCurrent ? 'mobile-shader-sequence-card-current' : ''}`}
+                aria-pressed={isEditing}
+                onClick={() => onEditStep(step.id)}
+              >
+                <span className="mobile-shader-sequence-preview">
+                  {previewSrc ? (
+                    <img src={previewSrc} alt="" loading="lazy" />
+                  ) : (
+                    <span className="mobile-shader-sequence-placeholder">{previewPlaceholder}</span>
+                  )}
+                  <span className="mobile-shader-sequence-index">{index + 1}</span>
+                  {isEditing ? <span className="mobile-shader-sequence-held">Editing</span> : null}
+                </span>
+                <strong>{shader?.name ?? `Shader ${index + 1}`}</strong>
+              </button>
+            );
+          })}
+          {onAddStep ? (
+            <button type="button" className="mobile-shader-sequence-card mobile-shader-sequence-add" onClick={onAddStep}>
+              <span aria-hidden="true">+</span>
+              <strong>Add shader</strong>
+            </button>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="timeline-sequence-editor">

@@ -8,6 +8,9 @@ interface MobileUniformOverlayProps {
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   onClose: () => void;
+  onPreviousShader: () => void;
+  onNextShader: () => void;
+  onFinishEditing: () => void;
 }
 
 export function MobileUniformOverlay({
@@ -16,6 +19,9 @@ export function MobileUniformOverlay({
   uniformValues,
   onUniformChange,
   onClose,
+  onPreviousShader,
+  onNextShader,
+  onFinishEditing,
 }: MobileUniformOverlayProps) {
   const entries = Object.entries(uniformDefinitions);
 
@@ -35,9 +41,13 @@ export function MobileUniformOverlay({
             <span>Customize shader</span>
             <strong>{shaderName}</strong>
           </div>
-          <button type="button" className="ghost-button" onClick={onClose}>
-            Close
-          </button>
+          <div className="mobile-uniform-edit-actions">
+            <button type="button" onClick={onPreviousShader} aria-label="Previous timeline shader">‹</button>
+            <button type="button" className="mobile-circular-edit-button" onClick={onFinishEditing} aria-label="Finish shader editing and resume timeline" title="Finish and resume">
+              <span aria-hidden="true">↻</span>
+            </button>
+            <button type="button" onClick={onNextShader} aria-label="Next timeline shader">›</button>
+          </div>
         </div>
         {entries.length === 0 ? (
           <p className="empty-copy">No uniforms declared.</p>
@@ -84,7 +94,7 @@ export function MobileUniformOverlay({
               );
             })}
             <button type="button" className="mobile-uniform-close-button" onClick={onClose}>
-              Close
+              Hide sliders
             </button>
           </div>
         )}
