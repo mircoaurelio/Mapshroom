@@ -1,5 +1,6 @@
-﻿import { useEffect } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { resolveTutorialLocale, TUTORIAL_COPY } from '../lib/tutorialCopy';
 import './TutorialRoute.css';
 
 type MediaProps = {
@@ -7,156 +8,211 @@ type MediaProps = {
   alt: string;
   className?: string;
   marker?: { label: string; x: string; y: string };
+  clickLabel?: string;
 };
 
-function Media({ src, alt, className = '', marker }: MediaProps) {
+function Media({ src, alt, className = '', marker, clickLabel = 'Click here' }: MediaProps) {
   return (
     <figure className={`tutorial-media ${className}`.trim()}>
       <img src={src} alt={alt} loading="lazy" />
       {marker ? (
         <div className="tutorial-click-marker" style={{ left: marker.x, top: marker.y }}>
-          <span aria-hidden="true">{marker.label}</span><strong>Click here</strong>
+          <span aria-hidden="true">{marker.label}</span><strong>{clickLabel}</strong>
         </div>
       ) : null}
     </figure>
   );
 }
 
-function Step({ number, title, children }: { number: string; title: string; children: React.ReactNode }) {
+function Step({
+  number,
+  title,
+  stepLabel,
+  children,
+}: {
+  number: string;
+  title: string;
+  stepLabel: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="tutorial-step-copy">
       <span className="tutorial-step-number">{number}</span>
-      <div><p className="tutorial-step-kicker">Step {number}</p><h2>{title}</h2>{children}</div>
+      <div><p className="tutorial-step-kicker">{stepLabel}</p><h2>{title}</h2>{children}</div>
     </div>
   );
 }
 
 export function TutorialRoute() {
+  const [locale] = useState(() => resolveTutorialLocale());
+  const copy = TUTORIAL_COPY[locale];
+
   useEffect(() => {
     document.body.classList.add('tutorial-page-active');
-    document.title = 'Tutorial — Mapshroom';
+    document.title = copy.documentTitle;
+    document.documentElement.lang = locale;
     window.scrollTo(0, 0);
     return () => {
       document.body.classList.remove('tutorial-page-active');
       document.title = 'Mapshroom';
     };
-  }, []);
+  }, [copy.documentTitle, locale]);
 
   return (
-    <main className="tutorial-page">
+    <main className="tutorial-page" lang={locale}>
       <nav className="tutorial-nav">
         <Link to="/" className="tutorial-brand"><img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" /><span>Mapshroom</span></Link>
-        <div><a href="#steps">View steps</a><Link to="/" className="tutorial-open-button">Open workspace</Link></div>
+        <div><a href="#steps">{copy.navViewSteps}</a><Link to="/" className="tutorial-open-button">{copy.navOpenWorkspace}</Link></div>
       </nav>
 
       <header className="tutorial-hero">
         <div className="tutorial-hero-copy">
-          <p className="tutorial-eyebrow">Camera → Mapshroom → projector</p>
-          <h1>Make the sculpture<br /><em>move.</em></h1>
-          <p className="tutorial-hero-lead">Need to map everything? Just take a photo — the app does the rest.</p>
-          <div className="tutorial-hero-actions"><a href="#steps" className="tutorial-primary-button">Start the tutorial ↓</a><span>About 10 minutes</span></div>
+          <p className="tutorial-eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.heroTitleBefore}<br /><em>{copy.heroTitleEmphasis}</em></h1>
+          <p className="tutorial-hero-lead">{copy.heroLead}</p>
+          <div className="tutorial-hero-actions"><a href="#steps" className="tutorial-primary-button">{copy.heroCta}</a><span>{copy.heroDuration}</span></div>
         </div>
         <div className="tutorial-hero-visual">
-          <img src="assets/onboarding/photo-source-garden.webp" alt="Sculpture ready to be photographed" />
+          <img src="assets/onboarding/photo-source-garden.webp" alt="" />
           <div className="tutorial-camera-frame" aria-hidden="true"><span>01</span></div>
-          <p>Your subject becomes the canvas.</p>
+          <p>{copy.heroVisualCaption}</p>
         </div>
       </header>
 
-      <section className="tutorial-kit" aria-label="What you need">
-        <figure className="tutorial-kit-visual">
-          <img src="assets/onboarding/materials-needed.webp" alt="Projector, phone, and HDMI cable" />
-        </figure>
-        <div><span>01</span><strong>A subject</strong><small>Sculpture or object</small></div>
-        <div><span>02</span><strong>A camera</strong><small>Your phone is enough</small></div>
-        <div><span>03</span><strong>A projector</strong><small>HDMI connection</small></div>
-        <div><span>04</span><strong>A USB key</strong><small>For final playback</small></div>
+      <section className="tutorial-kit" aria-label={copy.kitLabel}>
+        {copy.kit.map((item) => (
+          <div key={item.number}><span>{item.number}</span><strong>{item.title}</strong><small>{item.detail}</small></div>
+        ))}
       </section>
 
       <div id="steps" className="tutorial-steps">
         <section className="tutorial-step">
-          <Step number="01" title="Photograph the sculpture"><p>Stand directly in front of the object and keep the phone level. Frame the complete shape with space around every edge.</p></Step>
-          <Media className="tutorial-capture-shot" src="assets/onboarding/capture-from-projector-view.webp" alt="Person photographing a sculpture from the projector position" />
-          <aside className="tutorial-tip"><strong>Important</strong> Take the photo from as close as possible to the projector lens. Matching viewpoints makes alignment faster.</aside>
+          <Step number="01" title={copy.steps.photograph.title} stepLabel={copy.stepLabel('01')}><p>{copy.steps.photograph.body}</p></Step>
+          <div className="tutorial-photo-pair">
+            <Media src="assets/onboarding/capture-from-projector-view.webp" alt="" />
+            <Media src="assets/onboarding/align-phone-camera.webp" alt="" />
+          </div>
+          <aside className="tutorial-tip"><strong>{copy.steps.photograph.tipLabel}</strong> {copy.steps.photograph.tip}</aside>
         </section>
 
         <section className="tutorial-step tutorial-step-load">
           <div className="tutorial-load-grid">
-            <Step number="02" title="Load the photo into Mapshroom"><p>Open the workspace, choose <strong>Load asset</strong> in the top bar, then pick your photo. It appears in the media library and on the stage.</p></Step>
-            <Media className="tutorial-ui-shot tutorial-zoom-shot" src="assets/tutorial/load-output-zoom-v2.png" alt="Zoomed Mapshroom toolbar showing the Load Asset button and an active shader" marker={{ label: '1', x: '69%', y: '5%' }} />
+            <Step number="02" title={copy.steps.load.title} stepLabel={copy.stepLabel('02')}>
+              <p>{copy.steps.load.bodyBefore}<strong>{copy.steps.load.bodyStrong}</strong>{copy.steps.load.bodyAfter}</p>
+            </Step>
+            <Media className="tutorial-ui-shot tutorial-zoom-shot" src="assets/tutorial/load-output-zoom-v2.png" alt="" marker={{ label: '1', x: '69%', y: '5%' }} clickLabel={copy.clickHere} />
           </div>
-          <div className="tutorial-action-line"><kbd>LOAD ASSET</kbd><span>→</span><p>Select the sculpture photo.</p></div>
+          <div className="tutorial-action-line"><kbd>LOAD ASSET</kbd><span>→</span><p>{copy.steps.load.action}</p></div>
         </section>
 
         <section className="tutorial-step">
-          <Step number="03" title="Remove the background and create depth"><p>In the media library, select the photo. First remove the background; then generate a depth map so shaders react to the object’s shape.</p></Step>
+          <Step number="03" title={copy.steps.process.title} stepLabel={copy.stepLabel('03')}><p>{copy.steps.process.body}</p></Step>
           <div className="tutorial-processing-demo">
             <figure className="tutorial-media tutorial-mask-video">
-              <video autoPlay muted loop playsInline preload="metadata" poster="assets/tutorial/remove-background-loop-poster-v2.jpg" aria-label="Removing a background in the Mapshroom Mask Editor at double speed">
+              <video autoPlay muted loop playsInline preload="metadata" poster="assets/tutorial/remove-background-loop-poster-v2.jpg" aria-label={copy.steps.process.videoAria}>
                 <source src="assets/tutorial/remove-background-loop-v3.mp4" type="video/mp4" />
               </video>
-              <figcaption><strong>2× loop</strong> Mask Editor — remove the background</figcaption>
+              <figcaption><strong>2× loop</strong> {copy.steps.process.videoCaption}</figcaption>
             </figure>
             <div className="tutorial-processing-crops">
-              <Media src="assets/tutorial/processing-tools-zoom-v2.png" alt="Remove background and Depth map buttons above a selected asset" />
-              <Media className="tutorial-depth-dialog-shot" src="assets/tutorial/create-depth-map-v2.png" alt="Create depth map panel with Generate depth map and depth controls" />
+              <Media src="assets/tutorial/processing-tools-zoom-v2.png" alt="" />
+              <Media className="tutorial-depth-dialog-shot" src="assets/tutorial/create-depth-map-v2.png" alt="" />
             </div>
           </div>
           <div className="tutorial-process-grid">
-            <article><Media src="assets/onboarding/photo-source-garden.webp" alt="Original sculpture photo" /><span>Original</span><h3>Your photo</h3></article>
-            <article><Media src="assets/onboarding/photo-background-removed.webp" alt="Sculpture with background removed" /><span>Click 1</span><h3>Remove background</h3></article>
-            <article className="tutorial-depth-result-card"><Media src="assets/tutorial/depth-map-result-v2.png" alt="Generated grayscale depth map of the default statue" /><span>Click 2</span><h3>Depth map</h3></article>
+            <article><Media src="assets/onboarding/photo-source-garden.webp" alt="" /><span>{copy.steps.process.original}</span><h3>{copy.steps.process.yourPhoto}</h3></article>
+            <article><Media src="assets/onboarding/photo-background-removed.webp" alt="" /><span>{copy.steps.process.click1}</span><h3>{copy.steps.process.removeBackground}</h3></article>
+            <article className="tutorial-depth-result-card"><Media src="assets/tutorial/depth-map-result-v2.png" alt="" /><span>{copy.steps.process.click2}</span><h3>{copy.steps.process.depthMap}</h3></article>
           </div>
           <div className="tutorial-action-line"><kbd>REMOVE BACKGROUND</kbd><span>then</span><kbd>DEPTH MAP</kbd></div>
         </section>
 
         <section className="tutorial-step">
-          <Step number="04" title="Connect the projector"><p>Connect the computer to the projector with HDMI. Press <strong>Output</strong> and move the new browser window onto the projector display.</p></Step>
+          <Step number="04" title={copy.steps.projector.title} stepLabel={copy.stepLabel('04')}>
+            <p>{copy.steps.projector.bodyBefore}<strong>{copy.steps.projector.bodyStrong}</strong>{copy.steps.projector.bodyAfter}</p>
+          </Step>
           <div className="tutorial-projector-grid">
-            <Media src="assets/onboarding/materials-needed.webp" alt="Projector, HDMI cable, and phone" />
-            <Media className="tutorial-ui-shot tutorial-projector-ui" src="assets/tutorial/load-output-zoom-v2.png" alt="Active shader beside the zoomed Mapshroom Output button" />
+            <Media src="assets/onboarding/materials-needed.png" alt="" />
+            <Media
+              className="tutorial-ui-shot tutorial-zoom-shot"
+              src="assets/tutorial/load-output-zoom-v2.png"
+              alt=""
+              marker={{ label: '2', x: '84%', y: '5%' }}
+              clickLabel={copy.clickHere}
+            />
           </div>
-          <ol className="tutorial-mini-steps"><li>Connect HDMI</li><li>Click <strong>Output</strong></li><li>Move the window to the projector</li><li>Enter full screen</li></ol>
+          <ol className="tutorial-mini-steps">
+            {copy.steps.projector.mini.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
         </section>
 
         <section className="tutorial-step">
-          <Step number="05" title="Fit the projection to the object"><p>Open the <strong>Move</strong> card. Use Up, Down, Left, and Right to position the image; use W and H to resize it until the edges match.</p></Step>
+          <Step number="05" title={copy.steps.fit.title} stepLabel={copy.stepLabel('05')}>
+            <p>{copy.steps.fit.bodyBefore}<strong>{copy.steps.fit.bodyStrong}</strong>{copy.steps.fit.bodyAfter}</p>
+          </Step>
           <div className="tutorial-mapping-demo">
-            <div className="tutorial-mapping-stage"><img src="assets/onboarding/photo-background-removed.webp" alt="Cut-out sculpture being aligned" /><span /></div>
-            <div className="tutorial-mapping-card"><p>MOVE / SIZE</p><div className="tutorial-mapping-pad"><button>H−</button><button className="active">↑</button><button>H+</button><button className="active">←</button><button className="precision">Precision<strong>12</strong></button><button className="active">→</button><button>W−</button><button className="active">↓</button><button>W+</button></div><small>Tap for small adjustments. Keep the object and projector still.</small></div>
+            <div className="tutorial-mapping-stage"><img src="assets/onboarding/photo-background-removed.webp" alt="" /><span /></div>
+            <div className="tutorial-mapping-card"><p>MOVE / SIZE</p><div className="tutorial-mapping-pad"><button type="button">H−</button><button type="button" className="active">↑</button><button type="button">H+</button><button type="button" className="active">←</button><button type="button" className="precision">Precision<strong>12</strong></button><button type="button" className="active">→</button><button type="button">W−</button><button type="button" className="active">↓</button><button type="button">W+</button></div><small>{copy.steps.fit.cardHint}</small></div>
           </div>
         </section>
 
         <section className="tutorial-step">
-          <Step number="06" title="Choose a shader"><p>Open <strong>Shader</strong>, then <strong>Preset list</strong>. Preview the styles and select one that reads clearly on the object.</p></Step>
-          <Media className="tutorial-ui-shot tutorial-hq-gallery" src="assets/tutorial/shader-gallery-hq-v3.png" alt="Mapshroom shader library over the default Palco Stage" marker={{ label: '3', x: '50%', y: '48%' }} />
-          <div className="tutorial-action-line"><kbd>SHADER</kbd><span>→</span><kbd>PRESET LIST</kbd><span>→</span><p>Choose a preset.</p></div>
+          <Step number="06" title={copy.steps.shader.title} stepLabel={copy.stepLabel('06')}>
+            <p>
+              {copy.steps.shader.bodyBefore}
+              <strong>{copy.steps.shader.bodyStrongShader}</strong>
+              {copy.steps.shader.bodyMid}
+              <strong>{copy.steps.shader.bodyStrongPreset}</strong>
+              {copy.steps.shader.bodyAfter}
+            </p>
+          </Step>
+          <Media className="tutorial-ui-shot tutorial-hq-gallery" src="assets/tutorial/shader-gallery-hq-v3.png" alt="" marker={{ label: '3', x: '50%', y: '48%' }} clickLabel={copy.clickHere} />
+          <div className="tutorial-action-line"><kbd>SHADER</kbd><span>→</span><kbd>PRESET LIST</kbd><span>→</span><p>{copy.steps.shader.action}</p></div>
         </section>
 
         <section className="tutorial-step">
-          <Step number="07" title="Customize the shader"><p>Use the sliders on the left to change speed, intensity, scale, relief, and color. Every change appears live.</p></Step>
-          <Media className="tutorial-ui-shot tutorial-hq-controls" src="assets/tutorial/shader-controls-hq-v3.png" alt="Mapshroom shader controls beside the default Palco Stage" marker={{ label: '4', x: '14%', y: '29%' }} />
-          <aside className="tutorial-tip"><strong>Start simple</strong> Set the overall look first, then add motion. High contrast usually projects better.</aside>
+          <Step number="07" title={copy.steps.customize.title} stepLabel={copy.stepLabel('07')}><p>{copy.steps.customize.body}</p></Step>
+          <Media className="tutorial-ui-shot tutorial-hq-controls" src="assets/tutorial/shader-controls-hq-v3.png" alt="" marker={{ label: '4', x: '14%', y: '29%' }} clickLabel={copy.clickHere} />
+          <aside className="tutorial-tip"><strong>{copy.steps.customize.tipLabel}</strong> {copy.steps.customize.tip}</aside>
         </section>
 
         <section className="tutorial-step">
-          <Step number="08" title="Customize the timeline"><p>Add shader clips along the bottom timeline. Drag clips to reorder them, set the duration, and choose transitions.</p></Step>
-          <div className="tutorial-timeline-grid">
-            <Media src="assets/onboarding/align-phone-camera.webp" alt="Phone camera aligned with the projector lens for a clean mapped sequence" />
-            <Media className="tutorial-ui-shot tutorial-hq-timeline" src="assets/tutorial/timeline-hq-v3.png" alt="Mapshroom timeline beneath the default Palco Stage and shader controls" marker={{ label: '5', x: '50%', y: '70%' }} />
+          <Step number="08" title={copy.steps.timeline.title} stepLabel={copy.stepLabel('08')}><p>{copy.steps.timeline.body}</p></Step>
+          <Media className="tutorial-ui-shot tutorial-hq-timeline" src="assets/tutorial/timeline-v4.png" alt="" />
+          <div className="tutorial-timeline-key">
+            {copy.steps.timeline.keys.map((key) => (
+              <span key={key}><i />{key}</span>
+            ))}
           </div>
-          <div className="tutorial-timeline-key"><span><i />Drag to reorder</span><span><i />Set duration</span><span><i />Choose transition</span></div>
         </section>
 
         <section className="tutorial-step tutorial-step-finish">
-          <Step number="09" title="Export to USB and project"><p>Export the finished timeline as a video. Copy it to a USB key, connect the key to the projector, and play it full screen on repeat.</p></Step>
-          <div className="tutorial-finish-flow"><div><span>1</span><strong>Export video</strong><small>Timeline toolbar</small></div><b>→</b><div><span>2</span><strong>Copy to USB</strong><small>Eject safely</small></div><b>→</b><div><span>3</span><strong>Plug into projector</strong><small>Select USB / Media</small></div><b>→</b><div><span>4</span><strong>Play on loop</strong><small>Full screen</small></div></div>
-          <Media className="tutorial-finale-image" src="assets/onboarding/photo-3d-asset-choice.webp" alt="Sculpture ready for projection mapping" />
+          <Step number="09" title={copy.steps.export.title} stepLabel={copy.stepLabel('09')}><p>{copy.steps.export.body}</p></Step>
+          <div className="tutorial-finish-flow">
+            {copy.steps.export.flow.map((item, index) => (
+              <span key={item.title} className="tutorial-finish-flow-item">
+                {index > 0 ? <b aria-hidden="true">→</b> : null}
+                <div><span>{String(index + 1)}</span><strong>{item.title}</strong><small>{item.detail}</small></div>
+              </span>
+            ))}
+          </div>
+          <Media className="tutorial-finale-image" src="assets/onboarding/photo-3d-asset-choice.webp" alt="" />
         </section>
       </div>
 
-      <section className="tutorial-cta"><img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" /><p>Everything is ready.</p><h2>Make the sculpture move.</h2><Link to="/" className="tutorial-primary-button">Open Mapshroom →</Link></section>
-      <footer className="tutorial-footer"><span>Mapshroom</span><span>Camera to canvas, without the complexity.</span><Link to="/">Workspace</Link></footer>
+      <section className="tutorial-cta">
+        <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
+        <p>{copy.ctaReady}</p>
+        <h2>{copy.ctaTitle}</h2>
+        <Link to="/" className="tutorial-primary-button">{copy.ctaButton}</Link>
+      </section>
+      <footer className="tutorial-footer">
+        <span>Mapshroom</span>
+        <span>{copy.footerTagline}</span>
+        <Link to="/">{copy.footerWorkspace}</Link>
+      </footer>
     </main>
   );
 }

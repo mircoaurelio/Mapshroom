@@ -8,6 +8,7 @@ import {
 import { getShaderTimelineDuration } from './lib/timeline';
 import {
   BUNDLED_STATUE_ASSET_ID,
+  BUNDLED_VERTICAL_STAGE_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
   pickStarterBundledAssetId,
 } from './lib/bundledAssets';
@@ -62,6 +63,9 @@ export const DEFAULT_STAGE_TRANSFORM: StageTransform = {
   rotationLocked: false,
 };
 
+/** Nudge the portrait starter so the subject reads centered on a phone viewport. */
+export const MOBILE_VERTICAL_STAGE_OFFSET_Y = -36;
+
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   workspaceMode: 'split',
   chromeVisible: true,
@@ -97,6 +101,10 @@ export function createDefaultProject(
       createdAt: new Date().toISOString(),
     },
   ];
+  const stageTransform: StageTransform =
+    activeAssetId === BUNDLED_VERTICAL_STAGE_ASSET_ID
+      ? { ...DEFAULT_STAGE_TRANSFORM, offsetY: MOBILE_VERTICAL_STAGE_OFFSET_Y }
+      : { ...DEFAULT_STAGE_TRANSFORM };
 
   return {
     version: APP_VERSION,
@@ -130,7 +138,7 @@ export function createDefaultProject(
       uniformValues: activeShader.uniformValues ?? {},
     },
     mapping: {
-      stageTransform: { ...DEFAULT_STAGE_TRANSFORM },
+      stageTransform,
     },
     playback: {
       activeAssetId,

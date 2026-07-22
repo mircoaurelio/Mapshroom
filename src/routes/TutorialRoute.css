@@ -36,11 +36,9 @@
 .tutorial-camera-frame:after { top:50%; left:-10px; width:20px; height:1px; }
 .tutorial-camera-frame span { position:absolute; top:14px; left:16px; padding:5px 8px; background:var(--green); font:700 11px 'IBM Plex Mono',monospace; }
 .tutorial-hero-visual>p { position:absolute; right:26px; bottom:20px; margin:0; padding:8px 12px; background:rgba(10,10,9,.88); color:#fff; font:11px 'IBM Plex Mono',monospace; }
-.tutorial-kit { display:grid; grid-template-columns:minmax(280px,.9fr) repeat(4,1fr); padding:0; border-top:1px solid rgba(23,23,20,.18); border-bottom:1px solid rgba(23,23,20,.18); background:#eae7df; }
-.tutorial-kit-visual { margin:0; min-height:180px; overflow:hidden; background:#d8d5cc; }
-.tutorial-kit-visual img { display:block; width:100%; height:100%; object-fit:cover; }
+.tutorial-kit { display:grid; grid-template-columns:repeat(4,1fr); padding:0 clamp(20px,5vw,72px); border-top:1px solid rgba(23,23,20,.18); border-bottom:1px solid rgba(23,23,20,.18); }
 .tutorial-kit>div { min-height:135px; display:grid; grid-template-columns:32px 1fr; align-content:center; padding:24px; border-left:1px solid rgba(23,23,20,.15); }
-.tutorial-kit>div:last-child { border-right:0; }
+.tutorial-kit>div:last-child { border-right:1px solid rgba(23,23,20,.15); }
 .tutorial-kit span { grid-row:span 2; color:#1c7254; font:700 11px 'IBM Plex Mono',monospace; }
 .tutorial-kit strong { font-size:18px; }
 .tutorial-kit small { color:#77766d; }
@@ -56,10 +54,9 @@
 .tutorial-load-grid .tutorial-zoom-shot { width:100%; }
 .tutorial-media { position:relative; margin:0; overflow:hidden; background:#101010; }
 .tutorial-media>img { display:block; width:100%; height:100%; object-fit:cover; }
-.tutorial-photo-pair,.tutorial-projector-grid,.tutorial-timeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.tutorial-photo-pair .tutorial-media,.tutorial-timeline-grid .tutorial-media,.tutorial-capture-shot { aspect-ratio:16/9; }
-.tutorial-photo-pair .tutorial-media>img,.tutorial-capture-shot>img { transform:scale(1.2); }
-.tutorial-timeline-grid .tutorial-hq-timeline { aspect-ratio:16/9; }
+.tutorial-photo-pair,.tutorial-projector-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.tutorial-photo-pair .tutorial-media { aspect-ratio:16/9; }
+.tutorial-photo-pair .tutorial-media>img { transform:scale(1.2); }
 .tutorial-tip { max-width:780px; margin:22px 0 0 auto; padding:18px 22px; border-left:3px solid #1c7254; background:#e5e4db; color:#55554d; line-height:1.5; }
 .tutorial-tip strong { margin-right:12px; color:#1c7254; font:700 11px 'IBM Plex Mono',monospace; letter-spacing:.1em; text-transform:uppercase; }
 .tutorial-ui-shot { aspect-ratio:16/10; border:1px solid #242426; box-shadow:0 22px 60px rgba(22,22,18,.14); }
@@ -69,7 +66,7 @@
 .tutorial-projector-ui>img { object-position:top right; transform:scale(1.2); transform-origin:top right; }
 .tutorial-hq-gallery { aspect-ratio:16/9; }
 .tutorial-hq-controls { aspect-ratio:48/19; }
-.tutorial-hq-timeline { aspect-ratio:24/7; }
+.tutorial-hq-timeline { aspect-ratio:1188/463; }
 .tutorial-click-marker { position:absolute; z-index:2; display:flex; align-items:center; gap:9px; transform:translate(-18px,-18px); }
 .tutorial-click-marker span { width:36px; height:36px; display:grid; place-items:center; border:3px solid #fff; border-radius:50%; background:#ff5a61; color:#fff; box-shadow:0 0 0 7px rgba(255,90,97,.28); font:700 13px 'IBM Plex Mono',monospace; }
 .tutorial-click-marker strong { padding:7px 10px; background:#ff5a61; color:#fff; white-space:nowrap; font:700 10px 'IBM Plex Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
@@ -118,10 +115,10 @@
 .tutorial-finish-flow small { color:#77766d; }
 .tutorial-finish-flow>b { color:#1c7254; }
 .tutorial-finale-image { aspect-ratio:16/7; }
-.tutorial-cta { display:flex; flex-direction:column; align-items:center; padding:120px 24px; background:#113f31; color:#fff; text-align:center; }
-.tutorial-cta img { width:72px; height:72px; filter:brightness(3); }
-.tutorial-cta p { margin:22px 0 8px; color:#79efbd; font:700 11px 'IBM Plex Mono',monospace; letter-spacing:.12em; text-transform:uppercase; }
-.tutorial-cta h2 { margin:0 0 30px; font-size:clamp(42px,6vw,80px); letter-spacing:-.06em; }
+.tutorial-cta { display:flex; flex-direction:column; align-items:center; padding:56px 24px; background:#113f31; color:#fff; text-align:center; }
+.tutorial-cta img { width:48px; height:48px; filter:brightness(3); }
+.tutorial-cta p { margin:14px 0 8px; color:#79efbd; font:700 11px 'IBM Plex Mono',monospace; letter-spacing:.12em; text-transform:uppercase; }
+.tutorial-cta h2 { max-width:920px; margin:0 0 22px; font-size:clamp(22px,3.2vw,36px); font-weight:600; letter-spacing:-.03em; line-height:1.25; }
 .tutorial-cta .tutorial-primary-button { background:#79efbd; color:#113f31; }
 .tutorial-footer { display:flex; justify-content:space-between; gap:20px; padding:28px clamp(20px,5vw,72px); background:#0d0d0c; color:#a7a69d; font-size:12px; }
 .tutorial-footer span:first-child { color:#fff; font-weight:700; }
@@ -129,12 +126,11 @@
   .tutorial-hero { min-height:auto; grid-template-columns:1fr; }
   .tutorial-hero-visual { min-height:70vw; }
   .tutorial-kit { grid-template-columns:1fr 1fr; }
-  .tutorial-kit-visual { grid-column:1 / -1; min-height:220px; }
   .tutorial-kit>div:nth-child(odd) { border-left:1px solid rgba(23,23,20,.15); }
   .tutorial-step-copy { grid-template-columns:65px 1fr; }
   .tutorial-load-grid { grid-template-columns:1fr; }
   .tutorial-load-grid .tutorial-step-copy { grid-template-columns:65px 1fr; }
-  .tutorial-projector-grid,.tutorial-timeline-grid,.tutorial-mapping-demo { grid-template-columns:1fr; }
+  .tutorial-projector-grid,.tutorial-mapping-demo { grid-template-columns:1fr; }
   .tutorial-processing-crops { grid-template-columns:1fr; }
   .tutorial-mapping-card { width:min(360px,calc(100% - 30px)); justify-self:end; margin-top:-120px; z-index:2; }
   .tutorial-mini-steps { grid-template-columns:1fr 1fr; }
@@ -149,7 +145,6 @@
   .tutorial-hero h1 { font-size:48px; }
   .tutorial-hero-actions { align-items:flex-start; flex-direction:column; }
   .tutorial-kit { padding:0; }
-  .tutorial-kit-visual { min-height:180px; }
   .tutorial-kit>div { min-height:110px; padding:18px 14px; }
   .tutorial-steps { padding-left:16px; padding-right:16px; }
   .tutorial-step { padding:76px 0; }
