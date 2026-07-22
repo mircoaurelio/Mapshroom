@@ -51,6 +51,7 @@
 .tutorial-action-line kbd { padding:9px 12px; border:1px solid #1c7254; border-radius:3px; background:#fff; color:#1c7254; box-shadow:0 2px 0 #1c7254; font:700 11px 'IBM Plex Mono',monospace; }
 .tutorial-action-line p { margin:0; color:#66655e; }
 .tutorial-process-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.tutorial-media-tools-shot { margin-bottom:16px; }
 .tutorial-process-grid article { padding:10px 10px 22px; border:1px solid #c9c6bc; background:#e8e5dd; }
 .tutorial-process-grid .tutorial-media { aspect-ratio:4/3; }
 .tutorial-process-grid article>span { display:block; margin:18px 12px 6px; color:#1c7254; font:700 10px 'IBM Plex Mono',monospace; letter-spacing:.12em; text-transform:uppercase; }

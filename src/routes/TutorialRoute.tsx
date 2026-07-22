@@ -45,7 +45,7 @@ export function TutorialRoute() {
   return (
     <main className="tutorial-page">
       <nav className="tutorial-nav">
-        <Link to="/" className="tutorial-brand"><img src="assets/icons/mapshroom-mark.svg" alt="" /><span>Mapshroom</span></Link>
+        <Link to="/" className="tutorial-brand"><img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" /><span>Mapshroom</span></Link>
         <div><a href="#steps">View steps</a><Link to="/" className="tutorial-open-button">Open workspace</Link></div>
       </nav>
 
@@ -88,6 +88,7 @@ export function TutorialRoute() {
 
         <section className="tutorial-step">
           <Step number="03" title="Remove the background and create depth"><p>In the media library, select the photo. First remove the background; then generate a depth map so shaders react to the object’s shape.</p></Step>
+          <Media className="tutorial-ui-shot tutorial-media-tools-shot" src="assets/tutorial/media-library-tools.png" alt="Mapshroom Media Library with the default Palco Stage and the Remove background and Depth map buttons" />
           <div className="tutorial-process-grid">
             <article><Media src="assets/onboarding/photo-source-garden.webp" alt="Original sculpture photo" /><span>Original</span><h3>Your photo</h3></article>
             <article><Media src="assets/onboarding/photo-background-removed.webp" alt="Sculpture with background removed" /><span>Click 1</span><h3>Remove background</h3></article>
@@ -100,7 +101,7 @@ export function TutorialRoute() {
           <Step number="04" title="Connect the projector"><p>Connect the computer to the projector with HDMI. Press <strong>Output</strong> and move the new browser window onto the projector display.</p></Step>
           <div className="tutorial-projector-grid">
             <Media src="assets/onboarding/materials-needed.webp" alt="Projector, HDMI cable, and phone" />
-            <Media className="tutorial-ui-shot" src="assets/tutorial/workspace-overview.png" alt="Mapshroom Output button" marker={{ label: '2', x: '88%', y: '6%' }} />
+            <Media className="tutorial-ui-shot" src="assets/tutorial/workspace-overview.png" alt="Mapshroom Output button" marker={{ label: '2', x: '92%', y: '4%' }} />
           </div>
           <ol className="tutorial-mini-steps"><li>Connect HDMI</li><li>Click <strong>Output</strong></li><li>Move the window to the projector</li><li>Enter full screen</li></ol>
         </section>
@@ -138,9 +139,8 @@ export function TutorialRoute() {
         </section>
       </div>
 
-      <section className="tutorial-cta"><img src="assets/icons/mapshroom-mark.svg" alt="" /><p>Everything is ready.</p><h2>Make the sculpture move.</h2><Link to="/" className="tutorial-primary-button">Open Mapshroom →</Link></section>
+      <section className="tutorial-cta"><img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" /><p>Everything is ready.</p><h2>Make the sculpture move.</h2><Link to="/" className="tutorial-primary-button">Open Mapshroom →</Link></section>
       <footer className="tutorial-footer"><span>Mapshroom</span><span>Camera to canvas, without the complexity.</span><Link to="/">Workspace</Link></footer>
     </main>
   );
 }
-
