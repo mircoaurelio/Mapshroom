@@ -40,7 +40,7 @@
 .tutorial-media>img { display:block; width:100%; height:100%; object-fit:cover; }
 .tutorial-photo-pair,.tutorial-projector-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .tutorial-photo-pair .tutorial-media { aspect-ratio:16/9; }
-.tutorial-photo-pair .tutorial-media>img { transform:scale(1.1); }
+.tutorial-photo-pair .tutorial-media>img { transform:scale(1.2); }
 .tutorial-tip { max-width:780px; margin:22px 0 0 auto; padding:18px 22px; border-left:3px solid #1c7254; background:#e5e4db; color:#55554d; line-height:1.5; }
 .tutorial-tip strong { margin-right:12px; color:#1c7254; font:700 11px 'IBM Plex Mono',monospace; letter-spacing:.1em; text-transform:uppercase; }
 .tutorial-ui-shot { aspect-ratio:16/10; border:1px solid #242426; box-shadow:0 22px 60px rgba(22,22,18,.14); }
