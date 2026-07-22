@@ -65,6 +65,7 @@ export type TutorialCopy = {
   };
   ctaReady: string;
   ctaTitle: string;
+  ctaLead: string;
   ctaButton: string;
   footerTagline: string;
   footerWorkspace: string;
@@ -165,7 +166,8 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
       },
     },
     ctaReady: 'Everything is ready.',
-    ctaTitle: 'Discover the first text-to-shader local model. You can run open models inside Mapshroom or connect with your favorite LLM.',
+    ctaTitle: 'Text-to-shader, locally.',
+    ctaLead: 'Run open models inside Mapshroom — or connect your favorite LLM.',
     ctaButton: 'Open Mapshroom →',
     footerTagline: 'Just take a photo and the app does the rest.',
     footerWorkspace: 'Workspace',
@@ -175,7 +177,7 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
     navViewSteps: 'Vedi i passi',
     navOpenWorkspace: 'Apri workspace',
     eyebrow: 'Camera → Mapshroom → proiettore',
-    heroTitleBefore: 'Projection map everything,',
+    heroTitleBefore: 'Projection mapping reso semplice,',
     heroTitleEmphasis: 'ti basta una foto.',
     heroLead: "L'app fa il resto — dalla depth alla proiezione.",
     heroCta: 'Inizia il tutorial ↓',
@@ -264,7 +266,8 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
       },
     },
     ctaReady: 'Tutto pronto.',
-    ctaTitle: 'Scopri il primo modello locale text-to-shader. Puoi eseguire modelli open dentro Mapshroom o collegarti al tuo LLM preferito.',
+    ctaTitle: 'Text-to-shader, in locale.',
+    ctaLead: 'Esegui modelli open in Mapshroom — o collega il tuo LLM preferito.',
     ctaButton: 'Apri Mapshroom →',
     footerTagline: "Scatta una foto e l'app fa il resto.",
     footerWorkspace: 'Workspace',

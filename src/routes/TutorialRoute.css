@@ -121,11 +121,27 @@
 .tutorial-finish-flow small { color:#77766d; }
 .tutorial-finish-flow>b { color:#1c7254; }
 .tutorial-finale-image { aspect-ratio:16/7; }
-.tutorial-cta { display:flex; flex-direction:column; align-items:center; padding:56px 24px; background:#113f31; color:#fff; text-align:center; }
-.tutorial-cta img { width:48px; height:48px; filter:brightness(3); }
-.tutorial-cta p { margin:14px 0 8px; color:#79efbd; font:700 11px 'IBM Plex Mono',monospace; letter-spacing:.12em; text-transform:uppercase; }
-.tutorial-cta h2 { max-width:920px; margin:0 0 22px; font-size:clamp(22px,3.2vw,36px); font-weight:600; letter-spacing:-.03em; line-height:1.25; }
-.tutorial-cta .tutorial-primary-button { background:#79efbd; color:#113f31; }
+.tutorial-cta { position:relative; display:flex; flex-direction:column; align-items:center; overflow:hidden; padding:64px 24px 72px; background:radial-gradient(120% 140% at 50% -10%,#1c7254 0%,#113f31 42%,#0c2a22 100%); color:#fff; text-align:center; }
+.tutorial-cta:before,.tutorial-cta:after { content:''; position:absolute; border-radius:50%; pointer-events:none; }
+.tutorial-cta:before { width:420px; height:420px; top:-160px; left:12%; background:radial-gradient(circle,rgba(121,239,189,.22),transparent 68%); animation:tutorial-cta-glow 8s ease-in-out infinite alternate; }
+.tutorial-cta:after { width:320px; height:320px; right:8%; bottom:-140px; background:radial-gradient(circle,rgba(121,239,189,.14),transparent 70%); animation:tutorial-cta-glow 10s ease-in-out infinite alternate-reverse; }
+@keyframes tutorial-cta-glow {
+  0% { transform:translate3d(0,0,0) scale(1); opacity:.7; }
+  100% { transform:translate3d(18px,-12px,0) scale(1.12); opacity:1; }
+}
+.tutorial-cta img { position:relative; z-index:1; width:52px; height:52px; filter:brightness(3); animation:tutorial-cta-bob 3.6s ease-in-out infinite; }
+@keyframes tutorial-cta-bob {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(-6px); }
+}
+.tutorial-cta>p:first-of-type { position:relative; z-index:1; margin:18px 0 10px; color:#79efbd; font:700 11px 'IBM Plex Mono',monospace; letter-spacing:.14em; text-transform:uppercase; }
+.tutorial-cta h2 { position:relative; z-index:1; max-width:760px; margin:0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(34px,5.4vw,64px); font-weight:400; font-style:italic; letter-spacing:-.04em; line-height:1.05; }
+.tutorial-cta-lead { position:relative; z-index:1; max-width:520px; margin:18px 0 28px; color:rgba(242,239,232,.78); font-family:'IBM Plex Sans',sans-serif; font-size:clamp(16px,1.5vw,19px); line-height:1.45; }
+.tutorial-cta .tutorial-primary-button { position:relative; z-index:1; background:#79efbd; color:#113f31; transition:transform .2s ease, box-shadow .2s ease; }
+.tutorial-cta .tutorial-primary-button:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.28); }
+@media (prefers-reduced-motion:reduce) {
+  .tutorial-cta:before,.tutorial-cta:after,.tutorial-cta img { animation:none; }
+}
 .tutorial-footer { display:flex; justify-content:space-between; gap:20px; padding:28px clamp(20px,5vw,72px); background:#0d0d0c; color:#a7a69d; font-size:12px; }
 .tutorial-footer span:first-child { color:#fff; font-weight:700; }
 @media (max-width:900px) {

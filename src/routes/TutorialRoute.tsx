@@ -218,6 +218,7 @@ export function TutorialRoute() {
         <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
         <p>{copy.ctaReady}</p>
         <h2>{copy.ctaTitle}</h2>
+        <p className="tutorial-cta-lead">{copy.ctaLead}</p>
         <Link to="/" className="tutorial-primary-button">{copy.ctaButton}</Link>
       </section>
       <footer className="tutorial-footer">
