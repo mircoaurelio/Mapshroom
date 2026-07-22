@@ -4766,6 +4766,31 @@ ${errorSnapshot}`,
     setMobilePanel(panel);
   };
 
+  const handleFinishMobileShaderEditing = () => {
+    setEditingTimelineStepId(null);
+    setMobilePanel(null);
+    setIsMobileTimelineOpen(false);
+    setMoveMode(false);
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            stagePreviewMode: 'timeline',
+          },
+        },
+      },
+      playback: {
+        ...currentProject.playback,
+        transport: playTransport(currentProject.playback.transport),
+      },
+    }));
+    updateMobileUiMode('bar');
+    setStatusMessage('Shader editing finished. Timeline playback resumed.');
+  };
+
   const requestTimelineAssetPicker = useCallback((stepId: string) => {
     if (isMobile) {
       updateMobileUiMode('full');
@@ -4898,7 +4923,12 @@ ${errorSnapshot}`,
             },
           },
           playback:
-            options?.seekTimeSeconds !== undefined && options.seekTimeSeconds !== null
+            isMobile
+              ? {
+                  ...currentProject.playback,
+                  transport: pauseTransport(currentProject.playback.transport),
+                }
+              : options?.seekTimeSeconds !== undefined && options.seekTimeSeconds !== null
               ? {
                   ...currentProject.playback,
                   transport: seekTransport(
@@ -5296,13 +5326,6 @@ ${errorSnapshot}`,
       />
     );
 
-  const mobileShaderPanel = (
-    <>
-      {aiPanel}
-      {studioPanel}
-    </>
-  );
-
   const desktopShaderToolsPanel = (
     <ShaderStudioControlsSection
       savedShaders={project.studio.savedShaders}
@@ -5311,6 +5334,37 @@ ${errorSnapshot}`,
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
       timelineSelection={timelineSelectionInfo}
     />
+  );
+
+  const mobileShaderToolsPanel = (
+    <ShaderStudioControlsSection
+      savedShaders={project.studio.savedShaders}
+      activeShaderId={project.studio.activeShaderId}
+      onSaveShader={saveCurrentShader}
+      onBrowsePresets={() => setIsPresetBrowserOpen(true)}
+      timelineSelection={timelineSelectionInfo}
+      hideCurrentShader
+    />
+  );
+
+  const mobileShaderPanel = (
+    <div className="mobile-shader-workspace">
+      <article className={`mobile-current-shader-card ${editingTimelineStepId ? 'mobile-current-shader-card-editing' : ''}`}>
+        <div>
+          <span>{editingTimelineStepId ? 'Editing timeline shader' : 'Current shader'}</span>
+          <strong>{project.studio.activeShaderName}</strong>
+          <small>{editingTimelineStepId ? 'Timeline paused while you customize this shader.' : 'Select a preset or describe a change below.'}</small>
+        </div>
+        {editingTimelineStepId ? (
+          <button type="button" className="mobile-shader-finish-button" onClick={handleFinishMobileShaderEditing}>
+            <span className="mobile-stop-icon" aria-hidden="true" />
+            Finish &amp; resume
+          </button>
+        ) : null}
+      </article>
+      {mobileShaderToolsPanel}
+      {aiPanel}
+    </div>
   );
 
   const desktopCodePanel = (
@@ -5543,6 +5597,7 @@ ${errorSnapshot}`,
 
       {isMobile && mobilePanel === 'sliders' && mobileUiMode === 'full' ? (
         <MobileUniformOverlay
+          shaderName={project.studio.activeShaderName}
           uniformDefinitions={uniformDefinitions}
           uniformValues={project.studio.uniformValues}
           onUniformChange={handleUniformChange}
@@ -5818,6 +5873,7 @@ ${errorSnapshot}`,
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
           isPlaying={project.playback.transport.isPlaying}
           isTimelineOpen={isMobileTimelineOpen}
+          isShaderEditing={editingTimelineStepId !== null}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
           onOpenProjects={() => {
@@ -5841,6 +5897,7 @@ ${errorSnapshot}`,
           onToggleMapping={handleMobileToggleMapping}
           onHide={handleMobileHide}
           onPlayToggle={handlePlayToggle}
+          onFinishShaderEditing={handleFinishMobileShaderEditing}
           onPanelChange={handleMobilePanelChange}
           panels={{
             studio: mobileShaderPanel,

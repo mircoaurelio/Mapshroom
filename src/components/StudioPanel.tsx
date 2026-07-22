@@ -16,6 +16,7 @@ interface ShaderStudioControlsSectionProps {
   onSaveShader: () => void;
   onBrowsePresets: () => void;
   timelineSelection?: TimelineSelectionInfo;
+  hideCurrentShader?: boolean;
 }
 
 interface ShaderVersionTrailSectionProps {
@@ -311,6 +312,7 @@ export function ShaderStudioControlsSection({
   onSaveShader,
   onBrowsePresets,
   timelineSelection,
+  hideCurrentShader = false,
 }: ShaderStudioControlsSectionProps) {
   const activeShaderName =
     savedShaders.find((shader) => shader.id === activeShaderId)?.name ?? 'Custom Shader';
@@ -319,10 +321,12 @@ export function ShaderStudioControlsSection({
     <PanelSection title="Shader Studio">
       <div className="stack gap-md">
         <div className="stack gap-sm">
-          <div className="field-inline-label">
-            <span>Current Shader</span>
-            <small>{activeShaderName}</small>
-          </div>
+          {!hideCurrentShader ? (
+            <div className="field-inline-label">
+              <span>Current Shader</span>
+              <small>{activeShaderName}</small>
+            </div>
+          ) : null}
           <div className="button-row shader-studio-action-row">
             <button
               type="button"

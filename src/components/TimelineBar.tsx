@@ -1151,7 +1151,7 @@ export function TimelineDialog({
 
   return (
     <div
-      className="dialog-backdrop"
+      className="dialog-backdrop timeline-dialog-backdrop"
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) {

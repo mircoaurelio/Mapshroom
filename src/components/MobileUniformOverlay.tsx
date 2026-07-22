@@ -3,6 +3,7 @@ import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 import { ShaderColorInput } from './ShaderColorInput';
 
 interface MobileUniformOverlayProps {
+  shaderName: string;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
@@ -10,6 +11,7 @@ interface MobileUniformOverlayProps {
 }
 
 export function MobileUniformOverlay({
+  shaderName,
   uniformDefinitions,
   uniformValues,
   onUniformChange,
@@ -29,7 +31,10 @@ export function MobileUniformOverlay({
     >
       <div className="mobile-uniform-overlay-inner">
         <div className="mobile-uniform-overlay-header">
-          <span>Sliders</span>
+          <div>
+            <span>Customize shader</span>
+            <strong>{shaderName}</strong>
+          </div>
           <button type="button" className="ghost-button" onClick={onClose}>
             Close
           </button>
