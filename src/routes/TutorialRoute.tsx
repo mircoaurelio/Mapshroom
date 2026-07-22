@@ -82,7 +82,7 @@ export function TutorialRoute() {
 
         <section className="tutorial-step">
           <Step number="02" title="Load the photo into Mapshroom"><p>Open the workspace, choose <strong>Load asset</strong> in the top bar, then pick your photo. It appears in the media library and on the stage.</p></Step>
-          <Media className="tutorial-ui-shot tutorial-zoom-shot" src="assets/tutorial/load-output-zoom.png" alt="Zoomed Mapshroom toolbar showing the Load Asset button and an active shader" marker={{ label: '1', x: '69%', y: '5%' }} />
+          <Media className="tutorial-ui-shot tutorial-zoom-shot" src="assets/tutorial/load-output-zoom-v2.png" alt="Zoomed Mapshroom toolbar showing the Load Asset button and an active shader" marker={{ label: '1', x: '69%', y: '5%' }} />
           <div className="tutorial-action-line"><kbd>LOAD ASSET</kbd><span>→</span><p>Select the sculpture photo.</p></div>
         </section>
 
@@ -90,20 +90,20 @@ export function TutorialRoute() {
           <Step number="03" title="Remove the background and create depth"><p>In the media library, select the photo. First remove the background; then generate a depth map so shaders react to the object’s shape.</p></Step>
           <div className="tutorial-processing-demo">
             <figure className="tutorial-media tutorial-mask-video">
-              <video autoPlay muted loop playsInline preload="metadata" poster="assets/tutorial/remove-background-loop-poster.jpg" aria-label="Removing a background in the Mapshroom Mask Editor at double speed">
-                <source src="assets/tutorial/remove-background-loop.mp4" type="video/mp4" />
+              <video autoPlay muted loop playsInline preload="metadata" poster="assets/tutorial/remove-background-loop-poster-v2.jpg" aria-label="Removing a background in the Mapshroom Mask Editor at double speed">
+                <source src="assets/tutorial/remove-background-loop-v2.mp4" type="video/mp4" />
               </video>
               <figcaption><strong>2× loop</strong> Mask Editor — remove the background</figcaption>
             </figure>
             <div className="tutorial-processing-crops">
-              <Media src="assets/tutorial/processing-tools-zoom.png" alt="Remove background and Depth map buttons above a selected asset" />
-              <Media className="tutorial-depth-dialog-shot" src="assets/tutorial/create-depth-map.png" alt="Create depth map panel with Generate depth map and depth controls" />
+              <Media src="assets/tutorial/processing-tools-zoom-v2.png" alt="Remove background and Depth map buttons above a selected asset" />
+              <Media className="tutorial-depth-dialog-shot" src="assets/tutorial/create-depth-map-v2.png" alt="Create depth map panel with Generate depth map and depth controls" />
             </div>
           </div>
           <div className="tutorial-process-grid">
             <article><Media src="assets/onboarding/photo-source-garden.webp" alt="Original sculpture photo" /><span>Original</span><h3>Your photo</h3></article>
             <article><Media src="assets/onboarding/photo-background-removed.webp" alt="Sculpture with background removed" /><span>Click 1</span><h3>Remove background</h3></article>
-            <article className="tutorial-depth-result-card"><Media src="assets/tutorial/depth-map-result.png" alt="Generated grayscale depth map of the default statue" /><span>Click 2</span><h3>Depth map</h3></article>
+            <article className="tutorial-depth-result-card"><Media src="assets/tutorial/depth-map-result-v2.png" alt="Generated grayscale depth map of the default statue" /><span>Click 2</span><h3>Depth map</h3></article>
           </div>
           <div className="tutorial-action-line"><kbd>REMOVE BACKGROUND</kbd><span>then</span><kbd>DEPTH MAP</kbd></div>
         </section>
@@ -112,7 +112,7 @@ export function TutorialRoute() {
           <Step number="04" title="Connect the projector"><p>Connect the computer to the projector with HDMI. Press <strong>Output</strong> and move the new browser window onto the projector display.</p></Step>
           <div className="tutorial-projector-grid">
             <Media src="assets/onboarding/materials-needed.webp" alt="Projector, HDMI cable, and phone" />
-            <Media className="tutorial-ui-shot tutorial-projector-ui" src="assets/tutorial/load-output-zoom.png" alt="Active shader beside the zoomed Mapshroom Output button" marker={{ label: '2', x: '82%', y: '5%' }} />
+            <Media className="tutorial-ui-shot tutorial-projector-ui" src="assets/tutorial/load-output-zoom-v2.png" alt="Active shader beside the zoomed Mapshroom Output button" marker={{ label: '2', x: '82%', y: '5%' }} />
           </div>
           <ol className="tutorial-mini-steps"><li>Connect HDMI</li><li>Click <strong>Output</strong></li><li>Move the window to the projector</li><li>Enter full screen</li></ol>
         </section>
