@@ -4,6 +4,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -595,6 +596,8 @@ interface OnboardingGuideProps {
 }
 
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const calloutCardRef = useRef<HTMLElement | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
@@ -613,6 +616,12 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
       : null;
   const isLastStep = activeStepIndex === onboardingTotalStepCount - 1;
   const stepLabel = onboardingCopy.stepLabel(activeStepIndex + 1, onboardingTotalStepCount);
+
+  useLayoutEffect(() => {
+    overlayRef.current?.scrollTo({ top: 0, left: 0 });
+    bodyRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [activeStepIndex]);
+
   const goToPreviousStep = () => {
     setHighlightRect(null);
     setCalloutStyle(undefined);
@@ -762,6 +771,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
   return (
     <div
+      ref={overlayRef}
       className={`onboarding-overlay ${
         activeUiArea ? 'onboarding-overlay-ui-step' : 'onboarding-overlay-setup-step'
       }`}
@@ -798,7 +808,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
             </button>
           </div>
 
-          <div className="onboarding-body">
+          <div ref={bodyRef} className="onboarding-body">
             {activeStepIndex === 0 ? (
               <section className="onboarding-section">
                 <div className="onboarding-section-heading">
