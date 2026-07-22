@@ -320,19 +320,22 @@ a {
   border: 0;
   background: transparent;
   box-shadow: none;
+  transform: translateY(clamp(-64px, -7vh, -32px));
 }
 
 .loading-brand-lockup {
+  --loading-logo-size: clamp(56px, 11vw, 78px);
   display: flex;
   align-items: baseline;
-  gap: clamp(0.28rem, 1vw, 0.55rem);
+  gap: 0;
 }
 
 .loading-brand-logo {
-  --loading-logo-size: clamp(56px, 11vw, 78px);
   width: var(--loading-logo-size);
   height: var(--loading-logo-size);
-  margin: 0;
+  margin-top: 0;
+  margin-left: calc(var(--loading-logo-size) * -0.12);
+  margin-right: calc(var(--loading-logo-size) * -0.16);
   /* Transparent pad under the stem (~6%) — pull the flex baseline up so the stem sits on the type ground line. */
   margin-bottom: calc(var(--loading-logo-size) * -0.06);
   object-fit: contain;
