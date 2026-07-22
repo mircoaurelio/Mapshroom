@@ -45,6 +45,7 @@ export function OutputRoute() {
     [sessionId],
   );
   const [liveProject, setLiveProject] = useState<ProjectDocument | null>(null);
+  const [showFullscreenGate, setShowFullscreenGate] = useState(false);
   const [midiOutputMix, setMidiOutputMix] = useState<MidiOutputLiveState | null>(() =>
     sessionId ? loadMidiOutputMixState(sessionId) : null,
   );
@@ -69,10 +70,12 @@ export function OutputRoute() {
 
   useEffect(() => {
     if (!requestFullscreenOnOpen) {
+      setShowFullscreenGate(false);
       return;
     }
 
     if (document.fullscreenElement) {
+      setShowFullscreenGate(false);
       return;
     }
 
@@ -83,18 +86,31 @@ export function OutputRoute() {
 
     const attemptFullscreen = () => {
       if (document.fullscreenElement) {
+        setShowFullscreenGate(false);
         return;
       }
-      void root.requestFullscreen().catch(() => {
-        // User gesture may already be spent; opener placement still covers the target display.
-      });
+      void root.requestFullscreen()
+        .then(() => setShowFullscreenGate(false))
+        .catch(() => setShowFullscreenGate(true));
     };
 
     attemptFullscreen();
-    const timeoutId = window.setTimeout(attemptFullscreen, 350);
+    const retryId = window.setTimeout(attemptFullscreen, 200);
+    const gateId = window.setTimeout(() => {
+      if (!document.fullscreenElement) {
+        setShowFullscreenGate(true);
+      }
+    }, 500);
+
+    const handleFullscreenChange = () => {
+      setShowFullscreenGate(!document.fullscreenElement && requestFullscreenOnOpen);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     return () => {
-      window.clearTimeout(timeoutId);
+      window.clearTimeout(retryId);
+      window.clearTimeout(gateId);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [requestFullscreenOnOpen]);
 
@@ -199,6 +215,21 @@ export function OutputRoute() {
         }}
         isOutputOnly
       />
+      {showFullscreenGate ? (
+        <button
+          type="button"
+          className="output-fullscreen-gate"
+          onClick={() => {
+            void document.documentElement.requestFullscreen?.()
+              .then(() => setShowFullscreenGate(false))
+              .catch(() => undefined);
+          }}
+        >
+          <span className="panel-eyebrow">Output</span>
+          <strong>Enter fullscreen</strong>
+          <span>One click — no F11 needed</span>
+        </button>
+      ) : null}
     </div>
   );
 }

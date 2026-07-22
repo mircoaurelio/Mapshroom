@@ -16,7 +16,7 @@ export interface OpenOutputWindowResult {
   message: string;
 }
 
-function buildOutputUrl(sessionId: string, requestFullscreen: boolean): string {
+function buildOutputUrl(sessionId: string, requestFullscreen = false): string {
   const fullscreenQuery = requestFullscreen ? '?fullscreen=1' : '';
   return `${window.location.origin}${window.location.pathname}#/output/${sessionId}${fullscreenQuery}`;
 }
@@ -35,35 +35,52 @@ function buildWindowFeatures(display: OutputDisplayOption | null | undefined): s
   ].join(',');
 }
 
-function requestPopupFullscreen(popup: Window): void {
-  const tryFullscreen = () => {
+function writeFullscreenShell(popup: Window, outputUrl: string): boolean {
+  try {
+    popup.document.open();
+    popup.document.write(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mapshroom Output</title>
+    <style>
+      html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+      iframe { display: block; width: 100%; height: 100%; border: 0; background: #000; }
+    </style>
+  </head>
+  <body>
+    <iframe
+      id="mapshroom-output-frame"
+      title="Mapshroom output"
+      allow="fullscreen; autoplay; clipboard-read; clipboard-write"
+      allowfullscreen
+      src="${outputUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"
+    ></iframe>
+  </body>
+</html>`);
+    popup.document.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function requestShellFullscreen(popup: Window): void {
+  try {
     const root = popup.document?.documentElement;
     if (!root || typeof root.requestFullscreen !== 'function') {
       return;
     }
-
-    void root.requestFullscreen().catch(() => {
-      // Browser may reject fullscreen outside a user gesture; bounds placement still covers the display.
-    });
-  };
-
-  try {
-    if (popup.document.readyState === 'complete') {
-      tryFullscreen();
+    if (popup.document.fullscreenElement) {
       return;
     }
+    void root.requestFullscreen().catch(() => {
+      // Gesture may be rejected on some browsers; the window is still sized to the display.
+    });
   } catch {
-    // Cross-document access can fail briefly while the popup boots.
+    // Ignore cross-document races while the popup boots.
   }
-
-  try {
-    popup.addEventListener('load', tryFullscreen, { once: true });
-  } catch {
-    window.setTimeout(tryFullscreen, 250);
-  }
-
-  window.setTimeout(tryFullscreen, 400);
-  window.setTimeout(tryFullscreen, 1_200);
 }
 
 export function openOutputWindow({
@@ -73,7 +90,8 @@ export function openOutputWindow({
   existingWindow = null,
 }: OpenOutputWindowOptions): OpenOutputWindowResult {
   const shouldFullscreen = Boolean(display) || fullscreenCurrent;
-  const nextUrl = buildOutputUrl(sessionId, shouldFullscreen);
+  const nextUrl = buildOutputUrl(sessionId, false);
+  const fallbackUrl = buildOutputUrl(sessionId, true);
 
   if (existingWindow && !existingWindow.closed && !display && !fullscreenCurrent) {
     try {
@@ -110,8 +128,12 @@ export function openOutputWindow({
       }
     : null;
 
-  const features = buildWindowFeatures(display ?? currentFallback);
-  const popup = window.open(nextUrl, OUTPUT_WINDOW_NAME, features);
+  const targetDisplay = display ?? currentFallback;
+  const features = buildWindowFeatures(targetDisplay);
+
+  // Open about:blank first so fullscreen can start in the same user gesture.
+  // Host the SPA in an iframe so a later navigation does not exit fullscreen.
+  const popup = window.open(shouldFullscreen ? 'about:blank' : nextUrl, OUTPUT_WINDOW_NAME, features);
   if (!popup) {
     return {
       popup: null,
@@ -127,7 +149,21 @@ export function openOutputWindow({
   }
 
   if (shouldFullscreen) {
-    requestPopupFullscreen(popup);
+    if (writeFullscreenShell(popup, nextUrl)) {
+      requestShellFullscreen(popup);
+      window.requestAnimationFrame(() => requestShellFullscreen(popup));
+      window.setTimeout(() => requestShellFullscreen(popup), 0);
+    } else {
+      try {
+        popup.location.replace(fallbackUrl);
+      } catch {
+        try {
+          popup.location.href = fallbackUrl;
+        } catch {
+          // Ignore navigation failures.
+        }
+      }
+    }
   }
 
   const message = display
