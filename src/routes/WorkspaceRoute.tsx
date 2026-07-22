@@ -4798,7 +4798,36 @@ ${errorSnapshot}`,
     }
     if (panel === 'sliders' && !editingTimelineStepId) {
       const shaderSequence = project?.timeline.stub.shaderSequence;
+      const playbackSteps = project
+        ? getEffectiveTimelinePlaybackSteps({
+            mode: shaderSequence?.mode ?? 'sequence',
+            randomChoiceEnabled: shaderSequence?.randomChoiceEnabled ?? false,
+            steps: shaderSequence?.steps ?? [],
+            sharedSectionDurationSeconds: shaderSequence?.sharedSectionDurationSeconds ?? 8,
+            sharedTransitionEnabled: shaderSequence?.sharedTransitionEnabled ?? false,
+            sharedTransitionDurationSeconds: shaderSequence?.sharedTransitionDurationSeconds ?? .75,
+            pinnedStepId: shaderSequence?.pinnedStepId ?? null,
+          }).filter(isTimelineStepEnabled)
+        : [];
+      const currentTimelineState = project && shaderSequence
+        ? resolveShaderTimelineState({
+            shaders: project.studio.savedShaders,
+            mode: shaderSequence.mode,
+            focusedStepId: shaderSequence.focusedStepId,
+            singleStepLoopEnabled: false,
+            randomChoiceEnabled: shaderSequence.randomChoiceEnabled,
+            sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled,
+            sharedTransitionEffect: shaderSequence.sharedTransitionEffect,
+            sharedTransitionDurationSeconds: shaderSequence.sharedTransitionDurationSeconds,
+            sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds,
+            steps: playbackSteps,
+            timeSeconds: getTransportTimeSeconds(project.playback.transport),
+            loop: project.playback.transport.loop,
+            randomSeedSalt: shaderSequence.randomSeedToken || project.sessionId,
+          })
+        : null;
       const stepToEdit =
+        shaderSequence?.steps.find((step) => step.id === currentTimelineState?.currentStep.id) ??
         shaderSequence?.steps.find((step) => step.id === shaderSequence.focusedStepId && !step.disabled) ??
         shaderSequence?.steps.find((step) => !step.disabled) ??
         null;
@@ -5722,9 +5751,6 @@ ${errorSnapshot}`,
           uniformValues={project.studio.uniformValues}
           onUniformChange={handleUniformChange}
           onClose={() => handleMobilePanelChange(null)}
-          onPreviousShader={() => handleMobileEditingStepOffset(-1)}
-          onNextShader={() => handleMobileEditingStepOffset(1)}
-          onFinishEditing={handleFinishMobileShaderEditing}
         />
       ) : null}
 

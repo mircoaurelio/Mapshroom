@@ -100,7 +100,7 @@ export function MobileChrome({
         <button
           type="button"
           className={activePanel === 'sliders' ? 'mobile-dock-button-active' : ''}
-          onClick={() => onPanelChange('sliders')}
+          onClick={() => onPanelChange(activePanel === 'sliders' ? null : 'sliders')}
         >
           Sliders
         </button>

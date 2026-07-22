@@ -8,9 +8,6 @@ interface MobileUniformOverlayProps {
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   onClose: () => void;
-  onPreviousShader: () => void;
-  onNextShader: () => void;
-  onFinishEditing: () => void;
 }
 
 export function MobileUniformOverlay({
@@ -19,9 +16,6 @@ export function MobileUniformOverlay({
   uniformValues,
   onUniformChange,
   onClose,
-  onPreviousShader,
-  onNextShader,
-  onFinishEditing,
 }: MobileUniformOverlayProps) {
   const entries = Object.entries(uniformDefinitions);
 
@@ -36,21 +30,8 @@ export function MobileUniformOverlay({
       }}
     >
       <div className="mobile-uniform-overlay-inner">
-        <div className="mobile-uniform-overlay-header">
-          <div>
-            <span>Customize shader</span>
-            <strong>{shaderName}</strong>
-          </div>
-          <div className="mobile-uniform-edit-actions">
-            <button type="button" onClick={onPreviousShader} aria-label="Previous timeline shader">‹</button>
-            <button type="button" className="mobile-circular-edit-button" onClick={onFinishEditing} aria-label="Finish shader editing and resume timeline" title="Finish and resume">
-              <span aria-hidden="true">↻</span>
-            </button>
-            <button type="button" onClick={onNextShader} aria-label="Next timeline shader">›</button>
-          </div>
-        </div>
         {entries.length === 0 ? (
-          <p className="empty-copy">No uniforms declared.</p>
+          <p className="empty-copy">No sliders declared for {shaderName}.</p>
         ) : (
           <div className="mobile-uniform-overlay-controls" data-slider-key-scope="true">
             {entries.map(([name, definition]) => {
@@ -93,9 +74,6 @@ export function MobileUniformOverlay({
                 </label>
               );
             })}
-            <button type="button" className="mobile-uniform-close-button" onClick={onClose}>
-              Hide sliders
-            </button>
           </div>
         )}
       </div>
