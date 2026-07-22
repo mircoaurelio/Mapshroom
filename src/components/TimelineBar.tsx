@@ -1170,20 +1170,8 @@ export function TimelineDialog({
         className="dialog-panel timeline-dialog-panel"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="timeline-dialog-title"
+        aria-label="Timeline playback settings"
       >
-        <header className="dialog-header">
-          <div>
-            <span className="timeline-dialog-label">Mobile timeline</span>
-            <h2 id="timeline-dialog-title" className="dialog-title">
-              Playback settings
-            </h2>
-          </div>
-          <button type="button" className="ghost-button" onClick={onClose}>
-            Close
-          </button>
-        </header>
-
         <div className="dialog-body mobile-timeline-settings">
           <p className="mobile-timeline-settings-copy">
             Every shader uses the same time. Shader previews and editing live in the Shader panel.

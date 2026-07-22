@@ -4595,8 +4595,8 @@ a {
 .mobile-current-shader-card {
   position: relative;
   display: grid;
-  gap: .8rem;
-  padding: 1rem;
+  gap: .4rem;
+  padding: .6rem .7rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: linear-gradient(145deg, rgba(var(--accent-rgb),.08), rgba(13,13,16,.34));
@@ -4620,9 +4620,13 @@ a {
 .mobile-current-shader-card strong {
   overflow: hidden;
   color: var(--text-bright);
-  font-size: 1.05rem;
+  font-size: .82rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mobile-current-shader-card small {
+  display: none;
 }
 
 .mobile-current-shader-card-editing {
@@ -4795,7 +4799,7 @@ a {
 .mobile-shader-sequence-held { right: .35rem; bottom: .35rem; color: var(--accent-pale); }
 
 .mobile-current-shader-copy {
-  padding-right: 7.5rem;
+  padding-right: 0;
 }
 
 .mobile-shader-dot-controls {
@@ -6527,12 +6531,12 @@ a {
     width: 100%;
     height: auto;
     max-width: none;
-    max-height: min(46dvh, 390px);
+    max-height: min(34dvh, 280px);
     border: 1px solid rgba(244,244,245,.18);
     border-radius: 1rem;
-    background: rgba(9,9,11,.38);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 14px 36px rgba(0,0,0,.18);
+    background: rgba(9,9,11,.2);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 10px 26px rgba(0,0,0,.12);
     overflow: hidden;
   }
 
@@ -6553,8 +6557,8 @@ a {
 
   .timeline-dialog-body.mobile-timeline-settings {
     flex: 0 1 auto;
-    gap: .6rem;
-    padding: .65rem;
+    gap: .4rem;
+    padding: .45rem;
     overflow-y: auto;
   }
 
@@ -6563,30 +6567,30 @@ a {
   }
 
   .mobile-timeline-settings-grid {
-    gap: .5rem;
+    gap: .35rem;
   }
 
   .mobile-timeline-setting-card {
-    min-height: 105px;
-    gap: .3rem;
-    padding: .65rem;
-    background: rgba(17,17,20,.3);
+    min-height: 78px;
+    gap: .2rem;
+    padding: .45rem;
+    background: rgba(17,17,20,.18);
   }
 
   .mobile-timeline-setting-card small {
-    font-size: .56rem;
-    line-height: 1.3;
+    font-size: .5rem;
+    line-height: 1.2;
   }
 
   .mobile-timeline-duration-input input {
-    padding: .3rem;
-    background: rgba(9,9,11,.34);
-    font-size: .9rem;
+    padding: .2rem .3rem;
+    background: rgba(9,9,11,.2);
+    font-size: .78rem;
   }
 
   .mobile-timeline-transport-card {
-    padding: .55rem .65rem;
-    background: rgba(9,9,11,.2);
+    padding: .4rem .5rem;
+    background: rgba(9,9,11,.12);
   }
 }
 
