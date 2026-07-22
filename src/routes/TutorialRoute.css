@@ -40,10 +40,14 @@
 .tutorial-media>img { display:block; width:100%; height:100%; object-fit:cover; }
 .tutorial-photo-pair,.tutorial-projector-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .tutorial-photo-pair .tutorial-media { aspect-ratio:16/9; }
+.tutorial-photo-pair .tutorial-media>img { transform:scale(1.1); }
 .tutorial-tip { max-width:780px; margin:22px 0 0 auto; padding:18px 22px; border-left:3px solid #1c7254; background:#e5e4db; color:#55554d; line-height:1.5; }
 .tutorial-tip strong { margin-right:12px; color:#1c7254; font:700 11px 'IBM Plex Mono',monospace; letter-spacing:.1em; text-transform:uppercase; }
 .tutorial-ui-shot { aspect-ratio:16/10; border:1px solid #242426; box-shadow:0 22px 60px rgba(22,22,18,.14); }
 .tutorial-ui-shot>img { object-fit:cover; }
+.tutorial-ui-shot.tutorial-zoom-shot { width:min(720px,100%); margin-inline:auto; aspect-ratio:auto; background:#09090b; }
+.tutorial-zoom-shot>img { height:auto; object-fit:contain; }
+.tutorial-projector-ui>img { object-position:top right; }
 .tutorial-click-marker { position:absolute; z-index:2; display:flex; align-items:center; gap:9px; transform:translate(-18px,-18px); }
 .tutorial-click-marker span { width:36px; height:36px; display:grid; place-items:center; border:3px solid #fff; border-radius:50%; background:#ff5a61; color:#fff; box-shadow:0 0 0 7px rgba(255,90,97,.28); font:700 13px 'IBM Plex Mono',monospace; }
 .tutorial-click-marker strong { padding:7px 10px; background:#ff5a61; color:#fff; white-space:nowrap; font:700 10px 'IBM Plex Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
@@ -51,13 +55,21 @@
 .tutorial-action-line kbd { padding:9px 12px; border:1px solid #1c7254; border-radius:3px; background:#fff; color:#1c7254; box-shadow:0 2px 0 #1c7254; font:700 11px 'IBM Plex Mono',monospace; }
 .tutorial-action-line p { margin:0; color:#66655e; }
 .tutorial-process-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-.tutorial-media-tools-shot { margin-bottom:16px; }
+.tutorial-processing-demo { display:grid; gap:16px; margin-bottom:16px; }
+.tutorial-mask-video { aspect-ratio:75/43; border:1px solid #242426; box-shadow:0 22px 60px rgba(22,22,18,.14); }
+.tutorial-mask-video video { display:block; width:100%; height:100%; object-fit:cover; }
+.tutorial-mask-video figcaption { position:absolute; left:18px; bottom:18px; padding:9px 12px; background:rgba(9,9,11,.9); color:#fff; font:11px 'IBM Plex Mono',monospace; }
+.tutorial-mask-video figcaption strong { margin-right:8px; color:#79efbd; text-transform:uppercase; }
+.tutorial-processing-crops { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr); gap:16px; }
+.tutorial-processing-crops .tutorial-media { min-height:280px; border:1px solid #242426; }
+.tutorial-processing-crops .tutorial-media>img { object-fit:cover; }
+.tutorial-processing-crops .tutorial-depth-dialog-shot>img { object-fit:contain; padding:28px; background:#09090b; }
 .tutorial-process-grid article { padding:10px 10px 22px; border:1px solid #c9c6bc; background:#e8e5dd; }
 .tutorial-process-grid .tutorial-media { aspect-ratio:4/3; }
 .tutorial-process-grid article>span { display:block; margin:18px 12px 6px; color:#1c7254; font:700 10px 'IBM Plex Mono',monospace; letter-spacing:.12em; text-transform:uppercase; }
 .tutorial-process-grid h3 { margin:0 12px; font-size:20px; }
-.tutorial-depth-card .tutorial-media { background:#28282a; }
-.tutorial-depth-card .tutorial-media img { object-fit:contain; padding:14%; }
+.tutorial-depth-result-card .tutorial-media { background:#050505; }
+.tutorial-depth-result-card .tutorial-media img { object-fit:cover; }
 .tutorial-projector-grid>.tutorial-media { aspect-ratio:16/9; }
 .tutorial-mini-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin:14px 0 0; padding:0; counter-reset:mini; list-style:none; background:#c9c6bc; }
 .tutorial-mini-steps li { counter-increment:mini; min-height:90px; padding:18px; background:#e8e5dd; }
@@ -98,6 +110,7 @@
   .tutorial-kit>div:nth-child(odd) { border-left:1px solid rgba(23,23,20,.15); }
   .tutorial-step-copy { grid-template-columns:65px 1fr; }
   .tutorial-projector-grid,.tutorial-mapping-demo { grid-template-columns:1fr; }
+  .tutorial-processing-crops { grid-template-columns:1fr; }
   .tutorial-mapping-card { width:min(360px,calc(100% - 30px)); justify-self:end; margin-top:-120px; z-index:2; }
   .tutorial-mini-steps { grid-template-columns:1fr 1fr; }
   .tutorial-finish-flow { grid-template-columns:1fr; }
