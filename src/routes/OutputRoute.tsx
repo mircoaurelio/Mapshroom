@@ -54,6 +54,7 @@ export function OutputRoute() {
   const [showScreenPicker, setShowScreenPicker] = useState(chooseScreenOnOpen);
   const [displayQuery, setDisplayQuery] = useState<OutputDisplayQueryResult | null>(null);
   const [fullscreenError, setFullscreenError] = useState('');
+  const [selectedScreen, setSelectedScreen] = useState<ScreenDetailed | null>(null);
   const [midiOutputMix, setMidiOutputMix] = useState<MidiOutputLiveState | null>(() =>
     sessionId ? loadMidiOutputMixState(sessionId) : null,
   );
@@ -89,6 +90,7 @@ export function OutputRoute() {
 
   const enterFullscreenOnDisplay = (display: OutputDisplayOption | null) => {
     setFullscreenError('');
+    setSelectedScreen(display?.screen ?? null);
     if (display) {
       try {
         window.moveTo(display.left, display.top);
@@ -98,7 +100,9 @@ export function OutputRoute() {
       }
     }
 
-    const request = document.documentElement.requestFullscreen?.();
+    const request = document.documentElement.requestFullscreen?.(
+      display ? { screen: display.screen } : undefined,
+    );
     if (!request) {
       setFullscreenError('Fullscreen is not available in this browser. Press F11 to continue.');
       return;
@@ -267,7 +271,9 @@ export function OutputRoute() {
           type="button"
           className="output-fullscreen-gate"
           onClick={() => {
-            void document.documentElement.requestFullscreen?.()
+            void document.documentElement.requestFullscreen?.(
+              selectedScreen ? { screen: selectedScreen } : undefined,
+            )
               .then(() => setShowFullscreenGate(false))
               .catch(() => undefined);
           }}

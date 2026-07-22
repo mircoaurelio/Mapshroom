@@ -26,3 +26,8 @@ interface Screen {
   readonly availLeft?: number;
   readonly availTop?: number;
 }
+
+interface FullscreenOptions {
+  /** Window Management API: request fullscreen on a specific connected display. */
+  screen?: ScreenDetailed;
+}

@@ -1,6 +1,7 @@
 export interface OutputDisplayOption {
   id: string;
   label: string;
+  screen: ScreenDetailed;
   left: number;
   top: number;
   width: number;
@@ -57,6 +58,7 @@ function toDisplayOption(
   return {
     id: `${screen.left}:${screen.top}:${screen.width}x${screen.height}:${index}`,
     label: buildDisplayLabel(screen, index),
+    screen,
     left: Math.round(screen.availLeft),
     top: Math.round(screen.availTop),
     width: Math.max(1, Math.round(screen.availWidth)),
