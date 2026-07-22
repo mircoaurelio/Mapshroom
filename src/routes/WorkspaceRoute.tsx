@@ -1719,6 +1719,7 @@ function getPreferredTimelineStepId(
 export function WorkspaceRoute() {
   const location = useLocation();
   const isMobile = useIsMobile();
+  const initialIsMobileRef = useRef(isMobile);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const filePickerSourceRef = useRef<FilePickerSource>('library');
   const timelineImportStepIdRef = useRef<string | null>(null);
@@ -1879,7 +1880,9 @@ export function WorkspaceRoute() {
       // get a fresh starter project with a small random shader set.
       if (isBundledProjectSessionId(sessionId)) {
         const nextSessionId = crypto.randomUUID();
-        const starterProject = normalizeProject(createDefaultProject(nextSessionId));
+        const starterProject = normalizeProject(
+          createDefaultProject(nextSessionId, { isMobile: initialIsMobileRef.current }),
+        );
         persistActiveSessionId(nextSessionId);
         saveProjectDocument(starterProject);
         setProject(starterProject);
@@ -1887,7 +1890,9 @@ export function WorkspaceRoute() {
       }
 
       persistActiveSessionId(sessionId);
-      const loadedProject = loadProjectDocument(sessionId) ?? createDefaultProject(sessionId);
+      const loadedProject =
+        loadProjectDocument(sessionId) ??
+        createDefaultProject(sessionId, { isMobile: initialIsMobileRef.current });
       const sliderCache = loadShaderSliderCache(sessionId);
       setProject(applyPersistedSliderCache(normalizeProject(loadedProject), sliderCache));
     })();
@@ -2058,7 +2063,7 @@ export function WorkspaceRoute() {
     }
 
     const nextSessionId = crypto.randomUUID();
-    const nextProject = normalizeProject(createDefaultProject(nextSessionId));
+    const nextProject = normalizeProject(createDefaultProject(nextSessionId, { isMobile }));
 
     setProject(nextProject);
     persistActiveSessionId(nextSessionId);
@@ -2070,7 +2075,7 @@ export function WorkspaceRoute() {
     setCompilerError('');
     setStatusMessage('Created a new project.');
     trackUiClick('create_project');
-  }, []);
+  }, [isMobile]);
 
   const handleOpenSavedProject = useCallback((sessionId: string) => {
     const loadedProject = loadProjectDocument(sessionId);

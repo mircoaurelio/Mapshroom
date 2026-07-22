@@ -7,7 +7,7 @@ import {
 } from './lib/bundledProjects';
 import { getShaderTimelineDuration } from './lib/timeline';
 import {
-  BUNDLED_STAGE_ASSET_ID,
+  BUNDLED_STATUE_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
   pickStarterBundledAssetId,
 } from './lib/bundledAssets';
@@ -75,9 +75,12 @@ if (shaderPresetList.length === 0) {
   throw new Error('Mapshroom requires at least one shader preset.');
 }
 
-export function createDefaultProject(sessionId: string): ProjectDocument {
-  const activeAssetId = pickStarterBundledAssetId();
-  const preferredTemplate = activeAssetId === BUNDLED_STAGE_ASSET_ID ? 'stage' : 'sculpture';
+export function createDefaultProject(
+  sessionId: string,
+  options: { isMobile?: boolean } = {},
+): ProjectDocument {
+  const activeAssetId = pickStarterBundledAssetId(options.isMobile);
+  const preferredTemplate = activeAssetId === BUNDLED_STATUE_ASSET_ID ? 'sculpture' : 'stage';
   const preferredPool = shaderPresetList.filter((preset) => preset.template === preferredTemplate);
   const starterPresets = pickRandomShaderPresets(
     STARTER_TIMELINE_SHADER_COUNT,
