@@ -18,6 +18,9 @@ const DownloadRoute = lazy(() =>
 const PrivacyRoute = lazy(() =>
   import('./routes/PrivacyRoute').then((module) => ({ default: module.PrivacyRoute })),
 );
+const TutorialRoute = lazy(() =>
+  import('./routes/TutorialRoute').then((module) => ({ default: module.TutorialRoute })),
+);
 
 export default function App() {
   useEffect(() => {
@@ -33,6 +36,7 @@ export default function App() {
           <Route path="/output/:sessionId" element={<OutputRoute />} />
           <Route path="/download" element={<DownloadRoute />} />
           <Route path="/privacy" element={<PrivacyRoute />} />
+          <Route path="/tutorial" element={<TutorialRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
