@@ -52,8 +52,8 @@ export function TutorialRoute() {
       <header className="tutorial-hero">
         <div className="tutorial-hero-copy">
           <p className="tutorial-eyebrow">Camera → Mapshroom → projector</p>
-          <h1>Projection mapping,<br /><em>from first photo to showtime.</em></h1>
-          <p className="tutorial-hero-lead">Turn a sculpture into an animated projection. You only need a phone, a computer, a projector, and a USB key.</p>
+          <h1>Make the sculpture<br /><em>move.</em></h1>
+          <p className="tutorial-hero-lead">Need to map everything? Just take a photo — the app does the rest.</p>
           <div className="tutorial-hero-actions"><a href="#steps" className="tutorial-primary-button">Start the tutorial ↓</a><span>About 10 minutes</span></div>
         </div>
         <div className="tutorial-hero-visual">
@@ -64,6 +64,9 @@ export function TutorialRoute() {
       </header>
 
       <section className="tutorial-kit" aria-label="What you need">
+        <figure className="tutorial-kit-visual">
+          <img src="assets/onboarding/materials-needed.webp" alt="Projector, phone, and HDMI cable" />
+        </figure>
         <div><span>01</span><strong>A subject</strong><small>Sculpture or object</small></div>
         <div><span>02</span><strong>A camera</strong><small>Your phone is enough</small></div>
         <div><span>03</span><strong>A projector</strong><small>HDMI connection</small></div>
@@ -73,10 +76,7 @@ export function TutorialRoute() {
       <div id="steps" className="tutorial-steps">
         <section className="tutorial-step">
           <Step number="01" title="Photograph the sculpture"><p>Stand directly in front of the object and keep the phone level. Frame the complete shape with space around every edge.</p></Step>
-          <div className="tutorial-photo-pair">
-            <Media src="assets/onboarding/capture-from-projector-view.webp" alt="Person photographing a sculpture from the projector position" />
-            <Media src="assets/onboarding/align-phone-camera.webp" alt="Phone camera aligned with the projector lens" />
-          </div>
+          <Media className="tutorial-capture-shot" src="assets/onboarding/capture-from-projector-view.webp" alt="Person photographing a sculpture from the projector position" />
           <aside className="tutorial-tip"><strong>Important</strong> Take the photo from as close as possible to the projector lens. Matching viewpoints makes alignment faster.</aside>
         </section>
 
@@ -141,7 +141,10 @@ export function TutorialRoute() {
 
         <section className="tutorial-step">
           <Step number="08" title="Customize the timeline"><p>Add shader clips along the bottom timeline. Drag clips to reorder them, set the duration, and choose transitions.</p></Step>
-          <Media className="tutorial-ui-shot tutorial-hq-timeline" src="assets/tutorial/timeline-hq-v3.png" alt="Mapshroom timeline beneath the default Palco Stage and shader controls" marker={{ label: '5', x: '50%', y: '70%' }} />
+          <div className="tutorial-timeline-grid">
+            <Media src="assets/onboarding/align-phone-camera.webp" alt="Phone camera aligned with the projector lens for a clean mapped sequence" />
+            <Media className="tutorial-ui-shot tutorial-hq-timeline" src="assets/tutorial/timeline-hq-v3.png" alt="Mapshroom timeline beneath the default Palco Stage and shader controls" marker={{ label: '5', x: '50%', y: '70%' }} />
+          </div>
           <div className="tutorial-timeline-key"><span><i />Drag to reorder</span><span><i />Set duration</span><span><i />Choose transition</span></div>
         </section>
 
