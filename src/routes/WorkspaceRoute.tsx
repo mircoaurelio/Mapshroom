@@ -175,7 +175,7 @@ const TIMELINE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const ONBOARDING_ENTRY_COOKIE = 'mapshroom_onboarding_entries';
 const ONBOARDING_ENTRY_SESSION_KEY = 'mapshroom:onboarding-entry-counted';
 const ONBOARDING_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-const ONBOARDING_AUTO_OPEN_LIMIT = 3;
+const ONBOARDING_AUTO_OPEN_LIMIT = 1;
 
 const ONBOARDING_SETUP_STEP_COUNT = 2;
 const ONBOARDING_CALLOUT_GAP_PX = 16;
@@ -5999,6 +5999,7 @@ ${errorSnapshot}`,
         <OnboardingGuide
           onClose={() => {
             track('onboarding_complete');
+            dismissOnboardingPermanently();
             setShowOnboardingGuide(false);
             signalOnboardingComplete();
           }}
