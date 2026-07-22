@@ -11,7 +11,7 @@ interface MobileChromeProps {
   activePanel: MobilePanelKey;
   onOpenProjects: () => void;
   onOpenShare: () => void;
-  onLoadAsset: () => void;
+  onOpenAssets: () => void;
   onOpenSettings: () => void;
   onOpenTimeline: () => void;
   onToggleMapping: () => void;
@@ -38,7 +38,7 @@ export function MobileChrome({
   activePanel,
   onOpenProjects,
   onOpenShare,
-  onLoadAsset,
+  onOpenAssets,
   onOpenSettings,
   onOpenTimeline,
   onToggleMapping,
@@ -64,8 +64,8 @@ export function MobileChrome({
           <button type="button" className="secondary-button" onClick={onOpenShare}>
             Share
           </button>
-          <button type="button" className="secondary-button" onClick={onLoadAsset}>
-            Load
+          <button type="button" className="secondary-button mobile-assets-button" onClick={onOpenAssets}>
+            Assets
           </button>
           <button type="button" className="secondary-button" onClick={onOpenSettings}>
             Settings

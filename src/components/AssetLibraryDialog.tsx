@@ -121,7 +121,7 @@ export function AssetLibraryDialog({
 
   return (
     <div
-      className="dialog-backdrop"
+      className="dialog-backdrop asset-browser-backdrop"
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) {

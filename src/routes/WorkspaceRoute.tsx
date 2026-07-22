@@ -2590,8 +2590,6 @@ export function WorkspaceRoute() {
         ? `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added to the library.`
         : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`,
     );
-    const imageAssetIds = uploadedAssets.filter((asset) => asset.kind === 'image').map((asset) => asset.id);
-    if (imageAssetIds.length) setSegmentationQueue((current) => [...current, ...imageAssetIds]);
     event.target.value = '';
   };
 
@@ -5794,7 +5792,7 @@ ${errorSnapshot}`,
       ) : null}
 
       <AssetLibraryDialog
-        open={!isMobile && isAssetLibraryOpen}
+        open={isAssetLibraryOpen}
         activeAsset={activeAsset}
         assetUrl={activeAssetUrl}
         assets={project.library.assets}
@@ -5830,7 +5828,10 @@ ${errorSnapshot}`,
             trackUiClick('open_share');
             handleOpenShareDialog();
           }}
-          onLoadAsset={() => openFilePicker('library')}
+          onOpenAssets={() => {
+            trackUiClick('open_assets');
+            setIsAssetLibraryOpen(true);
+          }}
           onOpenSettings={() => {
             trackUiClick('open_settings');
             setApiSettingsVariant('settings');

@@ -352,7 +352,7 @@ export function WorkspaceToolbar({
 
         <div className="toolbar-runtime-actions" data-onboarding-area="topbar">
           <button type="button" className="primary-button toolbar-load-asset-button" onClick={onOpenAssets}>
-            Load Asset
+            Assets
           </button>
           <button type="button" className="primary-button" onClick={onOpenOutput}>
             Output

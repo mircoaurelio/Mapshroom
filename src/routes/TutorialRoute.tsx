@@ -112,7 +112,7 @@ export function TutorialRoute() {
               <video autoPlay muted loop playsInline preload="metadata" poster="assets/tutorial/remove-background-loop-poster-v2.jpg" aria-label={copy.steps.process.videoAria}>
                 <source src="assets/tutorial/remove-background-loop-v3.mp4" type="video/mp4" />
               </video>
-              <figcaption><strong>2× loop</strong> {copy.steps.process.videoCaption}</figcaption>
+              <figcaption>{copy.steps.process.videoCaption}</figcaption>
             </figure>
             <div className="tutorial-processing-crops">
               <Media src="assets/tutorial/processing-tools-zoom-v2.png" alt="" />
