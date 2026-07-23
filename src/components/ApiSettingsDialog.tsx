@@ -274,7 +274,9 @@ export function ApiSettingsDialog({
                 className={`ai-path-card ai-path-card-chat ${usingChatGpt ? 'active' : ''}`}
                 onClick={handleChooseChatGpt}
               >
-                <ChatModelIcon />
+                <span className="ai-path-brand-mark ai-path-brand-mark-chatgpt" aria-hidden="true">
+                  <img src={`${import.meta.env.BASE_URL}assets/icons/chatgpt.svg`} alt="" />
+                </span>
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Direct &amp; free</span>
                   <strong>Use ChatGPT for free</strong>
@@ -288,7 +290,9 @@ export function ApiSettingsDialog({
                 className={`ai-path-card ai-path-card-perplexity ${usingPerplexity ? 'active' : ''}`}
                 onClick={handleChoosePerplexity}
               >
-                <span className="ai-path-monogram" aria-hidden="true">P</span>
+                <span className="ai-path-brand-mark ai-path-brand-mark-perplexity" aria-hidden="true">
+                  <img src={`${import.meta.env.BASE_URL}assets/icons/perplexity.svg`} alt="" />
+                </span>
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Direct &amp; free</span>
                   <strong>Use Perplexity for free</strong>
