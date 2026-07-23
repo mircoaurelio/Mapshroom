@@ -168,9 +168,9 @@ export function ApiSettingsDialog({
       setChatMessage('Clipboard access was blocked. Select the prompt text and copy it manually.');
     }
   };
-  const handlePasteAndApply = async () => {
+  const handlePasteAndApply = async (responseOverride?: string) => {
     setChatMessage('');
-    let response = chatResponse.trim();
+    let response = responseOverride?.trim() || chatResponse.trim();
 
     if (!response) {
       try {
@@ -288,8 +288,14 @@ export function ApiSettingsDialog({
                     value={externalChatPrompt}
                     onFocus={(event) => event.currentTarget.select()}
                   />
-                  <button type="button" className="primary-button" onClick={() => void handleCopyChatPrompt()}>
-                    Copy prompt
+                  <button
+                    type="button"
+                    className="primary-button ai-chat-copy-button"
+                    onClick={() => void handleCopyChatPrompt()}
+                  >
+                    <span>Ready for your AI chat</span>
+                    <strong>Copy the full shader prompt</strong>
+                    <small>One click copies every instruction and your request</small>
                   </button>
                   <div className="ai-chat-step">
                     <span className="ai-chat-step-number">2</span>
@@ -302,24 +308,48 @@ export function ApiSettingsDialog({
                     <span className="ai-chat-step-number">3</span>
                     <div>
                       <strong>Return and apply it</strong>
-                      <small>Paste below, or leave the box empty and let the button read your clipboard.</small>
+                      <small>Paste the reply below. Mapshroom inserts it into the shader code and applies it instantly.</small>
                     </div>
                   </div>
-                  <textarea
-                    className="prompt-field ai-chat-response"
-                    aria-label="AI chat shader response"
-                    placeholder="Paste the AI chat reply here (optional if it is already on your clipboard)…"
-                    value={chatResponse}
-                    onChange={(event) => setChatResponse(event.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={isApplyingChatResponse}
-                    onClick={() => void handlePasteAndApply()}
-                  >
-                    {isApplyingChatResponse ? 'Applying shader…' : 'Paste & apply shader'}
-                  </button>
+                  <div className="ai-chat-paste-zone">
+                    <span className="ai-chat-paste-label">Paste shader reply here</span>
+                    <textarea
+                      className="prompt-field ai-chat-response"
+                      aria-label="AI chat shader response"
+                      placeholder="Paste here — the shader will be applied automatically…"
+                      value={chatResponse}
+                      disabled={isApplyingChatResponse}
+                      onChange={(event) => setChatResponse(event.target.value)}
+                      onPaste={(event) => {
+                        const pastedResponse = event.clipboardData.getData('text').trim();
+                        if (!pastedResponse) return;
+                        event.preventDefault();
+                        setChatResponse(pastedResponse);
+                        void handlePasteAndApply(pastedResponse);
+                      }}
+                      onKeyDown={(event) => {
+                        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !isApplyingChatResponse) {
+                          event.preventDefault();
+                          void handlePasteAndApply();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="primary-button ai-chat-apply-button"
+                      disabled={isApplyingChatResponse}
+                      onClick={() => void handlePasteAndApply()}
+                    >
+                      {isApplyingChatResponse
+                        ? 'Validating & applying shader…'
+                        : chatResponse.trim()
+                          ? 'Apply this shader'
+                          : 'Paste from clipboard & apply'}
+                    </button>
+                    <small className="ai-chat-paste-hint">
+                      GLSL is extracted from the reply, checked, and placed directly into the active shader.
+                    </small>
+                  </div>
                   {chatMessage ? <p className="ai-chat-message" role="status">{chatMessage}</p> : null}
                 </div>
               ) : (
