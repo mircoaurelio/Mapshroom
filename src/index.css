@@ -6161,49 +6161,71 @@ a {
   max-height: 190px;
   color: #c7d2fe;
 }
-.ai-chat-copy-button {
+.ai-chat-copy-confirmation {
   display: grid;
-  width: 100%;
-  min-height: 88px;
-  padding: 1rem 1.2rem;
-  place-items: center;
-  gap: .24rem;
-  border-color: rgba(165, 180, 252, .72);
-  background:
-    linear-gradient(120deg, rgba(79, 70, 229, .94), rgba(124, 58, 237, .88));
-  box-shadow:
-    0 12px 30px rgba(76, 29, 149, .28),
-    inset 0 1px 0 rgba(255, 255, 255, .18);
-  color: #fff;
-  text-align: center;
-  text-transform: none;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .65rem;
+  padding: .7rem .75rem;
+  border: 1px solid rgba(129, 140, 248, .28);
+  border-radius: var(--radius-sm);
+  background: rgba(79, 70, 229, .09);
 }
-.ai-chat-copy-button > span {
-  color: #ddd6fe;
-  font-size: .58rem;
-  font-weight: 700;
-  letter-spacing: .13em;
+.ai-chat-copy-confirmation.is-copied {
+  border-color: rgba(52, 211, 153, .4);
+  background: rgba(6, 78, 59, .16);
+}
+.ai-chat-copy-check {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, .2);
+  color: #c7d2fe;
+  font: 700 .76rem/1 'IBM Plex Mono', monospace;
+}
+.ai-chat-copy-confirmation.is-copied .ai-chat-copy-check {
+  background: rgba(16, 185, 129, .2);
+  color: #6ee7b7;
+}
+.ai-chat-copy-confirmation > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: .12rem;
+}
+.ai-chat-copy-confirmation strong {
+  color: var(--text-bright);
+  font-size: .78rem;
+}
+.ai-chat-copy-confirmation small {
+  color: var(--text-muted);
+  font-size: .64rem;
+  line-height: 1.35;
+}
+.ai-chat-copy-again {
+  min-height: 32px;
+  white-space: nowrap;
+}
+.ai-chat-prompt-details {
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, .025);
+}
+.ai-chat-prompt-details summary {
+  padding: .55rem .65rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: .62rem/1.2 'IBM Plex Mono', monospace;
+  letter-spacing: .06em;
   text-transform: uppercase;
 }
-.ai-chat-copy-button > strong {
-  color: #fff;
-  font-size: 1rem;
-  letter-spacing: .01em;
+.ai-chat-prompt-details[open] summary {
+  color: #c7d2fe;
 }
-.ai-chat-copy-button > small {
-  color: #ede9fe;
-  font-size: .64rem;
-  letter-spacing: .02em;
-  text-transform: none;
-}
-.ai-chat-copy-button:hover {
-  border-color: #c4b5fd;
-  background:
-    linear-gradient(120deg, rgba(67, 56, 202, 1), rgba(109, 40, 217, .96));
-  box-shadow:
-    0 15px 36px rgba(76, 29, 149, .38),
-    0 0 0 3px rgba(129, 140, 248, .12);
-  transform: translateY(-1px);
+.ai-chat-prompt-details .ai-chat-prompt {
+  width: calc(100% - 1rem);
+  margin: 0 .5rem .5rem;
 }
 .ai-chat-paste-zone {
   display: grid;
@@ -6277,6 +6299,8 @@ a {
   .local-model-card { grid-template-columns: auto 48px minmax(0, 1fr); }
   .local-model-meta { grid-column: 3; align-items: flex-start; text-align: left; }
   .local-download-row { align-items: stretch; flex-direction: column; }
+  .ai-chat-copy-confirmation { grid-template-columns: auto minmax(0, 1fr); }
+  .ai-chat-copy-again { grid-column: 1 / -1; width: 100%; }
 }
 
 .dialog-section {

@@ -118,6 +118,7 @@ export function ApiSettingsDialog({
   const [selectedRuntime, setSelectedRuntime] = useState<ShaderRuntime>('');
   const [chatResponse, setChatResponse] = useState('');
   const [chatMessage, setChatMessage] = useState('');
+  const [promptCopied, setPromptCopied] = useState(false);
   const [isApplyingChatResponse, setIsApplyingChatResponse] = useState(false);
   const isSetup = variant === 'setup';
 
@@ -133,6 +134,7 @@ export function ApiSettingsDialog({
     setSelectedRuntime('');
     setChatResponse('');
     setChatMessage('');
+    setPromptCopied(false);
     setIsApplyingChatResponse(false);
   }, [externalChatPrompt, open]);
 
@@ -161,11 +163,19 @@ export function ApiSettingsDialog({
   };
   const handleCopyChatPrompt = async () => {
     if (!externalChatPrompt) return;
+    setChatMessage('');
     try {
       await navigator.clipboard.writeText(externalChatPrompt);
-      setChatMessage('Prompt copied. Paste it into your AI chat, then copy the shader reply and come back here.');
+      setPromptCopied(true);
     } catch {
+      setPromptCopied(false);
       setChatMessage('Clipboard access was blocked. Select the prompt text and copy it manually.');
+    }
+  };
+  const handleChooseChatRuntime = () => {
+    chooseRuntime('chat');
+    if (externalChatPrompt) {
+      void handleCopyChatPrompt();
     }
   };
   const handlePasteAndApply = async (responseOverride?: string) => {
@@ -225,7 +235,7 @@ export function ApiSettingsDialog({
             <button
               type="button"
               className={`ai-path-card ai-path-card-chat ${selectedRuntime === 'chat' ? 'active' : ''}`}
-              onClick={() => chooseRuntime('chat')}
+              onClick={handleChooseChatRuntime}
             >
               <ChatModelIcon />
               <div className="ai-path-card-copy">
@@ -277,26 +287,42 @@ export function ApiSettingsDialog({
                   <div className="ai-chat-step">
                     <span className="ai-chat-step-number">1</span>
                     <div>
-                      <strong>Copy the prepared prompt</strong>
-                      <small>Open your preferred AI chat and paste this whole prompt as one message.</small>
+                      <strong>Prompt prepared automatically</strong>
+                      <small>Open your preferred AI chat and paste it as one message.</small>
                     </div>
                   </div>
-                  <textarea
-                    className="prompt-field ai-chat-prompt"
-                    aria-label="Prepared shader prompt"
-                    readOnly
-                    value={externalChatPrompt}
-                    onFocus={(event) => event.currentTarget.select()}
-                  />
-                  <button
-                    type="button"
-                    className="primary-button ai-chat-copy-button"
-                    onClick={() => void handleCopyChatPrompt()}
+                  <div
+                    className={`ai-chat-copy-confirmation ${promptCopied ? 'is-copied' : ''}`}
+                    role="status"
+                    aria-live="polite"
                   >
-                    <span>Ready for your AI chat</span>
-                    <strong>Copy the full shader prompt</strong>
-                    <small>One click copies every instruction and your request</small>
-                  </button>
+                    <span className="ai-chat-copy-check" aria-hidden="true">{promptCopied ? '✓' : '…'}</span>
+                    <div>
+                      <strong>{promptCopied ? 'Prompt copied' : 'Prompt ready'}</strong>
+                      <small>
+                        {promptCopied
+                          ? 'Paste it into your AI chat, then copy the shader reply.'
+                          : 'Copy it once clipboard access is available.'}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="ghost-button ai-chat-copy-again"
+                      onClick={() => void handleCopyChatPrompt()}
+                    >
+                      {promptCopied ? 'Copy again' : 'Copy prompt'}
+                    </button>
+                  </div>
+                  <details className="ai-chat-prompt-details">
+                    <summary>View prepared prompt</summary>
+                    <textarea
+                      className="prompt-field ai-chat-prompt"
+                      aria-label="Prepared shader prompt"
+                      readOnly
+                      value={externalChatPrompt}
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                  </details>
                   <div className="ai-chat-step">
                     <span className="ai-chat-step-number">2</span>
                     <div>
