@@ -5990,6 +5990,17 @@ a {
   height: 64px;
   flex: 0 0 auto;
 }
+.ai-path-monogram {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(32, 178, 170, .14);
+  color: #99f6e4;
+  font: 700 1.7rem/1 'IBM Plex Mono', monospace;
+  box-shadow: inset 0 0 0 1px rgba(153, 246, 228, .2);
+}
 .ai-path-card-copy {
   display: flex;
   min-width: 0;
@@ -6078,6 +6089,25 @@ a {
     linear-gradient(110deg, rgba(49, 46, 129, .58), rgba(76, 29, 149, .34)),
     rgba(9, 9, 11, .55);
   box-shadow: none;
+}
+.ai-path-card-perplexity {
+  grid-column: 1 / -1;
+  color: #5eead4;
+  background:
+    linear-gradient(110deg, rgba(19, 78, 74, .42), rgba(17, 94, 89, .2)),
+    rgba(9, 9, 11, .55);
+}
+.ai-path-card-perplexity .ai-path-card-tag {
+  border: 0;
+  background: rgba(13, 148, 136, .22);
+  color: #99f6e4;
+}
+.ai-path-card-perplexity strong {
+  color: #f0fdfa;
+}
+.ai-path-card-perplexity .ai-path-card-copy > span:last-child {
+  color: #99f6e4;
+  opacity: .9;
 }
 .ai-runtime-choice.has-selection {
   grid-template-columns: minmax(0, 1fr);

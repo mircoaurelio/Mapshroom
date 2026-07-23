@@ -21,6 +21,8 @@ interface ApiSettingsDialogProps {
   onClearLocalData: () => void;
 }
 
+type AiPath = 'perplexity' | Exclude<ShaderRuntime, ''>;
+
 function LocalModelIcon() {
   return (
     <svg className="ai-path-icon" viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -115,7 +117,7 @@ export function ApiSettingsDialog({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadError, setDownloadError] = useState('');
   const [downloading, setDownloading] = useState(false);
-  const [selectedRuntime, setSelectedRuntime] = useState<ShaderRuntime>('');
+  const [selectedPath, setSelectedPath] = useState<AiPath | ''>('');
   const [chatResponse, setChatResponse] = useState('');
   const [chatMessage, setChatMessage] = useState('');
   const [promptCopied, setPromptCopied] = useState(false);
@@ -132,7 +134,7 @@ export function ApiSettingsDialog({
   }, [downloading]);
 
   useEffect(() => {
-    setSelectedRuntime('');
+    setSelectedPath('');
     setChatResponse('');
     setChatMessage('');
     setPromptCopied(false);
@@ -148,11 +150,12 @@ export function ApiSettingsDialog({
 
   if (!open) return null;
 
-  const chooseRuntime = (runtime: ShaderRuntime) => {
-    setSelectedRuntime(runtime);
+  const chooseRuntime = (runtime: Exclude<ShaderRuntime, ''>) => {
+    setSelectedPath(runtime);
     onChange('shaderRuntime', runtime);
   };
-  const showRuntimeChoice = (runtime: ShaderRuntime) => !selectedRuntime || selectedRuntime === runtime;
+  const showRuntimeChoice = (path: AiPath) => !selectedPath || selectedPath === path;
+  const usingPerplexity = selectedPath === 'perplexity';
   const selectedLocal = LOCAL_SHADER_MODELS.find((model) => model.id === settings.localShaderModel);
   const ready = settings.localShaderModel ? isLocalModelReady(settings.localShaderModel, settings.visionEnabled) : false;
   const handleDownload = async () => {
@@ -188,6 +191,14 @@ export function ApiSettingsDialog({
     if (externalChatPrompt) {
       void handleCopyChatPrompt();
     }
+  };
+  const handleChoosePerplexity = () => {
+    setSelectedPath('perplexity');
+    onChange('shaderRuntime', 'chat');
+    setChatMessage('');
+    if (!externalChatPrompt) return;
+    const perplexityUrl = `https://www.perplexity.ai/?q=${encodeURIComponent(externalChatPrompt)}`;
+    window.open(perplexityUrl, '_blank', 'noopener,noreferrer');
   };
   const handlePasteAndApply = async (responseOverride?: string) => {
     setChatMessage('');
@@ -243,14 +254,28 @@ export function ApiSettingsDialog({
           </p>
 
           <div
-            className={`ai-runtime-choice ${selectedRuntime ? 'has-selection' : ''}`}
+            className={`ai-runtime-choice ${selectedPath ? 'has-selection' : ''}`}
             role="radiogroup"
             aria-label="AI runtime"
           >
+            {showRuntimeChoice('perplexity') ? (
+              <button
+                type="button"
+                className={`ai-path-card ai-path-card-perplexity ${usingPerplexity ? 'active' : ''}`}
+                onClick={handleChoosePerplexity}
+              >
+                <span className="ai-path-monogram" aria-hidden="true">P</span>
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Direct &amp; free</span>
+                  <strong>Use Perplexity for free</strong>
+                  <span>Open Perplexity in a new tab with your complete shader prompt already filled in.</span>
+                </div>
+              </button>
+            ) : null}
             {showRuntimeChoice('chat') ? (
               <button
                 type="button"
-                className={`ai-path-card ai-path-card-chat ${selectedRuntime === 'chat' ? 'active' : ''}`}
+                className={`ai-path-card ai-path-card-chat ${selectedPath === 'chat' ? 'active' : ''}`}
                 onClick={handleChooseChatRuntime}
               >
                 <ChatModelIcon />
@@ -270,7 +295,7 @@ export function ApiSettingsDialog({
             {showRuntimeChoice('local') ? (
               <button
                 type="button"
-                className={`ai-path-card ai-path-card-local ${selectedRuntime === 'local' ? 'active' : ''}`}
+                className={`ai-path-card ai-path-card-local ${selectedPath === 'local' ? 'active' : ''}`}
                 onClick={() => chooseRuntime('local')}
               >
                 <LocalModelIcon />
@@ -284,7 +309,7 @@ export function ApiSettingsDialog({
             {showRuntimeChoice('api') ? (
               <button
                 type="button"
-                className={`ai-path-card ai-path-card-cloud ${selectedRuntime === 'api' ? 'active' : ''}`}
+                className={`ai-path-card ai-path-card-cloud ${selectedPath === 'api' ? 'active' : ''}`}
                 onClick={() => chooseRuntime('api')}
               >
                 <CloudModelIcon />
@@ -297,49 +322,73 @@ export function ApiSettingsDialog({
             ) : null}
           </div>
 
-          {selectedRuntime === 'chat' ? (
+          {selectedPath === 'chat' || usingPerplexity ? (
             <section className="dialog-section ai-model-section ai-chat-section">
               <div className="ai-section-heading">
                 <div>
-                  <span className="panel-eyebrow">Your chat, Mapshroom’s prompt</span>
+                  <span className="panel-eyebrow">
+                    {usingPerplexity ? 'Perplexity, Mapshroom’s prompt' : 'Your chat, Mapshroom’s prompt'}
+                  </span>
                   <p className="helper-copy">
-                    No API key or model download needed. Your request is already included at the very end of the
-                    prompt.
+                    {usingPerplexity
+                      ? 'No API key or copying needed. Perplexity opens with your full request ready to send.'
+                      : 'No API key or model download needed. Your request is already included at the very end of the prompt.'}
                   </p>
                 </div>
-                <span className="ai-chat-badge">3 quick steps</span>
+                <span className="ai-chat-badge">{usingPerplexity ? 'Direct handoff' : '3 quick steps'}</span>
               </div>
               {externalChatPrompt ? (
                 <div className="ai-chat-workflow">
                   <div className="ai-chat-step">
                     <span className="ai-chat-step-number">1</span>
                     <div>
-                      <strong>Prompt prepared automatically</strong>
-                      <small>Open your preferred AI chat and paste it as one message.</small>
-                    </div>
-                  </div>
-                  <div
-                    className={`ai-chat-copy-confirmation ${promptCopied ? 'is-copied' : ''}`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span className="ai-chat-copy-check" aria-hidden="true">{promptCopied ? '✓' : '…'}</span>
-                    <div>
-                      <strong>{promptCopied ? 'Prompt copied' : 'Prompt ready'}</strong>
+                      <strong>{usingPerplexity ? 'Prompt opened automatically' : 'Prompt prepared automatically'}</strong>
                       <small>
-                        {promptCopied
-                          ? 'Paste it into your AI chat, then copy the shader reply.'
-                          : 'Copy it once clipboard access is available.'}
+                        {usingPerplexity
+                          ? 'Send the prepared message in the Perplexity tab that just opened.'
+                          : 'Open your preferred AI chat and paste it as one message.'}
                       </small>
                     </div>
-                    <button
-                      type="button"
-                      className="ghost-button ai-chat-copy-again"
-                      onClick={() => void handleCopyChatPrompt()}
-                    >
-                      {promptCopied ? 'Copy again' : 'Copy prompt'}
-                    </button>
                   </div>
+                  {usingPerplexity ? (
+                    <div className="ai-chat-copy-confirmation is-copied" role="status">
+                      <span className="ai-chat-copy-check" aria-hidden="true">↗</span>
+                      <div>
+                        <strong>Perplexity opened with your prompt</strong>
+                        <small>After it creates the shader, copy the entire reply and return here.</small>
+                      </div>
+                      <button
+                        type="button"
+                        className="ghost-button ai-chat-copy-again"
+                        onClick={handleChoosePerplexity}
+                      >
+                        Open again
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className={`ai-chat-copy-confirmation ${promptCopied ? 'is-copied' : ''}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <span className="ai-chat-copy-check" aria-hidden="true">{promptCopied ? '✓' : '…'}</span>
+                      <div>
+                        <strong>{promptCopied ? 'Prompt copied' : 'Prompt ready'}</strong>
+                        <small>
+                          {promptCopied
+                            ? 'Paste it into your AI chat, then copy the shader reply.'
+                            : 'Copy it once clipboard access is available.'}
+                        </small>
+                      </div>
+                      <button
+                        type="button"
+                        className="ghost-button ai-chat-copy-again"
+                        onClick={() => void handleCopyChatPrompt()}
+                      >
+                        {promptCopied ? 'Copy again' : 'Copy prompt'}
+                      </button>
+                    </div>
+                  )}
                   <details className="ai-chat-prompt-details">
                     <summary>View prepared prompt</summary>
                     <textarea
@@ -414,7 +463,7 @@ export function ApiSettingsDialog({
             </section>
           ) : null}
 
-          {selectedRuntime === 'local' ? (
+          {selectedPath === 'local' ? (
             <section className="dialog-section ai-model-section">
               <div className="ai-section-heading">
                 <div>
@@ -508,7 +557,7 @@ export function ApiSettingsDialog({
             </section>
           ) : null}
 
-          {selectedRuntime === 'api' ? (
+          {selectedPath === 'api' ? (
             <section className="dialog-section ai-model-section">
               <span className="panel-eyebrow">Cloud provider</span>
               <div className="stack gap-md">
@@ -640,7 +689,7 @@ export function ApiSettingsDialog({
             </section>
           ) : null}
 
-          {!isSetup && selectedRuntime ? (
+          {!isSetup && selectedPath ? (
             <section className="dialog-section dialog-section-danger">
               <span className="panel-eyebrow">Local data</span>
               <div className="stack gap-md">
