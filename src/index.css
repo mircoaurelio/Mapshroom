@@ -6677,7 +6677,7 @@ a {
 .workspace-shell-mobile .danger-button,
 .workspace-shell-mobile .ghost-button,
 .workspace-shell-mobile .toggle-chip,
-.workspace-shell-mobile .primary-button {
+.workspace-shell-mobile .primary-button:not(.asset-browser-import) {
   background: rgba(17, 17, 20, 0.12);
   border-color: rgba(63, 63, 70, 0.24);
 }
