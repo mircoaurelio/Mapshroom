@@ -1727,6 +1727,25 @@ function getPreferredTimelineStepId(
   return steps[0]?.id ?? null;
 }
 
+function StageTimelinePreviewIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="2.5" y="5" width="6" height="10" rx="1.5" />
+      <rect x="11.5" y="5" width="6" height="10" rx="1.5" />
+      <path d="M9.5 10h1" />
+    </svg>
+  );
+}
+
+function StageRepeatFocusedShaderIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M16 10A6 6 0 1 1 14.24 5.76" />
+      <path d="M12.5 2.5H16V6" />
+    </svg>
+  );
+}
+
 export function WorkspaceRoute() {
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -5809,7 +5828,7 @@ ${errorSnapshot}`,
       data-onboarding-area="canvas"
       className={`workspace-stage-column ${
         desktopStageKeyboardArmed ? 'workspace-stage-column-keyboard-active' : ''
-      } ${timelineSequenceEnabled ? 'stage-timeline-control-visible' : ''}`}
+      }`}
       tabIndex={isMobile ? -1 : 0}
       aria-label={isMobile ? undefined : 'Stage preview. Use left and right arrow keys to switch shaders.'}
       aria-keyshortcuts={isMobile ? undefined : 'ArrowLeft ArrowRight'}
@@ -5861,35 +5880,97 @@ ${errorSnapshot}`,
       />
 
       {timelineSequenceEnabled ? (
-        <button
-          type="button"
-          className={`stage-timeline-run-button ${
-            project.playback.transport.isPlaying ? 'is-playing' : ''
-          }`}
-          title={project.playback.transport.isPlaying ? 'Restart timeline' : 'Resume timeline'}
-          aria-label={project.playback.transport.isPlaying ? 'Restart timeline' : 'Resume timeline'}
+        <div
+          className="stage-timeline-preview-controls"
+          role="group"
+          aria-label="Timeline preview controls"
           onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (project.playback.transport.isPlaying) {
-              trackUiClick('timeline_restart_canvas');
-              handleTimelineSeek(0);
-              setStatusMessage('Timeline restarted.');
-              return;
-            }
-            trackUiClick('timeline_resume_canvas');
-            handlePlayToggle();
-            setStatusMessage('Timeline resumed.');
-          }}
         >
-          <span className="stage-timeline-run-icon" aria-hidden="true">
-            <span className="stage-timeline-run-repeat">↻</span>
-            <span className="stage-timeline-run-play">▶</span>
-          </span>
-          <span className="stage-timeline-run-label">
-            {project.playback.transport.isPlaying ? 'Restart timeline' : 'Resume timeline'}
-          </span>
-        </button>
+          <button
+            type="button"
+            className={`stage-timeline-preview-button ${
+              timelineStub.shaderSequence.stagePreviewMode === 'timeline' ? 'is-active' : ''
+            }`}
+            title={
+              timelineStub.shaderSequence.stagePreviewMode === 'timeline'
+                ? 'Show focused shader preview in stage'
+                : 'Show full timeline preview in stage'
+            }
+            aria-label={
+              timelineStub.shaderSequence.stagePreviewMode === 'timeline'
+                ? 'Show focused shader preview in stage'
+                : 'Show full timeline preview in stage'
+            }
+            aria-pressed={timelineStub.shaderSequence.stagePreviewMode === 'timeline'}
+            onClick={(event) => {
+              event.stopPropagation();
+              const nextPreviewMode =
+                timelineStub.shaderSequence.stagePreviewMode === 'timeline' ? 'focused' : 'timeline';
+              trackUiClick(
+                nextPreviewMode === 'timeline'
+                  ? 'timeline_preview_full_canvas'
+                  : 'timeline_preview_focused_canvas',
+              );
+              handleTimelineStagePreviewModeChange(nextPreviewMode);
+              setStatusMessage(
+                nextPreviewMode === 'timeline'
+                  ? 'Showing the full timeline in the stage.'
+                  : 'Showing the focused shader in the stage.',
+              );
+            }}
+          >
+            <span className="stage-timeline-preview-icon" aria-hidden="true">
+              <StageTimelinePreviewIcon />
+            </span>
+            <span className="stage-timeline-preview-label">
+              {timelineStub.shaderSequence.stagePreviewMode === 'timeline'
+                ? 'Full timeline'
+                : 'Show full timeline'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className={`stage-timeline-preview-button stage-focused-repeat-button ${
+              timelineStub.shaderSequence.singleStepLoopEnabled ? 'is-active' : ''
+            }`}
+            title={
+              timelineStub.shaderSequence.singleStepLoopEnabled
+                ? 'Stop repeating focused shader'
+                : 'Repeat focused shader'
+            }
+            aria-label={
+              timelineStub.shaderSequence.singleStepLoopEnabled
+                ? 'Stop repeating focused shader'
+                : 'Repeat focused shader'
+            }
+            aria-pressed={timelineStub.shaderSequence.singleStepLoopEnabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              const nextRepeatEnabled = !timelineStub.shaderSequence.singleStepLoopEnabled;
+              trackUiClick(
+                nextRepeatEnabled
+                  ? 'timeline_focused_repeat_on_canvas'
+                  : 'timeline_focused_repeat_off_canvas',
+              );
+              handleTimelineSingleStepLoopToggle();
+              setStatusMessage(
+                nextRepeatEnabled
+                  ? 'Repeating the focused shader.'
+                  : 'Focused shader repeat stopped.',
+              );
+            }}
+          >
+            <span className="stage-timeline-preview-icon" aria-hidden="true">
+              <StageRepeatFocusedShaderIcon />
+            </span>
+            <span className="stage-timeline-preview-label">
+              {timelineStub.shaderSequence.singleStepLoopEnabled
+                ? 'Repeating shader'
+                : 'Repeat focused shader'}
+            </span>
+          </button>
+        </div>
       ) : null}
 
       {aiLoading ? (
