@@ -5968,6 +5968,7 @@ a {
 .ai-provider-choice .ai-runtime-card { min-height: 58px; padding: .7rem .85rem; }
 
 .ai-path-card {
+  position: relative;
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   gap: .85rem;
@@ -6077,6 +6078,59 @@ a {
     linear-gradient(110deg, rgba(49, 46, 129, .58), rgba(76, 29, 149, .34)),
     rgba(9, 9, 11, .55);
   box-shadow: none;
+}
+.ai-runtime-choice.has-selection {
+  grid-template-columns: minmax(0, 1fr);
+}
+.ai-runtime-choice.has-selection .ai-path-card {
+  grid-column: auto;
+}
+.ai-runtime-choice.has-selection .ai-path-card.active {
+  color: #6ee7b7;
+  background:
+    linear-gradient(110deg, rgba(6, 78, 59, .58), rgba(5, 46, 22, .38)),
+    rgba(9, 9, 11, .55);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, .24);
+}
+.ai-runtime-choice.has-selection .ai-path-card.active .ai-path-card-tag {
+  background: rgba(16, 185, 129, .2);
+  color: #a7f3d0;
+}
+.ai-runtime-choice.has-selection .ai-path-card.active strong {
+  color: #ecfdf5;
+}
+.ai-runtime-choice.has-selection .ai-path-card.active .ai-path-card-copy > span:last-child {
+  color: #a7f3d0;
+}
+.ai-chat-copied-tooltip {
+  position: absolute;
+  z-index: 2;
+  top: .7rem;
+  right: .7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .45rem .65rem;
+  border: 1px solid rgba(110, 231, 183, .45);
+  border-radius: 999px;
+  background: #064e3b;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .34);
+  color: #d1fae5;
+  font: 700 .65rem/1 'IBM Plex Mono', monospace;
+  pointer-events: none;
+  animation: ai-chat-tooltip-in 180ms ease-out both;
+}
+.ai-chat-copied-tooltip > span {
+  display: grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(167, 243, 208, .18);
+}
+@keyframes ai-chat-tooltip-in {
+  from { opacity: 0; transform: translateY(-5px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .ai-model-section { margin-top: 0; }

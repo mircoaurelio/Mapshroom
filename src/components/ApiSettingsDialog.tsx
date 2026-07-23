@@ -119,6 +119,7 @@ export function ApiSettingsDialog({
   const [chatResponse, setChatResponse] = useState('');
   const [chatMessage, setChatMessage] = useState('');
   const [promptCopied, setPromptCopied] = useState(false);
+  const [showCopyTooltip, setShowCopyTooltip] = useState(false);
   const [isApplyingChatResponse, setIsApplyingChatResponse] = useState(false);
   const isSetup = variant === 'setup';
 
@@ -135,8 +136,15 @@ export function ApiSettingsDialog({
     setChatResponse('');
     setChatMessage('');
     setPromptCopied(false);
+    setShowCopyTooltip(false);
     setIsApplyingChatResponse(false);
   }, [externalChatPrompt, open]);
+
+  useEffect(() => {
+    if (!showCopyTooltip) return;
+    const timeoutId = window.setTimeout(() => setShowCopyTooltip(false), 2800);
+    return () => window.clearTimeout(timeoutId);
+  }, [showCopyTooltip]);
 
   if (!open) return null;
 
@@ -144,6 +152,7 @@ export function ApiSettingsDialog({
     setSelectedRuntime(runtime);
     onChange('shaderRuntime', runtime);
   };
+  const showRuntimeChoice = (runtime: ShaderRuntime) => !selectedRuntime || selectedRuntime === runtime;
   const selectedLocal = LOCAL_SHADER_MODELS.find((model) => model.id === settings.localShaderModel);
   const ready = settings.localShaderModel ? isLocalModelReady(settings.localShaderModel, settings.visionEnabled) : false;
   const handleDownload = async () => {
@@ -167,8 +176,10 @@ export function ApiSettingsDialog({
     try {
       await navigator.clipboard.writeText(externalChatPrompt);
       setPromptCopied(true);
+      setShowCopyTooltip(true);
     } catch {
       setPromptCopied(false);
+      setShowCopyTooltip(false);
       setChatMessage('Clipboard access was blocked. Select the prompt text and copy it manually.');
     }
   };
@@ -231,43 +242,59 @@ export function ApiSettingsDialog({
               : 'Run a model in this browser, connect an API, or copy a ready-made prompt into your usual AI chat.'}
           </p>
 
-          <div className="ai-runtime-choice" role="radiogroup" aria-label="AI runtime">
-            <button
-              type="button"
-              className={`ai-path-card ai-path-card-chat ${selectedRuntime === 'chat' ? 'active' : ''}`}
-              onClick={handleChooseChatRuntime}
-            >
-              <ChatModelIcon />
-              <div className="ai-path-card-copy">
-                <span className="ai-path-card-tag">Free &amp; no setup</span>
-                <strong>Use your AI chat for free</strong>
-                <span>Copy a prepared prompt into ChatGPT, Claude, Gemini, or another chat, then paste its shader back here.</span>
-              </div>
-            </button>
-            <button
-              type="button"
-              className={`ai-path-card ai-path-card-local ${selectedRuntime === 'local' ? 'active' : ''}`}
-              onClick={() => chooseRuntime('local')}
-            >
-              <LocalModelIcon />
-              <div className="ai-path-card-copy">
-                <span className="ai-path-card-tag">Cheap &amp; a bit stupid</span>
-                <strong>Local models</strong>
-                <span>Free, private, offline after download. Smaller browser brains — messier, funnier shaders.</span>
-              </div>
-            </button>
-            <button
-              type="button"
-              className={`ai-path-card ai-path-card-cloud ${selectedRuntime === 'api' ? 'active' : ''}`}
-              onClick={() => chooseRuntime('api')}
-            >
-              <CloudModelIcon />
-              <div className="ai-path-card-copy">
-                <span className="ai-path-card-tag">Strange &amp; costly</span>
-                <strong>Cloud API</strong>
-                <span>Sharper results, weirder tricks, and a meter that notices. Recommended when quality matters.</span>
-              </div>
-            </button>
+          <div
+            className={`ai-runtime-choice ${selectedRuntime ? 'has-selection' : ''}`}
+            role="radiogroup"
+            aria-label="AI runtime"
+          >
+            {showRuntimeChoice('chat') ? (
+              <button
+                type="button"
+                className={`ai-path-card ai-path-card-chat ${selectedRuntime === 'chat' ? 'active' : ''}`}
+                onClick={handleChooseChatRuntime}
+              >
+                <ChatModelIcon />
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Free &amp; no setup</span>
+                  <strong>Use your AI chat for free</strong>
+                  <span>Copy a prepared prompt into ChatGPT, Claude, Gemini, or another chat, then paste its shader back here.</span>
+                </div>
+                {showCopyTooltip ? (
+                  <span className="ai-chat-copied-tooltip" role="status" aria-live="polite">
+                    <span aria-hidden="true">✓</span>
+                    Prompt copied
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
+            {showRuntimeChoice('local') ? (
+              <button
+                type="button"
+                className={`ai-path-card ai-path-card-local ${selectedRuntime === 'local' ? 'active' : ''}`}
+                onClick={() => chooseRuntime('local')}
+              >
+                <LocalModelIcon />
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Cheap &amp; a bit stupid</span>
+                  <strong>Local models</strong>
+                  <span>Free, private, offline after download. Smaller browser brains — messier, funnier shaders.</span>
+                </div>
+              </button>
+            ) : null}
+            {showRuntimeChoice('api') ? (
+              <button
+                type="button"
+                className={`ai-path-card ai-path-card-cloud ${selectedRuntime === 'api' ? 'active' : ''}`}
+                onClick={() => chooseRuntime('api')}
+              >
+                <CloudModelIcon />
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Strange &amp; costly</span>
+                  <strong>Cloud API</strong>
+                  <span>Sharper results, weirder tricks, and a meter that notices. Recommended when quality matters.</span>
+                </div>
+              </button>
+            ) : null}
           </div>
 
           {selectedRuntime === 'chat' ? (
