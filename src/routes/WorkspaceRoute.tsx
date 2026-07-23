@@ -2376,6 +2376,71 @@ export function WorkspaceRoute() {
   }, [editingTimelineStepId, project]);
 
   useEffect(() => {
+    if (!project || !editingTimelineStepId) {
+      return;
+    }
+
+    const editingStep = project.timeline.stub.shaderSequence.steps.find(
+      (step) => step.id === editingTimelineStepId,
+    );
+    const editingShader = editingStep
+      ? project.studio.savedShaders.find((shader) => shader.id === editingStep.shaderId) ?? null
+      : null;
+
+    if (!editingStep || !editingShader) {
+      setEditingTimelineStepId(null);
+      return;
+    }
+
+    const activeShaderNeedsSync = project.studio.activeShaderId !== editingShader.id;
+
+    if (!activeShaderNeedsSync) {
+      return;
+    }
+
+    updateProject((currentProject) => {
+      const currentEditingStep = currentProject.timeline.stub.shaderSequence.steps.find(
+        (step) => step.id === editingTimelineStepId,
+      );
+      const currentEditingShader = currentEditingStep
+        ? currentProject.studio.savedShaders.find(
+            (shader) => shader.id === currentEditingStep.shaderId,
+          ) ?? null
+        : null;
+
+      if (!currentEditingStep || !currentEditingShader) {
+        return currentProject;
+      }
+
+      if (currentProject.studio.activeShaderId === currentEditingShader.id) {
+        return currentProject;
+      }
+
+      return {
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          activeShaderId: currentEditingShader.id,
+          activeShaderName: currentEditingShader.name,
+          activeShaderCode: currentEditingShader.code,
+          shaderChatHistory: [],
+          shaderVersions: getShaderVersionTrail(currentEditingShader),
+          uniformValues: getSyncedShaderUniformValues(
+            currentEditingShader.code,
+            currentEditingShader.uniformValues,
+          ),
+        },
+      };
+    });
+
+    if (activeShaderNeedsSync) {
+      setCompilerError(editingShader.compileError ?? '');
+      setPreferLiveShaderCompilePreview(false);
+      setStudioPreviewOverride(false);
+    }
+  }, [editingTimelineStepId, project, updateProject]);
+
+  useEffect(() => {
     if (!project || !activeTimelineDraft) {
       return;
     }
@@ -3443,7 +3508,6 @@ export function WorkspaceRoute() {
 
     void selectTimelineStepForEditing(step.id, {
       stagePreviewMode: 'focused',
-      updateTimelineFocus: false,
     });
     setTimelineScrollToStepRequest({
       stepId: step.id,
@@ -5018,7 +5082,6 @@ ${errorSnapshot}`,
         void selectTimelineStepForEditing(stepToEdit.id, {
           focusStudioOnMobile: false,
           stagePreviewMode: 'focused',
-          updateTimelineFocus: false,
         });
       }
     }
@@ -5083,7 +5146,6 @@ ${errorSnapshot}`,
       focusStudioOnMobile?: boolean;
       stagePreviewMode?: TimelineStagePreviewMode;
       seekTimeSeconds?: number | null;
-      updateTimelineFocus?: boolean;
     },
   ) {
     let nextStatusMessage = '';
@@ -5140,7 +5202,6 @@ ${errorSnapshot}`,
         ? `Editing linked shader for timeline step ${stepIndex + 1}.`
         : `Linked timeline step ${stepIndex + 1} to its own editable shader.`;
       nextCompilerError = editableShader.compileError ?? '';
-      const shouldUpdateTimelineFocus = options?.updateTimelineFocus !== false;
 
       return pruneTemporaryTimelineShaders(
         {
@@ -5175,9 +5236,7 @@ ${errorSnapshot}`,
                 stagePreviewMode:
                   options?.stagePreviewMode ??
                   currentProject.timeline.stub.shaderSequence.stagePreviewMode,
-                focusedStepId: isMobile || shouldUpdateTimelineFocus
-                  ? stepId
-                  : currentProject.timeline.stub.shaderSequence.focusedStepId,
+                focusedStepId: stepId,
                 singleStepLoopEnabled: isMobile
                   ? true
                   : currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
@@ -5227,7 +5286,6 @@ ${errorSnapshot}`,
   const handleTimelineEditStep = useCallback((stepId: string) => {
     void selectTimelineStepForEditing(stepId, {
       stagePreviewMode: 'focused',
-      updateTimelineFocus: false,
     });
   }, [selectTimelineStepForEditing]);
 
@@ -5245,7 +5303,6 @@ ${errorSnapshot}`,
     void selectTimelineStepForEditing(nextStep.id, {
       focusStudioOnMobile: false,
       stagePreviewMode: 'focused',
-      updateTimelineFocus: false,
     });
     setStatusMessage(`Editing shader ${nextIndex + 1} of ${steps.length}.`);
   }, [editingTimelineStepId, project, selectTimelineStepForEditing]);
