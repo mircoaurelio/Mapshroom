@@ -13,9 +13,11 @@ interface ApiSettingsDialogProps {
   open: boolean;
   settings: AiSettings;
   variant?: ApiSettingsVariant;
+  externalChatPrompt?: string;
   isClearingLocalData?: boolean;
   onClose: () => void;
   onChange: (field: keyof AiSettings, value: string | boolean) => void;
+  onApplyExternalChatResponse: (response: string) => Promise<void>;
   onClearLocalData: () => void;
 }
 
@@ -79,18 +81,43 @@ function CloudModelIcon() {
   );
 }
 
+function ChatModelIcon() {
+  return (
+    <svg className="ai-path-icon" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path
+        d="M12 15.5h40v28H29l-10 8v-8h-7v-28Z"
+        fill="rgba(129,140,248,.12)"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M21 25h22M21 33h15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="m45 8 1.7 4.3L51 14l-4.3 1.7L45 20l-1.7-4.3L39 14l4.3-1.7L45 8Z"
+        fill="currentColor"
+        opacity=".72"
+      />
+    </svg>
+  );
+}
+
 export function ApiSettingsDialog({
   open,
   settings,
   variant = 'settings',
+  externalChatPrompt = '',
   isClearingLocalData = false,
   onClose,
   onChange,
+  onApplyExternalChatResponse,
   onClearLocalData,
 }: ApiSettingsDialogProps) {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadError, setDownloadError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [chatResponse, setChatResponse] = useState('');
+  const [chatMessage, setChatMessage] = useState('');
+  const [isApplyingChatResponse, setIsApplyingChatResponse] = useState(false);
   const isSetup = variant === 'setup';
 
   useEffect(() => {
@@ -100,6 +127,12 @@ export function ApiSettingsDialog({
     }, 250);
     return () => window.clearInterval(intervalId);
   }, [downloading]);
+
+  useEffect(() => {
+    setChatResponse('');
+    setChatMessage('');
+    setIsApplyingChatResponse(false);
+  }, [externalChatPrompt, open]);
 
   if (!open) return null;
 
@@ -119,6 +152,43 @@ export function ApiSettingsDialog({
       setDownloadError(error instanceof Error ? error.message : 'The model download failed.');
     } finally {
       setDownloading(false);
+    }
+  };
+  const handleCopyChatPrompt = async () => {
+    if (!externalChatPrompt) return;
+    try {
+      await navigator.clipboard.writeText(externalChatPrompt);
+      setChatMessage('Prompt copied. Paste it into your AI chat, then copy the shader reply and come back here.');
+    } catch {
+      setChatMessage('Clipboard access was blocked. Select the prompt text and copy it manually.');
+    }
+  };
+  const handlePasteAndApply = async () => {
+    setChatMessage('');
+    let response = chatResponse.trim();
+
+    if (!response) {
+      try {
+        response = (await navigator.clipboard.readText()).trim();
+        setChatResponse(response);
+      } catch {
+        setChatMessage('Clipboard access was blocked. Paste the AI reply into the response box, then try again.');
+        return;
+      }
+    }
+
+    if (!response) {
+      setChatMessage('Copy the shader reply from your AI chat, or paste it into the response box first.');
+      return;
+    }
+
+    setIsApplyingChatResponse(true);
+    try {
+      await onApplyExternalChatResponse(response);
+    } catch (error) {
+      setChatMessage(error instanceof Error ? error.message : 'That reply could not be applied as a shader.');
+    } finally {
+      setIsApplyingChatResponse(false);
     }
   };
 
@@ -142,8 +212,8 @@ export function ApiSettingsDialog({
         <div className="dialog-body">
           <p className="dialog-note">
             {isSetup
-              ? 'Two ways to grow shaders: a humble browser brain, or a strange paid cloud mind. Pick one to unlock Generate.'
-              : 'Run open models entirely in this browser, or connect directly to OpenAI, Anthropic, or Gemini. Model files and API keys remain in this browser so you only set them up once.'}
+              ? 'Choose a browser brain, connect a cloud API, or borrow the AI chat you already use.'
+              : 'Run a model in this browser, connect an API, or copy a ready-made prompt into your usual AI chat.'}
           </p>
 
           <div className="ai-runtime-choice" role="radiogroup" aria-label="AI runtime">
@@ -171,7 +241,90 @@ export function ApiSettingsDialog({
                 <span>Sharper results, weirder tricks, and a meter that notices. Recommended when quality matters.</span>
               </div>
             </button>
+            <button
+              type="button"
+              className={`ai-path-card ai-path-card-chat ${settings.shaderRuntime === 'chat' ? 'active' : ''}`}
+              onClick={() => chooseRuntime('chat')}
+            >
+              <ChatModelIcon />
+              <div className="ai-path-card-copy">
+                <span className="ai-path-card-tag">Free &amp; no setup</span>
+                <strong>Use your AI chat</strong>
+                <span>Copy a prepared prompt into ChatGPT, Claude, Gemini, or another chat, then paste its shader back here.</span>
+              </div>
+            </button>
           </div>
+
+          {settings.shaderRuntime === 'chat' ? (
+            <section className="dialog-section ai-model-section ai-chat-section">
+              <div className="ai-section-heading">
+                <div>
+                  <span className="panel-eyebrow">Your chat, Mapshroom’s prompt</span>
+                  <p className="helper-copy">
+                    No API key or model download needed. Your request is already included at the very end of the
+                    prompt.
+                  </p>
+                </div>
+                <span className="ai-chat-badge">3 quick steps</span>
+              </div>
+              {externalChatPrompt ? (
+                <div className="ai-chat-workflow">
+                  <div className="ai-chat-step">
+                    <span className="ai-chat-step-number">1</span>
+                    <div>
+                      <strong>Copy the prepared prompt</strong>
+                      <small>Open your preferred AI chat and paste this whole prompt as one message.</small>
+                    </div>
+                  </div>
+                  <textarea
+                    className="prompt-field ai-chat-prompt"
+                    aria-label="Prepared shader prompt"
+                    readOnly
+                    value={externalChatPrompt}
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                  <button type="button" className="primary-button" onClick={() => void handleCopyChatPrompt()}>
+                    Copy prompt
+                  </button>
+                  <div className="ai-chat-step">
+                    <span className="ai-chat-step-number">2</span>
+                    <div>
+                      <strong>Generate in your AI chat</strong>
+                      <small>Wait for its GLSL reply, then copy the entire response.</small>
+                    </div>
+                  </div>
+                  <div className="ai-chat-step">
+                    <span className="ai-chat-step-number">3</span>
+                    <div>
+                      <strong>Return and apply it</strong>
+                      <small>Paste below, or leave the box empty and let the button read your clipboard.</small>
+                    </div>
+                  </div>
+                  <textarea
+                    className="prompt-field ai-chat-response"
+                    aria-label="AI chat shader response"
+                    placeholder="Paste the AI chat reply here (optional if it is already on your clipboard)…"
+                    value={chatResponse}
+                    onChange={(event) => setChatResponse(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={isApplyingChatResponse}
+                    onClick={() => void handlePasteAndApply()}
+                  >
+                    {isApplyingChatResponse ? 'Applying shader…' : 'Paste & apply shader'}
+                  </button>
+                  {chatMessage ? <p className="ai-chat-message" role="status">{chatMessage}</p> : null}
+                </div>
+              ) : (
+                <p className="helper-copy ai-chat-empty">
+                  Write what you want in the shader prompt, then press Generate. Mapshroom will prepare the full
+                  message for your AI chat.
+                </p>
+              )}
+            </section>
+          ) : null}
 
           {settings.shaderRuntime === 'local' ? (
             <section className="dialog-section ai-model-section">

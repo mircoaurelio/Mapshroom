@@ -23,6 +23,9 @@ export async function requestShaderMutation({
     if (!settings.localShaderModel) throw new Error('Choose and download a local shader model first.');
     return requestLocalShaderMutation({ modelId: settings.localShaderModel, prompt, currentCode, stageImage, visionEnabled: settings.visionEnabled });
   }
+  if (settings.shaderRuntime === 'chat') {
+    throw new Error('Copy this request to your AI chat, then paste its shader reply into Mapshroom.');
+  }
   if (settings.shaderProvider === 'openai') {
     return requestOpenAiShaderMutation({
       apiKey: settings.openaiApiKey,

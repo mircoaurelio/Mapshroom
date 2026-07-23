@@ -74,7 +74,13 @@ import {
   mergeBundledAssets,
 } from '../lib/bundledAssets';
 import { isBundledProjectSessionId } from '../lib/bundledProjects';
-import { parseShaderName, parseUniforms, syncUniformValues } from '../lib/shader';
+import {
+  extractGlslCode,
+  parseShaderName,
+  parseUniforms,
+  syncUniformValues,
+  validateGeneratedShader,
+} from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import { LEGACY_ULTRA_MODEL_ID, ULTRA_MODEL_ID } from '../lib/localAi';
 import {
@@ -98,7 +104,10 @@ import {
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
 import { normalizeTimelineStepAssetSettings } from '../lib/timelineAssetSettings';
-import { buildShaderMutationPrompt } from '../shaders/requestContract';
+import {
+  buildExternalChatShaderPrompt,
+  buildShaderMutationPrompt,
+} from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import { useMidiController } from '../hooks/useMidiController';
 import type {
@@ -1749,6 +1758,13 @@ export function WorkspaceRoute() {
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [apiSettingsVariant, setApiSettingsVariant] = useState<'setup' | 'settings'>('settings');
+  const [externalChatRequest, setExternalChatRequest] = useState<{
+    prompt: string;
+    historyPrompt: string;
+    currentCode: string;
+    targetShaderId: string;
+    trigger: 'generate' | 'fix' | 'quick_add';
+  } | null>(null);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
   const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
@@ -4172,21 +4188,32 @@ export function WorkspaceRoute() {
     }
 
     const llmTrigger = options?.trigger ?? 'generate';
-    const aiReady = hasConfiguredShaderAi(project.ai.settings);
-    if (!aiReady) {
-      setApiSettingsVariant('setup');
-      setIsApiSettingsOpen(true);
-      setAiFeedbackTone('idle');
-      setAiFeedbackMessage('Choose a local model or connect an AI provider to generate shaders.');
-      return;
-    }
-
     const trimmedPrompt = prompt.trim();
     const historyPrompt = options?.historyPrompt?.trim() || trimmedPrompt;
     if (!trimmedPrompt) {
       setAiFeedbackTone('error');
       setAiFeedbackMessage('Write a shader prompt first, then generate.');
       setStatusMessage('Add a prompt before generating.');
+      return;
+    }
+
+    const aiReady = hasConfiguredShaderAi(project.ai.settings);
+    if (project.ai.settings.shaderRuntime === 'chat' || !aiReady) {
+      setExternalChatRequest({
+        prompt: trimmedPrompt,
+        historyPrompt,
+        currentCode: project.studio.activeShaderCode,
+        targetShaderId: project.studio.activeShaderId,
+        trigger: llmTrigger,
+      });
+      setApiSettingsVariant('setup');
+      setIsApiSettingsOpen(true);
+      setAiFeedbackTone('idle');
+      setAiFeedbackMessage(
+        project.ai.settings.shaderRuntime === 'chat'
+          ? 'Copy the prepared prompt into your AI chat, then paste its shader reply back here.'
+          : 'Choose a local model, connect a cloud API, or use your existing AI chat.',
+      );
       return;
     }
 
@@ -4421,6 +4448,143 @@ export function WorkspaceRoute() {
       }
       clearGeneratedShaderRetry(targetShaderId);
     }
+  };
+
+  const handleApplyExternalChatResponse = async (response: string) => {
+    if (!project || !externalChatRequest) {
+      throw new Error('Ask Mapshroom for a shader first so it can prepare the matching prompt.');
+    }
+
+    const nextCode = validateGeneratedShader(extractGlslCode(response));
+    const targetShader = project.studio.savedShaders.find(
+      (shader) => shader.id === externalChatRequest.targetShaderId,
+    );
+    if (!targetShader) {
+      throw new Error('The shader you started from is no longer available. Ask again from the current shader.');
+    }
+
+    const nextName = parseShaderName(nextCode);
+    const validationError = validateShaderCodeCompilation(nextCode);
+    const versionId = crypto.randomUUID();
+    const appliedToActiveShader =
+      project.studio.activeShaderId === externalChatRequest.targetShaderId;
+    const userMessage = buildShaderMutationPrompt(
+      externalChatRequest.prompt,
+      externalChatRequest.currentCode,
+    );
+
+    generatedShaderRetryRef.current[externalChatRequest.targetShaderId] = {
+      sourcePrompt: externalChatRequest.prompt,
+      code: nextCode,
+      autoRepairUsed: false,
+      versionId,
+      retryInFlight: false,
+    };
+
+    updateProject((currentProject) => {
+      const currentTargetShader = currentProject.studio.savedShaders.find(
+        (shader) => shader.id === externalChatRequest.targetShaderId,
+      );
+      if (!currentTargetShader) {
+        return currentProject;
+      }
+
+      const isActive =
+        currentProject.studio.activeShaderId === externalChatRequest.targetShaderId;
+      const nextShaderVersion = createShaderVersion(
+        externalChatRequest.historyPrompt,
+        nextName,
+        nextCode,
+        versionId,
+      );
+      const nextShaderVersions = [
+        ...(isActive
+          ? currentProject.studio.shaderVersions
+          : getShaderVersionTrail(currentTargetShader)),
+        nextShaderVersion,
+      ];
+      const nextUniformValues = getSyncedShaderUniformValues(
+        nextCode,
+        isActive ? currentProject.studio.uniformValues : currentTargetShader.uniformValues,
+      );
+      const nextLastValidCode = validationError
+        ? currentTargetShader.lastValidCode ?? currentTargetShader.code
+        : nextCode;
+      const nextLastValidUniformValues = validationError
+        ? getRenderableShaderUniformValues(currentTargetShader)
+        : nextUniformValues;
+
+      return {
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          activeShaderName: isActive ? nextName : currentProject.studio.activeShaderName,
+          activeShaderCode: isActive ? nextCode : currentProject.studio.activeShaderCode,
+          uniformValues: isActive ? nextUniformValues : currentProject.studio.uniformValues,
+          shaderChatHistory: isActive
+            ? [
+                ...currentProject.studio.shaderChatHistory,
+                { role: 'user' as const, text: userMessage },
+                { role: 'model' as const, text: `\`\`\`glsl\n${nextCode}\n\`\`\`` },
+              ]
+            : currentProject.studio.shaderChatHistory,
+          shaderVersions: isActive
+            ? nextShaderVersions
+            : currentProject.studio.shaderVersions,
+          savedShaders: currentProject.studio.savedShaders.map((shader) =>
+            shader.id === externalChatRequest.targetShaderId
+              ? {
+                  ...shader,
+                  name: nextName,
+                  code: nextCode,
+                  versions: nextShaderVersions,
+                  uniformValues: nextUniformValues,
+                  lastValidCode: nextLastValidCode,
+                  lastValidUniformValues: nextLastValidUniformValues,
+                  compileError: validationError ?? undefined,
+                  isDirty: true,
+                  hasUnreadAiResult: isActive ? false : true,
+                }
+              : shader,
+          ),
+        },
+      };
+    });
+
+    setAiPrompt((currentPrompt) =>
+      currentPrompt.trim() === externalChatRequest.prompt ? '' : currentPrompt,
+    );
+    setIsApiSettingsOpen(false);
+    setExternalChatRequest(null);
+
+    if (validationError && appliedToActiveShader) {
+      setPreferLiveShaderCompilePreview(true);
+      applyCompilerFeedback(validationError);
+      setStatusMessage(
+        `The pasted shader has GLSL errors. Keeping the previous valid render for ${nextName}.`,
+      );
+    } else if (appliedToActiveShader) {
+      setCompilerError('');
+      setPreferLiveShaderCompilePreview(true);
+      setAiFeedbackTone('success');
+      setAiFeedbackMessage(`Shader pasted from your AI chat and applied: ${nextName}.`);
+      setStatusMessage(`Shader updated: ${nextName}`);
+      closeMobileShaderDialog();
+    } else if (validationError) {
+      clearGeneratedShaderRetry(externalChatRequest.targetShaderId);
+      setStatusMessage(
+        `The pasted shader updated "${nextName}" but has GLSL errors, so its previous valid render is still in use.`,
+      );
+    } else {
+      setStatusMessage(`Your AI chat result updated "${nextName}" in the timeline.`);
+    }
+
+    trackLlmRequest({
+      provider: 'external_chat',
+      runtime: 'chat',
+      outcome: 'success',
+      trigger: externalChatRequest.trigger,
+    });
   };
 
   useEffect(() => {
@@ -5375,14 +5539,6 @@ ${errorSnapshot}`,
       feedbackTone={aiFeedbackTone}
       shaderError={compilerError}
       onPromptChange={setAiPrompt}
-      onPromptIntent={() => {
-        const settings = project.ai.settings;
-        const configured = hasConfiguredShaderAi(settings);
-        if (!configured) {
-          setApiSettingsVariant('setup');
-          setIsApiSettingsOpen(true);
-        }
-      }}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
       }}
@@ -6112,9 +6268,21 @@ ${errorSnapshot}`,
         open={isApiSettingsOpen}
         settings={project.ai.settings}
         variant={apiSettingsVariant}
+        externalChatPrompt={
+          externalChatRequest
+            ? buildExternalChatShaderPrompt(
+                externalChatRequest.prompt,
+                externalChatRequest.currentCode,
+              )
+            : ''
+        }
         isClearingLocalData={isClearingLocalData}
-        onClose={() => setIsApiSettingsOpen(false)}
+        onClose={() => {
+          setIsApiSettingsOpen(false);
+          setExternalChatRequest(null);
+        }}
         onChange={updateAiSetting}
+        onApplyExternalChatResponse={handleApplyExternalChatResponse}
         onClearLocalData={() => {
           void handleClearLocalData();
         }}

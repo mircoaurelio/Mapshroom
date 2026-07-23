@@ -7,7 +7,6 @@ interface AiPanelProps {
   feedbackTone: 'idle' | 'loading' | 'success' | 'error';
   shaderError: string;
   onPromptChange: (value: string) => void;
-  onPromptIntent: () => void;
   onSubmit: () => void;
   onFixError: () => void;
 }
@@ -19,7 +18,6 @@ export function AiPanel({
   feedbackTone,
   shaderError,
   onPromptChange,
-  onPromptIntent,
   onSubmit,
   onFixError,
 }: AiPanelProps) {
@@ -34,7 +32,6 @@ export function AiPanel({
           aria-label="Shader prompt"
           placeholder="Describe the shader you want to create or transform..."
           value={prompt}
-          onFocus={onPromptIntent}
           onChange={(event) => onPromptChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
