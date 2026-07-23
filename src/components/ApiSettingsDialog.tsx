@@ -257,11 +257,13 @@ export function ApiSettingsDialog({
           <button type="button" className="ghost-button" onClick={onClose}>Close</button>
         </header>
         <div className="dialog-body">
-          <p className="dialog-note">
-            {isSetup
-              ? 'Choose a browser brain, connect a cloud API, or borrow the AI chat you already use.'
-              : 'Run a model in this browser, connect an API, or copy a ready-made prompt into your usual AI chat.'}
-          </p>
+          {!selectedPath ? (
+            <p className="dialog-note">
+              {isSetup
+                ? 'Choose a browser brain, connect a cloud API, or borrow the AI chat you already use.'
+                : 'Run a model in this browser, connect an API, or copy a ready-made prompt into your usual AI chat.'}
+            </p>
+          ) : null}
 
           <div
             className={`ai-runtime-choice ${selectedPath ? 'has-selection' : ''}`}
@@ -352,40 +354,14 @@ export function ApiSettingsDialog({
 
           {selectedPath === 'chat' || usingDirectChat ? (
             <section className="dialog-section ai-model-section ai-chat-section">
-              <div className="ai-section-heading">
-                <div>
-                  <span className="panel-eyebrow">
-                    {usingDirectChat
-                      ? `${usingPerplexity ? 'Perplexity' : 'ChatGPT'}, Mapshroom’s prompt`
-                      : 'Your chat, Mapshroom’s prompt'}
-                  </span>
-                  <p className="helper-copy">
-                    {usingDirectChat
-                      ? `No API key or copying needed. ${usingPerplexity ? 'Perplexity' : 'ChatGPT'} opens with your full request ready to send.`
-                      : 'No API key or model download needed. Your request is already included at the very end of the prompt.'}
-                  </p>
-                </div>
-                <span className="ai-chat-badge">{usingDirectChat ? 'Direct handoff' : '3 quick steps'}</span>
-              </div>
               {externalChatPrompt ? (
-                <div className="ai-chat-workflow">
-                  <div className="ai-chat-step">
-                    <span className="ai-chat-step-number">1</span>
-                    <div>
-                      <strong>{usingDirectChat ? 'Prompt opened automatically' : 'Prompt prepared automatically'}</strong>
-                      <small>
-                        {usingDirectChat
-                          ? `Send the prepared message in the ${usingPerplexity ? 'Perplexity' : 'ChatGPT'} tab that just opened.`
-                          : 'Open your preferred AI chat and paste it as one message.'}
-                      </small>
-                    </div>
-                  </div>
+                <div className="ai-chat-workflow ai-chat-workflow-compact">
                   {usingDirectChat ? (
                     <div className="ai-chat-copy-confirmation is-copied" role="status">
                       <span className="ai-chat-copy-check" aria-hidden="true">↗</span>
                       <div>
-                        <strong>{usingPerplexity ? 'Perplexity' : 'ChatGPT'} opened with your prompt</strong>
-                        <small>After it creates the shader, copy the entire reply and return here.</small>
+                        <strong>{usingPerplexity ? 'Perplexity' : 'ChatGPT'} opened</strong>
+                        <small>Generate the shader there, then copy the reply.</small>
                       </div>
                       <button
                         type="button"
@@ -406,8 +382,8 @@ export function ApiSettingsDialog({
                         <strong>{promptCopied ? 'Prompt copied' : 'Prompt ready'}</strong>
                         <small>
                           {promptCopied
-                            ? 'Paste it into your AI chat, then copy the shader reply.'
-                            : 'Copy it once clipboard access is available.'}
+                            ? 'Paste it into your AI chat, then copy the reply.'
+                            : 'Copy the prompt to continue.'}
                         </small>
                       </div>
                       <button
@@ -420,7 +396,7 @@ export function ApiSettingsDialog({
                     </div>
                   )}
                   <details className="ai-chat-prompt-details">
-                    <summary>View prepared prompt</summary>
+                    <summary>View prompt</summary>
                     <textarea
                       className="prompt-field ai-chat-prompt"
                       aria-label="Prepared shader prompt"
@@ -429,26 +405,15 @@ export function ApiSettingsDialog({
                       onFocus={(event) => event.currentTarget.select()}
                     />
                   </details>
-                  <div className="ai-chat-step">
-                    <span className="ai-chat-step-number">2</span>
-                    <div>
-                      <strong>Generate in your AI chat</strong>
-                      <small>Wait for its GLSL reply, then copy the entire response.</small>
-                    </div>
-                  </div>
-                  <div className="ai-chat-step">
-                    <span className="ai-chat-step-number">3</span>
-                    <div>
-                      <strong>Return and apply it</strong>
-                      <small>Paste the reply below. Mapshroom inserts it into the shader code and applies it instantly.</small>
-                    </div>
-                  </div>
                   <div className="ai-chat-paste-zone">
-                    <span className="ai-chat-paste-label">Paste shader reply here</span>
+                    <div className="ai-chat-paste-heading">
+                      <span className="ai-chat-paste-label">Paste the shader reply</span>
+                      <small>Mapshroom applies it automatically.</small>
+                    </div>
                     <textarea
                       className="prompt-field ai-chat-response"
                       aria-label="AI chat shader response"
-                      placeholder="Paste here — the shader will be applied automatically…"
+                      placeholder="Paste the AI reply here…"
                       value={chatResponse}
                       disabled={isApplyingChatResponse}
                       onChange={(event) => setChatResponse(event.target.value)}
@@ -473,21 +438,17 @@ export function ApiSettingsDialog({
                       onClick={() => void handlePasteAndApply()}
                     >
                       {isApplyingChatResponse
-                        ? 'Validating & applying shader…'
+                        ? 'Applying shader…'
                         : chatResponse.trim()
-                          ? 'Apply this shader'
-                          : 'Paste from clipboard & apply'}
+                          ? 'Apply shader'
+                          : 'Paste clipboard & apply'}
                     </button>
-                    <small className="ai-chat-paste-hint">
-                      GLSL is extracted from the reply, checked, and placed directly into the active shader.
-                    </small>
                   </div>
                   {chatMessage ? <p className="ai-chat-message" role="status">{chatMessage}</p> : null}
                 </div>
               ) : (
                 <p className="helper-copy ai-chat-empty">
-                  Write what you want in the shader prompt, then press Generate. Mapshroom will prepare the full
-                  message for your AI chat.
+                  Write what you want, then press Generate.
                 </p>
               )}
             </section>
