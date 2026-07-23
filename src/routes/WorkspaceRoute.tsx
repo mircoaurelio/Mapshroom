@@ -5941,31 +5941,31 @@ ${errorSnapshot}`,
       />
 
       {timelineSequenceEnabled &&
-      (fullTimelineStagePreviewActive || focusedShaderRepeatActive) ? (
+      (!fullTimelineStagePreviewActive || focusedShaderRepeatActive) ? (
         <div
           className="stage-timeline-preview-controls"
           role="group"
-          aria-label="Active timeline preview modes"
+          aria-label="Timeline preview controls"
           onPointerDown={(event) => event.stopPropagation()}
         >
-          {fullTimelineStagePreviewActive ? (
+          {!fullTimelineStagePreviewActive ? (
             <button
               type="button"
-              className="stage-timeline-preview-button is-active"
-              title="Turn off full timeline preview"
-              aria-label="Full timeline preview is active. Show the focused shader instead."
-              aria-pressed="true"
+              className="stage-timeline-preview-button"
+              title="Show full timeline preview"
+              aria-label="Show full timeline preview in the stage"
+              aria-pressed="false"
               onClick={(event) => {
                 event.stopPropagation();
-                trackUiClick('timeline_preview_focused_canvas');
-                handleTimelineStagePreviewModeChange('focused');
-                setStatusMessage('Full timeline preview turned off.');
+                trackUiClick('timeline_preview_full_canvas');
+                handleTimelineStagePreviewModeChange('timeline');
+                setStatusMessage('Showing the full timeline in the stage.');
               }}
             >
               <span className="stage-timeline-preview-icon" aria-hidden="true">
                 <StageTimelinePreviewIcon />
               </span>
-              <span className="stage-timeline-preview-label">Full timeline on</span>
+              <span className="stage-timeline-preview-label">Show full timeline</span>
             </button>
           ) : null}
 
