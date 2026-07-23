@@ -5809,7 +5809,7 @@ ${errorSnapshot}`,
       data-onboarding-area="canvas"
       className={`workspace-stage-column ${
         desktopStageKeyboardArmed ? 'workspace-stage-column-keyboard-active' : ''
-      }`}
+      } ${timelineSequenceEnabled ? 'stage-timeline-control-visible' : ''}`}
       tabIndex={isMobile ? -1 : 0}
       aria-label={isMobile ? undefined : 'Stage preview. Use left and right arrow keys to switch shaders.'}
       aria-keyshortcuts={isMobile ? undefined : 'ArrowLeft ArrowRight'}
@@ -5859,6 +5859,38 @@ ${errorSnapshot}`,
         onCompilerError={applyCompilerFeedback}
         onCanvasReady={(canvas) => { stageCanvasRef.current = canvas; }}
       />
+
+      {timelineSequenceEnabled ? (
+        <button
+          type="button"
+          className={`stage-timeline-run-button ${
+            project.playback.transport.isPlaying ? 'is-playing' : ''
+          }`}
+          title={project.playback.transport.isPlaying ? 'Restart timeline' : 'Resume timeline'}
+          aria-label={project.playback.transport.isPlaying ? 'Restart timeline' : 'Resume timeline'}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (project.playback.transport.isPlaying) {
+              trackUiClick('timeline_restart_canvas');
+              handleTimelineSeek(0);
+              setStatusMessage('Timeline restarted.');
+              return;
+            }
+            trackUiClick('timeline_resume_canvas');
+            handlePlayToggle();
+            setStatusMessage('Timeline resumed.');
+          }}
+        >
+          <span className="stage-timeline-run-icon" aria-hidden="true">
+            <span className="stage-timeline-run-repeat">↻</span>
+            <span className="stage-timeline-run-play">▶</span>
+          </span>
+          <span className="stage-timeline-run-label">
+            {project.playback.transport.isPlaying ? 'Restart timeline' : 'Resume timeline'}
+          </span>
+        </button>
+      ) : null}
 
       {aiLoading ? (
         <div className="ai-loading-overlay">
