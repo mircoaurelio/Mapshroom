@@ -6004,10 +6004,10 @@ a {
   height: 64px;
   place-items: center;
   border-radius: 18px;
-  background: rgba(32, 178, 170, .14);
-  color: #99f6e4;
+  background: rgba(14, 165, 233, .16);
+  color: #bae6fd;
   font: 700 1.7rem/1 'IBM Plex Mono', monospace;
-  box-shadow: inset 0 0 0 1px rgba(153, 246, 228, .2);
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, .24);
 }
 .ai-path-card-copy {
   display: flex;
@@ -6074,7 +6074,7 @@ a {
   box-shadow: none;
 }
 .ai-path-card-chat {
-  grid-column: 1 / -1;
+  grid-column: auto;
   color: #a5b4fc;
   background:
     linear-gradient(110deg, rgba(49, 46, 129, .34), rgba(76, 29, 149, .2)),
@@ -6099,22 +6099,22 @@ a {
   box-shadow: none;
 }
 .ai-path-card-perplexity {
-  grid-column: 1 / -1;
-  color: #5eead4;
+  grid-column: auto;
+  color: #7dd3fc;
   background:
-    linear-gradient(110deg, rgba(19, 78, 74, .42), rgba(17, 94, 89, .2)),
+    linear-gradient(110deg, rgba(7, 89, 133, .48), rgba(30, 64, 175, .22)),
     rgba(9, 9, 11, .55);
 }
 .ai-path-card-perplexity .ai-path-card-tag {
   border: 0;
-  background: rgba(13, 148, 136, .22);
-  color: #99f6e4;
+  background: rgba(2, 132, 199, .28);
+  color: #bae6fd;
 }
 .ai-path-card-perplexity strong {
-  color: #f0fdfa;
+  color: #f0f9ff;
 }
 .ai-path-card-perplexity .ai-path-card-copy > span:last-child {
-  color: #99f6e4;
+  color: #bae6fd;
   opacity: .9;
 }
 .ai-runtime-choice.has-selection {

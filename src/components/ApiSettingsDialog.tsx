@@ -301,7 +301,7 @@ export function ApiSettingsDialog({
                 <LocalModelIcon />
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Cheap &amp; a bit stupid</span>
-                  <strong>Local models</strong>
+                  <strong>Use local models for free</strong>
                   <span>Free, private, offline after download. Smaller browser brains — messier, funnier shaders.</span>
                 </div>
               </button>
