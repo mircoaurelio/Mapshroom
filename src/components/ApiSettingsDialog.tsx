@@ -115,6 +115,7 @@ export function ApiSettingsDialog({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadError, setDownloadError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [selectedRuntime, setSelectedRuntime] = useState<ShaderRuntime>('');
   const [chatResponse, setChatResponse] = useState('');
   const [chatMessage, setChatMessage] = useState('');
   const [isApplyingChatResponse, setIsApplyingChatResponse] = useState(false);
@@ -129,6 +130,7 @@ export function ApiSettingsDialog({
   }, [downloading]);
 
   useEffect(() => {
+    setSelectedRuntime('');
     setChatResponse('');
     setChatMessage('');
     setIsApplyingChatResponse(false);
@@ -136,7 +138,10 @@ export function ApiSettingsDialog({
 
   if (!open) return null;
 
-  const chooseRuntime = (runtime: ShaderRuntime) => onChange('shaderRuntime', runtime);
+  const chooseRuntime = (runtime: ShaderRuntime) => {
+    setSelectedRuntime(runtime);
+    onChange('shaderRuntime', runtime);
+  };
   const selectedLocal = LOCAL_SHADER_MODELS.find((model) => model.id === settings.localShaderModel);
   const ready = settings.localShaderModel ? isLocalModelReady(settings.localShaderModel, settings.visionEnabled) : false;
   const handleDownload = async () => {
@@ -219,7 +224,19 @@ export function ApiSettingsDialog({
           <div className="ai-runtime-choice" role="radiogroup" aria-label="AI runtime">
             <button
               type="button"
-              className={`ai-path-card ai-path-card-local ${settings.shaderRuntime === 'local' ? 'active' : ''}`}
+              className={`ai-path-card ai-path-card-chat ${selectedRuntime === 'chat' ? 'active' : ''}`}
+              onClick={() => chooseRuntime('chat')}
+            >
+              <ChatModelIcon />
+              <div className="ai-path-card-copy">
+                <span className="ai-path-card-tag">Free &amp; no setup</span>
+                <strong>Use your AI chat for free</strong>
+                <span>Copy a prepared prompt into ChatGPT, Claude, Gemini, or another chat, then paste its shader back here.</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              className={`ai-path-card ai-path-card-local ${selectedRuntime === 'local' ? 'active' : ''}`}
               onClick={() => chooseRuntime('local')}
             >
               <LocalModelIcon />
@@ -231,7 +248,7 @@ export function ApiSettingsDialog({
             </button>
             <button
               type="button"
-              className={`ai-path-card ai-path-card-cloud ${settings.shaderRuntime === 'api' ? 'active' : ''}`}
+              className={`ai-path-card ai-path-card-cloud ${selectedRuntime === 'api' ? 'active' : ''}`}
               onClick={() => chooseRuntime('api')}
             >
               <CloudModelIcon />
@@ -241,21 +258,9 @@ export function ApiSettingsDialog({
                 <span>Sharper results, weirder tricks, and a meter that notices. Recommended when quality matters.</span>
               </div>
             </button>
-            <button
-              type="button"
-              className={`ai-path-card ai-path-card-chat ${settings.shaderRuntime === 'chat' ? 'active' : ''}`}
-              onClick={() => chooseRuntime('chat')}
-            >
-              <ChatModelIcon />
-              <div className="ai-path-card-copy">
-                <span className="ai-path-card-tag">Free &amp; no setup</span>
-                <strong>Use your AI chat</strong>
-                <span>Copy a prepared prompt into ChatGPT, Claude, Gemini, or another chat, then paste its shader back here.</span>
-              </div>
-            </button>
           </div>
 
-          {settings.shaderRuntime === 'chat' ? (
+          {selectedRuntime === 'chat' ? (
             <section className="dialog-section ai-model-section ai-chat-section">
               <div className="ai-section-heading">
                 <div>
@@ -326,7 +331,7 @@ export function ApiSettingsDialog({
             </section>
           ) : null}
 
-          {settings.shaderRuntime === 'local' ? (
+          {selectedRuntime === 'local' ? (
             <section className="dialog-section ai-model-section">
               <div className="ai-section-heading">
                 <div>
@@ -420,7 +425,7 @@ export function ApiSettingsDialog({
             </section>
           ) : null}
 
-          {settings.shaderRuntime === 'api' ? (
+          {selectedRuntime === 'api' ? (
             <section className="dialog-section ai-model-section">
               <span className="panel-eyebrow">Cloud provider</span>
               <div className="stack gap-md">
@@ -552,7 +557,7 @@ export function ApiSettingsDialog({
             </section>
           ) : null}
 
-          {!isSetup ? (
+          {!isSetup && selectedRuntime ? (
             <section className="dialog-section dialog-section-danger">
               <span className="panel-eyebrow">Local data</span>
               <div className="stack gap-md">
