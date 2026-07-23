@@ -5383,6 +5383,11 @@ ${errorSnapshot}`,
     previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
   const workspaceStageMirrorsOutput = outputWindowOpen && !isMobile;
   const workspaceStagePreviewShader = workspaceStageMirrorsOutput ? null : previewShader;
+  const timelineFocusedPreviewActive =
+    timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
+    (isMobile ? editingTimelineStepId !== null : timelineSequenceEnabled);
+  const desktopTimelineFocusedPreviewActive =
+    !isMobile && !workspaceStageMirrorsOutput && timelineFocusedPreviewActive;
   const timelinePlaybackSteps = getEffectiveTimelinePlaybackSteps({
     mode: timelineStub.shaderSequence.mode,
     randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
@@ -5837,10 +5842,10 @@ ${errorSnapshot}`,
           !workspaceStageMirrorsOutput &&
           (Boolean(workspaceStagePreviewShader) ||
             studioPreviewOverride ||
-            (timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
-              editingTimelineStepId !== null))
+            timelineFocusedPreviewActive)
         }
         focusedPreviewStepId={editingTimelineStepId}
+        focusedPreviewIndicatorActive={desktopTimelineFocusedPreviewActive}
         midiManualMix={{
           enabled: midiManualMixEnabled,
           currentStepId: midiManualMixCurrentStep?.id ?? null,

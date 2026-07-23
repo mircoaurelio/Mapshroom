@@ -318,6 +318,7 @@ interface TimelineStageRendererProps {
   transport: PlaybackTransport;
   forceActiveShaderPreview?: boolean;
   focusedPreviewStepId?: string | null;
+  focusedPreviewIndicatorActive?: boolean;
   midiManualMix?: {
     enabled: boolean;
     currentStepId: string | null;
@@ -352,6 +353,7 @@ export function TimelineStageRenderer({
   transport,
   forceActiveShaderPreview = false,
   focusedPreviewStepId = null,
+  focusedPreviewIndicatorActive = false,
   midiManualMix,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
@@ -408,7 +410,7 @@ export function TimelineStageRenderer({
     [assets],
   );
   const workspaceFocusedPreviewEnabled = forceActiveShaderPreview && !isOutputOnly;
-  const workspacePersonalPreviewActive = forceActiveShaderPreview && !isOutputOnly;
+  const workspacePersonalPreviewActive = focusedPreviewIndicatorActive && !isOutputOnly;
   const availableShaders = useMemo(() => {
     const liveShader = {
       ...savedShaders.find((shader) => shader.id === activeShaderId),

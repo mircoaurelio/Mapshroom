@@ -853,6 +853,14 @@ a {
   background: #000;
 }
 
+.workspace-shell:not(.workspace-shell-mobile) .stage-shell-personal-preview .stage-canvas {
+  outline: 3px solid #ef4444;
+  outline-offset: -3px;
+  box-shadow:
+    0 0 0 1px rgba(127, 29, 29, 0.9),
+    0 0 28px rgba(239, 68, 68, 0.3);
+}
+
 .stage-empty {
   position: absolute;
   inset: 0;
