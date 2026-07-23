@@ -930,10 +930,6 @@ function detectAssetKind(file: File): AssetKind | null {
   return null;
 }
 
-function clampDimension(value: number): number {
-  return Math.min(1600, value);
-}
-
 function applyMappingTransform(transform: StageTransform, action: MappingAction): StageTransform {
   const next = { ...transform };
 
@@ -951,16 +947,16 @@ function applyMappingTransform(transform: StageTransform, action: MappingAction)
       next.offsetX += transform.precision;
       break;
     case 'width-plus':
-      next.widthAdjust = clampDimension(transform.widthAdjust + transform.precision);
+      next.widthAdjust = transform.widthAdjust + transform.precision;
       break;
     case 'width-minus':
-      next.widthAdjust = clampDimension(transform.widthAdjust - transform.precision);
+      next.widthAdjust = transform.widthAdjust - transform.precision;
       break;
     case 'height-plus':
-      next.heightAdjust = clampDimension(transform.heightAdjust + transform.precision);
+      next.heightAdjust = transform.heightAdjust + transform.precision;
       break;
     case 'height-minus':
-      next.heightAdjust = clampDimension(transform.heightAdjust - transform.precision);
+      next.heightAdjust = transform.heightAdjust - transform.precision;
       break;
     default:
       break;
