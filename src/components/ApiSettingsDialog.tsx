@@ -21,7 +21,7 @@ interface ApiSettingsDialogProps {
   onClearLocalData: () => void;
 }
 
-type AiPath = 'perplexity' | Exclude<ShaderRuntime, ''>;
+type AiPath = 'perplexity' | 'chatgpt' | Exclude<ShaderRuntime, ''>;
 
 function LocalModelIcon() {
   return (
@@ -156,6 +156,8 @@ export function ApiSettingsDialog({
   };
   const showRuntimeChoice = (path: AiPath) => !selectedPath || selectedPath === path;
   const usingPerplexity = selectedPath === 'perplexity';
+  const usingChatGpt = selectedPath === 'chatgpt';
+  const usingDirectChat = usingPerplexity || usingChatGpt;
   const selectedLocal = LOCAL_SHADER_MODELS.find((model) => model.id === settings.localShaderModel);
   const ready = settings.localShaderModel ? isLocalModelReady(settings.localShaderModel, settings.visionEnabled) : false;
   const handleDownload = async () => {
@@ -185,6 +187,14 @@ export function ApiSettingsDialog({
       setShowCopyTooltip(false);
       setChatMessage('Clipboard access was blocked. Select the prompt text and copy it manually.');
     }
+  };
+  const handleChooseChatGpt = () => {
+    setSelectedPath('chatgpt');
+    onChange('shaderRuntime', 'chat');
+    setChatMessage('');
+    if (!externalChatPrompt) return;
+    const chatGptUrl = `https://chatgpt.com/?q=${encodeURIComponent(externalChatPrompt)}`;
+    window.open(chatGptUrl, '_blank', 'noopener,noreferrer');
   };
   const handleChooseChatRuntime = () => {
     chooseRuntime('chat');
@@ -258,6 +268,20 @@ export function ApiSettingsDialog({
             role="radiogroup"
             aria-label="AI runtime"
           >
+            {showRuntimeChoice('chatgpt') ? (
+              <button
+                type="button"
+                className={`ai-path-card ai-path-card-chat ${usingChatGpt ? 'active' : ''}`}
+                onClick={handleChooseChatGpt}
+              >
+                <ChatModelIcon />
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Direct &amp; free</span>
+                  <strong>Use ChatGPT for free</strong>
+                  <span>Open ChatGPT in a new tab with your complete shader prompt already filled in.</span>
+                </div>
+              </button>
+            ) : null}
             {showRuntimeChoice('perplexity') ? (
               <button
                 type="button"
@@ -270,26 +294,6 @@ export function ApiSettingsDialog({
                   <strong>Use Perplexity for free</strong>
                   <span>Open Perplexity in a new tab with your complete shader prompt already filled in.</span>
                 </div>
-              </button>
-            ) : null}
-            {showRuntimeChoice('chat') ? (
-              <button
-                type="button"
-                className={`ai-path-card ai-path-card-chat ${selectedPath === 'chat' ? 'active' : ''}`}
-                onClick={handleChooseChatRuntime}
-              >
-                <ChatModelIcon />
-                <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Free &amp; no setup</span>
-                  <strong>Use your AI chat for free</strong>
-                  <span>Copy a prepared prompt into ChatGPT, Claude, Gemini, or another chat, then paste its shader back here.</span>
-                </div>
-                {showCopyTooltip ? (
-                  <span className="ai-chat-copied-tooltip" role="status" aria-live="polite">
-                    <span aria-hidden="true">✓</span>
-                    Prompt copied
-                  </span>
-                ) : null}
               </button>
             ) : null}
             {showRuntimeChoice('local') ? (
@@ -320,47 +324,69 @@ export function ApiSettingsDialog({
                 </div>
               </button>
             ) : null}
+            {showRuntimeChoice('chat') ? (
+              <button
+                type="button"
+                className={`ai-path-card ai-path-card-generic ${selectedPath === 'chat' ? 'active' : ''}`}
+                onClick={handleChooseChatRuntime}
+              >
+                <ChatModelIcon />
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Any chat &amp; free</span>
+                  <strong>Use your AI chat for free</strong>
+                  <span>Copy the prompt into Claude, Gemini, or another AI chat, then paste its shader back here.</span>
+                </div>
+                {showCopyTooltip ? (
+                  <span className="ai-chat-copied-tooltip" role="status" aria-live="polite">
+                    <span aria-hidden="true">✓</span>
+                    Prompt copied
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
           </div>
 
-          {selectedPath === 'chat' || usingPerplexity ? (
+          {selectedPath === 'chat' || usingDirectChat ? (
             <section className="dialog-section ai-model-section ai-chat-section">
               <div className="ai-section-heading">
                 <div>
                   <span className="panel-eyebrow">
-                    {usingPerplexity ? 'Perplexity, Mapshroom’s prompt' : 'Your chat, Mapshroom’s prompt'}
+                    {usingDirectChat
+                      ? `${usingPerplexity ? 'Perplexity' : 'ChatGPT'}, Mapshroom’s prompt`
+                      : 'Your chat, Mapshroom’s prompt'}
                   </span>
                   <p className="helper-copy">
-                    {usingPerplexity
-                      ? 'No API key or copying needed. Perplexity opens with your full request ready to send.'
+                    {usingDirectChat
+                      ? `No API key or copying needed. ${usingPerplexity ? 'Perplexity' : 'ChatGPT'} opens with your full request ready to send.`
                       : 'No API key or model download needed. Your request is already included at the very end of the prompt.'}
                   </p>
                 </div>
-                <span className="ai-chat-badge">{usingPerplexity ? 'Direct handoff' : '3 quick steps'}</span>
+                <span className="ai-chat-badge">{usingDirectChat ? 'Direct handoff' : '3 quick steps'}</span>
               </div>
               {externalChatPrompt ? (
                 <div className="ai-chat-workflow">
                   <div className="ai-chat-step">
                     <span className="ai-chat-step-number">1</span>
                     <div>
-                      <strong>{usingPerplexity ? 'Prompt opened automatically' : 'Prompt prepared automatically'}</strong>
+                      <strong>{usingDirectChat ? 'Prompt opened automatically' : 'Prompt prepared automatically'}</strong>
                       <small>
-                        {usingPerplexity
-                          ? 'Send the prepared message in the Perplexity tab that just opened.'
+                        {usingDirectChat
+                          ? `Send the prepared message in the ${usingPerplexity ? 'Perplexity' : 'ChatGPT'} tab that just opened.`
                           : 'Open your preferred AI chat and paste it as one message.'}
                       </small>
                     </div>
                   </div>
-                  {usingPerplexity ? (
+                  {usingDirectChat ? (
                     <div className="ai-chat-copy-confirmation is-copied" role="status">
                       <span className="ai-chat-copy-check" aria-hidden="true">↗</span>
                       <div>
-                        <strong>Perplexity opened with your prompt</strong>
+                        <strong>{usingPerplexity ? 'Perplexity' : 'ChatGPT'} opened with your prompt</strong>
                         <small>After it creates the shader, copy the entire reply and return here.</small>
                       </div>
                       <button
                         type="button"
                         className="ghost-button ai-chat-copy-again"
-                        onClick={handleChoosePerplexity}
+                        onClick={usingPerplexity ? handleChoosePerplexity : handleChooseChatGpt}
                       >
                         Open again
                       </button>

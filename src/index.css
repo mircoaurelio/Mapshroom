@@ -6098,6 +6098,25 @@ a {
     rgba(9, 9, 11, .55);
   box-shadow: none;
 }
+.ai-path-card-generic {
+  grid-column: 1 / -1;
+  color: #c4b5fd;
+  background:
+    linear-gradient(110deg, rgba(39, 39, 42, .72), rgba(49, 46, 129, .18)),
+    rgba(9, 9, 11, .55);
+}
+.ai-path-card-generic .ai-path-card-tag {
+  border: 0;
+  background: rgba(99, 102, 241, .2);
+  color: #c7d2fe;
+}
+.ai-path-card-generic strong {
+  color: #f5f3ff;
+}
+.ai-path-card-generic .ai-path-card-copy > span:last-child {
+  color: #ddd6fe;
+  opacity: .86;
+}
 .ai-path-card-perplexity {
   grid-column: auto;
   color: #7dd3fc;
