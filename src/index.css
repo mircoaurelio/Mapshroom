@@ -3488,7 +3488,7 @@ a {
 
 .timeline-rail-grid {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 10.5rem minmax(0, 1fr) max-content;
   align-items: center;
   column-gap: 0.65rem;
   row-gap: 0.22rem;
@@ -3499,6 +3499,7 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+  justify-self: start;
 }
 
 .timeline-rail-leading > .playback-controls {
@@ -7396,12 +7397,12 @@ a {
 .timeline-step-asset-launch-button {
   position: relative;
   min-width: 0;
-  min-height: 58px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.7rem;
+  padding: 0.5rem 0.65rem;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background:
@@ -7444,12 +7445,6 @@ a {
 
 .timeline-step-asset-variant-button {
   overflow: hidden;
-  border-color: rgba(167, 139, 250, 0.54);
-  background:
-    radial-gradient(circle at 82% 10%, rgba(216, 180, 254, 0.18), transparent 38%),
-    linear-gradient(135deg, rgba(76, 29, 149, 0.88), rgba(88, 28, 135, 0.58));
-  color: #f5f3ff;
-  box-shadow: 0 10px 24px rgba(76, 29, 149, 0.18);
 }
 
 .timeline-step-asset-variant-button:hover,
@@ -7463,6 +7458,7 @@ a {
 }
 
 .timeline-step-asset-variant-button small {
+  flex: 0 0 auto;
   padding: 0.12rem 0.3rem;
   border: 1px solid rgba(221, 214, 254, 0.3);
   border-radius: 999px;
@@ -7471,6 +7467,20 @@ a {
   font-size: 0.42rem;
   letter-spacing: 0.1em;
   line-height: 1;
+  opacity: 0;
+  transform: scale(0.9);
+  visibility: hidden;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 140ms ease;
+}
+
+.timeline-step-asset-variant-button:hover small,
+.timeline-step-asset-variant-button:focus-visible small {
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
 }
 
 .timeline-pinned-overlay-settings {
