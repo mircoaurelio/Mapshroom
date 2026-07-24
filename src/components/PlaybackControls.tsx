@@ -11,11 +11,20 @@ interface PlaybackControlsProps {
   onPrevious: () => void;
 }
 
-function FocusIcon() {
+function FocusArrowIcon({ isReturning }: { isReturning: boolean }) {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M7 3H4a1 1 0 0 0-1 1v3M13 3h3a1 1 0 0 1 1 1v3M7 17H4a1 1 0 0 1-1-1v-3M13 17h3a1 1 0 0 0 1-1v-3" />
-      <circle cx="10" cy="10" r="2.25" />
+      {isReturning ? (
+        <>
+          <path d="M15.5 10H4.75" />
+          <path d="m8.75 6-4 4 4 4" />
+        </>
+      ) : (
+        <>
+          <path d="M4.5 10h10.75" />
+          <path d="m11.25 6 4 4-4 4" />
+        </>
+      )}
     </svg>
   );
 }
@@ -103,14 +112,14 @@ export function PlaybackControls({
         type="button"
         className={`playback-control-button playback-control-mode ${
           isFocused ? 'playback-control-active' : ''
-        } ${isEditing ? 'playback-control-editing' : ''}`}
+        } ${isFocused || isEditing ? 'playback-control-editing' : ''}`}
         disabled={!hasTimeline}
         aria-label={focusLabel}
         aria-pressed={isFocused || isEditing}
         title={focusLabel}
         onClick={onFocusToggle}
       >
-        <FocusIcon />
+        <FocusArrowIcon isReturning={isFocused || isEditing} />
       </button>
 
       <button

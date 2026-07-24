@@ -5377,6 +5377,7 @@ ${errorSnapshot}`,
     options?: {
       suppressStatus?: boolean;
       focusStudioOnMobile?: boolean;
+      pauseTimeline?: boolean;
       stagePreviewMode?: TimelineStagePreviewMode;
       seekTimeSeconds?: number | null;
     },
@@ -5478,7 +5479,12 @@ ${errorSnapshot}`,
             },
           },
           playback:
-            isMobile
+            options?.pauseTimeline
+              ? {
+                  ...currentProject.playback,
+                  transport: pauseTransport(currentProject.playback.transport),
+                }
+              : isMobile
               ? {
                   ...currentProject.playback,
                   transport: playTransport(currentProject.playback.transport),
@@ -5855,8 +5861,12 @@ ${errorSnapshot}`,
           },
         },
       },
+      playback: {
+        ...currentProject.playback,
+        transport: pauseTransport(currentProject.playback.transport),
+      },
     }));
-    setStatusMessage('Focused the current shader in the stage.');
+    setStatusMessage('Timeline paused. Focused the current shader in the stage.');
   };
   const handlePlaybackStepOffset = (offset: -1 | 1) => {
     if (isMobile && editingTimelineStepId) {
@@ -5970,8 +5980,7 @@ ${errorSnapshot}`,
   const handlePromptFocus = () => {
     if (
       editingTimelineStepId ||
-      !timelineSequenceEnabled ||
-      timelineStub.shaderSequence.stagePreviewMode !== 'timeline'
+      !timelineSequenceEnabled
     ) {
       return;
     }
@@ -5982,10 +5991,11 @@ ${errorSnapshot}`,
     }
 
     void selectTimelineStepForEditing(currentStepId, {
+      pauseTimeline: true,
       stagePreviewMode: 'focused',
     });
     setStatusMessage(
-      'Editing the current timeline shader. Use the red timeline button to return to the full sequence.',
+      'Timeline paused. Editing the current shader. Use the red arrow to return to the full sequence.',
     );
   };
 
