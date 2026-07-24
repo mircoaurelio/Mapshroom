@@ -59,11 +59,30 @@ export default defineConfig(({ command }) => {
           skipWaiting: true,
           clientsClaim: true,
           cleanupOutdatedCaches: true,
-          // Default stage assets are large; raise the precache ceiling so offline install includes them.
-          maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-          globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,woff2,json,webmanifest}'],
-          navigateFallbackDenylist: [/^\/a/],
+          // Include the complete editor shell and its bundled media/tools in the offline install.
+          maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
+          globPatterns: [
+            '**/*.{js,css,html,ico,png,jpg,jpeg,webp,avif,svg,woff,woff2,json,webmanifest,mp4,webm,ogg,wav,wasm,onnx,data,bin,obj,mtl,gltf,glb}',
+          ],
+          navigateFallback: 'index.html',
+          navigateFallbackDenylist: [/^\/a(?:\/|$)/],
           runtimeCaching: [
+            {
+              // Keep editor media and local model files available after they are first requested.
+              urlPattern:
+                /\.(?:png|jpe?g|webp|avif|svg|mp4|webm|ogg|wav|wasm|onnx|data|bin|obj|mtl|gltf|glb)(?:\?.*)?$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'mapshroom-runtime-assets',
+                expiration: {
+                  maxEntries: 160,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',

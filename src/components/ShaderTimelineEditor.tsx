@@ -28,7 +28,6 @@ import type {
   SavedShader,
   ShaderUniformValueMap,
   TimelineSequenceMode,
-  TimelineStagePreviewMode,
   TimelineStub,
 } from '../types';
 
@@ -57,11 +56,6 @@ interface ShaderTimelineEditorProps {
   midiTimelineControlActive?: boolean;
   midiManualMixArmed?: boolean;
   onModeChange: (mode: TimelineSequenceMode) => void;
-  previewMode: TimelineStagePreviewMode;
-  onPreviewModeChange: (previewMode: TimelineStagePreviewMode) => void;
-  isPlaying: boolean;
-  onPlayToggle: () => void;
-  onToggleSingleStepLoop: () => void;
   onSharedTransitionChange: (patch: {
     sharedTransitionEnabled?: boolean;
     sharedTransitionEffect?: TimelineStub['shaderSequence']['sharedTransitionEffect'];
@@ -166,51 +160,6 @@ function ErrorIcon() {
   );
 }
 
-function RepeatSingleIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M16 10A6 6 0 1 1 14.24 5.76" />
-      <path d="M12.5 2.5H16V6" />
-    </svg>
-  );
-}
-
-function PlayIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M5 3.75v8.5L12 8Z" />
-    </svg>
-  );
-}
-
-function PauseIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M5.25 3.5v9" />
-      <path d="M10.75 3.5v9" />
-    </svg>
-  );
-}
-
-function SinglePreviewIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <rect x="2.25" y="3.25" width="11.5" height="9.5" rx="1.6" />
-      <path d="M4.25 10.5 6.25 8.5l1.8 1.8 2.4-3 1.3 1.6" />
-    </svg>
-  );
-}
-
-function TimelinePreviewIcon() {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <rect x="2.25" y="4.25" width="4.75" height="7.5" rx="1.1" />
-      <rect x="9" y="4.25" width="4.75" height="7.5" rx="1.1" />
-      <path d="M7.75 8h.5" />
-    </svg>
-  );
-}
-
 export function ShaderTimelineEditor({
   assets,
   assetKind,
@@ -226,11 +175,6 @@ export function ShaderTimelineEditor({
   midiTimelineControlActive = false,
   midiManualMixArmed = false,
   onModeChange,
-  previewMode,
-  onPreviewModeChange,
-  isPlaying,
-  onPlayToggle,
-  onToggleSingleStepLoop,
   onSharedTransitionChange,
   onMixDurationChange,
   onStepChange,
@@ -779,28 +723,6 @@ export function ShaderTimelineEditor({
         </div>
 
         <div className="timeline-sequence-toolbar-actions">
-          <button
-            type="button"
-            className={`icon-button timeline-toggle-icon-button ${
-              previewMode === 'focused' ? 'timeline-toggle-icon-button-active' : ''
-            }`}
-            aria-label={
-              previewMode === 'focused'
-                ? 'Show full timeline preview in stage'
-                : 'Show focused shader preview in stage'
-            }
-            title={
-              previewMode === 'focused'
-                ? 'Show full timeline preview in stage'
-                : 'Show focused shader preview in stage'
-            }
-            onClick={() =>
-              onPreviewModeChange(previewMode === 'focused' ? 'timeline' : 'focused')
-            }
-          >
-            {previewMode === 'focused' ? <SinglePreviewIcon /> : <TimelinePreviewIcon />}
-          </button>
-
           {midiTimelineControlActive ? (
             <div
               className={`timeline-midi-control-label ${
@@ -897,30 +819,6 @@ export function ShaderTimelineEditor({
                 {option.label}
               </button>
             ))}
-          </div>
-
-          <div className="timeline-sequence-playback-actions">
-            <button
-              type="button"
-              className={`icon-button timeline-toggle-icon-button ${
-                sequence.singleStepLoopEnabled ? 'timeline-toggle-icon-button-active' : ''
-              }`}
-              aria-label="Repeat focused shader"
-              title="Repeat focused shader"
-              onClick={onToggleSingleStepLoop}
-            >
-              <RepeatSingleIcon />
-            </button>
-
-            <button
-              type="button"
-              className="icon-button timeline-toggle-icon-button"
-              aria-label={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-              title={isPlaying ? 'Pause timeline playback' : 'Play timeline playback'}
-              onClick={onPlayToggle}
-            >
-              {isPlaying ? <PauseIcon /> : <PlayIcon />}
-            </button>
           </div>
 
         </div>

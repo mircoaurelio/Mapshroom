@@ -19,13 +19,6 @@ export interface ShaderApplyLinkPayload {
   code: string;
 }
 
-interface CreateShaderApplyLinkPrefixOptions {
-  appUrl: string;
-  sessionId: string;
-  targetShaderId: string;
-  requestId: string;
-}
-
 const PENDING_REQUEST_STORAGE_KEY = 'mapshroom-v3:pending-shader-apply-requests';
 const PENDING_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PENDING_REQUESTS = 20;
@@ -119,23 +112,6 @@ export function removePendingShaderApplyRequest(requestId: string): void {
   savePendingRequests(
     loadPendingRequests().filter((request) => request.requestId !== requestId),
   );
-}
-
-export function createShaderApplyLinkPrefix({
-  appUrl,
-  sessionId,
-  targetShaderId,
-  requestId,
-}: CreateShaderApplyLinkPrefixOptions): string {
-  const url = new URL(appUrl);
-  url.search = '';
-  const params = new URLSearchParams();
-  params.set('applyShader', '1');
-  params.set('session', sessionId);
-  params.set('shader', targetShaderId);
-  params.set('request', requestId);
-  url.hash = `#/?${params.toString()}&code=`;
-  return url.toString();
 }
 
 export function parseShaderApplyLink(urlValue: string | URL): ShaderApplyLinkPayload | null {

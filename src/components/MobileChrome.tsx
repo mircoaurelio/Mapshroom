@@ -5,9 +5,7 @@ export type MobilePanelKey = 'studio' | 'mapping' | 'sliders' | null;
 
 interface MobileChromeProps {
   activeAssetName: string;
-  isPlaying: boolean;
   isTimelineOpen: boolean;
-  isShaderEditing: boolean;
   uiMode: Exclude<MobileUiMode, 'hidden'>;
   activePanel: MobilePanelKey;
   onOpenProjects: () => void;
@@ -17,10 +15,6 @@ interface MobileChromeProps {
   onOpenTimeline: () => void;
   onToggleMapping: () => void;
   onHide: () => void;
-  onPlayToggle: () => void;
-  onFinishShaderEditing: () => void;
-  onPreviousShader: () => void;
-  onNextShader: () => void;
   onPanelChange: (panel: MobilePanelKey) => void;
   panels: {
     studio: ReactNode;
@@ -36,9 +30,7 @@ const MOBILE_PANEL_TITLES: Record<Exclude<MobilePanelKey, null>, string> = {
 
 export function MobileChrome({
   activeAssetName,
-  isPlaying,
   isTimelineOpen,
-  isShaderEditing,
   uiMode,
   activePanel,
   onOpenProjects,
@@ -48,10 +40,6 @@ export function MobileChrome({
   onOpenTimeline,
   onToggleMapping,
   onHide,
-  onPlayToggle,
-  onFinishShaderEditing,
-  onPreviousShader,
-  onNextShader,
   onPanelChange,
   panels,
 }: MobileChromeProps) {
@@ -81,14 +69,6 @@ export function MobileChrome({
         </div>
       </header>
 
-      {isShaderEditing ? (
-        <div className="mobile-shader-dot-controls" aria-label="Held shader controls">
-          <button type="button" onClick={onPreviousShader} aria-label="Previous timeline shader" title="Previous">‹</button>
-          <button type="button" className="mobile-shader-dot-control-active" onClick={onFinishShaderEditing} aria-label="Resume timeline playback" title="Play timeline">▶</button>
-          <button type="button" onClick={onNextShader} aria-label="Next timeline shader" title="Next">›</button>
-        </div>
-      ) : null}
-
       <nav className="mobile-dock">
         <button
           type="button"
@@ -117,14 +97,6 @@ export function MobileChrome({
           onClick={hasVisibleControls ? onHide : onToggleMapping}
         >
           {hasVisibleControls ? 'Hide' : 'Map'}
-        </button>
-        <button
-          type="button"
-          className={isShaderEditing ? 'mobile-dock-button-editing' : isPlaying ? 'mobile-dock-button-active' : ''}
-          onClick={isShaderEditing ? onFinishShaderEditing : onPlayToggle}
-          aria-label={isShaderEditing ? 'Finish editing shader and resume timeline' : isPlaying ? 'Pause timeline' : 'Play timeline'}
-        >
-          {isShaderEditing ? <><span className="mobile-circular-mode-icon" aria-hidden="true">↻</span>Resume</> : isPlaying ? 'Pause' : 'Play'}
         </button>
       </nav>
 

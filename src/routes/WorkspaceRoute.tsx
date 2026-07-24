@@ -19,6 +19,7 @@ import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
+import { PlaybackControls } from '../components/PlaybackControls';
 import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
 import { ProjectLibraryDialog } from '../components/ProjectLibraryDialog';
 import { ShareProjectDialog } from '../components/ShareProjectDialog';
@@ -83,7 +84,6 @@ import {
 } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import {
-  createShaderApplyLinkPrefix,
   extractShaderApplyLinkFromText,
   loadPendingShaderApplyRequest,
   parseShaderApplyLink,
@@ -149,6 +149,12 @@ import {
   saveUiPreferences,
 } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
+import {
+  dismissAssetsFirstStepPermanently,
+  isAssetsFirstStepSessionEligible,
+  isAssetsImportStepPending,
+  markAssetsFirstStepSessionEligible,
+} from '../lib/assetsFirstStep';
 import { blankShaderTemplate } from '../shaders/templates/blankShader';
 import type {
   AiSettings,
@@ -1842,25 +1848,6 @@ function getPreferredTimelineStepId(
   return steps[0]?.id ?? null;
 }
 
-function StageTimelinePreviewIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="2.5" y="5" width="6" height="10" rx="1.5" />
-      <rect x="11.5" y="5" width="6" height="10" rx="1.5" />
-      <path d="M9.5 10h1" />
-    </svg>
-  );
-}
-
-function StageRepeatFocusedShaderIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M16 10A6 6 0 1 1 14.24 5.76" />
-      <path d="M12.5 2.5H16V6" />
-    </svg>
-  );
-}
-
 export function WorkspaceRoute() {
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -1902,6 +1889,9 @@ export function WorkspaceRoute() {
   } | null>(null);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
+  const [showAssetImportFirstStep, setShowAssetImportFirstStep] = useState(() =>
+    isAssetsImportStepPending(),
+  );
   const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
   const [segmentationPanel, setSegmentationPanel] = useState<'refine' | 'depth'>('refine');
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
@@ -1945,6 +1935,7 @@ export function WorkspaceRoute() {
     createTimelineRandomSeedToken(),
   );
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
+  const [assetsFirstStepEligible, setAssetsFirstStepEligible] = useState(false);
   const appOpenTrackedRef = useRef(false);
   const [midiManualMix, setMidiManualMix] = useState({
     stepIndex: 0,
@@ -1973,6 +1964,15 @@ export function WorkspaceRoute() {
 
   useEffect(() => {
     const entryCount = registerOnboardingEntry();
+    const isFirstWorkspaceVisit =
+      entryCount <= ONBOARDING_AUTO_OPEN_LIMIT ||
+      isAssetsFirstStepSessionEligible();
+
+    if (entryCount <= ONBOARDING_AUTO_OPEN_LIMIT) {
+      markAssetsFirstStepSessionEligible();
+    }
+
+    setAssetsFirstStepEligible(isFirstWorkspaceVisit);
     const timeoutId = window.setTimeout(() => {
       const shouldShow = entryCount <= ONBOARDING_AUTO_OPEN_LIMIT;
       setShowOnboardingGuide(shouldShow);
@@ -4602,7 +4602,7 @@ export function WorkspaceRoute() {
       setAiFeedbackTone('idle');
       setAiFeedbackMessage(
         project.ai.settings.shaderRuntime === 'chat'
-          ? 'Open the prepared prompt in your AI chat, then click the Mapshroom link it returns.'
+          ? 'Open the prepared prompt in your AI chat, then copy its shader reply back into Mapshroom.'
           : 'Choose a local model, connect a cloud API, or use your existing AI chat.',
       );
       return;
@@ -5822,6 +5822,118 @@ ${errorSnapshot}`,
         randomSeedSalt: timelineStub.shaderSequence.randomSeedToken || project.sessionId,
       })
     : null;
+  const resolveCurrentPlaybackStepId = () => {
+    if (editingTimelineStepId) {
+      return editingTimelineStepId;
+    }
+
+    if (
+      timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
+      timelineStub.shaderSequence.focusedStepId
+    ) {
+      return timelineStub.shaderSequence.focusedStepId;
+    }
+
+    return resolveShaderTimelineState({
+      shaders: timelineSelectableShaders,
+      mode: timelineStub.shaderSequence.mode,
+      focusedStepId: timelineStub.shaderSequence.focusedStepId,
+      singleStepLoopEnabled: false,
+      randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
+      sharedTransitionEnabled: timelineStub.shaderSequence.sharedTransitionEnabled,
+      sharedTransitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
+      sharedTransitionDurationSeconds:
+        timelineStub.shaderSequence.sharedTransitionDurationSeconds,
+      sharedSectionDurationSeconds: timelineStub.shaderSequence.sharedSectionDurationSeconds,
+      steps: timelinePlaybackSteps,
+      timeSeconds: getTransportTimeSeconds(project.playback.transport),
+      loop: project.playback.transport.loop,
+      randomSeedSalt: timelineStub.shaderSequence.randomSeedToken || project.sessionId,
+    })?.currentStep.id ?? null;
+  };
+  const handlePlaybackFocusToggle = () => {
+    if (timelineStub.shaderSequence.stagePreviewMode === 'focused') {
+      handleTimelineStagePreviewModeChange('timeline');
+      setStatusMessage('Showing the full timeline in the stage.');
+      return;
+    }
+
+    const focusedStepId = resolveCurrentPlaybackStepId();
+    setStudioPreviewOverride(false);
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            stagePreviewMode: 'focused',
+            focusedStepId:
+              focusedStepId ?? currentProject.timeline.stub.shaderSequence.focusedStepId,
+          },
+        },
+      },
+    }));
+    setStatusMessage('Focused the current shader in the stage.');
+  };
+  const handlePlaybackStepOffset = (offset: -1 | 1) => {
+    if (isMobile && editingTimelineStepId) {
+      handleMobileEditingStepOffset(offset);
+      return;
+    }
+
+    if (playableTimelineSteps.length < 2) {
+      return;
+    }
+
+    const currentStepId = resolveCurrentPlaybackStepId();
+    const currentIndex = Math.max(
+      0,
+      playableTimelineSteps.findIndex((step) => step.id === currentStepId),
+    );
+    const nextIndex =
+      (currentIndex + offset + playableTimelineSteps.length) % playableTimelineSteps.length;
+    const nextStep = playableTimelineSteps[nextIndex];
+    if (!nextStep) {
+      return;
+    }
+
+    const nextTimeSeconds = playableTimelineSteps
+      .slice(0, nextIndex)
+      .reduce(
+        (totalSeconds, step) =>
+          totalSeconds + clampTimelineStepDuration(step.durationSeconds),
+        0,
+      );
+    updateProject((currentProject) => {
+      const currentSequence = currentProject.timeline.stub.shaderSequence;
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentSequence,
+              focusedStepId: nextStep.id,
+            },
+          },
+        },
+        playback:
+          currentSequence.stagePreviewMode === 'timeline'
+            ? {
+                ...currentProject.playback,
+                transport: seekTransport(
+                  currentProject.playback.transport,
+                  nextTimeSeconds,
+                ),
+              }
+            : currentProject.playback,
+      };
+    });
+    setStatusMessage(
+      `${offset > 0 ? 'Next' : 'Previous'} shader: ${nextIndex + 1} of ${playableTimelineSteps.length}.`,
+    );
+  };
   const activeShaderRecord =
     project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId) ?? null;
   const aiLoading = getPendingAiJobCount(activeShaderRecord) > 0;
@@ -5989,11 +6101,6 @@ ${errorSnapshot}`,
         sequence={timelineStub.shaderSequence}
         totalDurationSeconds={timelineDurationSeconds}
         onModeChange={handleTimelineSequenceModeChange}
-        previewMode={timelineStub.shaderSequence.stagePreviewMode}
-        onPreviewModeChange={handleTimelineStagePreviewModeChange}
-        isPlaying={project.playback.transport.isPlaying}
-        onPlayToggle={handlePlayToggle}
-        onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
         onSharedTransitionChange={handleTimelineSharedTransitionChange}
         onMixDurationChange={handleTimelineMixDurationChange}
         onStepChange={handleTimelineStepChange}
@@ -6098,10 +6205,7 @@ ${errorSnapshot}`,
       tracks={timelineTracks}
       onSeek={handleTimelineSeek}
       onPlayToggle={handlePlayToggle}
-      onStop={handleTimelineStop}
-      onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
       onSequenceModeChange={handleTimelineSequenceModeChange}
-      onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceMixDurationChange={handleTimelineMixDurationChange}
       onSequenceStepChange={handleTimelineStepChange}
@@ -6197,56 +6301,31 @@ ${errorSnapshot}`,
         onCanvasReady={(canvas) => { stageCanvasRef.current = canvas; }}
       />
 
-      {timelineSequenceEnabled &&
-      (!fullTimelineStagePreviewActive || focusedShaderRepeatActive) ? (
-        <div
-          className="stage-timeline-preview-controls"
-          role="group"
-          aria-label="Timeline preview controls"
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          {!fullTimelineStagePreviewActive ? (
-            <button
-              type="button"
-              className="stage-timeline-preview-button"
-              title="Show full timeline preview"
-              aria-label="Show full timeline preview in the stage"
-              aria-pressed="false"
-              onClick={(event) => {
-                event.stopPropagation();
-                trackUiClick('timeline_preview_full_canvas');
-                handleTimelineStagePreviewModeChange('timeline');
-                setStatusMessage('Showing the full timeline in the stage.');
-              }}
-            >
-              <span className="stage-timeline-preview-icon" aria-hidden="true">
-                <StageTimelinePreviewIcon />
-              </span>
-              <span className="stage-timeline-preview-label">Show full timeline</span>
-            </button>
-          ) : null}
-
-          {focusedShaderRepeatActive ? (
-            <button
-              type="button"
-              className="stage-timeline-preview-button stage-focused-repeat-button is-active"
-              title="Stop repeating focused shader"
-              aria-label="Focused shader repeat is active. Turn it off."
-              aria-pressed="true"
-              onClick={(event) => {
-                event.stopPropagation();
-                trackUiClick('timeline_focused_repeat_off_canvas');
-                handleTimelineSingleStepLoopToggle();
-                setStatusMessage('Focused shader repeat stopped.');
-              }}
-            >
-              <span className="stage-timeline-preview-icon" aria-hidden="true">
-                <StageRepeatFocusedShaderIcon />
-              </span>
-              <span className="stage-timeline-preview-label">Focused repeat on</span>
-            </button>
-          ) : null}
-        </div>
+      {(!isMobile && uiPreferences.chromeVisible) ||
+      (isMobile && mobileChromeVisible && mobilePanel === null && !isMobileTimelineOpen) ? (
+        <PlaybackControls
+          canNavigate={playableTimelineSteps.length > 1}
+          hasTimeline={timelineSequenceEnabled}
+          isFocused={!fullTimelineStagePreviewActive}
+          isPlaying={
+            isMobile && editingTimelineStepId
+              ? false
+              : project.playback.transport.isPlaying
+          }
+          isRepeatOneEnabled={focusedShaderRepeatActive}
+          primaryActionLabel={
+            isMobile && editingTimelineStepId ? 'Resume timeline playback' : undefined
+          }
+          onFocusToggle={handlePlaybackFocusToggle}
+          onPrevious={() => handlePlaybackStepOffset(-1)}
+          onPlayToggle={
+            isMobile && editingTimelineStepId
+              ? handleFinishMobileShaderEditing
+              : handlePlayToggle
+          }
+          onNext={() => handlePlaybackStepOffset(1)}
+          onRepeatOneToggle={handleTimelineSingleStepLoopToggle}
+        />
       ) : null}
 
       {aiLoading ? (
@@ -6435,6 +6514,9 @@ ${errorSnapshot}`,
             trackUiClick('open_slicer');
             setIsSliceStudioDialogOpen(true);
           }}
+          assetsFirstStepEligible={assetsFirstStepEligible}
+          onboardingActive={showOnboardingGuide}
+          onAssetsFirstStepAdvance={() => setShowAssetImportFirstStep(true)}
         />
       ) : null}
 
@@ -6557,6 +6639,11 @@ ${errorSnapshot}`,
         onEditMask={handleAssetMaskOpen}
         onRemoveAsset={handleAssetRemove}
         onClose={() => setIsAssetLibraryOpen(false)}
+        showImportFirstStep={showAssetImportFirstStep}
+        onImportFirstStepDismiss={() => {
+          dismissAssetsFirstStepPermanently();
+          setShowAssetImportFirstStep(false);
+        }}
       />
 
       <AssetSegmentationDialog
@@ -6570,9 +6657,7 @@ ${errorSnapshot}`,
       {isMobile && mobileChromeVisible ? (
         <MobileChrome
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
-          isPlaying={project.playback.transport.isPlaying}
           isTimelineOpen={isMobileTimelineOpen}
-          isShaderEditing={editingTimelineStepId !== null}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
           onOpenProjects={() => {
@@ -6595,10 +6680,6 @@ ${errorSnapshot}`,
           onOpenTimeline={handleOpenMobileTimeline}
           onToggleMapping={handleMobileToggleMapping}
           onHide={handleMobileHide}
-          onPlayToggle={handlePlayToggle}
-          onFinishShaderEditing={handleFinishMobileShaderEditing}
-          onPreviousShader={() => handleMobileEditingStepOffset(-1)}
-          onNextShader={() => handleMobileEditingStepOffset(1)}
           onPanelChange={handleMobilePanelChange}
           panels={{
             studio: mobileShaderPanel,
@@ -6630,10 +6711,7 @@ ${errorSnapshot}`,
         tracks={timelineTracks}
         onSeek={handleTimelineSeek}
         onPlayToggle={handlePlayToggle}
-        onStop={handleTimelineStop}
-        onToggleSingleStepLoop={handleTimelineSingleStepLoopToggle}
         onSequenceModeChange={handleTimelineSequenceModeChange}
-        onSequenceStagePreviewModeChange={handleTimelineStagePreviewModeChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceMixDurationChange={handleTimelineMixDurationChange}
         onSequenceStepChange={handleTimelineStepChange}
@@ -6667,12 +6745,6 @@ ${errorSnapshot}`,
               ? buildExternalChatShaderPrompt(
                   externalChatRequest.prompt,
                   externalChatRequest.currentCode,
-                  createShaderApplyLinkPrefix({
-                    appUrl: window.location.href,
-                    sessionId: project.sessionId,
-                    targetShaderId: externalChatRequest.targetShaderId,
-                    requestId: externalChatRequest.requestId,
-                  }),
                 )
               : ''
         }

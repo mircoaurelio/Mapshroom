@@ -1,9 +1,10 @@
 export type ExternalAiWindowResult = 'popup' | 'tab' | 'blocked';
 
-const DESKTOP_MIN_SCREEN_WIDTH = 900;
+const DESKTOP_MIN_SCREEN_WIDTH = 1280;
 const POPUP_MAX_WIDTH = 560;
 const POPUP_MAX_HEIGHT = 680;
 const POPUP_MARGIN = 24;
+const POPUP_EDGE_INSET_RATIO = 0.05;
 const AI_POPUP_NAME = 'mapshroom-ai-chat';
 let activeExternalAiWindow: Window | null = null;
 
@@ -54,7 +55,8 @@ export function openExternalAiWindow(url: string): ExternalAiWindowResult {
   const height = Math.min(POPUP_MAX_HEIGHT, Math.max(600, availableHeight - POPUP_MARGIN * 2));
   const availableLeft = window.screen.availLeft ?? window.screenX;
   const availableTop = window.screen.availTop ?? window.screenY;
-  const desiredLeft = availableLeft + Math.round((availableWidth - width) / 2);
+  const edgeInset = Math.max(POPUP_MARGIN, Math.round(availableWidth * POPUP_EDGE_INSET_RATIO));
+  const desiredLeft = availableLeft + availableWidth - width - edgeInset;
   const desiredTop = availableTop + Math.round((availableHeight - height) / 2);
   const left = Math.min(
     Math.max(desiredLeft, availableLeft),

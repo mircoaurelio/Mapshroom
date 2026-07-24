@@ -23,6 +23,7 @@ secrets/
 # Local extraction / import scratch
 .tmp-*/
 .tmp-*
+tmp/
 
 # Editor directories and files
 .vscode/*

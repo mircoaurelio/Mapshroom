@@ -93,6 +93,8 @@ interface AssetLibraryDialogProps {
   onEditMask: (assetId: string, panel?: 'refine' | 'depth') => void;
   onRemoveAsset: (assetId: string) => void;
   onClose: () => void;
+  showImportFirstStep: boolean;
+  onImportFirstStepDismiss: () => void;
 }
 
 export function AssetLibraryDialog({
@@ -107,6 +109,8 @@ export function AssetLibraryDialog({
   onEditMask,
   onRemoveAsset,
   onClose,
+  showImportFirstStep,
+  onImportFirstStepDismiss,
 }: AssetLibraryDialogProps) {
   const previewUrls = useAssetPreviewUrls(assets, open, activeAssetId, assetUrl);
   const orderedAssets = [...assets].reverse();
@@ -118,6 +122,18 @@ export function AssetLibraryDialog({
   }
 
   const closeGeneratePanel = () => setIsGeneratePanelOpen(false);
+  const handleImport = () => {
+    if (showImportFirstStep) {
+      onImportFirstStepDismiss();
+    }
+    onLoadAsset();
+  };
+  const handleClose = () => {
+    if (showImportFirstStep) {
+      onImportFirstStepDismiss();
+    }
+    onClose();
+  };
 
   return (
     <div
@@ -126,7 +142,7 @@ export function AssetLibraryDialog({
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           setIsGeneratePanelOpen(false);
-          onClose();
+          handleClose();
         }
       }}
     >
@@ -153,10 +169,55 @@ export function AssetLibraryDialog({
               <SparkleIcon />
               <span>Generate</span>
             </button>
-            <button type="button" className="primary-button asset-browser-import asset-browser-shine" onClick={onLoadAsset}>
-              <span>Import</span>
-            </button>
-            <button type="button" className="asset-browser-close" onClick={onClose} aria-label="Close asset library" title="Close">
+            <div className="asset-browser-import-shell">
+              <button
+                type="button"
+                className="primary-button asset-browser-import asset-browser-shine"
+                aria-describedby={
+                  showImportFirstStep ? 'asset-import-first-step-title' : undefined
+                }
+                onClick={handleImport}
+              >
+                <ImportIcon />
+                <span>Import</span>
+              </button>
+              {showImportFirstStep ? (
+                <aside
+                  className="toolbar-assets-callout asset-browser-import-callout"
+                  role="dialog"
+                  aria-labelledby="asset-import-first-step-title"
+                  aria-describedby="asset-import-first-step-description"
+                >
+                  <span className="toolbar-assets-callout-arrow" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="toolbar-assets-callout-close"
+                    aria-label="Close import step tip"
+                    onClick={onImportFirstStepDismiss}
+                  >
+                    ×
+                  </button>
+                  <div className="toolbar-assets-callout-icon" aria-hidden="true">
+                    <ImportIcon />
+                    <span>✦</span>
+                  </div>
+                  <span className="toolbar-assets-callout-kicker">Step 2</span>
+                  <h1 id="asset-import-first-step-title">Now import your content</h1>
+                  <p id="asset-import-first-step-description">
+                    Choose an image or video from your device to add it to the library.
+                  </p>
+                  <button
+                    type="button"
+                    className="primary-button toolbar-assets-callout-cta asset-browser-shine"
+                    onClick={handleImport}
+                  >
+                    <ImportIcon />
+                    <span>Choose a file</span>
+                  </button>
+                </aside>
+              ) : null}
+            </div>
+            <button type="button" className="asset-browser-close" onClick={handleClose} aria-label="Close asset library" title="Close">
               ×
             </button>
           </div>

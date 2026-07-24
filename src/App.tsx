@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { BootScreenController } from './components/BootScreenController';
+import { InstallAppCallout } from './components/InstallAppCallout';
 import { initAnalytics } from './lib/analytics';
 
 // Route-level code splitting keeps the initial download small; the heavy
@@ -41,6 +42,7 @@ export default function App() {
         </Routes>
       </Suspense>
       <AnalyticsConsentBanner />
+      <InstallAppCallout />
     </HashRouter>
   );
 }

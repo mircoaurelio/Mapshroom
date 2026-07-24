@@ -2,6 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
 import { trackUiClick } from '../lib/analytics';
+import {
+  advanceAssetsFirstStepToImport,
+  ASSETS_FIRST_STEP_DELAY_MS,
+  dismissAssetsFirstStepPermanently,
+  isAssetsFirstStepDismissed,
+  isAssetsImportStepPending,
+  persistAssetsFirstStepElapsedMs,
+  readAssetsFirstStepElapsedMs,
+} from '../lib/assetsFirstStep';
 
 type ToolbarMenuKey = 'file' | 'shader';
 
@@ -30,6 +39,9 @@ interface WorkspaceToolbarProps {
   midiPanelVisible: boolean;
   onToggleMidi: () => void;
   onOpenSliceStudio: () => void;
+  assetsFirstStepEligible: boolean;
+  onboardingActive: boolean;
+  onAssetsFirstStepAdvance: () => void;
 }
 
 function PlayIcon() {
@@ -54,6 +66,25 @@ function SettingsIcon() {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="8" cy="8" r="2.25" />
       <path d="M8 2.4v1.3M8 12.3v1.3M2.4 8h1.3M12.3 8h1.3M4.05 4.05l.92.92M11.03 11.03l.92.92M11.95 4.05l-.92.92M4.97 11.03l-.92.92" />
+    </svg>
+  );
+}
+
+function AssetsIcon() {
+  return (
+    <svg
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2.25" y="3.25" width="10.5" height="10.5" rx="1.8" />
+      <path d="m4.5 11 2.15-2.3 1.7 1.65 1.3-1.25 1.1 1.15" />
+      <circle cx="9.6" cy="6.45" r=".9" />
+      <path d="M6.2 15.25h7.05a2.5 2.5 0 0 0 2.5-2.5V6.2" />
     </svg>
   );
 }
@@ -83,9 +114,22 @@ export function WorkspaceToolbar({
   midiPanelVisible,
   onToggleMidi,
   onOpenSliceStudio,
+  assetsFirstStepEligible,
+  onboardingActive,
+  onAssetsFirstStepAdvance,
 }: WorkspaceToolbarProps) {
   const [openMenu, setOpenMenu] = useState<ToolbarMenuKey | null>(null);
+  const [assetsFirstStepVisible, setAssetsFirstStepVisible] = useState(false);
+  const [assetsFirstStepAdvanced, setAssetsFirstStepAdvanced] = useState(() =>
+    isAssetsImportStepPending(),
+  );
   const toolbarMenusRef = useRef<HTMLDivElement | null>(null);
+  const assetsFirstStepRemainingMsRef = useRef(
+    Math.max(
+      0,
+      ASSETS_FIRST_STEP_DELAY_MS - readAssetsFirstStepElapsedMs(),
+    ),
+  );
 
   useEffect(() => {
     if (!openMenu) {
@@ -113,11 +157,132 @@ export function WorkspaceToolbar({
     };
   }, [openMenu]);
 
+  useEffect(() => {
+    if (
+      !assetsFirstStepEligible ||
+      onboardingActive ||
+      assetsFirstStepVisible ||
+      assetsFirstStepAdvanced ||
+      isAssetsFirstStepDismissed()
+    ) {
+      return;
+    }
+
+    let activeStartedAt: number | null = null;
+    let timeoutId: number | null = null;
+
+    const persistElapsedTime = () => {
+      const elapsedMs = Math.max(
+        0,
+        ASSETS_FIRST_STEP_DELAY_MS - assetsFirstStepRemainingMsRef.current,
+      );
+      persistAssetsFirstStepElapsedMs(elapsedMs);
+    };
+
+    const pauseTimer = () => {
+      if (activeStartedAt !== null) {
+        assetsFirstStepRemainingMsRef.current = Math.max(
+          0,
+          assetsFirstStepRemainingMsRef.current - (performance.now() - activeStartedAt),
+        );
+        activeStartedAt = null;
+      }
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      persistElapsedTime();
+    };
+
+    const revealFirstStep = () => {
+      assetsFirstStepRemainingMsRef.current = 0;
+      activeStartedAt = null;
+      timeoutId = null;
+      persistElapsedTime();
+      setAssetsFirstStepVisible(true);
+    };
+
+    const startTimer = () => {
+      if (document.hidden || activeStartedAt !== null) {
+        return;
+      }
+
+      if (assetsFirstStepRemainingMsRef.current <= 0) {
+        revealFirstStep();
+        return;
+      }
+
+      activeStartedAt = performance.now();
+      timeoutId = window.setTimeout(
+        revealFirstStep,
+        assetsFirstStepRemainingMsRef.current,
+      );
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    };
+
+    startTimer();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      pauseTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [
+    assetsFirstStepAdvanced,
+    assetsFirstStepEligible,
+    assetsFirstStepVisible,
+    onboardingActive,
+  ]);
+
+  useEffect(() => {
+    if (!assetsFirstStepVisible) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        dismissAssetsFirstStepPermanently();
+        setAssetsFirstStepVisible(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [assetsFirstStepVisible]);
+
   const toggleMenu = (menu: ToolbarMenuKey) => {
     setOpenMenu((currentMenu) => (currentMenu === menu ? null : menu));
   };
 
   const closeMenu = () => setOpenMenu(null);
+  const dismissAssetsFirstStep = () => {
+    dismissAssetsFirstStepPermanently();
+    assetsFirstStepRemainingMsRef.current = 0;
+    setAssetsFirstStepVisible(false);
+  };
+  const openAssets = () => {
+    if (assetsFirstStepVisible) {
+      advanceAssetsFirstStepToImport();
+      assetsFirstStepRemainingMsRef.current = 0;
+      setAssetsFirstStepAdvanced(true);
+      setAssetsFirstStepVisible(false);
+      onAssetsFirstStepAdvance();
+      onOpenAssets();
+      return;
+    }
+
+    dismissAssetsFirstStep();
+    onOpenAssets();
+  };
 
   return (
     <header className="workspace-toolbar">
@@ -155,7 +320,7 @@ export function WorkspaceToolbar({
                   role="menuitem"
                   className="toolbar-menu-item"
                   onClick={() => {
-                    onOpenAssets();
+                    openAssets();
                     closeMenu();
                   }}
                 >
@@ -351,9 +516,52 @@ export function WorkspaceToolbar({
         </div>
 
         <div className="toolbar-runtime-actions" data-onboarding-area="topbar">
-          <button type="button" className="primary-button toolbar-load-asset-button" onClick={onOpenAssets}>
-            Assets
-          </button>
+          <div className="toolbar-assets-shell">
+            <button
+              type="button"
+              className="primary-button toolbar-assets-button asset-browser-shine"
+              aria-describedby={assetsFirstStepVisible ? 'assets-first-step-title' : undefined}
+              onClick={openAssets}
+            >
+              <AssetsIcon />
+              <span>Assets</span>
+            </button>
+            {assetsFirstStepVisible ? (
+              <aside
+                className="toolbar-assets-callout"
+                role="dialog"
+                aria-labelledby="assets-first-step-title"
+                aria-describedby="assets-first-step-description"
+              >
+                <span className="toolbar-assets-callout-arrow" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="toolbar-assets-callout-close"
+                  aria-label="Close first step tip"
+                  onClick={dismissAssetsFirstStep}
+                >
+                  ×
+                </button>
+                <div className="toolbar-assets-callout-icon" aria-hidden="true">
+                  <AssetsIcon />
+                  <span>✦</span>
+                </div>
+                <span className="toolbar-assets-callout-kicker">Start here</span>
+                <h1 id="assets-first-step-title">First step: load your content here</h1>
+                <p id="assets-first-step-description">
+                  Add the image or video you want to transform, mask, and map.
+                </p>
+                <button
+                  type="button"
+                  className="primary-button toolbar-assets-callout-cta asset-browser-shine"
+                  onClick={openAssets}
+                >
+                  <AssetsIcon />
+                  <span>Open assets</span>
+                </button>
+              </aside>
+            ) : null}
+          </div>
           <button type="button" className="primary-button" onClick={onOpenOutput}>
             Output
           </button>

@@ -53,7 +53,11 @@ async function collectFiles(directory) {
   const files = [];
 
   for (const entry of entries) {
-    if (IGNORED_DIRECTORIES.has(entry.name)) {
+    if (
+      IGNORED_DIRECTORIES.has(entry.name) ||
+      entry.name === 'tmp' ||
+      entry.name.startsWith('.tmp-')
+    ) {
       continue;
     }
 
