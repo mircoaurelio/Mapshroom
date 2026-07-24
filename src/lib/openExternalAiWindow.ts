@@ -1,10 +1,11 @@
 export type ExternalAiWindowResult = 'popup' | 'tab' | 'blocked';
 
 const DESKTOP_MIN_SCREEN_WIDTH = 900;
-const POPUP_MAX_WIDTH = 720;
-const POPUP_MAX_HEIGHT = 820;
+const POPUP_MAX_WIDTH = 560;
+const POPUP_MAX_HEIGHT = 680;
 const POPUP_MARGIN = 24;
 const AI_POPUP_NAME = 'mapshroom-ai-chat';
+let activeExternalAiWindow: Window | null = null;
 
 function detachOpener(openedWindow: Window): void {
   try {
@@ -21,7 +22,23 @@ function openRegularTab(url: string): ExternalAiWindowResult {
   }
 
   detachOpener(openedTab);
+  activeExternalAiWindow = openedTab;
   return 'tab';
+}
+
+export function focusExternalAiWindow(): boolean {
+  try {
+    if (!activeExternalAiWindow || activeExternalAiWindow.closed) {
+      activeExternalAiWindow = null;
+      return false;
+    }
+
+    activeExternalAiWindow.focus();
+    return true;
+  } catch {
+    activeExternalAiWindow = null;
+    return false;
+  }
 }
 
 export function openExternalAiWindow(url: string): ExternalAiWindowResult {
@@ -37,8 +54,8 @@ export function openExternalAiWindow(url: string): ExternalAiWindowResult {
   const height = Math.min(POPUP_MAX_HEIGHT, Math.max(600, availableHeight - POPUP_MARGIN * 2));
   const availableLeft = window.screen.availLeft ?? window.screenX;
   const availableTop = window.screen.availTop ?? window.screenY;
-  const desiredLeft = window.screenX + window.outerWidth - width - POPUP_MARGIN;
-  const desiredTop = window.screenY + Math.round((window.outerHeight - height) / 2);
+  const desiredLeft = availableLeft + Math.round((availableWidth - width) / 2);
+  const desiredTop = availableTop + Math.round((availableHeight - height) / 2);
   const left = Math.min(
     Math.max(desiredLeft, availableLeft),
     availableLeft + availableWidth - width,
@@ -63,6 +80,7 @@ export function openExternalAiWindow(url: string): ExternalAiWindowResult {
   }
 
   detachOpener(popup);
+  activeExternalAiWindow = popup;
   popup.focus();
   return 'popup';
 }
