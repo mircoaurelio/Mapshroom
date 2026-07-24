@@ -7093,9 +7093,7 @@ ${errorSnapshot}`,
             />
 
             <aside
-              className={`workspace-pane workspace-pane-right ${
-                timelineEditingInDesktopPane ? 'workspace-pane-right-editing' : ''
-              }`}
+              className="workspace-pane workspace-pane-right"
               data-onboarding-area="code"
               style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
             >
