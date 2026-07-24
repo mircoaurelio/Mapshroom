@@ -145,6 +145,7 @@ export function createDefaultProject(
       transport: {
         isPlaying: true,
         currentTimeSeconds: 0,
+        renderTimeOffsetSeconds: 0,
         anchorTimestampMs: null,
         playbackRate: 1,
         loop: true,
