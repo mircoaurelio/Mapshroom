@@ -6155,7 +6155,10 @@ ${errorSnapshot}`,
     timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
     (isMobile ? editingTimelineStepId !== null : timelineSequenceEnabled);
   const desktopTimelineFocusedPreviewActive =
-    !isMobile && !workspaceStageMirrorsOutput && timelineFocusedPreviewActive;
+    !isMobile &&
+    !workspaceStageMirrorsOutput &&
+    timelineFocusedPreviewActive &&
+    pendingTimelineRepeatExit === null;
   const timelinePlaybackSteps = getEffectiveTimelinePlaybackSteps({
     mode: timelineStub.shaderSequence.mode,
     randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,

@@ -77,9 +77,15 @@ export function TimelineStepAssetPanel({
             className="timeline-step-asset-launch-button"
             onClick={handleLoadAsset ?? undefined}
             disabled={!handleLoadAsset}
+            aria-label="Load an asset for this shader only"
+            title="This asset will be used only by this shader"
           >
             <AssetIcon />
-            <span>Load Asset</span>
+            <span>
+              Load Asset
+              <br />
+              This Shader Only
+            </span>
           </button>
           <button
             type="button"

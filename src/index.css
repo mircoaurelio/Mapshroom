@@ -3551,6 +3551,14 @@ a {
   grid-column: 1;
 }
 
+.timeline-bar-desktop .timeline-duration-shell-track-left {
+  justify-self: stretch;
+}
+
+.timeline-bar-desktop .timeline-duration-shell-track-left .timeline-duration-field {
+  width: 100%;
+}
+
 .timeline-duration-field {
   position: relative;
   width: 7.4rem;
@@ -4250,6 +4258,52 @@ a {
   align-items: flex-end;
 }
 
+.timeline-bar-desktop .timeline-sequence-toolbar,
+.timeline-bar-desktop .timeline-sequence-toolbar-actions,
+.timeline-bar-desktop .timeline-shared-transition-toolbar,
+.timeline-bar-desktop .timeline-sequence-title-row {
+  flex-wrap: nowrap;
+}
+
+.timeline-bar-desktop .timeline-sequence-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.timeline-bar-desktop .timeline-sequence-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-bar-desktop .timeline-sequence-toolbar-actions {
+  flex: 0 0 auto;
+}
+
+.timeline-bar-desktop .timeline-shared-transition-field-section {
+  width: 140px;
+  min-width: 0;
+  flex: 0 0 140px;
+}
+
+.timeline-bar-desktop .timeline-shared-transition-field-fx {
+  width: 102px;
+  min-width: 0;
+  flex: 0 0 102px;
+}
+
+.timeline-bar-desktop .timeline-shared-transition-field-mix {
+  width: 142px;
+  min-width: 0;
+  flex: 0 0 142px;
+}
+
+.timeline-bar-desktop .timeline-shared-transition-field .text-field,
+.timeline-bar-desktop .timeline-shared-transition-field .select-field {
+  min-width: 0;
+}
+
 .timeline-sequence-toolbar-actions > .icon-button,
 .timeline-sequence-toolbar-actions > .timeline-mode-switch,
 .timeline-sequence-toolbar-actions > .timeline-shared-transition-toolbar {
@@ -4582,18 +4636,18 @@ a {
 }
 
 .timeline-shared-transition-field-section {
-  --timeline-field-label-space: 7.1rem;
-  min-width: 164px;
+  --timeline-field-label-space: 6.4rem;
+  min-width: 140px;
 }
 
 .timeline-shared-transition-field-fx {
-  --timeline-field-label-space: 2.8rem;
-  min-width: 124px;
+  --timeline-field-label-space: 2.2rem;
+  min-width: 102px;
 }
 
 .timeline-shared-transition-field-mix {
-  --timeline-field-label-space: 5.8rem;
-  min-width: 168px;
+  --timeline-field-label-space: 5rem;
+  min-width: 142px;
 }
 
 .timeline-shared-transition-field > span {
