@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { track } from '../lib/analytics';
 
-export type ProBetaSource = 'asset_generate' | 'shader_pro_teaser';
+export type ProBetaSource = 'asset_generate' | 'shader_pro_teaser' | 'installed_app';
 
 interface ProBetaDialogProps {
   open: boolean;
@@ -67,18 +67,48 @@ export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
 
         {hasRequestedAccess ? (
           <div className="pro-beta-confirmation" role="status" aria-live="polite">
-            <span className="pro-beta-confirmation-mark" aria-hidden="true">
-              ✓
-            </span>
-            <span className="panel-eyebrow">Interest received</span>
-            <h3 id="pro-beta-title">Come back tomorrow to join the beta</h3>
-            <p id="pro-beta-copy">
-              We saved your interest. Mapshroom Pro is opening a few closed-beta spots each day,
-              so check back tomorrow for the next release.
-            </p>
-            <button type="button" className="primary-button pro-beta-join" onClick={onClose}>
-              Got it
-            </button>
+            <div className="pro-beta-confirmation-header">
+              <span className="pro-beta-confirmation-mark" aria-hidden="true">
+                <svg viewBox="0 0 20 20">
+                  <path d="m5.25 10.25 3.05 3.05 6.45-7.05" />
+                </svg>
+              </span>
+              <div>
+                <span className="panel-eyebrow">Request registered</span>
+                <small>Mapshroom Pro · Private beta</small>
+              </div>
+            </div>
+
+            <div className="pro-beta-confirmation-main">
+              <span className="pro-beta-confirmation-kicker">Next access window</span>
+              <h3 id="pro-beta-title">Your beta window opens tomorrow</h3>
+              <p id="pro-beta-copy">
+                Your interest is saved. We release a limited number of Pro seats each day to keep
+                onboarding focused and support responsive. Return tomorrow to check availability.
+              </p>
+            </div>
+
+            <div className="pro-beta-confirmation-meta" aria-label="Beta request summary">
+              <article>
+                <span>Availability</span>
+                <strong>Tomorrow</strong>
+              </article>
+              <article>
+                <span>Release</span>
+                <strong>Limited seats</strong>
+              </article>
+              <article>
+                <span>Request</span>
+                <strong>Saved</strong>
+              </article>
+            </div>
+
+            <div className="pro-beta-confirmation-footer">
+              <p>No additional action is required today.</p>
+              <button type="button" className="primary-button pro-beta-join" onClick={onClose}>
+                Return to workspace
+              </button>
+            </div>
           </div>
         ) : (
           <>
