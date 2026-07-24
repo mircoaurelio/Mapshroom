@@ -59,6 +59,12 @@
         if (/\/download\/?$/.test(path) && !location.hash) {
           location.replace(path.replace(/\/download\/?$/, '/') + '#/');
         }
+
+        if (/\/why\/?$/.test(path) && !location.hash) {
+          var whyLanguage = new URLSearchParams(location.search).get('lang');
+          var whyRoute = '#/why' + (whyLanguage ? '?lang=' + encodeURIComponent(whyLanguage) : '');
+          location.replace(path.replace(/\/why\/?$/, '/') + whyRoute);
+        }
       })();
     </script>
     <noscript>
