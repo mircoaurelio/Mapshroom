@@ -319,6 +319,7 @@ interface TimelineStageRendererProps {
   forceActiveShaderPreview?: boolean;
   focusedPreviewStepId?: string | null;
   focusedPreviewIndicatorActive?: boolean;
+  focusExitTimelineTimeSeconds?: number | null;
   midiManualMix?: {
     enabled: boolean;
     currentStepId: string | null;
@@ -354,6 +355,7 @@ export function TimelineStageRenderer({
   forceActiveShaderPreview = false,
   focusedPreviewStepId = null,
   focusedPreviewIndicatorActive = false,
+  focusExitTimelineTimeSeconds = null,
   midiManualMix,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
@@ -865,6 +867,46 @@ export function TimelineStageRenderer({
     shaderSequence.singleStepLoopEnabled,
     transport.loop,
     transportTimeSeconds,
+  ]);
+  const focusExitTimelineState = useMemo(() => {
+    if (
+      focusExitTimelineTimeSeconds === null ||
+      !Number.isFinite(focusExitTimelineTimeSeconds) ||
+      !sequenceEnabled
+    ) {
+      return null;
+    }
+
+    return resolveShaderTimelineState({
+      shaders: availableShaders,
+      mode: shaderSequence.mode ?? 'sequence',
+      focusedStepId: shaderSequence.focusedStepId ?? null,
+      singleStepLoopEnabled: false,
+      randomChoiceEnabled: shaderSequence.randomChoiceEnabled ?? false,
+      sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled ?? false,
+      sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+      sharedTransitionDurationSeconds:
+        shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+      sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
+      steps: playbackTimelineSteps,
+      timeSeconds: Math.max(0, focusExitTimelineTimeSeconds),
+      loop: transport.loop,
+      randomSeedSalt: primaryRandomSeedSalt,
+    });
+  }, [
+    availableShaders,
+    focusExitTimelineTimeSeconds,
+    playbackTimelineSteps,
+    primaryRandomSeedSalt,
+    sequenceEnabled,
+    shaderSequence.focusedStepId,
+    shaderSequence.mode,
+    shaderSequence.randomChoiceEnabled,
+    shaderSequence.sharedSectionDurationSeconds,
+    shaderSequence.sharedTransitionDurationSeconds,
+    shaderSequence.sharedTransitionEffect,
+    shaderSequence.sharedTransitionEnabled,
+    transport.loop,
   ]);
 
   const midiManualLookaheadTimelineState = useMemo(() => {
@@ -2007,11 +2049,17 @@ export function TimelineStageRenderer({
     }
 
     const pushStatePreloads = (state: ResolvedTimelineState) => {
+      preloadCandidates.push(
+        buildSingleStepPreloadLayer(state.currentShader, state.currentStep),
+      );
       preloadCandidates.push(buildSingleStepPreloadLayer(state.nextShader, state.nextStep));
       preloadCandidates.push(buildTransitionPreloadLayer(state));
     };
 
     pushStatePreloads(timelineState);
+    if (focusExitTimelineState) {
+      pushStatePreloads(focusExitTimelineState);
+    }
     if (midiManualLookaheadTimelineState) {
       pushStatePreloads(midiManualLookaheadTimelineState);
     }
@@ -2077,6 +2125,7 @@ export function TimelineStageRenderer({
     buildDoubleAutomataRenderLayer,
     buildSingleStepPreloadLayer,
     createStageRenderLayer,
+    focusExitTimelineState,
     midiManualLookaheadTimelineState,
     modeTransitionNowMs,
     primaryLookaheadTimelineStates,

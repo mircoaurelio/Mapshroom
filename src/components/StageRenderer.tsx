@@ -18,7 +18,7 @@ import {
   buildFragmentShaderSource,
   VERTEX_SHADER_SOURCE,
 } from '../lib/shader';
-import { getTransportTimeSeconds } from '../lib/clock';
+import { getRenderTimeSeconds, getTransportTimeSeconds } from '../lib/clock';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 
 interface StageRendererProps {
@@ -568,7 +568,7 @@ function syncVideoToTransport(
   let videoTimeChanged = false;
 
   if (video.duration > 0) {
-    const absoluteTime = getTransportTimeSeconds(transport, nowMs);
+    const absoluteTime = getRenderTimeSeconds(transport, nowMs);
     const targetTime = getClippedVideoTime(source, absoluteTime, video.duration, transport.loop);
     const driftSeconds = targetTime - video.currentTime;
 
@@ -1671,7 +1671,7 @@ export function StageRenderer({
       try {
         const currentTransport = transportRef.current;
         const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
-        const shaderTime = transportTime;
+        const renderTime = getRenderTimeSeconds(currentTransport, timestamp);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 
@@ -1745,7 +1745,7 @@ export function StageRenderer({
             primaryState,
             gl.TEXTURE0,
             currentTransport,
-            transportTime,
+            renderTime,
           );
 
           gl.useProgram(layer.program);
@@ -1763,7 +1763,7 @@ export function StageRenderer({
               overlayState,
               gl.TEXTURE2,
               currentTransport,
-              transportTime,
+              renderTime,
             );
             gl.uniform1i(layer.locations.overlayImage, 2);
           }
@@ -1776,7 +1776,7 @@ export function StageRenderer({
               transitionFromState,
               gl.TEXTURE0,
               currentTransport,
-              transportTime,
+              renderTime,
             );
             gl.uniform1i(layer.locations.transitionFromImage, 0);
           }
@@ -1786,7 +1786,7 @@ export function StageRenderer({
               transitionToState,
               gl.TEXTURE1,
               currentTransport,
-              transportTime,
+              renderTime,
             );
             gl.uniform1i(layer.locations.transitionToImage, 1);
           }
@@ -1796,7 +1796,7 @@ export function StageRenderer({
               transitionFromOverlayState,
               gl.TEXTURE2,
               currentTransport,
-              transportTime,
+              renderTime,
             );
             gl.uniform1i(layer.locations.transitionFromOverlayImage, 2);
           }
@@ -1812,7 +1812,7 @@ export function StageRenderer({
               transitionToOverlayState,
               gl.TEXTURE3,
               currentTransport,
-              transportTime,
+              renderTime,
             );
             gl.uniform1i(layer.locations.transitionToOverlayImage, 3);
           }
@@ -1823,7 +1823,7 @@ export function StageRenderer({
             );
           }
           if (layer.locations.time) {
-            gl.uniform1f(layer.locations.time, shaderTime);
+            gl.uniform1f(layer.locations.time, renderTime);
           }
           if (layer.locations.resolution) {
             gl.uniform2f(layer.locations.resolution, canvas.width, canvas.height);

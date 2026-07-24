@@ -70,6 +70,11 @@ export interface StageTransform {
 export interface PlaybackTransport {
   isPlaying: boolean;
   currentTimeSeconds: number;
+  /**
+   * Keeps shader and media animation continuous when timeline navigation
+   * changes currentTimeSeconds without intending to restart the visible frame.
+   */
+  renderTimeOffsetSeconds?: number;
   anchorTimestampMs: number | null;
   playbackRate: number;
   loop: boolean;

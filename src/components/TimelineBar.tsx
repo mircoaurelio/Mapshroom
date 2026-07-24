@@ -63,6 +63,10 @@ interface TimelineBarProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
+  hasSequenceShuffleUndo: boolean;
+  onRandomizeSequenceShaders: () => void;
+  onRestoreSequenceShaders: () => void;
+  onDismissSequenceShuffleUndo: () => void;
   onSequencePinnedStepToggle: (stepId: string) => void;
   onAssignSequenceStepAsset: (stepId: string, assetId: string | null) => void;
   onImportSequenceAsset: (stepId: string) => void;
@@ -311,6 +315,10 @@ export function TimelineBar({
   onSequenceSharedTransitionChange,
   onSequenceMixDurationChange,
   onSequenceStepChange,
+  hasSequenceShuffleUndo,
+  onRandomizeSequenceShaders,
+  onRestoreSequenceShaders,
+  onDismissSequenceShuffleUndo,
   onSequencePinnedStepToggle,
   onAssignSequenceStepAsset,
   onImportSequenceAsset,
@@ -1132,6 +1140,10 @@ export function TimelineBar({
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onMixDurationChange={onSequenceMixDurationChange}
         onStepChange={onSequenceStepChange}
+        hasShuffleUndo={hasSequenceShuffleUndo}
+        onRandomizeShaders={onRandomizeSequenceShaders}
+        onRestoreShaders={onRestoreSequenceShaders}
+        onDismissShuffleUndo={onDismissSequenceShuffleUndo}
         onPinnedStepToggle={onSequencePinnedStepToggle}
         onAssignStepAsset={onAssignSequenceStepAsset}
         onImportAsset={onImportSequenceAsset}

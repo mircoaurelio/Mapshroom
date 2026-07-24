@@ -155,6 +155,8 @@ export function OutputRoute() {
           currentState?.updatedAt === nextState.updatedAt &&
           currentTransport?.isPlaying === nextTransport?.isPlaying &&
           currentTransport?.currentTimeSeconds === nextTransport?.currentTimeSeconds &&
+          currentTransport?.renderTimeOffsetSeconds ===
+            nextTransport?.renderTimeOffsetSeconds &&
           currentTransport?.playbackRate === nextTransport?.playbackRate &&
           currentTransport?.loop === nextTransport?.loop;
 

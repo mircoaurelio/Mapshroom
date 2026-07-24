@@ -12,6 +12,16 @@ export function getTransportTimeSeconds(
   return Math.max(0, transport.currentTimeSeconds + elapsedSeconds);
 }
 
+export function getRenderTimeSeconds(
+  transport: PlaybackTransport,
+  nowMs = performance.now(),
+): number {
+  const offsetSeconds = Number.isFinite(transport.renderTimeOffsetSeconds)
+    ? Number(transport.renderTimeOffsetSeconds)
+    : 0;
+  return Math.max(0, getTransportTimeSeconds(transport, nowMs) + offsetSeconds);
+}
+
 export function playTransport(
   transport: PlaybackTransport,
   nowMs = performance.now(),
@@ -55,6 +65,20 @@ export function seekTransport(
   };
 }
 
+export function seekTransportPreservingRenderTime(
+  transport: PlaybackTransport,
+  nextTimeSeconds: number,
+  nowMs = performance.now(),
+): PlaybackTransport {
+  const renderTimeSeconds = getRenderTimeSeconds(transport, nowMs);
+  const boundedNextTimeSeconds = Math.max(0, nextTimeSeconds);
+
+  return {
+    ...seekTransport(transport, boundedNextTimeSeconds, nowMs),
+    renderTimeOffsetSeconds: renderTimeSeconds - boundedNextTimeSeconds,
+  };
+}
+
 export function resetTransport(
   transport: PlaybackTransport,
   nowMs = performance.now(),
@@ -62,6 +86,7 @@ export function resetTransport(
   return {
     ...transport,
     currentTimeSeconds: 0,
+    renderTimeOffsetSeconds: 0,
     anchorTimestampMs: transport.isPlaying ? nowMs : null,
   };
 }
