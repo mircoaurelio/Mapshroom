@@ -36,6 +36,7 @@ interface StageRendererProps {
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
   personalPreviewActive?: boolean;
+  personalPreviewGuideActive?: boolean;
   showPinnedIndicator?: boolean;
   pinnedIndicatorLabel?: string | null;
   onPinnedIndicatorClick?: () => void;
@@ -849,6 +850,7 @@ export function StageRenderer({
   transport,
   isOutputOnly = false,
   personalPreviewActive = false,
+  personalPreviewGuideActive = false,
   showPinnedIndicator = false,
   pinnedIndicatorLabel = null,
   onPinnedIndicatorClick,
@@ -2015,7 +2017,19 @@ export function StageRenderer({
             : undefined
         }
       >
-        <canvas ref={canvasRef} className="stage-canvas" />
+        <div className="stage-canvas-frame">
+          <canvas ref={canvasRef} className="stage-canvas" />
+          {personalPreviewGuideActive ? (
+            <svg
+              className="stage-repeat-guide-trace"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <rect x="1" y="1" width="98" height="98" pathLength="1" />
+            </svg>
+          ) : null}
+        </div>
       </div>
       {showPinnedIndicator && !isOutputOnly ? (
         <button

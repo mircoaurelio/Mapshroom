@@ -157,6 +157,10 @@ import {
   isAssetsImportStepPending,
   markAssetsFirstStepSessionEligible,
 } from '../lib/assetsFirstStep';
+import {
+  dismissRepeatFocusFirstStepPermanently,
+  isRepeatFocusFirstStepDismissed,
+} from '../lib/repeatFocusFirstStep';
 import { blankShaderTemplate } from '../shaders/templates/blankShader';
 import type {
   AiSettings,
@@ -2236,6 +2240,7 @@ export function WorkspaceRoute() {
   );
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
   const [assetsFirstStepEligible, setAssetsFirstStepEligible] = useState(false);
+  const [repeatFocusFirstStepVisible, setRepeatFocusFirstStepVisible] = useState(false);
   const appOpenTrackedRef = useRef(false);
   const [midiManualMix, setMidiManualMix] = useState({
     stepIndex: 0,
@@ -5948,6 +5953,18 @@ ${errorSnapshot}`,
       setStatusMessage(nextStatusMessage);
     }
 
+    if (
+      didSelectStep &&
+      options?.stagePreviewMode === 'focused' &&
+      !isMobile &&
+      !outputWindowOpen &&
+      uiPreferences.chromeVisible &&
+      !showOnboardingGuide &&
+      !isRepeatFocusFirstStepDismissed()
+    ) {
+      setRepeatFocusFirstStepVisible(true);
+    }
+
     return didSelectStep;
   }
 
@@ -6121,6 +6138,22 @@ ${errorSnapshot}`,
     signalProjectReady();
   }, [project]);
 
+  useEffect(() => {
+    if (!repeatFocusFirstStepVisible) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        dismissRepeatFocusFirstStepPermanently();
+        setRepeatFocusFirstStepVisible(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [repeatFocusFirstStepVisible]);
+
   if (!project) {
     return null;
   }
@@ -6162,6 +6195,10 @@ ${errorSnapshot}`,
     !workspaceStageMirrorsOutput &&
     timelineFocusedPreviewActive &&
     pendingTimelineRepeatExit === null;
+  const dismissRepeatFocusFirstStep = () => {
+    dismissRepeatFocusFirstStepPermanently();
+    setRepeatFocusFirstStepVisible(false);
+  };
   const timelinePlaybackSteps = getEffectiveTimelinePlaybackSteps({
     mode: timelineStub.shaderSequence.mode,
     randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
@@ -6694,12 +6731,17 @@ ${errorSnapshot}`,
           <PlaybackControls
             canNavigate={playableTimelineSteps.length > 1}
             hasTimeline={timelineSequenceEnabled}
+            isTimelinePlaying={project.playback.transport.isPlaying}
             isRepeatEnabled={
               timelineStub.shaderSequence.singleStepLoopEnabled &&
               pendingTimelineRepeatExit === null
             }
+            showRepeatFirstStep={
+              repeatFocusFirstStepVisible && desktopTimelineFocusedPreviewActive
+            }
             onPrevious={() => handlePlaybackStepOffset(-1)}
             onRepeatToggle={handlePlaybackFocusToggle}
+            onRepeatFirstStepDismiss={dismissRepeatFocusFirstStep}
             onNext={() => handlePlaybackStepOffset(1)}
           />
         ) : null
@@ -6790,6 +6832,9 @@ ${errorSnapshot}`,
         }
         focusedPreviewStepId={editingTimelineStepId}
         focusedPreviewIndicatorActive={desktopTimelineFocusedPreviewActive}
+        focusedPreviewGuideActive={
+          repeatFocusFirstStepVisible && desktopTimelineFocusedPreviewActive
+        }
         focusExitTimelineTimeSeconds={
           pendingTimelineRepeatExit?.resumeTimelineTimeSeconds ?? null
         }

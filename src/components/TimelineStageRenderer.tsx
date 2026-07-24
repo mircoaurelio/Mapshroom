@@ -319,6 +319,7 @@ interface TimelineStageRendererProps {
   forceActiveShaderPreview?: boolean;
   focusedPreviewStepId?: string | null;
   focusedPreviewIndicatorActive?: boolean;
+  focusedPreviewGuideActive?: boolean;
   focusExitTimelineTimeSeconds?: number | null;
   midiManualMix?: {
     enabled: boolean;
@@ -355,6 +356,7 @@ export function TimelineStageRenderer({
   forceActiveShaderPreview = false,
   focusedPreviewStepId = null,
   focusedPreviewIndicatorActive = false,
+  focusedPreviewGuideActive = false,
   focusExitTimelineTimeSeconds = null,
   midiManualMix,
   preferActiveShaderCompilePreview = false,
@@ -2207,6 +2209,9 @@ export function TimelineStageRenderer({
       transport={transport}
       isOutputOnly={isOutputOnly}
       personalPreviewActive={workspacePersonalPreviewActive}
+      personalPreviewGuideActive={
+        workspacePersonalPreviewActive && focusedPreviewGuideActive
+      }
       showPinnedIndicator={showPinnedStageIndicator}
       pinnedIndicatorLabel={pinnedSequenceShader?.name ?? null}
       onPinnedIndicatorClick={onPinnedIndicatorClick}
