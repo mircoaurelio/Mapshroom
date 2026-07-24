@@ -24,35 +24,34 @@ people can help it grow.
 ## The bet
 
 Perhaps Mapshroom will reach only 5% of the people already using
-projection-mapping software. That 5% is a seed, not a boundary. It belongs to a
-much larger community of event crews, visual artists, cultural spaces, shops,
-creators, coders, and makers who all share one need: less time inside the
-process and more time making the work.
+projection-mapping software. But projection mapping is only the small, visible
+circle. That 5% is a seed inside a huge market of event crews, visual artists,
+cultural spaces, shops, creators, coders, and makers who all share one need:
+less time inside the process and more time making the work.
 
-> The 5% is the beginning. The larger market is every artist who wants less
-> process and more time to create.
+> The 5% is the seed. The real market is every artist who wants less process
+> and more time to create.
 
 The second bet is just as simple: small, medium, and large-scale projection
 mapping should not require software that costs hundreds of euros every year.
 The complexity of an idea should not determine the height of the paywall.
 
-## Market, price, and return
+## Free and local-first
 
-There is no honest way to size this market by counting projection-mapping
-customers. It includes professional crews, but also the much larger group of
-artists and makers who lose time to setup before the creative work can begin.
+The complete local workflow costs **€0**. Open the app and start creating
+without making an account. Images and projects can stay on your machine: no
+registration stands between an idea and the first projection, and the tool does
+not need a company server just to begin.
 
-The local app costs **€0**. It is local-first and requires no registration for
-the local workflow. Images and projects can stay on your machine, there is no
-account between an idea and the first projection, and the tool does not need a
-company server just to begin.
+> Free to start. Local by default. Shared only when you choose.
+
+## What do I get?
 
 What do I get directly from that first local use? Nothing. The return I care
 about is participation: more people creating more shaders, experiments, fixes,
 and unexpected possibilities for everyone.
 
-> The entry price is zero. The work stays local. The value grows when people
-> share.
+The value grows when people choose to share.
 
 ## The goal
 
@@ -102,37 +101,35 @@ dove troppo poche persone possano aiutarlo a crescere.
 ### La scommessa
 
 Forse Mapshroom raggiungerà solo il 5% di chi usa già software di projection
-mapping. Quel 5% è un seme, non un confine. Fa parte di una comunità molto più
-grande di crew di eventi, artisti visivi, spazi culturali, negozi, creator,
-coder e maker che condividono lo stesso bisogno: meno tempo dentro il processo
-e più tempo per creare.
+mapping. Ma il projection mapping è soltanto il piccolo cerchio visibile. Quel
+5% è un seme dentro un mercato enorme di crew di eventi, artisti visivi, spazi
+culturali, negozi, creator, coder e maker che condividono lo stesso bisogno:
+meno tempo dentro il processo e più tempo per creare.
 
-> Il 5% è l’inizio. Il mercato più grande è ogni artista che vuole meno processo
-> e più tempo per creare.
+> Il 5% è il seme. Il mercato reale è ogni artista che vuole meno processo e
+> più tempo per creare.
 
 La seconda scommessa è altrettanto semplice: il projection mapping di piccole,
 medie e grandi installazioni non dovrebbe richiedere software che costano
 centinaia di euro ogni anno. La complessità di un’idea non dovrebbe determinare
 l’altezza del paywall.
 
-### Mercato, prezzo e ritorno
+### Gratis e local-first
 
-Non esiste un modo onesto per misurare questo mercato contando soltanto i
-clienti del projection mapping. Comprende le crew professionali, ma anche il
-gruppo molto più grande di artisti e maker che perde tempo nel setup prima di
-iniziare il lavoro creativo.
+Il flusso locale completo costa **zero euro**. Apri l’app e inizi a creare senza
+dover registrare un account. Immagini e progetti possono restare sul tuo
+computer: niente si mette tra un’idea e la prima proiezione e non serve
+dipendere da un server aziendale solo per iniziare.
 
-L’app locale costa **zero euro**. È local-first e non richiede registrazione per
-il flusso locale. Immagini e progetti possono restare sul tuo computer, non c’è
-un account tra un’idea e la prima proiezione e non serve dipendere da un server
-aziendale solo per iniziare.
+> Gratis per iniziare. Locale per scelta. Condiviso solo quando vuoi.
+
+### Che cosa ci guadagno?
 
 Che cosa ci guadagno direttamente da quel primo utilizzo locale? Niente. Il
 ritorno che mi interessa è la partecipazione: più persone creano più shader,
 esperimenti, correzioni e possibilità inattese per tutti.
 
-> Il prezzo d’ingresso è zero. Il lavoro resta locale. Il valore cresce quando
-> viene condiviso.
+Il valore cresce quando le persone scelgono di condividere.
 
 ### L’obiettivo
 

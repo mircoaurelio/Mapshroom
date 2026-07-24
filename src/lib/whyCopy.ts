@@ -154,9 +154,9 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     },
     audience: {
       kicker: '03 / The first bet',
-      title: 'Projection mapping is the first circle. It is not the market.',
+      title: 'Projection mapping is the small visible circle. The real market is much bigger.',
       intro:
-        'Perhaps Mapshroom will reach only 5% of the people already using projection-mapping software. That is enough to start a movement. It is not where the opportunity ends.',
+        'Even if Mapshroom reaches only 5% of today’s projection-mapping users, that group is only the seed inside a huge market of artists who want less setup and more time to create.',
       nicheValue: '5%',
       nicheLabel: 'of professional crews',
       storyAria: 'A scroll-driven view that begins with professional users and zooms out to the much larger potential market',
@@ -170,12 +170,12 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       },
       market: {
         kicker: '02 / Now zoom out',
-        title: 'That 5% can grow into something much bigger.',
+        title: 'This market is much bigger than projection mapping.',
         body:
-          'A small share of professional crews is only the seed. Around it is a much larger community of artists who want the process to disappear so the work can begin.',
+          'The 5% is only the seed. Around it is a huge community of artists who want the process to disappear so the work can begin.',
         mappingLabel: 'Professional crews',
-        potentialLabel: 'Artists who want less process and more time to create.',
-        thesis: 'The 5% is the beginning, not the boundary.',
+        potentialLabel: 'A huge community of artists who want less process and more time to create.',
+        thesis: 'The 5% is the seed of a much larger market.',
       },
       mapAria:
         'A yellow circle marked 5 percent begins inside a professional-crew circle, then grows into a much larger community of artists who want less process and more time to create',
@@ -213,18 +213,18 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       ],
     },
     return: {
-      kicker: '04 / Market, price, return',
-      title: 'Beyond the niche. €0 locally. Nothing for me.',
+      kicker: '04 / Free and local-first',
+      title: 'The local app is free. No registration. Your files stay yours.',
       facts: [
         {
-          label: 'The market',
-          value: 'Beyond one niche',
-          detail: 'Every artist or crew that wants less setup and more time to make.',
+          label: 'The price',
+          value: '€0',
+          detail: 'The complete local workflow is free to open and use.',
         },
         {
-          label: 'The local app',
-          value: '€0',
-          detail: 'Open it and start. No registration is required for the local workflow.',
+          label: 'Access',
+          value: 'No registration',
+          detail: 'Nothing stands between an idea and the first projection.',
         },
         {
           label: 'The model',
@@ -238,11 +238,11 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         },
       ],
       paragraphs: [
-        'There is no honest way to size this market by counting projection-mapping customers. It includes professional crews, but also the much larger group of artists and makers who lose time to setup before the creative work can begin.',
-        'Local-first matters because access should be immediate. No registration means no account between an idea and the first projection; local processing means your images and projects do not need to leave your computer just to use the tool.',
+        'The complete local workflow costs €0. Open the app and start creating without making an account.',
+        'Local-first matters because access should be immediate and private. Your images and projects do not need to leave your computer just to use the tool.',
         'I get no direct return from that first local use. The return I care about is participation: more people creating more shaders, experiments, fixes, and unexpected possibilities for everyone.',
       ],
-      quote: 'The entry price is zero. The work stays local. The value grows when people share.',
+      quote: 'Free to start. Local by default. Shared only when you choose.',
       loopAria: 'A shared loop: more people create more shaders, which create more possibilities',
       loop: ['More people', 'More shaders', 'More ideas', 'Better tools'],
       loopCenter: 'Shared\nvalue',
@@ -340,9 +340,9 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     },
     audience: {
       kicker: '03 / La prima scommessa',
-      title: 'Il projection mapping è il primo cerchio. Non è il mercato.',
+      title: 'Il projection mapping è il piccolo cerchio visibile. Il mercato reale è molto più grande.',
       intro:
-        'Forse Mapshroom raggiungerà solo il 5% di chi usa già software di projection mapping. Basta per iniziare un movimento. Non è lì che finisce l’opportunità.',
+        'Anche se Mapshroom raggiungesse solo il 5% di chi usa già software di projection mapping, quel gruppo sarebbe soltanto il seme dentro un mercato enorme di artisti che vuole meno setup e più tempo per creare.',
       nicheValue: '5%',
       nicheLabel: 'delle crew professionali',
       storyAria: 'Una visualizzazione legata allo scroll che parte dagli utenti professionali e si allarga fino al mercato potenziale molto più grande',
@@ -356,12 +356,12 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       },
       market: {
         kicker: '02 / Ora allarghiamo lo sguardo',
-        title: 'Quel 5% può diventare qualcosa di molto più grande.',
+        title: 'Questo mercato è molto più grande del projection mapping.',
         body:
-          'Una piccola parte delle crew professionali è soltanto il seme. Intorno c’è una comunità molto più grande di artisti che vuole far sparire il processo per iniziare a creare.',
+          'Il 5% è soltanto il seme. Intorno c’è una comunità enorme di artisti che vuole far sparire il processo per iniziare a creare.',
         mappingLabel: 'Crew professionali',
-        potentialLabel: 'Artisti che vogliono meno processo e più tempo per creare.',
-        thesis: 'Il 5% è l’inizio, non il confine.',
+        potentialLabel: 'Una comunità enorme di artisti che vuole meno processo e più tempo per creare.',
+        thesis: 'Il 5% è il seme di un mercato molto più grande.',
       },
       mapAria:
         'Un cerchio giallo con il 5 per cento nasce dentro il cerchio delle crew professionali e cresce fino a rappresentare una comunità molto più grande di artisti che vuole meno processo e più tempo per creare',
@@ -399,18 +399,18 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       ],
     },
     return: {
-      kicker: '04 / Mercato, prezzo, ritorno',
-      title: 'Oltre la nicchia. Zero in locale. Niente per me.',
+      kicker: '04 / Gratis e local-first',
+      title: 'L’app locale è gratuita. Nessuna registrazione. I tuoi file restano tuoi.',
       facts: [
         {
-          label: 'Il mercato',
-          value: 'Oltre una nicchia',
-          detail: 'Ogni artista o crew che vuole meno setup e più tempo per creare.',
+          label: 'Il prezzo',
+          value: '€0',
+          detail: 'Il flusso locale completo è gratuito da aprire e usare.',
         },
         {
-          label: 'L’app locale',
-          value: '€0',
-          detail: 'Apri e inizi. Nessuna registrazione richiesta per il flusso locale.',
+          label: 'L’accesso',
+          value: 'Nessuna registrazione',
+          detail: 'Niente si mette tra un’idea e la prima proiezione.',
         },
         {
           label: 'Il modello',
@@ -424,11 +424,11 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         },
       ],
       paragraphs: [
-        'Non esiste un modo onesto per misurare questo mercato contando soltanto i clienti del projection mapping. Comprende le crew professionali, ma anche il gruppo molto più grande di artisti e maker che perde tempo nel setup prima di iniziare il lavoro creativo.',
-        'Local-first conta perché l’accesso deve essere immediato. Nessuna registrazione significa nessun account tra un’idea e la prima proiezione; l’elaborazione locale significa che immagini e progetti non devono lasciare il computer solo per usare lo strumento.',
+        'Il flusso locale completo costa zero euro. Apri l’app e inizi a creare senza dover registrare un account.',
+        'Local-first conta perché l’accesso deve essere immediato e privato. Immagini e progetti non devono lasciare il computer solo per usare lo strumento.',
         'Io non ottengo un ritorno diretto da quel primo utilizzo locale. Il ritorno che mi interessa è la partecipazione: più persone creano più shader, esperimenti, correzioni e possibilità inattese per tutti.',
       ],
-      quote: 'Il prezzo d’ingresso è zero. Il lavoro resta locale. Il valore cresce quando viene condiviso.',
+      quote: 'Gratis per iniziare. Locale per scelta. Condiviso solo quando vuoi.',
       loopAria: 'Un ciclo condiviso: più persone creano più shader, che generano più possibilità',
       loop: ['Più persone', 'Più shader', 'Più idee', 'Strumenti migliori'],
       loopCenter: 'Valore\ncondiviso',
