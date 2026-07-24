@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
@@ -212,6 +212,14 @@ const ONBOARDING_CALLOUT_GAP_PX = 16;
 const ONBOARDING_CALLOUT_MARGIN_PX = 16;
 const ONBOARDING_COPY = {
   en: {
+    welcomeEyebrow: 'Welcome to Mapshroom',
+    welcomeTitle: 'How would you like to begin?',
+    welcomeCopy:
+      'Start creating immediately, or take a short guided tour of the projection mapping workflow and workspace.',
+    welcomeStartMapping: 'Go directly into mapping',
+    welcomeLearnApp: 'Know how this app works',
+    welcomeWhyLink: 'Discover why it is free',
+    welcomeTutorialLink: 'Projector setup tutorial',
     stepLabel: (currentStep: number, totalSteps: number) => `Step ${currentStep} of ${totalSteps}`,
     dismissPermanently: "Don't show again",
     back: 'Back',
@@ -334,6 +342,14 @@ const ONBOARDING_COPY = {
     ],
   },
   it: {
+    welcomeEyebrow: 'Benvenuto in Mapshroom',
+    welcomeTitle: 'Come vuoi iniziare?',
+    welcomeCopy:
+      "Inizia subito a creare, oppure segui una breve guida al flusso di projection mapping e all'area di lavoro.",
+    welcomeStartMapping: 'Vai direttamente al mapping',
+    welcomeLearnApp: "Scopri come funziona l'app",
+    welcomeWhyLink: 'Scopri perché è gratuita',
+    welcomeTutorialLink: 'Tutorial configurazione proiettore',
     stepLabel: (currentStep: number, totalSteps: number) => `Passo ${currentStep} di ${totalSteps}`,
     dismissPermanently: 'Non mostrare più',
     back: 'Indietro',
@@ -629,6 +645,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const calloutCardRef = useRef<HTMLElement | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
   const [highlightRect, setHighlightRect] = useState<{
@@ -651,9 +668,14 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   useLayoutEffect(() => {
     overlayRef.current?.scrollTo({ top: 0, left: 0 });
     bodyRef.current?.scrollTo({ top: 0, left: 0 });
-  }, [activeStepIndex]);
+  }, [activeStepIndex, showWelcome]);
 
   const goToPreviousStep = () => {
+    if (activeStepIndex === 0) {
+      setShowWelcome(true);
+      return;
+    }
+
     setHighlightRect(null);
     setCalloutStyle(undefined);
     setOnboardingTargetMissing(false);
@@ -682,7 +704,6 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
         <button
           type="button"
           className="secondary-button"
-          disabled={activeStepIndex === 0}
           onClick={goToPreviousStep}
         >
           {onboardingCopy.back}
@@ -822,7 +843,48 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
         </div>
       ) : null}
 
-      {!activeUiArea ? (
+      {showWelcome ? (
+        <section
+          className="onboarding-panel onboarding-welcome-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="onboarding-welcome-title"
+        >
+          <div className="onboarding-welcome-content">
+            <div className="onboarding-welcome-mark" aria-hidden="true">
+              M
+            </div>
+            <div className="onboarding-welcome-copy">
+              <span className="panel-eyebrow">{onboardingCopy.welcomeEyebrow}</span>
+              <h2 id="onboarding-welcome-title">{onboardingCopy.welcomeTitle}</h2>
+              <p>{onboardingCopy.welcomeCopy}</p>
+            </div>
+            <div className="onboarding-welcome-actions">
+              <button
+                type="button"
+                className="primary-button onboarding-welcome-primary"
+                onClick={onClose}
+              >
+                {onboardingCopy.welcomeStartMapping}
+              </button>
+              <button
+                type="button"
+                className="secondary-button onboarding-welcome-secondary"
+                onClick={() => setShowWelcome(false)}
+              >
+                {onboardingCopy.welcomeLearnApp}
+              </button>
+            </div>
+            <nav className="onboarding-welcome-links" aria-label="Mapshroom resources">
+              <Link to="/why">{onboardingCopy.welcomeWhyLink}</Link>
+              <span aria-hidden="true">|</span>
+              <Link to="/tutorial">{onboardingCopy.welcomeTutorialLink}</Link>
+            </nav>
+          </div>
+        </section>
+      ) : null}
+
+      {!activeUiArea && !showWelcome ? (
         <section
           className="onboarding-panel onboarding-setup-panel"
           role="dialog"

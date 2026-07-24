@@ -2353,6 +2353,131 @@ a {
   margin: 0 auto;
 }
 
+.onboarding-welcome-panel {
+  width: min(720px, calc(100vw - 2rem));
+  max-height: none;
+  overflow: visible;
+  border-color: rgba(var(--accent-rgb), 0.24);
+  background:
+    radial-gradient(circle at 50% -25%, rgba(var(--accent-rgb), 0.2), transparent 52%),
+    linear-gradient(180deg, rgba(24, 24, 27, 0.98), rgba(9, 9, 11, 0.98));
+  box-shadow:
+    0 26px 80px rgba(0, 0, 0, 0.52),
+    0 0 0 1px rgba(var(--accent-rgb), 0.04);
+}
+
+.onboarding-welcome-content {
+  display: grid;
+  justify-items: center;
+  gap: 1.35rem;
+  padding: clamp(2rem, 6vw, 4rem);
+  text-align: center;
+}
+
+.onboarding-welcome-mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(var(--accent-rgb), 0.42);
+  border-radius: 50%;
+  background:
+    linear-gradient(145deg, rgba(var(--accent-rgb), 0.2), rgba(var(--accent-rgb), 0.04)),
+    var(--bg-panel-soft);
+  color: var(--accent-pale);
+  box-shadow:
+    inset 0 0 18px rgba(var(--accent-rgb), 0.08),
+    0 0 28px rgba(var(--accent-rgb), 0.12);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.onboarding-welcome-copy {
+  max-width: 560px;
+  display: grid;
+  justify-items: center;
+  gap: 0.65rem;
+}
+
+.onboarding-welcome-copy h2 {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: clamp(1.55rem, 4vw, 2.35rem);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.onboarding-welcome-copy p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.onboarding-welcome-actions {
+  width: min(100%, 560px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.onboarding-welcome-actions button {
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.onboarding-welcome-primary {
+  border-color: rgba(var(--accent-rgb), 0.45);
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent-pale);
+}
+
+.onboarding-welcome-primary:hover {
+  border-color: rgba(var(--accent-rgb), 0.62);
+  background: rgba(var(--accent-rgb), 0.22);
+  color: #ecfdf5;
+}
+
+.onboarding-welcome-secondary {
+  background: rgba(24, 24, 27, 0.72);
+}
+
+.onboarding-welcome-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  color: var(--accent-pale);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.61rem;
+  letter-spacing: 0.06em;
+}
+
+.onboarding-welcome-links a {
+  color: var(--accent-pale);
+  text-decoration: none;
+  text-underline-offset: 0.22rem;
+  transition:
+    color 140ms ease,
+    text-decoration-color 140ms ease;
+}
+
+.onboarding-welcome-links a:hover {
+  color: #ecfdf5;
+  text-decoration: underline;
+  text-decoration-color: rgba(var(--accent-rgb), 0.68);
+}
+
+.onboarding-welcome-links > span {
+  color: rgba(var(--accent-rgb), 0.42);
+}
+
 .onboarding-header,
 .onboarding-footer {
   display: flex;
@@ -2704,6 +2829,27 @@ a {
     border-radius: 0;
     border-left: 0;
     border-right: 0;
+  }
+
+  .onboarding-welcome-panel {
+    min-height: 100%;
+  }
+
+  .onboarding-welcome-content {
+    align-content: center;
+    padding: 1.5rem 1rem;
+  }
+
+  .onboarding-welcome-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-welcome-links {
+    flex-direction: column;
+  }
+
+  .onboarding-welcome-links > span {
+    display: none;
   }
 
   .onboarding-header,
