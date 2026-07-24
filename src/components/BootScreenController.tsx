@@ -1,46 +1,12 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
+import { PROJECT_READY_EVENT, signalBootExitStarted } from '../lib/bootFlow';
+import { MapshroomBrandLockup } from './MapshroomBrandLockup';
 
-export const PROJECT_READY_EVENT = 'mapshroom:project-ready';
-
-const BRAND_LETTERS = ['M', 'a', 'p', 's', 'h', 'r', 'o', 'o', 'm'] as const;
+const BRAND_LETTER_COUNT = 9;
 const LETTER_STAGGER_MS = 28;
-const LETTER_REVEAL_MS = 70;
-const FADE_AFTER_REVEAL_MS = BRAND_LETTERS.length * LETTER_STAGGER_MS + 120;
-
-export function signalProjectReady() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  window.dispatchEvent(new Event(PROJECT_READY_EVENT));
-}
-
-function LoadingBrandLockup() {
-  return (
-    <div className="loading-brand-lockup">
-      <img
-        className="loading-brand-logo"
-        src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
-        alt=""
-      />
-      <span className="loading-brand-name" aria-hidden="true">
-        {BRAND_LETTERS.map((letter, index) => (
-          <span
-            key={`${letter}-${index}`}
-            className={`loading-brand-letter ${index < 3 ? 'loading-brand-letter-accent' : ''}`}
-            style={{
-              animationDelay: `${index * LETTER_STAGGER_MS}ms`,
-              animationDuration: `${LETTER_REVEAL_MS}ms`,
-            }}
-          >
-            {letter}
-          </span>
-        ))}
-      </span>
-    </div>
-  );
-}
+const FADE_AFTER_REVEAL_MS = BRAND_LETTER_COUNT * LETTER_STAGGER_MS + 120;
 
 type BootPhase = 'loading' | 'fading' | 'gone';
 
@@ -54,9 +20,12 @@ export function BootScreenController() {
       return;
     }
 
-    if (!isWorkspace) {
-      setPhase('gone');
+    if (isWorkspace) {
+      return;
     }
+
+    const timeoutId = window.setTimeout(() => setPhase('gone'), 0);
+    return () => window.clearTimeout(timeoutId);
   }, [isWorkspace, phase]);
 
   useEffect(() => {
@@ -67,6 +36,8 @@ export function BootScreenController() {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const beginFade = () => {
+      signalBootExitStarted();
+
       if (prefersReducedMotion) {
         setPhase('gone');
         return;
@@ -110,7 +81,7 @@ export function BootScreenController() {
       }}
     >
       <div className="loading-screen-card">
-        <LoadingBrandLockup />
+        <MapshroomBrandLockup />
       </div>
     </div>,
     document.body,

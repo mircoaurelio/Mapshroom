@@ -40,7 +40,7 @@ import { MidiControllerPanel } from '../components/MidiControllerPanel';
 import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDialog';
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
-import { signalProjectReady } from '../components/BootScreenController';
+import { MapshroomBrandLockup } from '../components/MapshroomBrandLockup';
 import {
   getAnalyticsConsent,
   setAnalyticsAiPresence,
@@ -51,6 +51,11 @@ import {
   trackLlmRequest,
   trackUiClick,
 } from '../lib/analytics';
+import {
+  BOOT_EXIT_START_EVENT,
+  hasBootExitStarted,
+  signalProjectReady,
+} from '../lib/bootFlow';
 import {
   ANTHROPIC_API_KEY_STORAGE_KEY,
   DEFAULT_ANTHROPIC_SHADER_MODEL,
@@ -218,12 +223,10 @@ const ONBOARDING_COPY = {
   en: {
     welcomeEyebrow: 'Welcome to Mapshroom',
     welcomeTitle: 'How would you like to begin?',
-    welcomeCopy:
-      'Start creating immediately, or take a short guided tour of the projection mapping workflow and workspace.',
-    welcomeStartMapping: 'Go directly to the workspace',
-    welcomeLearnApp: 'Start the guided tutorial',
-    welcomeWhyLink: 'Discover why it is free',
-    welcomeTutorialLink: 'Projector setup tutorial',
+    welcomeStartMapping: 'Open the workspace',
+    welcomeLearnApp: 'Take the guided tour',
+    welcomeWhyLink: 'Why Mapshroom is free',
+    welcomeTutorialLink: 'Projector setup',
     stepLabel: (currentStep: number, totalSteps: number) => `Step ${currentStep} of ${totalSteps}`,
     dismissPermanently: "Don't show again",
     back: 'Back',
@@ -348,12 +351,10 @@ const ONBOARDING_COPY = {
   it: {
     welcomeEyebrow: 'Benvenuto in Mapshroom',
     welcomeTitle: 'Come vuoi iniziare?',
-    welcomeCopy:
-      "Inizia subito a creare, oppure segui una breve guida al flusso di projection mapping e all'area di lavoro.",
-    welcomeStartMapping: "Vai direttamente all'area di lavoro",
-    welcomeLearnApp: 'Inizia il tutorial guidato',
-    welcomeWhyLink: 'Scopri perché è gratuita',
-    welcomeTutorialLink: 'Tutorial configurazione proiettore',
+    welcomeStartMapping: "Apri l'area di lavoro",
+    welcomeLearnApp: 'Segui il tour guidato',
+    welcomeWhyLink: 'Perché Mapshroom è gratuita',
+    welcomeTutorialLink: 'Configura il proiettore',
     stepLabel: (currentStep: number, totalSteps: number) => `Passo ${currentStep} di ${totalSteps}`,
     dismissPermanently: 'Non mostrare più',
     back: 'Indietro',
@@ -650,6 +651,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const calloutCardRef = useRef<HTMLElement | null>(null);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [welcomeRevealed, setWelcomeRevealed] = useState(() => hasBootExitStarted());
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
   const [highlightRect, setHighlightRect] = useState<{
@@ -673,6 +675,17 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
     overlayRef.current?.scrollTo({ top: 0, left: 0 });
     bodyRef.current?.scrollTo({ top: 0, left: 0 });
   }, [activeStepIndex, showWelcome]);
+
+  useEffect(() => {
+    if (welcomeRevealed) {
+      return;
+    }
+
+    const revealWelcome = () => setWelcomeRevealed(true);
+    window.addEventListener(BOOT_EXIT_START_EVENT, revealWelcome);
+
+    return () => window.removeEventListener(BOOT_EXIT_START_EVENT, revealWelcome);
+  }, [welcomeRevealed]);
 
   const goToPreviousStep = () => {
     if (activeStepIndex === 0) {
@@ -849,22 +862,20 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
       {showWelcome ? (
         <section
-          className="onboarding-panel onboarding-welcome-panel"
+          className={`onboarding-panel onboarding-welcome-panel ${
+            welcomeRevealed ? 'onboarding-welcome-panel-ready' : ''
+          }`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="onboarding-welcome-title"
         >
           <div className="onboarding-welcome-content">
-            <div className="onboarding-welcome-mark" aria-hidden="true">
-              <img
-                src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
-                alt=""
-              />
-            </div>
             <div className="onboarding-welcome-copy">
               <span className="panel-eyebrow">{onboardingCopy.welcomeEyebrow}</span>
               <h2 id="onboarding-welcome-title">{onboardingCopy.welcomeTitle}</h2>
-              <p>{onboardingCopy.welcomeCopy}</p>
+            </div>
+            <div className="onboarding-welcome-brand" aria-hidden="true">
+              <MapshroomBrandLockup />
             </div>
             <div className="onboarding-welcome-actions">
               <button
