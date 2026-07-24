@@ -1154,6 +1154,13 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     )
       ? requestedPinnedStepId
       : null;
+  const normalizedStagePreviewMode =
+    project.timeline?.stub?.shaderSequence?.stagePreviewMode ??
+    defaultProject.timeline.stub.shaderSequence.stagePreviewMode;
+  const normalizedSingleStepLoopEnabled =
+    normalizedStagePreviewMode === 'focused' &&
+    (project.timeline?.stub?.shaderSequence?.singleStepLoopEnabled ??
+      defaultProject.timeline.stub.shaderSequence.singleStepLoopEnabled);
 
   return {
     ...project,
@@ -1194,9 +1201,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
           editorView:
             project.timeline?.stub?.shaderSequence?.editorView ??
             defaultProject.timeline.stub.shaderSequence.editorView,
-          stagePreviewMode:
-            project.timeline?.stub?.shaderSequence?.stagePreviewMode ??
-            defaultProject.timeline.stub.shaderSequence.stagePreviewMode,
+          stagePreviewMode: normalizedStagePreviewMode,
           focusedStepId:
             project.timeline?.stub?.shaderSequence?.focusedStepId ??
             defaultProject.timeline.stub.shaderSequence.focusedStepId,
@@ -1206,9 +1211,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
             project.timeline.stub.shaderSequence.randomSeedToken.trim()
               ? project.timeline.stub.shaderSequence.randomSeedToken
               : createTimelineRandomSeedToken(),
-          singleStepLoopEnabled:
-            project.timeline?.stub?.shaderSequence?.singleStepLoopEnabled ??
-            defaultProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
+          singleStepLoopEnabled: normalizedSingleStepLoopEnabled,
           randomChoiceEnabled:
             project.timeline?.stub?.shaderSequence?.randomChoiceEnabled ??
             defaultProject.timeline.stub.shaderSequence.randomChoiceEnabled,
@@ -3143,18 +3146,26 @@ export function WorkspaceRoute() {
   const handleTimelineStagePreviewModeChange = useCallback(
     (stagePreviewMode: TimelineStagePreviewMode) => {
       setStudioPreviewOverride(false);
-      updateProject((currentProject) => ({
-        ...currentProject,
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              stagePreviewMode,
+      updateProject((currentProject) => {
+        const shaderSequence = currentProject.timeline.stub.shaderSequence;
+
+        return {
+          ...currentProject,
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              shaderSequence: {
+                ...shaderSequence,
+                stagePreviewMode,
+                singleStepLoopEnabled:
+                  stagePreviewMode === 'timeline'
+                    ? false
+                    : shaderSequence.singleStepLoopEnabled,
+              },
             },
           },
-        },
-      }));
+        };
+      });
     },
     [updateProject],
   );
@@ -3249,21 +3260,29 @@ export function WorkspaceRoute() {
   }, [updateProject]);
 
   const handleTimelineSingleStepLoopToggle = useCallback(() => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            singleStepLoopEnabled: !currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
-            randomChoiceEnabled: currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled
-              ? currentProject.timeline.stub.shaderSequence.randomChoiceEnabled
-              : false,
+    updateProject((currentProject) => {
+      const shaderSequence = currentProject.timeline.stub.shaderSequence;
+      const nextSingleStepLoopEnabled = !shaderSequence.singleStepLoopEnabled;
+
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...shaderSequence,
+              stagePreviewMode: nextSingleStepLoopEnabled
+                ? 'focused'
+                : shaderSequence.stagePreviewMode,
+              singleStepLoopEnabled: nextSingleStepLoopEnabled,
+              randomChoiceEnabled: shaderSequence.singleStepLoopEnabled
+                ? shaderSequence.randomChoiceEnabled
+                : false,
+            },
           },
         },
-      },
-    }));
+      };
+    });
   }, [updateProject]);
 
   const handleTimelineStepChange = useCallback((
