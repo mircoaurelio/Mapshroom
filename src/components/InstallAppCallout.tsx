@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { trackUiClick } from '../lib/analytics';
+import {
+  getOfflineAvailability,
+  onOfflineAvailabilityChange,
+  prepareOfflineAvailability,
+  type OfflineAvailabilitySnapshot,
+} from '../lib/offlineAvailability';
 import {
   getDeferredInstallPrompt,
   isStandaloneApp,
@@ -8,14 +14,13 @@ import {
   promptInstall,
 } from '../lib/pwaInstall';
 
-const FIRST_ACCESS_KEY = 'mapshroom:pwa-first-access-at:v1';
-const DISMISSED_KEY = 'mapshroom:pwa-install-callout-dismissed:v1';
-const SHOWN_THIS_SESSION_KEY = 'mapshroom:pwa-install-callout-shown:v1';
-const INSTALL_CALLOUT_DELAY_MS = 2 * 60 * 1000;
+type InstallPlatform = 'ios' | 'android' | 'desktop';
 
-type CalloutPlatform = 'ios' | 'android' | 'desktop';
+interface InstallAppButtonProps {
+  className?: string;
+}
 
-function detectCalloutPlatform(): CalloutPlatform {
+function detectInstallPlatform(): InstallPlatform {
   const userAgent = navigator.userAgent.toLowerCase();
 
   if (/iphone|ipad|ipod/.test(userAgent)) {
@@ -29,185 +34,149 @@ function detectCalloutPlatform(): CalloutPlatform {
   return 'desktop';
 }
 
-function readStorage(storage: Storage, key: string): string | null {
-  try {
-    return storage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage(storage: Storage, key: string, value: string) {
-  try {
-    storage.setItem(key, value);
-  } catch {
-    // The callout remains usable when storage is unavailable.
-  }
-}
-
-function getOrCreateFirstAccessTime(): number {
-  const storedValue = Number(readStorage(window.localStorage, FIRST_ACCESS_KEY));
-
-  if (Number.isFinite(storedValue) && storedValue > 0) {
-    return storedValue;
-  }
-
-  const firstAccessTime = Date.now();
-  writeStorage(window.localStorage, FIRST_ACCESS_KEY, String(firstAccessTime));
-  return firstAccessTime;
-}
-
-function dismissPermanently() {
-  writeStorage(window.localStorage, DISMISSED_KEY, 'true');
-}
-
-function getCalloutCopy(platform: CalloutPlatform) {
+function getManualInstallCopy(platform: InstallPlatform): {
+  title: string;
+  body: string;
+} {
   if (platform === 'ios') {
     return {
-      title: 'Keep Mapshroom on this device',
-      body: 'Tap Share in Safari, then choose Add to Home Screen. The installed editor can open without an internet connection.',
+      title: 'Install Mapshroom on this device',
+      body: 'In Safari, tap Share, choose Add to Home Screen, enable Open as Web App, then tap Add.',
     };
   }
 
   if (platform === 'android') {
     return {
-      title: 'Install Mapshroom for offline use',
-      body: 'Open the Chrome menu and choose Install app or Add to Home screen. The editor will then be available without internet.',
+      title: 'Use the browser install command',
+      body: 'Open the browser menu and choose Install app or Add to Home screen.',
     };
   }
 
   return {
-    title: 'Install Mapshroom for offline use',
-    body: 'Click the install icon on the right side of the address bar — it looks like a small screen with a downward arrow. Once cached, the editor opens without internet.',
+    title: 'Use the browser install command',
+    body: 'Use the install icon in the address bar. If it is not visible yet, reload Mapshroom once while online.',
   };
 }
 
-export function InstallAppCallout() {
-  const location = useLocation();
-  const [visible, setVisible] = useState(false);
+export function InstallAppButton({ className = '' }: InstallAppButtonProps) {
+  const [offlineAvailability, setOfflineAvailability] =
+    useState<OfflineAvailabilitySnapshot>(() => getOfflineAvailability());
   const [installAvailable, setInstallAvailable] = useState(() =>
     Boolean(getDeferredInstallPrompt()),
   );
   const [installing, setInstalling] = useState(false);
-  const [platform] = useState<CalloutPlatform>(() => detectCalloutPlatform());
-  const copy = getCalloutCopy(platform);
+  const [installed, setInstalled] = useState(() => isStandaloneApp());
+  const [manualHelpVisible, setManualHelpVisible] = useState(false);
+  const [platform] = useState<InstallPlatform>(() => detectInstallPlatform());
+  const manualCopy = getManualInstallCopy(platform);
 
   useEffect(() => {
-    if (
-      isStandaloneApp() ||
-      readStorage(window.localStorage, DISMISSED_KEY) === 'true' ||
-      readStorage(window.sessionStorage, SHOWN_THIS_SESSION_KEY) === 'true'
-    ) {
-      return;
-    }
-
-    const firstAccessTime = getOrCreateFirstAccessTime();
-    const remainingDelay = Math.max(
-      0,
-      firstAccessTime + INSTALL_CALLOUT_DELAY_MS - Date.now(),
-    );
-
-    const timeoutId = window.setTimeout(() => {
-      writeStorage(window.sessionStorage, SHOWN_THIS_SESSION_KEY, 'true');
-      setVisible(true);
-    }, remainingDelay);
-
+    const unsubscribeOffline = onOfflineAvailabilityChange(setOfflineAvailability);
     const unsubscribeAvailable = onInstallAvailable(() => {
       setInstallAvailable(true);
+      setManualHelpVisible(false);
     });
-
     const unsubscribeInstalled = onAppInstalled(() => {
-      dismissPermanently();
-      setVisible(false);
+      setInstalled(true);
+      setManualHelpVisible(false);
     });
 
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === DISMISSED_KEY && event.newValue === 'true') {
-        setVisible(false);
-      }
-    };
-
-    window.addEventListener('storage', handleStorage);
+    void prepareOfflineAvailability();
 
     return () => {
-      window.clearTimeout(timeoutId);
+      unsubscribeOffline();
       unsubscribeAvailable();
       unsubscribeInstalled();
-      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
-  const handleClose = () => {
-    dismissPermanently();
-    setVisible(false);
-  };
-
   const handleInstall = async () => {
+    if (offlineAvailability.status === 'error') {
+      setManualHelpVisible(false);
+      void prepareOfflineAvailability({ forceUpdate: true });
+      return;
+    }
+
+    if (offlineAvailability.status !== 'ready') {
+      return;
+    }
+
+    if (!getDeferredInstallPrompt()) {
+      setManualHelpVisible(true);
+      return;
+    }
+
     setInstalling(true);
+    trackUiClick('install_offline');
 
     try {
       const outcome = await promptInstall();
 
       if (outcome === 'accepted') {
-        dismissPermanently();
-        setVisible(false);
-        return;
+        setInstalled(true);
+        trackUiClick('install_offline', { outcome: 'accepted' });
+      } else {
+        setInstallAvailable(false);
+        setManualHelpVisible(true);
       }
-
-      setInstallAvailable(false);
     } finally {
       setInstalling(false);
     }
   };
 
   if (
-    !visible ||
-    location.pathname !== '/' ||
-    isStandaloneApp()
+    installed ||
+    isStandaloneApp() ||
+    offlineAvailability.status === 'unsupported'
   ) {
     return null;
   }
 
+  const preparing =
+    offlineAvailability.status === 'checking' ||
+    offlineAvailability.status === 'preparing';
+  const buttonLabel = installing
+    ? 'Opening installer…'
+    : preparing
+      ? 'Preparing offline…'
+      : offlineAvailability.status === 'error'
+        ? 'Retry offline setup'
+        : 'Install app';
+
   return (
-    <aside
-      className={`install-app-callout install-app-callout-${platform}`}
-      role="dialog"
-      aria-labelledby="install-app-callout-title"
-      aria-describedby="install-app-callout-description"
-    >
-      {platform === 'desktop' ? (
-        <span className="install-app-callout-arrow" aria-hidden="true" />
-      ) : null}
+    <div className={`install-app-control ${className}`.trim()}>
       <button
         type="button"
-        className="install-app-callout-close"
-        aria-label="Close install tip"
-        onClick={handleClose}
+        className={`primary-button install-app-button install-app-button-${offlineAvailability.status}`}
+        disabled={preparing || installing}
+        title={offlineAvailability.message}
+        aria-expanded={manualHelpVisible}
+        onClick={() => void handleInstall()}
       >
-        ×
+        <span className="install-app-status-dot" aria-hidden="true" />
+        {buttonLabel}
       </button>
-      <span className="install-app-callout-kicker">Use it anywhere</span>
-      <strong id="install-app-callout-title">{copy.title}</strong>
-      <p id="install-app-callout-description">{copy.body}</p>
-      <div className="install-app-callout-actions">
-        {installAvailable ? (
+
+      {manualHelpVisible ? (
+        <aside
+          className="install-app-manual-help"
+          role="dialog"
+          aria-label={manualCopy.title}
+        >
+          <strong>{manualCopy.title}</strong>
+          <p>{manualCopy.body}</p>
+          {!installAvailable ? (
+            <small>Mapshroom is already ready for offline use on this browser.</small>
+          ) : null}
           <button
             type="button"
-            className="primary-button"
-            disabled={installing}
-            onClick={() => void handleInstall()}
+            className="secondary-button"
+            onClick={() => setManualHelpVisible(false)}
           >
-            {installing ? 'Opening installer…' : 'Install now'}
+            Close
           </button>
-        ) : (
-          <Link to="/download" className="primary-button">
-            Show install steps
-          </Link>
-        )}
-        <button type="button" className="secondary-button" onClick={handleClose}>
-          Not now
-        </button>
-      </div>
-    </aside>
+        </aside>
+      ) : null}
+    </div>
   );
 }

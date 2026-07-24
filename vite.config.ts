@@ -7,22 +7,29 @@ export default defineConfig(({ command }) => {
   // Custom domain (mapshroom.dev) and Cloudflare Pages serve from root.
   // Override with BASE_PATH=/Mapshroom/ only if you still need GitHub Pages.
   const base = command === 'build' ? (process.env.BASE_PATH || '/') : '/';
+  const offlineBuildId =
+    process.env.CF_PAGES_COMMIT_SHA ||
+    process.env.GITHUB_SHA ||
+    `local-${new Date().toISOString()}`;
 
   return {
     plugins: [
       react(),
+      {
+        name: 'mapshroom-offline-build-marker',
+        generateBundle() {
+          this.emitFile({
+            type: 'asset',
+            fileName: 'offline-ready.json',
+            source: JSON.stringify({
+              schemaVersion: 1,
+              buildId: offlineBuildId,
+            }),
+          });
+        },
+      },
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: [
-          'assets/icons/mapshroom-icon-transparent-512.png',
-          'assets/icons/favicon-16.png',
-          'assets/icons/favicon-32.png',
-          'assets/icons/apple-touch-icon.png',
-          'assets/icons/mapshroom-pwa-192.png',
-          'assets/icons/mapshroom-pwa-512.png',
-          'favicon.ico',
-          'browserconfig.xml',
-        ],
         manifest: {
           name: 'Mapshroom Pocket',
           short_name: 'Mapshroom',
@@ -62,7 +69,13 @@ export default defineConfig(({ command }) => {
           // Include the complete editor shell and its bundled media/tools in the offline install.
           maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
           globPatterns: [
-            '**/*.{js,css,html,ico,png,jpg,jpeg,webp,avif,svg,woff,woff2,json,webmanifest,mp4,webm,ogg,wav,wasm,onnx,data,bin,obj,mtl,gltf,glb}',
+            '**/*.{js,css,html,ico,png,jpg,jpeg,webp,avif,svg,woff,woff2,json,mp4,webm,ogg,wav,wasm,onnx,data,bin,obj,mtl,gltf,glb}',
+          ],
+          // Manifest icons are added by vite-plugin-pwa with content revisions.
+          // Exclude their copied files from the glob to avoid conflicting precache keys.
+          globIgnores: [
+            'assets/icons/mapshroom-pwa-192.png',
+            'assets/icons/mapshroom-pwa-512.png',
           ],
           navigateFallback: 'index.html',
           navigateFallbackDenylist: [/^\/a(?:\/|$)/],
@@ -117,6 +130,9 @@ export default defineConfig(({ command }) => {
       }),
     ],
     base,
+    define: {
+      __MAPSHROOM_BUILD_ID__: JSON.stringify(offlineBuildId),
+    },
     build: {
       rollupOptions: {
         input: {

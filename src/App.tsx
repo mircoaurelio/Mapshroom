@@ -2,7 +2,6 @@ import { Suspense, lazy, useEffect } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { BootScreenController } from './components/BootScreenController';
-import { InstallAppCallout } from './components/InstallAppCallout';
 import { initAnalytics } from './lib/analytics';
 
 // Route-level code splitting keeps the initial download small; the heavy
@@ -12,9 +11,6 @@ const WorkspaceRoute = lazy(() =>
 );
 const OutputRoute = lazy(() =>
   import('./routes/OutputRoute').then((module) => ({ default: module.OutputRoute })),
-);
-const DownloadRoute = lazy(() =>
-  import('./routes/DownloadRoute').then((module) => ({ default: module.DownloadRoute })),
 );
 const PrivacyRoute = lazy(() =>
   import('./routes/PrivacyRoute').then((module) => ({ default: module.PrivacyRoute })),
@@ -35,14 +31,13 @@ export default function App() {
         <Routes>
           <Route path="/" element={<WorkspaceRoute />} />
           <Route path="/output/:sessionId" element={<OutputRoute />} />
-          <Route path="/download" element={<DownloadRoute />} />
+          <Route path="/download" element={<Navigate to="/" replace />} />
           <Route path="/privacy" element={<PrivacyRoute />} />
           <Route path="/tutorial" element={<TutorialRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
       <AnalyticsConsentBanner />
-      <InstallAppCallout />
     </HashRouter>
   );
 }

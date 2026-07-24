@@ -7,8 +7,9 @@
   "scripts": {
     "check:secrets": "node ./scripts/check-no-secrets.mjs",
     "check:shaders": "node ./scripts/check-shader-presets.mjs",
+    "check:pwa": "node ./scripts/check-pwa-precache.mjs",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run check:pwa",
     "lint": "eslint .",
     "preview": "vite preview"
   },

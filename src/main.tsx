@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
+import {
+  prepareOfflineAvailability,
+  reportOfflineRegistrationError,
+} from './lib/offlineAvailability';
 import { captureInstallPrompt } from './lib/pwaInstall';
 import './index.css';
 
@@ -13,9 +17,14 @@ const updateServiceWorker = registerSW({
     void updateServiceWorker(true);
   },
   onOfflineReady() {
-    window.dispatchEvent(new Event('mapshroom:offline-ready'));
+    void prepareOfflineAvailability();
+  },
+  onRegisterError(error) {
+    reportOfflineRegistrationError(error);
   },
 });
+
+void prepareOfflineAvailability();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

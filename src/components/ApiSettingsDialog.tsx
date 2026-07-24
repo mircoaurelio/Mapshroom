@@ -20,6 +20,7 @@ interface ApiSettingsDialogProps {
   variant?: ApiSettingsVariant;
   externalChatPrompt?: string;
   isClearingLocalData?: boolean;
+  onOpenProBeta: () => void;
   onClose: () => void;
   onChange: (field: keyof AiSettings, value: string | boolean) => void;
   onApplyExternalChatResponse: (response: string) => Promise<void>;
@@ -114,6 +115,7 @@ export function ApiSettingsDialog({
   variant = 'settings',
   externalChatPrompt = '',
   isClearingLocalData = false,
+  onOpenProBeta,
   onClose,
   onChange,
   onApplyExternalChatResponse,
@@ -346,7 +348,9 @@ export function ApiSettingsDialog({
           ) : null}
 
           <div
-            className={`ai-runtime-choice ${selectedPath ? 'has-selection' : ''}`}
+            className={`ai-runtime-choice ${selectedPath ? 'has-selection' : ''} ${
+              usingChatGpt ? 'has-pro-teaser' : ''
+            }`}
             role="radiogroup"
             aria-label="AI runtime"
           >
@@ -363,6 +367,26 @@ export function ApiSettingsDialog({
                   <span className="ai-path-card-tag">Direct &amp; free</span>
                   <strong>Use ChatGPT for free</strong>
                   <span>Open ChatGPT with the prompt, then copy its shader reply back into Mapshroom.</span>
+                </div>
+              </button>
+            ) : null}
+            {usingChatGpt ? (
+              <button
+                type="button"
+                className="ai-path-card ai-path-card-pro"
+                onClick={onOpenProBeta}
+              >
+                <span className="ai-path-pro-mark" aria-hidden="true">
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
+                    alt=""
+                  />
+                  <small>Pro</small>
+                </span>
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Pro · Closed beta</span>
+                  <strong>Modify directly in the app</strong>
+                  <span>Generate and edit without leaving Mapshroom or copying shader code.</span>
                 </div>
               </button>
             ) : null}

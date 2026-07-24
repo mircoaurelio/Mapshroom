@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { MobileUiMode } from '../types';
+import { InstallAppButton } from './InstallAppCallout';
 
 export type MobilePanelKey = 'studio' | 'mapping' | 'sliders' | null;
 
@@ -66,6 +67,7 @@ export function MobileChrome({
           <button type="button" className="secondary-button" onClick={onOpenSettings}>
             Settings
           </button>
+          <InstallAppButton className="mobile-install-control" />
         </div>
       </header>
 

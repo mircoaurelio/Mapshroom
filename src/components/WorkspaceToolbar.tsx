@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
-import { trackUiClick } from '../lib/analytics';
+import { InstallAppButton } from './InstallAppCallout';
 import {
   advanceAssetsFirstStepToImport,
   ASSETS_FIRST_STEP_DELAY_MS,
@@ -445,20 +444,11 @@ export function WorkspaceToolbar({
                 >
                   Settings
                 </button>
-                <Link
-                  to="/download"
-                  role="menuitem"
-                  className="toolbar-menu-item"
-                  onClick={() => {
-                    trackUiClick('install_offline');
-                    closeMenu();
-                  }}
-                >
-                  Install offline
-                </Link>
               </div>
             ) : null}
           </div>
+
+          <InstallAppButton className="workspace-install-control" />
 
           <button
             type="button"

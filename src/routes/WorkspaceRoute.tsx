@@ -21,6 +21,7 @@ import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PlaybackControls } from '../components/PlaybackControls';
 import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
+import { ProBetaDialog, type ProBetaSource } from '../components/ProBetaDialog';
 import { ProjectLibraryDialog } from '../components/ProjectLibraryDialog';
 import { ShareProjectDialog } from '../components/ShareProjectDialog';
 import { ShaderTimelineEditor } from '../components/ShaderTimelineEditor';
@@ -1879,6 +1880,7 @@ export function WorkspaceRoute() {
   const [newUniformName, setNewUniformName] = useState('');
   const [isApiSettingsOpen, setIsApiSettingsOpen] = useState(false);
   const [apiSettingsVariant, setApiSettingsVariant] = useState<'setup' | 'settings'>('settings');
+  const [proBetaSource, setProBetaSource] = useState<ProBetaSource | null>(null);
   const [externalChatRequest, setExternalChatRequest] = useState<{
     requestId: string;
     prompt: string;
@@ -6638,6 +6640,7 @@ ${errorSnapshot}`,
         onRenameAsset={handleAssetRename}
         onEditMask={handleAssetMaskOpen}
         onRemoveAsset={handleAssetRemove}
+        onOpenProBeta={() => setProBetaSource('asset_generate')}
         onClose={() => setIsAssetLibraryOpen(false)}
         showImportFirstStep={showAssetImportFirstStep}
         onImportFirstStepDismiss={() => {
@@ -6749,6 +6752,7 @@ ${errorSnapshot}`,
               : ''
         }
         isClearingLocalData={isClearingLocalData}
+        onOpenProBeta={() => setProBetaSource('shader_pro_teaser')}
         onClose={() => {
           setIsApiSettingsOpen(false);
           setExternalChatRequest(null);
@@ -6758,6 +6762,12 @@ ${errorSnapshot}`,
         onClearLocalData={() => {
           void handleClearLocalData();
         }}
+      />
+
+      <ProBetaDialog
+        open={proBetaSource !== null}
+        source={proBetaSource ?? 'asset_generate'}
+        onClose={() => setProBetaSource(null)}
       />
 
       <ProjectLibraryDialog
