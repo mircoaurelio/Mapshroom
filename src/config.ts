@@ -180,7 +180,7 @@ export function createDefaultProject(
           enabled: true,
           mode: 'randomMix',
           editorView: 'simple',
-          stagePreviewMode: 'focused',
+          stagePreviewMode: 'timeline',
           focusedStepId: steps[0]?.id ?? null,
           pinnedStepId: null,
           randomSeedToken: crypto.randomUUID(),

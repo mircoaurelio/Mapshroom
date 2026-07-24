@@ -84,6 +84,7 @@ interface PresetBrowserDialogProps {
   activeShaderId: string;
   assetUrl: string | null;
   addSelectionToTimeline: boolean;
+  timelineAddRequired?: boolean;
   onAddSelectionToTimelineChange: (enabled: boolean) => void;
   onPreviewStart?: (shaderId: string) => void;
   onPreviewEnd?: (shaderId: string) => void;
@@ -542,6 +543,7 @@ export function PresetBrowserDialog({
   activeShaderId,
   assetUrl,
   addSelectionToTimeline,
+  timelineAddRequired = false,
   onAddSelectionToTimelineChange,
   onPreviewStart,
   onPreviewEnd,
@@ -754,7 +756,9 @@ export function PresetBrowserDialog({
       onPreviewStart={() => onPreviewStart?.(preset.id)}
       onPreviewEnd={() => onPreviewEnd?.(preset.id)}
       onSelect={() => {
-        onSelect(preset.id, { addToTimeline: addSelectionToTimeline });
+        onSelect(preset.id, {
+          addToTimeline: timelineAddRequired || addSelectionToTimeline,
+        });
         handleClose();
       }}
     />
@@ -809,14 +813,25 @@ export function PresetBrowserDialog({
             <button
               type="button"
               className={`preset-timeline-toggle ${
-                addSelectionToTimeline ? 'preset-timeline-toggle-active' : ''
+                timelineAddRequired || addSelectionToTimeline
+                  ? 'preset-timeline-toggle-active'
+                  : ''
               }`}
-              aria-pressed={addSelectionToTimeline}
-              onClick={() => onAddSelectionToTimelineChange(!addSelectionToTimeline)}
+              aria-pressed={timelineAddRequired || addSelectionToTimeline}
+              disabled={timelineAddRequired}
+              onClick={() => {
+                if (!timelineAddRequired) {
+                  onAddSelectionToTimelineChange(!addSelectionToTimeline);
+                }
+              }}
             >
               <span className="preset-timeline-toggle-dot" aria-hidden="true" />
               <span>
-                {addSelectionToTimeline ? 'Timeline write on' : 'Console preview only'}
+                {timelineAddRequired
+                  ? 'Choose a shader to add'
+                  : addSelectionToTimeline
+                    ? 'Timeline write on'
+                    : 'Console preview only'}
               </span>
             </button>
             <div className="preset-category-row" role="tablist" aria-label="Preset templates">

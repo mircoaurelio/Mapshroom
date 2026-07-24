@@ -503,14 +503,12 @@ export function resolveShaderTimelineState({
   }
 
   const focusedStep = getFocusedTimelineStep(validSteps, focusedStepId);
-  const playbackSteps =
-    singleStepLoopEnabled && focusedStep ? [focusedStep] : validSteps;
   const effectiveMode =
     mode === 'double' ? 'randomMix' : randomChoiceEnabled ? 'random' : mode;
   const timedPlaybackSteps = getTimelinePlaybackSteps({
     mode,
     randomChoiceEnabled,
-    steps: playbackSteps,
+    steps: validSteps,
     sharedSectionDurationSeconds,
     sharedTransitionEnabled,
     sharedTransitionDurationSeconds,
@@ -523,6 +521,54 @@ export function resolveShaderTimelineState({
   }
 
   const absoluteTimeSeconds = Math.max(0, timeSeconds);
+
+  if (singleStepLoopEnabled && focusedStep) {
+    const timedFocusedStep =
+      timedPlaybackSteps.find((step) => step.id === focusedStep.id) ?? null;
+    if (!timedFocusedStep) {
+      return null;
+    }
+
+    const focusedStepIndex = timedPlaybackSteps.findIndex(
+      (step) => step.id === timedFocusedStep.id,
+    );
+    const stepStartSeconds = timedPlaybackSteps
+      .slice(0, focusedStepIndex)
+      .reduce(
+        (totalSeconds, step) =>
+          totalSeconds + clampTimelineStepDuration(step.durationSeconds),
+        0,
+      );
+    const durationSeconds = clampTimelineStepDuration(
+      timedFocusedStep.durationSeconds,
+    );
+    const unwrappedLocalTimeSeconds = absoluteTimeSeconds - stepStartSeconds;
+    const localTimeSeconds =
+      ((unwrappedLocalTimeSeconds % durationSeconds) + durationSeconds) %
+      durationSeconds;
+    const currentShader = shaderMap.get(timedFocusedStep.shaderId);
+    if (!currentShader) {
+      return null;
+    }
+
+    return {
+      currentStep: timedFocusedStep,
+      currentShader,
+      nextStep: null,
+      nextShader: null,
+      stepStartSeconds,
+      stepEndSeconds: stepStartSeconds + durationSeconds,
+      localTimeSeconds,
+      totalDurationSeconds,
+      transitionProgress: 0,
+      transitionEffect: timedFocusedStep.transitionEffect,
+      transitionStartSeconds: durationSeconds,
+      transitionDurationSeconds: 0,
+      cycleIndex: Math.floor(absoluteTimeSeconds / totalDurationSeconds),
+      isTransitioning: false,
+    };
+  }
+
   const cycleIndex = loop
     ? Math.floor(absoluteTimeSeconds / totalDurationSeconds)
     : 0;

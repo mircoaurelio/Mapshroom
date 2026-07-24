@@ -3349,8 +3349,32 @@ a {
   grid-column: 2;
 }
 
+.timeline-range-shell-repeat::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 12px;
+  border: 1px solid rgba(63, 63, 70, 0.9);
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(244, 244, 245, 0.16) 0,
+      rgba(244, 244, 245, 0.16) 1px,
+      transparent 1px,
+      transparent 14px
+    ),
+    linear-gradient(90deg, rgba(39, 39, 42, 0.92), rgba(24, 24, 27, 0.96));
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 .timeline-range-step-overlay {
   position: absolute;
+  z-index: 4;
   left: 0;
   right: 0;
   top: 50%;
@@ -3374,6 +3398,8 @@ a {
 }
 
 .timeline-range {
+  position: relative;
+  z-index: 3;
   height: 30px;
 }
 
@@ -3421,18 +3447,26 @@ a {
 }
 
 .timeline-range-repeated-section::-webkit-slider-runnable-track {
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(254, 226, 226, 0.34) 0,
-      rgba(254, 226, 226, 0.34) 1px,
-      transparent 1px,
-      transparent 14px
-    ),
-    linear-gradient(90deg, rgba(185, 28, 28, 0.72), rgba(69, 10, 10, 0.9));
+  border-color: transparent;
+  background: transparent;
 }
 
 .timeline-range-repeated-section::-moz-range-track {
+  border-color: transparent;
+  background: transparent;
+}
+
+.timeline-range-repeated-section::-moz-range-progress {
+  background: transparent;
+}
+
+.timeline-range-repeat-window {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  height: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.72);
+  border-radius: 3px;
   background:
     repeating-linear-gradient(
       90deg,
@@ -3441,7 +3475,10 @@ a {
       transparent 1px,
       transparent 14px
     ),
-    linear-gradient(90deg, rgba(185, 28, 28, 0.72), rgba(69, 10, 10, 0.9));
+    linear-gradient(90deg, rgba(185, 28, 28, 0.8), rgba(69, 10, 10, 0.94));
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.16);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .timeline-range-repeated-section::-webkit-slider-thumb {
@@ -5381,6 +5418,35 @@ a {
   border-radius: 999px;
   white-space: nowrap;
   transform: translate(-50%, -50%);
+}
+
+.asset-browser-start-mapping-highlight {
+  overflow: hidden;
+  isolation: isolate;
+  border-color: var(--accent-pale);
+  box-shadow:
+    0 0 0 2px rgba(var(--accent-rgb), .28),
+    0 0 24px rgba(var(--accent-rgb), .58);
+  animation: asset-browser-start-mapping-pulse 1.8s ease-in-out infinite;
+}
+
+.asset-browser-start-mapping-highlight > span {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes asset-browser-start-mapping-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(var(--accent-rgb), .24),
+      0 0 16px rgba(var(--accent-rgb), .36);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(var(--accent-rgb), .36),
+      0 0 30px rgba(var(--accent-rgb), .72);
+  }
 }
 
 .asset-browser-header-actions { display: flex; align-items: center; gap: .55rem; }
