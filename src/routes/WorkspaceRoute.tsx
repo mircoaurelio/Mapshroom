@@ -6879,7 +6879,7 @@ ${errorSnapshot}`,
             setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
-          onOpenProBeta={() => setProBetaSource('offline_tutorial')}
+          onOpenProBeta={() => setProBetaSource('installed_app')}
           onNewShader={() => {
             trackUiClick('new_shader');
             createNewShader();
@@ -7091,7 +7091,7 @@ ${errorSnapshot}`,
             setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
-          onOpenProBeta={() => setProBetaSource('offline_tutorial')}
+          onOpenProBeta={() => setProBetaSource('installed_app')}
           onOpenTimeline={handleOpenMobileTimeline}
           onToggleMapping={handleMobileToggleMapping}
           onHide={handleMobileHide}
