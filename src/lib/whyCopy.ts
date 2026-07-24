@@ -24,6 +24,9 @@ type WhyCopy = {
   heroLead: string;
   heroNote: string;
   heroCta: string;
+  desktopVisualAria: string;
+  beforeLabel: string;
+  afterLabel: string;
   visualAria: string;
   visualSteps: Array<{ number: string; label: string }>;
   visualCaption: string;
@@ -42,9 +45,25 @@ type WhyCopy = {
     intro: string;
     nicheValue: string;
     nicheLabel: string;
-    territoryKicker: string;
-    territoryTitle: string;
-    territoryBody: string;
+    carouselAria: string;
+    slideLabels: [string, string];
+    professions: {
+      kicker: string;
+      title: string;
+      body: string;
+      statement: string;
+      next: string;
+    };
+    market: {
+      kicker: string;
+      title: string;
+      body: string;
+      mappingLabel: string;
+      potentialLabel: string;
+      bridgeLabel: string;
+      thesis: string;
+      previous: string;
+    };
     mapAria: string;
     cards: Array<{ icon: AudienceIconName; title: string; body: string }>;
   };
@@ -108,6 +127,9 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     heroNote:
       'It is free and open source because a tool gets more valuable when more people can use it, change it, and build on it.',
     heroCta: 'Read the mission ↓',
+    desktopVisualAria: 'An animated reveal from a photographed subject to a projected artwork',
+    beforeLabel: 'A starting point',
+    afterLabel: 'What we build on it',
     visualAria: 'A three-step example from photographing a subject to creating a projected artwork',
     visualSteps: [
       { number: '01', label: 'Capture' },
@@ -134,17 +156,34 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     },
     audience: {
       kicker: '03 / The first bet',
-      title: 'Projection mapping is a niche. Visual imagination is not.',
+      title: 'Projection mapping is the first circle. It is not the market.',
       intro:
-        'Perhaps only 5% of today’s projection-mapping niche will adopt Mapshroom. That 5% is a starting point, not the size of the opportunity: it sits inside a much larger public that existing tools rarely address.',
+        'Perhaps Mapshroom will reach only 5% of the people already using projection-mapping software. That is enough to start a movement. It is not where the opportunity ends.',
       nicheValue: '5%',
-      nicheLabel: 'of today’s projection-mapping niche',
-      territoryKicker: 'The unseen territory',
-      territoryTitle: 'A much bigger public',
-      territoryBody:
-        'Events, shop windows, drawing, culture, content, and code all need faster ways to turn surfaces into moving images.',
+      nicheLabel: 'of today’s projection-mapping market',
+      carouselAria: 'Two slides showing the professions Mapshroom can serve and the much larger potential market',
+      slideLabels: ['Who can use it', 'The real market'],
+      professions: {
+        kicker: 'Slide 01 / Immediate adoption',
+        title: 'One tool. Six professions can pick it up today.',
+        body:
+          'Event organisers, shop owners, artists, cultural spaces, creators, and coders do not need another specialised discipline. They need a faster path from an image to a living surface.',
+        statement: 'Six doors in. Thousands of uses out.',
+        next: 'Reveal the real market →',
+      },
+      market: {
+        kicker: 'Slide 02 / The unseen territory',
+        title: 'The largest audience does not call itself projection mapping.',
+        body:
+          'It is everyone with a surface, an image, and an idea. Mapshroom can turn spectators into visual makers, with almost no setup standing between intent and art.',
+        mappingLabel: 'Today’s projection-mapping market',
+        potentialLabel: 'Everyone who wants to make an image live on a surface',
+        bridgeLabel: 'Mapshroom · idea → surface',
+        thesis: 'The opportunity is not a bigger slice. It is a bigger circle.',
+        previous: '← See the professions',
+      },
       mapAria:
-        'The 5 percent projection-mapping niche shown as a small circle inside a much larger territory of events, shops, artists, cultural spaces, creators, and coders',
+        'A small circle for today’s projection-mapping market overlaps a much larger circle for everyone who wants to make images live on a surface; Mapshroom connects the two, and the first 5 percent sits inside the smaller circle',
       cards: [
         {
           icon: 'events',
@@ -182,7 +221,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       kicker: '04 / What do I get?',
       title: 'Nothing—and that is the point.',
       paragraphs: [
-        'There is no licence fee waiting at the end of this page. The return I care about is participation.',
+        'I am not building Mapshroom to keep its value behind a gate. The return I care about is participation.',
         'The more people use Mapshroom, the more shaders, experiments, fixes, and unexpected uses can emerge. Every contribution makes the tool richer for the next person—including people like me who want to use those shaders.',
       ],
       quote: 'We all get richer—not in money, but in possibilities.',
@@ -254,6 +293,9 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     heroNote:
       'È gratis e open source perché uno strumento acquista valore quando più persone possono usarlo, modificarlo e costruirci sopra.',
     heroCta: 'Leggi la missione ↓',
+    desktopVisualAria: 'Una transizione animata dalla fotografia del soggetto a un’opera proiettata',
+    beforeLabel: 'Un punto di partenza',
+    afterLabel: 'Quello che ci costruiamo sopra',
     visualAria: 'Un esempio in tre passaggi, dalla fotografia del soggetto alla creazione di un’opera proiettata',
     visualSteps: [
       { number: '01', label: 'Cattura' },
@@ -280,17 +322,34 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     },
     audience: {
       kicker: '03 / La prima scommessa',
-      title: 'Il projection mapping è una nicchia. L’immaginazione visiva no.',
+      title: 'Il projection mapping è il primo cerchio. Non è il mercato.',
       intro:
-        'Forse solo il 5% della nicchia attuale del projection mapping adotterà Mapshroom. Quel 5% è un punto di partenza, non la dimensione dell’opportunità: si trova dentro un pubblico molto più grande a cui gli strumenti esistenti parlano raramente.',
+        'Forse Mapshroom raggiungerà solo il 5% di chi usa già software di projection mapping. Basta per iniziare un movimento. Non è lì che finisce l’opportunità.',
       nicheValue: '5%',
-      nicheLabel: 'della nicchia attuale del projection mapping',
-      territoryKicker: 'Il territorio invisibile',
-      territoryTitle: 'Un pubblico molto più grande',
-      territoryBody:
-        'Eventi, vetrine, disegno, cultura, contenuti e codice hanno tutti bisogno di modi più rapidi per trasformare le superfici in immagini vive.',
+      nicheLabel: 'del mercato attuale del projection mapping',
+      carouselAria: 'Due slide mostrano le professioni che possono usare Mapshroom e la dimensione molto più grande del mercato potenziale',
+      slideLabels: ['Chi può usarlo', 'Il mercato reale'],
+      professions: {
+        kicker: 'Slide 01 / Adozione immediata',
+        title: 'Uno strumento. Sei professioni possono prenderlo in mano oggi.',
+        body:
+          'Organizzatori di eventi, negozi, artisti, spazi culturali, creator e coder non hanno bisogno di un’altra disciplina specialistica. Hanno bisogno di una strada più veloce dall’immagine alla superficie viva.',
+        statement: 'Sei porte d’ingresso. Migliaia di usi in uscita.',
+        next: 'Mostra il mercato reale →',
+      },
+      market: {
+        kicker: 'Slide 02 / Il territorio invisibile',
+        title: 'Il pubblico più grande non si definisce projection mapper.',
+        body:
+          'È chiunque abbia una superficie, un’immagine e un’idea. Mapshroom può trasformare gli spettatori in autori visivi, con quasi zero setup tra l’intenzione e l’arte.',
+        mappingLabel: 'Il mercato attuale del projection mapping',
+        potentialLabel: 'Chiunque voglia far vivere un’immagine su una superficie',
+        bridgeLabel: 'Mapshroom · idea → superficie',
+        thesis: 'L’opportunità non è una fetta più grande. È un cerchio più grande.',
+        previous: '← Torna alle professioni',
+      },
       mapAria:
-        'Il 5 per cento della nicchia del projection mapping rappresentato come un piccolo cerchio dentro un territorio molto più grande di eventi, negozi, artisti, spazi culturali, creator e coder',
+        'Un piccolo cerchio per il mercato attuale del projection mapping si sovrappone a un cerchio molto più grande per chiunque voglia far vivere immagini su una superficie; Mapshroom collega i due e il primo 5 per cento si trova dentro il cerchio più piccolo',
       cards: [
         {
           icon: 'events',
@@ -328,7 +387,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       kicker: '04 / Che cosa ci guadagno?',
       title: 'Niente. Ed è proprio questo il punto.',
       paragraphs: [
-        'Non c’è un costo di licenza nascosto alla fine di questa pagina. Il ritorno che mi interessa è la partecipazione.',
+        'Non sto costruendo Mapshroom per chiuderne il valore dietro un cancello. Il ritorno che mi interessa è la partecipazione.',
         'Più persone usano Mapshroom, più shader, esperimenti, correzioni e utilizzi inattesi possono nascere. Ogni contributo rende lo strumento più ricco per la persona successiva—anche per persone come me, che quegli shader vogliono usarli.',
       ],
       quote: 'Diventiamo tutti più ricchi: non di denaro, ma di possibilità.',

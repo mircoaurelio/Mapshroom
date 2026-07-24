@@ -23,11 +23,11 @@ people can help it grow.
 
 ## The bet
 
-Perhaps only 5% of today’s projection-mapping niche will use Mapshroom. That
-5% is the small visible centre of a much larger, mostly unseen territory.
-Visual imagination is not a niche.
+Perhaps Mapshroom will reach only 5% of the people already using
+projection-mapping software. That is enough to start a movement. It is not
+where the opportunity ends.
 
-Mapshroom can also be useful to:
+One tool can already be picked up by many different professions:
 
 - people producing events, weddings, installations, stages, and exhibitions;
 - independent shops, window displays, restaurants, and pop-up spaces;
@@ -37,18 +37,23 @@ Mapshroom can also be useful to:
 - coders who write shaders, prototype ideas, and learn by remixing;
 - anyone looking for a place to experiment visually.
 
+But the largest audience does not call itself projection mapping. It is
+everyone with a surface, an image, and an idea. Mapshroom can give them an
+almost immediate path from intent to a living image.
+
+> The opportunity is not a bigger slice. It is a bigger circle.
+
 The second bet is just as simple: small, medium, and large-scale projection
 mapping should not require software that costs hundreds of euros every year.
 The complexity of an idea should not determine the height of the paywall.
 
 ## What do I get?
 
-Nothing—and that is the point.
-
-There is no licence fee waiting at the end. The return is participation. The
-more people use Mapshroom, the more shaders, experiments, fixes, and unexpected
-uses can emerge. Every contribution makes the tool richer for the next person,
-including people like me who want to use those shaders.
+Nothing—and that is the point. I am not building Mapshroom to keep its value
+behind a gate. The return is participation. The more people use Mapshroom, the
+more shaders, experiments, fixes, and unexpected uses can emerge. Every
+contribution makes the tool richer for the next person, including people like
+me who want to use those shaders.
 
 > We all get richer—not in money, but in possibilities.
 
@@ -99,11 +104,10 @@ dove troppo poche persone possano aiutarlo a crescere.
 
 ### La scommessa
 
-Forse solo il 5% della nicchia attuale del projection mapping userà Mapshroom.
-Quel 5% è il piccolo centro visibile di un territorio molto più grande e ancora
-quasi invisibile. L’immaginazione visiva non è una nicchia.
+Forse Mapshroom raggiungerà solo il 5% di chi usa già software di projection
+mapping. Basta per iniziare un movimento. Non è lì che finisce l’opportunità.
 
-Mapshroom può servire anche a:
+Uno stesso strumento può già essere preso in mano da molte professioni:
 
 - chi produce eventi, matrimoni, installazioni, palchi e mostre;
 - negozi indipendenti, vetrine, ristoranti e spazi pop-up;
@@ -113,6 +117,12 @@ Mapshroom può servire anche a:
 - chi scrive shader, prototipa idee e impara remixando;
 - chiunque cerchi uno spazio in cui sperimentare visivamente.
 
+Ma il pubblico più grande non si definisce projection mapper. È chiunque abbia
+una superficie, un’immagine e un’idea. Mapshroom può offrirgli una strada quasi
+immediata dall’intenzione all’immagine viva.
+
+> L’opportunità non è una fetta più grande. È un cerchio più grande.
+
 La seconda scommessa è altrettanto semplice: il projection mapping di piccole,
 medie e grandi installazioni non dovrebbe richiedere software che costano
 centinaia di euro ogni anno. La complessità di un’idea non dovrebbe determinare
@@ -120,12 +130,11 @@ l’altezza del paywall.
 
 ### Che cosa ci guadagno?
 
-Niente. Ed è proprio questo il punto.
-
-Non c’è un costo di licenza nascosto alla fine. Il ritorno è la partecipazione.
-Più persone usano Mapshroom, più shader, esperimenti, correzioni e utilizzi
-inattesi possono nascere. Ogni contributo rende lo strumento più ricco per la
-persona successiva, comprese persone come me che quegli shader vogliono usarli.
+Niente. Ed è proprio questo il punto. Non sto costruendo Mapshroom per chiuderne
+il valore dietro un cancello. Il ritorno è la partecipazione. Più persone usano
+Mapshroom, più shader, esperimenti, correzioni e utilizzi inattesi possono
+nascere. Ogni contributo rende lo strumento più ricco per la persona successiva,
+comprese persone come me che quegli shader vogliono usarli.
 
 > Diventiamo tutti più ricchi: non di denaro, ma di possibilità.
 
