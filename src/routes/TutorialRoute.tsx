@@ -62,7 +62,11 @@ export function TutorialRoute() {
     <main className="tutorial-page" lang={locale}>
       <nav className="tutorial-nav">
         <Link to="/" className="tutorial-brand"><img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" /><span>Mapshroom</span></Link>
-        <div><a href="#steps">{copy.navViewSteps}</a><Link to="/" className="tutorial-open-button">{copy.navOpenWorkspace}</Link></div>
+        <div>
+          <a href="#steps">{copy.navViewSteps}</a>
+          <Link to="/why" className="tutorial-why-nav-link">{copy.navWhy}</Link>
+          <Link to="/" className="tutorial-open-button">{copy.navOpenWorkspace}</Link>
+        </div>
       </nav>
 
       <header className="tutorial-hero">
@@ -213,6 +217,28 @@ export function TutorialRoute() {
           <Media className="tutorial-finale-image" src="assets/onboarding/photo-3d-asset-choice.webp" alt="" />
         </section>
       </div>
+
+      <section className="tutorial-why">
+        <div className="tutorial-why-copy">
+          <p className="tutorial-eyebrow">{copy.why.kicker}</p>
+          <h2>{copy.why.title}</h2>
+          <p>{copy.why.body}</p>
+          <Link to="/why">{copy.why.link}</Link>
+        </div>
+        <div className="tutorial-why-visual" aria-hidden="true">
+          <div>
+            <span>01</span>
+            <small>{copy.why.setupLabel}</small>
+            <strong>↓</strong>
+          </div>
+          <i>→</i>
+          <div>
+            <span>02</span>
+            <small>{copy.why.artLabel}</small>
+            <strong>↑</strong>
+          </div>
+        </div>
+      </section>
 
       <section className="tutorial-cta">
         <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />

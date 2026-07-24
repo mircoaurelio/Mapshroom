@@ -69,21 +69,26 @@ export function WhyRoute() {
           <p className="why-hero-note">{copy.heroNote}</p>
           <a href="#manifesto" className="why-primary-button">{copy.heroCta}</a>
         </div>
-        <figure className="why-hero-visual">
-          <img
-            className="why-hero-before"
-            src="assets/onboarding/photo-source-garden.webp"
-            alt=""
-          />
-          <img
-            className="why-hero-after"
-            src="assets/onboarding/photo-3d-asset-choice.webp"
-            alt=""
-          />
-          <span className="why-before-label">{copy.beforeLabel}</span>
-          <span className="why-after-label">{copy.afterLabel}</span>
-          <i aria-hidden="true" />
-          <figcaption>{copy.visualCaption}</figcaption>
+        <figure className="why-hero-visual" aria-label={copy.visualAria}>
+          <div className="why-visual-steps">
+            {[
+              'assets/onboarding/photo-source-garden.webp',
+              'assets/onboarding/photo-background-removed.webp',
+              'assets/onboarding/photo-3d-asset-choice.webp',
+            ].map((src, index) => (
+              <div key={src}>
+                <img src={src} alt="" />
+                <span>
+                  <i>{copy.visualSteps[index].number}</i>
+                  {copy.visualSteps[index].label}
+                </span>
+              </div>
+            ))}
+          </div>
+          <figcaption>
+            <span>{copy.visualCaption}</span>
+            <strong>{copy.visualMission}</strong>
+          </figcaption>
         </figure>
       </header>
 
@@ -98,6 +103,27 @@ export function WhyRoute() {
       </section>
 
       <div id="manifesto" className="why-manifesto">
+        <section className="why-section why-setup">
+          <div className="why-section-heading">
+            <p className="why-kicker">{copy.setup.kicker}</p>
+            <h2>{copy.setup.title}</h2>
+            <p>{copy.setup.body}</p>
+          </div>
+          <div className="why-setup-metric">
+            <span>{copy.setup.metricLabel}</span>
+            <strong>{copy.setup.metricValue}</strong>
+          </div>
+          <div className="why-setup-flow">
+            {copy.setup.steps.map((step, index) => (
+              <div key={step}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{step}</strong>
+              </div>
+            ))}
+          </div>
+          <p className="why-setup-direction">{copy.setup.direction}</p>
+        </section>
+
         <section className="why-section why-freedom">
           <div className="why-section-heading">
             <p className="why-kicker">{copy.freedom.kicker}</p>
@@ -149,27 +175,6 @@ export function WhyRoute() {
               <strong>{copy.return.loopCenter.split('\n').map((line) => <b key={line}>{line}</b>)}</strong>
             </div>
           </div>
-        </section>
-
-        <section className="why-section why-setup">
-          <div className="why-section-heading">
-            <p className="why-kicker">{copy.setup.kicker}</p>
-            <h2>{copy.setup.title}</h2>
-            <p>{copy.setup.body}</p>
-          </div>
-          <div className="why-setup-metric">
-            <span>{copy.setup.metricLabel}</span>
-            <strong>{copy.setup.metricValue}</strong>
-          </div>
-          <div className="why-setup-flow">
-            {copy.setup.steps.map((step, index) => (
-              <div key={step}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{step}</strong>
-              </div>
-            ))}
-          </div>
-          <p className="why-setup-direction">{copy.setup.direction}</p>
         </section>
 
         <section className="why-section why-bet">

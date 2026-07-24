@@ -121,6 +121,19 @@
 .tutorial-finish-flow small { color:#77766d; }
 .tutorial-finish-flow-item>b { color:#1c7254; }
 .tutorial-finale-image { aspect-ratio:16/7; }
+.tutorial-why { display:grid; grid-template-columns:minmax(0,1fr) minmax(420px,.8fr); align-items:stretch; gap:clamp(40px,7vw,110px); padding:clamp(72px,9vw,128px) clamp(20px,7vw,110px); background:#79efbd; color:#0d0d0c; }
+.tutorial-why-copy { max-width:720px; align-self:center; }
+.tutorial-why .tutorial-eyebrow { margin-bottom:18px; color:#145a43; }
+.tutorial-why h2 { margin:0; font-size:clamp(44px,6vw,82px); letter-spacing:-.065em; line-height:.96; }
+.tutorial-why-copy>p:last-of-type { max-width:650px; margin:28px 0 32px; color:#245a48; font-size:clamp(18px,1.6vw,22px); line-height:1.55; }
+.tutorial-why-copy>a { display:inline-flex; min-height:48px; align-items:center; padding:0 22px; border-radius:4px; background:#0d0d0c; color:#fff; font:600 11px 'IBM Plex Mono',monospace; letter-spacing:.08em; text-transform:uppercase; }
+.tutorial-why-visual { min-height:360px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:clamp(24px,4vw,48px); background:#0d0d0c; color:#fff; }
+.tutorial-why-visual>div { min-height:220px; display:flex; flex-direction:column; justify-content:space-between; padding:22px; border:1px solid rgba(255,255,255,.16); }
+.tutorial-why-visual>div:last-child { border-color:#79efbd; background:#153e31; }
+.tutorial-why-visual span { color:#79efbd; font:700 10px 'IBM Plex Mono',monospace; }
+.tutorial-why-visual small { max-width:120px; color:rgba(255,255,255,.68); font:600 13px 'IBM Plex Mono',monospace; text-transform:uppercase; }
+.tutorial-why-visual strong { align-self:flex-end; color:#79efbd; font-size:72px; font-weight:300; line-height:.7; }
+.tutorial-why-visual>i { padding:0 14px; color:#79efbd; font:normal 24px 'IBM Plex Mono',monospace; }
 .tutorial-cta { position:relative; display:flex; flex-direction:column; align-items:center; overflow:hidden; padding:64px 24px 72px; background:radial-gradient(120% 140% at 50% -10%,#1c7254 0%,#113f31 42%,#0c2a22 100%); color:#fff; text-align:center; }
 .tutorial-cta:before,.tutorial-cta:after { content:''; position:absolute; border-radius:50%; pointer-events:none; }
 .tutorial-cta:before { width:420px; height:420px; top:-160px; left:12%; background:radial-gradient(circle,rgba(121,239,189,.22),transparent 68%); animation:tutorial-cta-glow 8s ease-in-out infinite alternate; }
@@ -158,6 +171,7 @@
   .tutorial-mini-steps { grid-template-columns:1fr 1fr; }
   .tutorial-finish-flow { grid-template-columns:1fr; }
   .tutorial-finish-flow-item>b { transform:rotate(90deg); justify-self:center; }
+  .tutorial-why { grid-template-columns:1fr; }
 }
 @media (max-width:600px) {
   .tutorial-nav { height:62px; }
@@ -181,5 +195,10 @@
   .tutorial-mapping-demo { min-height:650px; }
   .tutorial-mapping-stage { min-height:430px; }
   .tutorial-timeline-key { align-items:flex-start; flex-direction:column; gap:12px; }
+  .tutorial-why { padding:72px 20px; }
+  .tutorial-why h2 { font-size:42px; }
+  .tutorial-why-visual { min-height:280px; padding:18px; }
+  .tutorial-why-visual>div { min-height:190px; padding:16px; }
+  .tutorial-why-visual>i { padding:0 6px; }
   .tutorial-footer span:nth-child(2) { display:none; }
 }

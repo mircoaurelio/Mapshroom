@@ -181,77 +181,102 @@ body.why-page-active {
   background: #07120e;
 }
 
-.why-hero-visual img {
+.why-visual-steps {
   position: absolute;
-  inset: 0;
+  inset: 0 0 112px;
+  display: grid;
+  grid-template-columns: 1fr .72fr 1.08fr;
+  gap: 2px;
+  background: #07120e;
+}
+
+.why-visual-steps > div {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+}
+
+.why-visual-steps img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.why-hero-before {
-  filter: saturate(.7) brightness(.78);
-  transform: scale(1.04);
+.why-visual-steps > div:first-child img {
+  filter: saturate(.72) brightness(.72);
 }
 
-.why-hero-after {
-  clip-path: polygon(42% 0, 100% 0, 100% 100%, 62% 100%);
-  animation: why-reveal 10s ease-in-out infinite alternate;
+.why-visual-steps > div:nth-child(2) img {
+  filter: brightness(.78) contrast(1.08);
 }
 
-@keyframes why-reveal {
-  from { clip-path: polygon(47% 0, 100% 0, 100% 100%, 67% 100%); }
-  to { clip-path: polygon(32% 0, 100% 0, 100% 100%, 52% 100%); }
+.why-visual-steps > div:last-child img {
+  object-position: 42% center;
 }
 
-.why-hero-visual > i {
+.why-visual-steps > div:not(:last-child)::after {
+  content: '→';
   position: absolute;
-  top: -10%;
-  left: 51.5%;
-  width: 2px;
-  height: 120%;
+  z-index: 3;
+  top: 50%;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
   background: var(--why-green);
-  box-shadow: 0 0 24px rgba(121, 239, 189, .8);
-  transform: rotate(8deg);
-  transform-origin: center;
-  animation: why-divider 10s ease-in-out infinite alternate;
+  color: #0d0d0c;
+  font: 700 14px 'IBM Plex Mono', monospace;
+  transform: translateY(-50%);
 }
 
-@keyframes why-divider {
-  from { left: 56.5%; }
-  to { left: 41.5%; }
-}
-
-.why-before-label,
-.why-after-label,
-.why-hero-visual figcaption {
+.why-visual-steps > div > span {
   position: absolute;
   z-index: 2;
-  padding: 7px 10px;
-  background: rgba(10, 10, 9, .86);
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  background: rgba(10, 10, 9, .88);
   color: #fff;
   font: 600 10px 'IBM Plex Mono', monospace;
-  letter-spacing: .06em;
+  letter-spacing: .07em;
   text-transform: uppercase;
 }
 
-.why-before-label {
-  top: 24px;
-  left: 24px;
+.why-visual-steps > div > span i {
+  color: var(--why-green);
+  font-style: normal;
 }
 
-.why-after-label {
-  top: 24px;
-  right: 24px;
+.why-hero-visual figcaption {
+  position: absolute;
+  inset: auto 0 0;
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0;
+  padding: 22px 28px;
   background: var(--why-green);
   color: #0d0d0c;
 }
 
-.why-hero-visual figcaption {
-  right: 24px;
-  bottom: 22px;
-  margin: 0;
-  text-transform: none;
+.why-hero-visual figcaption span {
+  max-width: 240px;
+  color: #145a43;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.why-hero-visual figcaption strong {
+  font: 600 clamp(22px, 2.5vw, 36px) 'IBM Plex Mono', monospace;
+  letter-spacing: -.05em;
+  white-space: pre-wrap;
 }
 
 .why-principles {
@@ -840,8 +865,6 @@ body.why-page-active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .why-hero-after,
-  .why-hero-visual > i,
   .why-loop-ring,
   .why-loop-ring > strong {
     animation: none;
@@ -906,15 +929,12 @@ body.why-page-active {
     font-size: 48px;
   }
 
-  .why-hero-visual {
-    min-height: 86vw;
-  }
-
-  .why-before-label,
-  .why-after-label {
-    max-width: 44%;
-    font-size: 8px;
-  }
+  .why-hero-visual { min-height:720px; }
+  .why-visual-steps { inset:0 0 118px; grid-template-columns:1fr; grid-template-rows:1fr .8fr 1fr; }
+  .why-visual-steps>div:not(:last-child)::after { top:auto; right:14px; bottom:10px; transform:rotate(90deg); }
+  .why-visual-steps>div>span { left:12px; bottom:12px; }
+  .why-hero-visual figcaption { height:118px; align-items:flex-start; flex-direction:column; gap:8px; padding:18px 20px; }
+  .why-hero-visual figcaption strong { font-size:21px; }
 
   .why-principles {
     padding: 0;

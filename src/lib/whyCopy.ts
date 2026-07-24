@@ -16,9 +16,10 @@ type WhyCopy = {
   heroLead: string;
   heroNote: string;
   heroCta: string;
-  beforeLabel: string;
-  afterLabel: string;
+  visualAria: string;
+  visualSteps: Array<{ number: string; label: string }>;
   visualCaption: string;
+  visualMission: string;
   principlesLabel: string;
   principles: Array<{ value: string; label: string }>;
   freedom: {
@@ -91,12 +92,18 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     heroTitle: 'Free forever.',
     heroEmphasis: 'Open source forever.',
     heroLead:
-      'This is not a launch offer, a limited plan, or a door into a subscription. It is the premise Mapshroom is built on.',
-    heroNote: 'A tool gets more valuable when more people can use it, change it, and build on it.',
-    heroCta: 'Read the bet ↓',
-    beforeLabel: 'A starting point',
-    afterLabel: 'What we build on it',
-    visualCaption: 'One tool. Infinite interpretations.',
+      'Mapshroom exists to reduce setup time, so more of the process can go into artistic production.',
+    heroNote:
+      'It is free and open source because a tool gets more valuable when more people can use it, change it, and build on it.',
+    heroCta: 'Read the mission ↓',
+    visualAria: 'A three-step example from photographing a subject to creating a projected artwork',
+    visualSteps: [
+      { number: '01', label: 'Capture' },
+      { number: '02', label: 'Map' },
+      { number: '03', label: 'Create' },
+    ],
+    visualCaption: 'From projector setup to artistic production.',
+    visualMission: 'Setup ↓  Art ↑',
     principlesLabel: 'The Mapshroom promise',
     principles: [
       { value: '€0', label: 'Software licence' },
@@ -105,7 +112,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       { value: '∞', label: 'More people, more possibilities' },
     ],
     freedom: {
-      kicker: '01 / The premise',
+      kicker: '02 / The premise',
       title: 'Software can be copied. Ideas should compound.',
       paragraphs: [
         'I believe software today cannot afford not to be free: free to use, study, change, and extend. Anyone could take Mapshroom, build on it, clone it, or try to make it their own.',
@@ -114,7 +121,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       quote: 'The real value is not owning this tool. It is making sure this tool exists.',
     },
     audience: {
-      kicker: '02 / The first bet',
+      kicker: '03 / The first bet',
       title: 'Projection mapping is a niche. Visual imagination is not.',
       intro:
         'Most projection-mapping products speak to a small, specialised market. Perhaps only 5% of that niche will ever adopt Mapshroom. But the same tool could unlock a much larger public.',
@@ -140,7 +147,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       ],
     },
     return: {
-      kicker: '03 / What do I get?',
+      kicker: '04 / What do I get?',
       title: 'Nothing—and that is the point.',
       paragraphs: [
         'There is no licence fee waiting at the end of this page. The return I care about is participation.',
@@ -152,14 +159,14 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       loopCenter: 'Shared\nvalue',
     },
     setup: {
-      kicker: '04 / The goal',
-      title: 'Make the distance from projector to image disappear.',
+      kicker: '01 / The mission',
+      title: 'Reduce setup time. Protect time for art.',
       body:
-        'The core measure is setup time: from the moment you pick up a projector to the moment the mapping is ready. That interval should keep getting smaller, while the set of things you can do keeps getting larger.',
-      metricLabel: 'Target setup time',
-      metricValue: 'Less. Then less again.',
+        'Mapshroom is not here to make artists better at configuration. It is here to make configuration disappear. Every minute saved between picking up a projector and starting the mapping is a minute returned to artistic production.',
+      metricLabel: 'The direction',
+      metricValue: 'Less setup. More making.',
       steps: ['Connect', 'Load', 'Map', 'Create', 'Project'],
-      direction: 'Setup time → 0',
+      direction: 'Setup time → 0 · Artistic time → ∞',
     },
     bet: {
       kicker: '05 / The second bet',
@@ -211,13 +218,18 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
     heroTitle: 'Gratis per sempre.',
     heroEmphasis: 'Open source per sempre.',
     heroLead:
-      'Non è un’offerta di lancio, un piano limitato o l’ingresso verso un abbonamento. È il principio su cui è costruito Mapshroom.',
+      'Mapshroom esiste per ridurre il tempo di setup, così una parte sempre più grande del processo può andare alla produzione artistica.',
     heroNote:
-      'Uno strumento acquista valore quando più persone possono usarlo, modificarlo e costruirci sopra.',
-    heroCta: 'Leggi la scommessa ↓',
-    beforeLabel: 'Un punto di partenza',
-    afterLabel: 'Quello che ci costruiamo sopra',
-    visualCaption: 'Uno strumento. Infinite interpretazioni.',
+      'È gratis e open source perché uno strumento acquista valore quando più persone possono usarlo, modificarlo e costruirci sopra.',
+    heroCta: 'Leggi la missione ↓',
+    visualAria: 'Un esempio in tre passaggi, dalla fotografia del soggetto alla creazione di un’opera proiettata',
+    visualSteps: [
+      { number: '01', label: 'Cattura' },
+      { number: '02', label: 'Mappa' },
+      { number: '03', label: 'Crea' },
+    ],
+    visualCaption: 'Dal setup del proiettore alla produzione artistica.',
+    visualMission: 'Setup ↓  Arte ↑',
     principlesLabel: 'La promessa di Mapshroom',
     principles: [
       { value: '€0', label: 'Licenza software' },
@@ -226,7 +238,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       { value: '∞', label: 'Più persone, più possibilità' },
     ],
     freedom: {
-      kicker: '01 / Il principio',
+      kicker: '02 / Il principio',
       title: 'Il software si può copiare. Le idee devono moltiplicarsi.',
       paragraphs: [
         'Credo che oggi il software non possa più permettersi di non essere libero: libero da usare, studiare, modificare e far evolvere. Chiunque potrebbe prendere Mapshroom, costruirci sopra, copiarlo o provare a farlo proprio.',
@@ -235,7 +247,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       quote: 'Il vero valore non è possedere questo strumento. È fare in modo che esista.',
     },
     audience: {
-      kicker: '02 / La prima scommessa',
+      kicker: '03 / La prima scommessa',
       title: 'Il projection mapping è una nicchia. L’immaginazione visiva no.',
       intro:
         'La maggior parte dei prodotti di projection mapping parla a un mercato piccolo e specializzato. Forse solo il 5% di quella nicchia adotterà Mapshroom. Ma lo stesso strumento potrebbe aprirsi a un pubblico molto più grande.',
@@ -261,7 +273,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       ],
     },
     return: {
-      kicker: '03 / Che cosa ci guadagno?',
+      kicker: '04 / Che cosa ci guadagno?',
       title: 'Niente. Ed è proprio questo il punto.',
       paragraphs: [
         'Non c’è un costo di licenza nascosto alla fine di questa pagina. Il ritorno che mi interessa è la partecipazione.',
@@ -273,14 +285,14 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       loopCenter: 'Valore\ncondiviso',
     },
     setup: {
-      kicker: '04 / L’obiettivo',
-      title: 'Far scomparire la distanza tra il proiettore e l’immagine.',
+      kicker: '01 / La missione',
+      title: 'Ridurre il setup. Proteggere il tempo per l’arte.',
       body:
-        'La misura fondamentale è il tempo di setup: da quando prendi un proiettore a quando il mapping è pronto. Questo intervallo deve diventare sempre più piccolo, mentre gli strumenti e le possibilità devono continuare a crescere.',
-      metricLabel: 'Tempo di setup ideale',
-      metricValue: 'Meno. Poi ancora meno.',
+        'Mapshroom non serve a rendere gli artisti più bravi nella configurazione. Serve a far scomparire la configurazione. Ogni minuto risparmiato tra il momento in cui prendi un proiettore e quello in cui inizi il mapping è un minuto restituito alla produzione artistica.',
+      metricLabel: 'La direzione',
+      metricValue: 'Meno setup. Più creazione.',
       steps: ['Collega', 'Carica', 'Mappa', 'Crea', 'Proietta'],
-      direction: 'Tempo di setup → 0',
+      direction: 'Tempo di setup → 0 · Tempo per l’arte → ∞',
     },
     bet: {
       kicker: '05 / La seconda scommessa',
