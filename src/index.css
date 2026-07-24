@@ -3552,7 +3552,8 @@ a {
 }
 
 .timeline-bar-desktop .timeline-duration-shell-track-left {
-  justify-self: stretch;
+  width: min(10.5rem, 100%);
+  justify-self: start;
 }
 
 .timeline-bar-desktop .timeline-duration-shell-track-left .timeline-duration-field {
@@ -4317,11 +4318,11 @@ a {
 
 .timeline-crazy-slot {
   width: auto;
-  height: 34px;
+  height: 38px;
   flex: 0 0 auto;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-0.25rem);
+  transform: translate(-0.25rem, -0.47rem);
   transition:
     opacity 150ms ease,
     transform 150ms ease,
@@ -4333,7 +4334,7 @@ a {
 .timeline-crazy-slot-active {
   opacity: 1;
   visibility: visible;
-  transform: translateX(0);
+  transform: translate(0, -0.47rem);
 }
 
 .timeline-crazy-button,
@@ -4353,15 +4354,26 @@ a {
   justify-content: flex-start;
   gap: 0.5rem;
   padding: 0.28rem 0.7rem;
-  border-color: rgba(232, 121, 249, 0.66);
+  border-color: rgba(250, 204, 21, 0.72);
   background:
-    linear-gradient(105deg, rgba(109, 40, 217, 0.96), rgba(219, 39, 119, 0.9) 54%, rgba(8, 145, 178, 0.86)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.22)),
+    linear-gradient(
+      105deg,
+      #7c3aed 0%,
+      #db2777 18%,
+      #ef4444 34%,
+      #f59e0b 50%,
+      #16a34a 66%,
+      #0891b2 82%,
+      #4f46e5 100%
+    ),
     var(--bg-panel-soft);
-  background-size: 180% 100%;
+  background-size: 100% 100%;
   color: #fff;
   box-shadow:
-    0 0 0 1px rgba(217, 70, 239, 0.12),
-    0 5px 18px rgba(192, 38, 211, 0.26),
+    0 0 0 1px rgba(244, 114, 182, 0.16),
+    -5px 4px 16px rgba(219, 39, 119, 0.22),
+    5px 4px 16px rgba(8, 145, 178, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 700;
