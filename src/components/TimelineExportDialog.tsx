@@ -31,6 +31,21 @@ const MICROSECONDS_PER_SECOND = 1_000_000;
 
 type ExportResolutionPreset = (typeof EXPORT_RESOLUTION_PRESETS)[number]['value'];
 
+interface ShaderBundleEntry {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  template?: SavedShader['template'];
+  group?: string;
+  inputAssetId?: string | null;
+  uniformValues: ShaderUniformValueMap;
+  sliderValues: ShaderUniformValueMap;
+  sourceShaderId?: string;
+  isActive: boolean;
+  timelineStepIds: string[];
+}
+
 interface TimelineExportDialogProps {
   open: boolean;
   sessionId: string;
@@ -64,6 +79,15 @@ function sanitizeFileName(value: string): string {
     .replace(/^-|-$/g, '');
 
   return baseName || 'mapshroom-timeline';
+}
+
+function downloadBlob(blob: Blob, fileName: string): void {
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = fileName;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
 }
 
 function waitForAnimationFrames(frameCount = 1): Promise<void> {
@@ -239,6 +263,50 @@ export function TimelineExportDialog({
 
     return '';
   }, []);
+
+  const exportableShaders = useMemo(() => {
+    const activeShader: SavedShader = {
+      ...savedShaders.find((shader) => shader.id === activeShaderId),
+      id: activeShaderId,
+      name: activeShaderName,
+      code: activeShaderCode,
+      uniformValues: activeUniformValues,
+    };
+    const shaders = savedShaders.some((shader) => shader.id === activeShaderId)
+      ? savedShaders.map((shader) => (shader.id === activeShaderId ? activeShader : shader))
+      : [activeShader, ...savedShaders];
+    const timelineStepIdsByShaderId = new Map<string, string[]>();
+
+    for (const step of timeline.shaderSequence.steps) {
+      const stepIds = timelineStepIdsByShaderId.get(step.shaderId) ?? [];
+      stepIds.push(step.id);
+      timelineStepIdsByShaderId.set(step.shaderId, stepIds);
+    }
+
+    return shaders.map(
+      (shader): ShaderBundleEntry => ({
+        id: shader.id,
+        name: shader.name,
+        code: shader.code,
+        ...(shader.description ? { description: shader.description } : {}),
+        ...(shader.template ? { template: shader.template } : {}),
+        ...(shader.group ? { group: shader.group } : {}),
+        ...(shader.inputAssetId !== undefined ? { inputAssetId: shader.inputAssetId } : {}),
+        uniformValues: shader.uniformValues ?? {},
+        sliderValues: shader.uniformValues ?? {},
+        ...(shader.sourceShaderId ? { sourceShaderId: shader.sourceShaderId } : {}),
+        isActive: shader.id === activeShaderId,
+        timelineStepIds: timelineStepIdsByShaderId.get(shader.id) ?? [],
+      }),
+    );
+  }, [
+    activeShaderCode,
+    activeShaderId,
+    activeShaderName,
+    activeUniformValues,
+    savedShaders,
+    timeline.shaderSequence.steps,
+  ]);
 
   const exportDurationSeconds =
     Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : 1;
@@ -575,12 +643,7 @@ export function TimelineExportDialog({
       muxer.finalize();
 
       const blob = new Blob([muxTarget.buffer], { type: 'video/mp4' });
-      const downloadUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `${nextFileName}.mp4`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
+      downloadBlob(blob, `${nextFileName}.mp4`);
 
       setProgressRatio(1);
       setStatusMessage(`Downloaded ${nextFileName}.mp4`);
@@ -599,6 +662,48 @@ export function TimelineExportDialog({
       }
       setIsExporting(false);
     }
+  };
+
+  const handleShaderBundleExport = () => {
+    const shaderFileName = `${sanitizeFileName(projectName)}-shaders.json`;
+    const timelineShaderIds = [
+      ...new Set(timeline.shaderSequence.steps.map((step) => step.shaderId)),
+    ];
+    const bundle = {
+      format: 'mapshroom-shader-bundle',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      project: {
+        sessionId,
+        name: projectName,
+      },
+      activeShaderId,
+      activeShaderSliderValues: activeUniformValues,
+      shaderCount: exportableShaders.length,
+      timeline: {
+        shaderIds: timelineShaderIds,
+        steps: timeline.shaderSequence.steps.map((step) => ({
+          id: step.id,
+          shaderId: step.shaderId,
+          disabled: step.disabled,
+          durationSeconds: step.durationSeconds,
+          transitionDurationSeconds: step.transitionDurationSeconds,
+          transitionEffect: step.transitionEffect,
+        })),
+      },
+      shaders: exportableShaders,
+    };
+    const blob = new Blob([`${JSON.stringify(bundle, null, 2)}\n`], {
+      type: 'application/json',
+    });
+
+    downloadBlob(blob, shaderFileName);
+    setErrorMessage('');
+    setStatusMessage(
+      `Downloaded ${shaderFileName} with ${exportableShaders.length} shader${
+        exportableShaders.length === 1 ? '' : 's'
+      }.`,
+    );
   };
 
   if (!open) {
@@ -620,7 +725,7 @@ export function TimelineExportDialog({
           <div>
             <span className="panel-eyebrow">Export</span>
             <h2 id="timeline-export-title" className="dialog-title">
-              Timeline MP4
+              Timeline export
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose} disabled={isExporting}>
@@ -631,7 +736,7 @@ export function TimelineExportDialog({
         <div className="dialog-body timeline-export-dialog-body">
           <p className="dialog-note">
             Export creates a high-quality H.264 MP4 of the current timeline selection. The file does
-            not include audio.
+            not include audio. You can also extract the project's complete shader library as JSON.
           </p>
 
           {exportCapabilityMessage ? (
@@ -742,6 +847,28 @@ export function TimelineExportDialog({
               </div>
             </section>
           </div>
+
+          <section className="dialog-section">
+            <span className="panel-eyebrow">Shader source</span>
+            <div className="status-card">
+              <span className="status-card-label">Project library</span>
+              <strong className="status-card-value">
+                {exportableShaders.length} shader{exportableShaders.length === 1 ? '' : 's'}
+              </strong>
+              <p className="helper-copy">
+                Download every shader's current GLSL source and latest slider-variable values in one
+                JSON file. Active and timeline usage are included.
+              </p>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleShaderBundleExport}
+                disabled={isExporting}
+              >
+                Export all shaders (.json)
+              </button>
+            </div>
+          </section>
 
           <section className="dialog-section timeline-export-progress-section">
             <span className="panel-eyebrow">Status</span>
