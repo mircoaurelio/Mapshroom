@@ -6,6 +6,8 @@ import {
   type WhyLocale,
   WHY_COPY,
 } from '../lib/whyCopy';
+import { useEditorialMotion } from '../hooks/useEditorialMotion';
+import '../styles/EditorialMotion.css';
 import './WhyRoute.css';
 
 const SOURCE_URL = 'https://github.com/mircoaurelio/Mapshroom';
@@ -65,7 +67,7 @@ export function WhyRoute() {
   const [locale, setLocale] = useState<WhyLocale>(() =>
     isWhyLocale(requestedLocale) ? requestedLocale : resolveWhyLocale(),
   );
-  const [audienceSlide, setAudienceSlide] = useState<0 | 1>(0);
+  const motionRef = useEditorialMotion<HTMLElement>();
   const copy = WHY_COPY[locale];
 
   useEffect(() => {
@@ -93,7 +95,7 @@ export function WhyRoute() {
   };
 
   return (
-    <main className="why-page" lang={locale}>
+    <main ref={motionRef} className="why-page" lang={locale}>
       <nav className="why-nav">
         <Link to="/" className="why-brand" aria-label="Mapshroom">
           <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
@@ -121,7 +123,7 @@ export function WhyRoute() {
         </div>
       </nav>
 
-      <header className="why-hero">
+      <header className="why-hero" data-scroll-hero>
         <div className="why-hero-copy">
           <p className="why-eyebrow">{copy.eyebrow}</p>
           <h1>{copy.heroTitle}<br /><em>{copy.heroEmphasis}</em></h1>
@@ -176,7 +178,11 @@ export function WhyRoute() {
         </figure>
       </header>
 
-      <section className="why-principles" aria-label={copy.principlesLabel}>
+      <section
+        className="why-principles"
+        aria-label={copy.principlesLabel}
+        data-reveal-group
+      >
         {copy.principles.map((principle, index) => (
           <div key={principle.value}>
             <span>{String(index + 1).padStart(2, '0')}</span>
@@ -188,16 +194,16 @@ export function WhyRoute() {
 
       <div id="manifesto" className="why-manifesto">
         <section className="why-section why-setup">
-          <div className="why-section-heading">
+          <div className="why-section-heading" data-reveal>
             <p className="why-kicker">{copy.setup.kicker}</p>
             <h2>{copy.setup.title}</h2>
             <p>{copy.setup.body}</p>
           </div>
-          <div className="why-setup-metric">
+          <div className="why-setup-metric" data-reveal>
             <span>{copy.setup.metricLabel}</span>
             <strong>{copy.setup.metricValue}</strong>
           </div>
-          <div className="why-setup-flow">
+          <div className="why-setup-flow" data-reveal-group>
             {copy.setup.steps.map((step, index) => (
               <div key={step}>
                 <span>{String(index + 1).padStart(2, '0')}</span>
@@ -205,141 +211,116 @@ export function WhyRoute() {
               </div>
             ))}
           </div>
-          <p className="why-setup-direction">{copy.setup.direction}</p>
+          <p className="why-setup-direction" data-reveal>{copy.setup.direction}</p>
         </section>
 
         <section className="why-section why-freedom">
-          <div className="why-section-heading">
+          <div className="why-section-heading" data-reveal>
             <p className="why-kicker">{copy.freedom.kicker}</p>
             <h2>{copy.freedom.title}</h2>
           </div>
-          <div className="why-body-copy">
+          <div className="why-body-copy" data-reveal>
             {copy.freedom.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
           </div>
-          <blockquote>{copy.freedom.quote}</blockquote>
+          <blockquote data-reveal="right">{copy.freedom.quote}</blockquote>
         </section>
 
         <section className="why-section why-audience">
-          <div className="why-section-heading">
+          <div className="why-section-heading" data-reveal>
             <p className="why-kicker">{copy.audience.kicker}</p>
             <h2>{copy.audience.title}</h2>
             <p>{copy.audience.intro}</p>
           </div>
-          <div className="why-audience-carousel" aria-label={copy.audience.carouselAria}>
-            <div className="why-audience-tabs" role="tablist" aria-label={copy.audience.carouselAria}>
-              {copy.audience.slideLabels.map((label, index) => (
-                <button
-                  key={label}
-                  type="button"
-                  id={`why-audience-tab-${index}`}
-                  role="tab"
-                  aria-selected={audienceSlide === index}
-                  aria-controls={`why-audience-panel-${index}`}
-                  onClick={() => setAudienceSlide(index as 0 | 1)}
-                >
-                  <span>{String(index + 1).padStart(2, '0')}</span>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="why-audience-viewport">
-              <div
-                className="why-audience-track"
-                style={{ '--audience-slide': audienceSlide } as React.CSSProperties}
-              >
-                <section
-                  id="why-audience-panel-0"
-                  className="why-audience-slide why-professions-slide"
-                  role="tabpanel"
-                  aria-labelledby="why-audience-tab-0"
-                  aria-hidden={audienceSlide !== 0}
-                >
-                  <div className="why-professions-copy">
-                    <p>{copy.audience.professions.kicker}</p>
-                    <h3>{copy.audience.professions.title}</h3>
-                    <p>{copy.audience.professions.body}</p>
-                    <strong>{copy.audience.professions.statement}</strong>
-                  </div>
-                  <div className="why-professions-grid">
-                    {copy.audience.cards.map((card, index) => (
-                      <article key={card.title}>
-                        <span className="why-audience-icon">
-                          <AudienceIcon name={card.icon} />
-                        </span>
-                        <small>{String(index + 1).padStart(2, '0')}</small>
-                        <h4>{card.title}</h4>
-                        <p>{card.body}</p>
-                      </article>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    className="why-slide-action"
-                    tabIndex={audienceSlide === 0 ? 0 : -1}
-                    onClick={() => setAudienceSlide(1)}
-                  >
-                    {copy.audience.professions.next}
-                  </button>
-                </section>
+          <div
+            className="why-audience-story"
+            data-market-story
+            aria-label={copy.audience.storyAria}
+          >
+            <div className="why-story-narrative">
+              <article className="why-story-chapter why-story-professions" data-reveal>
+                <div className="why-story-copy">
+                  <p>{copy.audience.professions.kicker}</p>
+                  <h3>{copy.audience.professions.title}</h3>
+                  <p>{copy.audience.professions.body}</p>
+                  <strong>{copy.audience.professions.statement}</strong>
+                </div>
+                <div className="why-story-profession-list" data-reveal-group>
+                  {copy.audience.cards.map((card, index) => (
+                    <div key={card.title}>
+                      <span className="why-story-icon"><AudienceIcon name={card.icon} /></span>
+                      <small>{String(index + 1).padStart(2, '0')}</small>
+                      <strong>{card.title}</strong>
+                      <p>{card.body}</p>
+                    </div>
+                  ))}
+                </div>
+                <span className="why-story-scroll-cue">{copy.audience.scrollCue} ↓</span>
+              </article>
 
-                <section
-                  id="why-audience-panel-1"
-                  className="why-audience-slide why-market-slide"
-                  role="tabpanel"
-                  aria-labelledby="why-audience-tab-1"
-                  aria-hidden={audienceSlide !== 1}
-                >
-                  <div className="why-market-copy">
-                    <p>{copy.audience.market.kicker}</p>
-                    <h3>{copy.audience.market.title}</h3>
-                    <p>{copy.audience.market.body}</p>
-                  </div>
-                  <div className="why-market-map" role="img" aria-label={copy.audience.mapAria}>
-                    <div className="why-mapping-circle" aria-hidden="true">
-                      <strong>{copy.audience.market.mappingLabel}</strong>
-                      <div className="why-market-niche">
-                        <b>{copy.audience.nicheValue}</b>
-                        <small>{copy.audience.nicheLabel}</small>
-                      </div>
+              <article className="why-story-chapter why-story-potential" data-reveal>
+                <div className="why-story-copy">
+                  <p>{copy.audience.market.kicker}</p>
+                  <h3>{copy.audience.market.title}</h3>
+                  <p>{copy.audience.market.body}</p>
+                  <strong>{copy.audience.market.thesis}</strong>
+                </div>
+              </article>
+            </div>
+
+            <div className="why-story-visual-column">
+              <div className="why-story-sticky">
+                <div className="why-story-stage" role="img" aria-label={copy.audience.mapAria}>
+                  <div className="why-story-professional-circle" aria-hidden="true">
+                    <strong>{copy.audience.market.mappingLabel}</strong>
+                    <div className="why-story-professional-people">
+                      {copy.audience.cards.map((card) => (
+                        <span key={card.title}>
+                          <AudienceIcon name={card.icon} />
+                          {card.title}
+                        </span>
+                      ))}
                     </div>
-                    <div className="why-potential-circle" aria-hidden="true">
-                      <strong>{copy.audience.market.potentialLabel}</strong>
-                      <div className="why-potential-people">
-                        {copy.audience.cards.map((card) => (
-                          <span key={card.title}>
-                            <AudienceIcon name={card.icon} />
-                            {card.title}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="why-story-niche">
+                      <b>{copy.audience.nicheValue}</b>
+                      <small>{copy.audience.nicheLabel}</small>
                     </div>
-                    <span className="why-market-bridge" aria-hidden="true">
-                      {copy.audience.market.bridgeLabel}
-                    </span>
                   </div>
-                  <strong className="why-market-thesis">{copy.audience.market.thesis}</strong>
-                  <button
-                    type="button"
-                    className="why-slide-action why-slide-action-back"
-                    tabIndex={audienceSlide === 1 ? 0 : -1}
-                    onClick={() => setAudienceSlide(0)}
-                  >
-                    {copy.audience.market.previous}
-                  </button>
-                </section>
+
+                  <div className="why-story-potential-circle" aria-hidden="true">
+                    <strong>{copy.audience.market.potentialLabel}</strong>
+                    <div className="why-story-potential-people">
+                      {copy.audience.potentialCards.map((card) => (
+                        <span key={card.title}>
+                          <AudienceIcon name={card.icon} />
+                          {card.title}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <span className="why-story-bridge" aria-hidden="true">
+                    {copy.audience.market.bridgeLabel}
+                  </span>
+                  <div className="why-story-progress" aria-hidden="true"><i /></div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         <section className="why-section why-return">
-          <div className="why-return-copy">
+          <div className="why-return-copy" data-reveal="left">
             <p className="why-kicker">{copy.return.kicker}</p>
             <h2>{copy.return.title}</h2>
             {copy.return.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
             <blockquote>{copy.return.quote}</blockquote>
           </div>
-          <div className="why-loop" role="img" aria-label={copy.return.loopAria}>
+          <div
+            className="why-loop"
+            role="img"
+            aria-label={copy.return.loopAria}
+            data-reveal="scale"
+          >
             <div className="why-loop-ring" aria-hidden="true">
               {copy.return.loop.map((item, index) => (
                 <span key={item} style={{ '--loop-index': index } as React.CSSProperties}>
@@ -352,24 +333,24 @@ export function WhyRoute() {
         </section>
 
         <section className="why-section why-bet">
-          <div className="why-section-heading">
+          <div className="why-section-heading" data-reveal="left">
             <p className="why-kicker">{copy.bet.kicker}</p>
             <h2>{copy.bet.title}</h2>
             <p>{copy.bet.bodyBefore}<strong>{copy.bet.bodyStrong}</strong>{copy.bet.bodyAfter}</p>
           </div>
-          <aside className="why-price">
+          <aside className="why-price" data-reveal="right">
             <strong>{copy.bet.price}</strong>
             <span>{copy.bet.priceLabel}</span>
           </aside>
         </section>
 
         <section className="why-section why-outcomes">
-          <div className="why-section-heading">
+          <div className="why-section-heading" data-reveal>
             <p className="why-kicker">{copy.outcomes.kicker}</p>
             <h2>{copy.outcomes.title}</h2>
             <p>{copy.outcomes.intro}</p>
           </div>
-          <div className="why-outcome-grid">
+          <div className="why-outcome-grid" data-reveal-group>
             {copy.outcomes.items.map((item) => (
               <article key={item.number}>
                 <span>{item.number}</span>
@@ -381,7 +362,7 @@ export function WhyRoute() {
         </section>
       </div>
 
-      <section className="why-closing">
+      <section className="why-closing" data-reveal-group>
         <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
         <p>{copy.closing.kicker}</p>
         <h2>{copy.closing.title}</h2>

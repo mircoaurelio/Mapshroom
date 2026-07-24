@@ -869,6 +869,11 @@ a {
   border-left: 1px solid var(--line);
 }
 
+.workspace-pane-right-editing {
+  border-left-color: rgba(239, 68, 68, 0.72);
+  box-shadow: inset 2px 0 0 rgba(239, 68, 68, 0.24);
+}
+
 .workspace-pane-right .panel-section:first-child {
   border-top: 0;
 }

@@ -45,14 +45,13 @@ type WhyCopy = {
     intro: string;
     nicheValue: string;
     nicheLabel: string;
-    carouselAria: string;
-    slideLabels: [string, string];
+    storyAria: string;
+    scrollCue: string;
     professions: {
       kicker: string;
       title: string;
       body: string;
       statement: string;
-      next: string;
     };
     market: {
       kicker: string;
@@ -62,10 +61,10 @@ type WhyCopy = {
       potentialLabel: string;
       bridgeLabel: string;
       thesis: string;
-      previous: string;
     };
     mapAria: string;
     cards: Array<{ icon: AudienceIconName; title: string; body: string }>;
+    potentialCards: Array<{ icon: AudienceIconName; title: string }>;
   };
   return: {
     kicker: string;
@@ -161,18 +160,17 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'Perhaps Mapshroom will reach only 5% of the people already using projection-mapping software. That is enough to start a movement. It is not where the opportunity ends.',
       nicheValue: '5%',
       nicheLabel: 'of today’s projection-mapping market',
-      carouselAria: 'Two slides showing the professions Mapshroom can serve and the much larger potential market',
-      slideLabels: ['Who can use it', 'The real market'],
+      storyAria: 'A scroll-driven view that begins with professional users and zooms out to the much larger potential market',
+      scrollCue: 'Scroll to zoom out',
       professions: {
-        kicker: 'Slide 01 / Immediate adoption',
+        kicker: '01 / The people already in reach',
         title: 'One tool. Six professions can pick it up today.',
         body:
           'Event organisers, shop owners, artists, cultural spaces, creators, and coders do not need another specialised discipline. They need a faster path from an image to a living surface.',
         statement: 'Six doors in. Thousands of uses out.',
-        next: 'Reveal the real market →',
       },
       market: {
-        kicker: 'Slide 02 / The unseen territory',
+        kicker: '02 / Now zoom out',
         title: 'The largest audience does not call itself projection mapping.',
         body:
           'It is everyone with a surface, an image, and an idea. Mapshroom can turn spectators into visual makers, with almost no setup standing between intent and art.',
@@ -180,7 +178,6 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         potentialLabel: 'Everyone who wants to make an image live on a surface',
         bridgeLabel: 'Mapshroom · idea → surface',
         thesis: 'The opportunity is not a bigger slice. It is a bigger circle.',
-        previous: '← See the professions',
       },
       mapAria:
         'A small circle for today’s projection-mapping market overlaps a much larger circle for everyone who wants to make images live on a surface; Mapshroom connects the two, and the first 5 percent sits inside the smaller circle',
@@ -215,6 +212,14 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
           title: 'Coders & explorers',
           body: 'People who write shaders, prototype ideas, learn by remixing, or simply want somewhere to experiment.',
         },
+      ],
+      potentialCards: [
+        { icon: 'events', title: 'Private celebrations' },
+        { icon: 'shops', title: 'Everyday spaces' },
+        { icon: 'artists', title: 'Personal projects' },
+        { icon: 'culture', title: 'Schools & communities' },
+        { icon: 'creators', title: 'Hobbyists & makers' },
+        { icon: 'coders', title: 'Anyone with an idea' },
       ],
     },
     return: {
@@ -327,18 +332,17 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'Forse Mapshroom raggiungerà solo il 5% di chi usa già software di projection mapping. Basta per iniziare un movimento. Non è lì che finisce l’opportunità.',
       nicheValue: '5%',
       nicheLabel: 'del mercato attuale del projection mapping',
-      carouselAria: 'Due slide mostrano le professioni che possono usare Mapshroom e la dimensione molto più grande del mercato potenziale',
-      slideLabels: ['Chi può usarlo', 'Il mercato reale'],
+      storyAria: 'Una visualizzazione legata allo scroll che parte dagli utenti professionali e si allarga fino al mercato potenziale molto più grande',
+      scrollCue: 'Scorri per allargare lo sguardo',
       professions: {
-        kicker: 'Slide 01 / Adozione immediata',
+        kicker: '01 / Le persone già raggiungibili',
         title: 'Uno strumento. Sei professioni possono prenderlo in mano oggi.',
         body:
           'Organizzatori di eventi, negozi, artisti, spazi culturali, creator e coder non hanno bisogno di un’altra disciplina specialistica. Hanno bisogno di una strada più veloce dall’immagine alla superficie viva.',
         statement: 'Sei porte d’ingresso. Migliaia di usi in uscita.',
-        next: 'Mostra il mercato reale →',
       },
       market: {
-        kicker: 'Slide 02 / Il territorio invisibile',
+        kicker: '02 / Ora allarghiamo lo sguardo',
         title: 'Il pubblico più grande non si definisce projection mapper.',
         body:
           'È chiunque abbia una superficie, un’immagine e un’idea. Mapshroom può trasformare gli spettatori in autori visivi, con quasi zero setup tra l’intenzione e l’arte.',
@@ -346,7 +350,6 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         potentialLabel: 'Chiunque voglia far vivere un’immagine su una superficie',
         bridgeLabel: 'Mapshroom · idea → superficie',
         thesis: 'L’opportunità non è una fetta più grande. È un cerchio più grande.',
-        previous: '← Torna alle professioni',
       },
       mapAria:
         'Un piccolo cerchio per il mercato attuale del projection mapping si sovrappone a un cerchio molto più grande per chiunque voglia far vivere immagini su una superficie; Mapshroom collega i due e il primo 5 per cento si trova dentro il cerchio più piccolo',
@@ -381,6 +384,14 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
           title: 'Coder ed esploratori',
           body: 'Chi scrive shader, prototipa idee, impara remixando o vuole semplicemente sperimentare.',
         },
+      ],
+      potentialCards: [
+        { icon: 'events', title: 'Feste e ricorrenze' },
+        { icon: 'shops', title: 'Spazi di ogni giorno' },
+        { icon: 'artists', title: 'Progetti personali' },
+        { icon: 'culture', title: 'Scuole e comunità' },
+        { icon: 'creators', title: 'Hobbisti e maker' },
+        { icon: 'coders', title: 'Chiunque abbia un’idea' },
       ],
     },
     return: {
