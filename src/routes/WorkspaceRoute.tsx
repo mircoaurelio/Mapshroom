@@ -239,7 +239,6 @@ const ONBOARDING_COPY = {
     setupStepTwoEyebrow: 'Step 2',
     setupStepTwoTitle: 'Prepare the photo to upload',
     uiGuideLabel: 'Workspace area guide',
-    uiGuideTitle: 'What each macro area controls',
     workflowSteps: [
       {
         title: 'Prepare the material',
@@ -286,6 +285,7 @@ const ONBOARDING_COPY = {
     uiAreas: [
       {
         title: 'Load Assets And Output',
+        guideTitle: 'Load media and send it to the projector',
         eyebrow: 'Windows',
         placement: 'topbar',
         points: [
@@ -297,6 +297,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Canvas',
+        guideTitle: 'Preview and align the projection',
         eyebrow: 'Preview',
         placement: 'canvas',
         points: [
@@ -307,6 +308,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Code Control',
+        guideTitle: 'Create and refine the shader effect',
         eyebrow: 'Shader',
         placement: 'code',
         points: [
@@ -318,6 +320,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Slider And Asset Control',
+        guideTitle: 'Tune sliders and media for each step',
         eyebrow: 'Controls',
         placement: 'controls',
         points: [
@@ -328,6 +331,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Move The Mapping',
+        guideTitle: 'Position the mapping on the subject',
         eyebrow: 'Move',
         placement: 'mapping',
         points: [
@@ -338,6 +342,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Timeline',
+        guideTitle: 'Build and preview the complete sequence',
         eyebrow: 'Sequence',
         placement: 'timeline',
         points: [
@@ -367,7 +372,6 @@ const ONBOARDING_COPY = {
     setupStepTwoEyebrow: 'Passo 2',
     setupStepTwoTitle: 'Prepara la foto da caricare',
     uiGuideLabel: "Guida alle aree dell'area di lavoro",
-    uiGuideTitle: 'Cosa controlla ogni macro area',
     workflowSteps: [
       {
         title: 'Prepara il materiale',
@@ -414,6 +418,7 @@ const ONBOARDING_COPY = {
     uiAreas: [
       {
         title: 'Carica asset e output',
+        guideTitle: 'Carica i media e inviali al proiettore',
         eyebrow: 'Finestre',
         placement: 'topbar',
         points: [
@@ -425,6 +430,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Canvas',
+        guideTitle: 'Controlla e allinea la proiezione',
         eyebrow: 'Anteprima',
         placement: 'canvas',
         points: [
@@ -435,6 +441,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Controllo codice',
+        guideTitle: 'Crea e perfeziona l’effetto shader',
         eyebrow: 'Shader',
         placement: 'code',
         points: [
@@ -446,6 +453,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Slider e controllo asset',
+        guideTitle: 'Regola slider e media di ogni passaggio',
         eyebrow: 'Controlli',
         placement: 'controls',
         points: [
@@ -456,6 +464,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Sposta il mapping',
+        guideTitle: 'Posiziona il mapping sul soggetto',
         eyebrow: 'Move',
         placement: 'mapping',
         points: [
@@ -466,6 +475,7 @@ const ONBOARDING_COPY = {
       },
       {
         title: 'Timeline',
+        guideTitle: 'Costruisci e prova la sequenza completa',
         eyebrow: 'Sequenza',
         placement: 'timeline',
         points: [
@@ -1003,7 +1013,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
             <div className="onboarding-area-card-header">
               <div>
                 <span className="panel-eyebrow">{stepLabel}</span>
-                <h3>{onboardingCopy.uiGuideTitle}</h3>
+                <h3>{activeUiArea.guideTitle}</h3>
               </div>
               <button
                 type="button"
