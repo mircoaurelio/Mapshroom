@@ -4,6 +4,14 @@ export type WhyLocale = AppLocale;
 
 export { resolveAppLocale as resolveWhyLocale };
 
+export type AudienceIconName =
+  | 'events'
+  | 'shops'
+  | 'artists'
+  | 'culture'
+  | 'creators'
+  | 'coders';
+
 type WhyCopy = {
   documentTitle: string;
   languageLabel: string;
@@ -34,7 +42,11 @@ type WhyCopy = {
     intro: string;
     nicheValue: string;
     nicheLabel: string;
-    cards: Array<{ title: string; body: string }>;
+    territoryKicker: string;
+    territoryTitle: string;
+    territoryBody: string;
+    mapAria: string;
+    cards: Array<{ icon: AudienceIconName; title: string; body: string }>;
   };
   return: {
     kicker: string;
@@ -124,23 +136,43 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       kicker: '03 / The first bet',
       title: 'Projection mapping is a niche. Visual imagination is not.',
       intro:
-        'Most projection-mapping products speak to a small, specialised market. Perhaps only 5% of that niche will ever adopt Mapshroom. But the same tool could unlock a much larger public.',
+        'Perhaps only 5% of today’s projection-mapping niche will adopt Mapshroom. That 5% is a starting point, not the size of the opportunity: it sits inside a much larger public that existing tools rarely address.',
       nicheValue: '5%',
-      nicheLabel: 'Even a fraction of today’s niche can seed something much bigger.',
+      nicheLabel: 'of today’s projection-mapping niche',
+      territoryKicker: 'The unseen territory',
+      territoryTitle: 'A much bigger public',
+      territoryBody:
+        'Events, shop windows, drawing, culture, content, and code all need faster ways to turn surfaces into moving images.',
+      mapAria:
+        'The 5 percent projection-mapping niche shown as a small circle inside a much larger territory of events, shops, artists, cultural spaces, creators, and coders',
       cards: [
         {
-          title: 'Events & spaces',
-          body: 'People producing events, installations, stages, exhibitions, and temporary spaces.',
+          icon: 'events',
+          title: 'Events & live spaces',
+          body: 'Organisers producing events, installations, stages, weddings, exhibitions, and temporary spaces.',
         },
         {
-          title: 'Artists & image-makers',
-          body: 'Artists, illustrators, designers, graffiti writers, and anyone who wants to make a surface come alive.',
+          icon: 'shops',
+          title: 'Shops & windows',
+          body: 'Independent shops, window displays, restaurants, pop-ups, and retail spaces looking for visual impact.',
         },
         {
+          icon: 'artists',
+          title: 'Artists & illustrators',
+          body: 'Artists, illustrators, designers, and graffiti writers who want to make a surface come alive.',
+        },
+        {
+          icon: 'culture',
+          title: 'Culture & learning',
+          body: 'Museums, schools, workshops, galleries, theatres, and community spaces.',
+        },
+        {
+          icon: 'creators',
           title: 'Online creators',
           body: 'People looking for a new way to transform photos, animate images, and create visual content.',
         },
         {
+          icon: 'coders',
           title: 'Coders & explorers',
           body: 'People who write shaders, prototype ideas, learn by remixing, or simply want somewhere to experiment.',
         },
@@ -250,23 +282,43 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       kicker: '03 / La prima scommessa',
       title: 'Il projection mapping è una nicchia. L’immaginazione visiva no.',
       intro:
-        'La maggior parte dei prodotti di projection mapping parla a un mercato piccolo e specializzato. Forse solo il 5% di quella nicchia adotterà Mapshroom. Ma lo stesso strumento potrebbe aprirsi a un pubblico molto più grande.',
+        'Forse solo il 5% della nicchia attuale del projection mapping adotterà Mapshroom. Quel 5% è un punto di partenza, non la dimensione dell’opportunità: si trova dentro un pubblico molto più grande a cui gli strumenti esistenti parlano raramente.',
       nicheValue: '5%',
-      nicheLabel: 'Anche una frazione della nicchia di oggi può dare inizio a qualcosa di molto più grande.',
+      nicheLabel: 'della nicchia attuale del projection mapping',
+      territoryKicker: 'Il territorio invisibile',
+      territoryTitle: 'Un pubblico molto più grande',
+      territoryBody:
+        'Eventi, vetrine, disegno, cultura, contenuti e codice hanno tutti bisogno di modi più rapidi per trasformare le superfici in immagini vive.',
+      mapAria:
+        'Il 5 per cento della nicchia del projection mapping rappresentato come un piccolo cerchio dentro un territorio molto più grande di eventi, negozi, artisti, spazi culturali, creator e coder',
       cards: [
         {
-          title: 'Eventi e spazi',
-          body: 'Chi organizza eventi, installazioni, palchi, mostre e spazi temporanei.',
+          icon: 'events',
+          title: 'Eventi e spazi live',
+          body: 'Chi organizza eventi, installazioni, palchi, matrimoni, mostre e spazi temporanei.',
         },
         {
-          title: 'Artisti e creativi',
-          body: 'Chi fa arte, disegno, design, writing e vuole dare vita a una superficie.',
+          icon: 'shops',
+          title: 'Negozi e vetrine',
+          body: 'Negozi indipendenti, vetrine, ristoranti, pop-up e spazi retail che cercano un impatto visivo.',
         },
         {
+          icon: 'artists',
+          title: 'Artisti e illustratori',
+          body: 'Chi fa arte, disegno, illustrazione, design e writing e vuole dare vita a una superficie.',
+        },
+        {
+          icon: 'culture',
+          title: 'Cultura e formazione',
+          body: 'Musei, scuole, workshop, gallerie, teatri e spazi di comunità.',
+        },
+        {
+          icon: 'creators',
           title: 'Creator online',
           body: 'Chi cerca un modo nuovo per modificare foto, animare immagini e creare contenuti visivi.',
         },
         {
+          icon: 'coders',
           title: 'Coder ed esploratori',
           body: 'Chi scrive shader, prototipa idee, impara remixando o vuole semplicemente sperimentare.',
         },

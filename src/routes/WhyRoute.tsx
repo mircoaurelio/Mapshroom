@@ -1,12 +1,62 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { resolveWhyLocale, type WhyLocale, WHY_COPY } from '../lib/whyCopy';
+import {
+  resolveWhyLocale,
+  type AudienceIconName,
+  type WhyLocale,
+  WHY_COPY,
+} from '../lib/whyCopy';
 import './WhyRoute.css';
 
 const SOURCE_URL = 'https://github.com/mircoaurelio/Mapshroom';
 
 function isWhyLocale(value: string | null): value is WhyLocale {
   return value === 'en' || value === 'it';
+}
+
+function AudienceIcon({ name }: { name: AudienceIconName }) {
+  const content = {
+    events: (
+      <>
+        <rect x="4" y="6" width="16" height="14" rx="2" />
+        <path d="M8 3v6M16 3v6M4 11h16M8 15h3" />
+      </>
+    ),
+    shops: (
+      <>
+        <path d="M4 10h16l-2-6H6l-2 6Z" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6M4 10c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0" />
+      </>
+    ),
+    artists: (
+      <>
+        <path d="m5 19 3.5-1 9-9-2.5-2.5-9 9L5 19Z" />
+        <path d="m13.5 8 2.5 2.5M14 5l2-2 5 5-2 2" />
+      </>
+    ),
+    culture: (
+      <>
+        <path d="m3 9 9-5 9 5H3ZM5 20h14M7 9v8M12 9v8M17 9v8M4 17h16" />
+      </>
+    ),
+    creators: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="3" />
+        <path d="m10 9 5 3-5 3V9Z" />
+      </>
+    ),
+    coders: (
+      <>
+        <path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />
+      </>
+    ),
+  }[name];
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {content}
+    </svg>
+  );
 }
 
 export function WhyRoute() {
@@ -34,6 +84,13 @@ export function WhyRoute() {
     setSearchParams({ lang: nextLocale }, { replace: true });
   };
 
+  const scrollToManifesto = () => {
+    document.getElementById('manifesto')?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  };
+
   return (
     <main className="why-page" lang={locale}>
       <nav className="why-nav">
@@ -42,7 +99,9 @@ export function WhyRoute() {
           <span>Mapshroom</span>
         </Link>
         <div className="why-nav-links">
-          <a href="#manifesto">{copy.navManifesto}</a>
+          <button type="button" className="why-nav-anchor" onClick={scrollToManifesto}>
+            {copy.navManifesto}
+          </button>
           <Link to="/tutorial">{copy.navTutorial}</Link>
           <div className="why-language-switch" aria-label={copy.languageLabel}>
             {(['it', 'en'] as const).map((option) => (
@@ -67,7 +126,9 @@ export function WhyRoute() {
           <h1>{copy.heroTitle}<br /><em>{copy.heroEmphasis}</em></h1>
           <p className="why-hero-lead">{copy.heroLead}</p>
           <p className="why-hero-note">{copy.heroNote}</p>
-          <a href="#manifesto" className="why-primary-button">{copy.heroCta}</a>
+          <button type="button" className="why-primary-button" onClick={scrollToManifesto}>
+            {copy.heroCta}
+          </button>
         </div>
         <figure className="why-hero-visual" aria-label={copy.visualAria}>
           <div className="why-visual-steps">
@@ -142,14 +203,34 @@ export function WhyRoute() {
             <p>{copy.audience.intro}</p>
           </div>
           <div className="why-audience-layout">
-            <aside className="why-five-percent">
-              <strong>{copy.audience.nicheValue}</strong>
-              <span>{copy.audience.nicheLabel}</span>
-            </aside>
+            <div className="why-territory-map" role="img" aria-label={copy.audience.mapAria}>
+              <div className="why-territory-copy" aria-hidden="true">
+                <span>{copy.audience.territoryKicker}</span>
+                <strong>{copy.audience.territoryTitle}</strong>
+                <p>{copy.audience.territoryBody}</p>
+              </div>
+              <div className="why-territory-orbit" aria-hidden="true">
+                {copy.audience.cards.map((card, index) => (
+                  <span
+                    key={card.title}
+                    className="why-territory-point"
+                    style={{ '--audience-index': index } as React.CSSProperties}
+                  >
+                    <AudienceIcon name={card.icon} />
+                    <b>{card.title}</b>
+                  </span>
+                ))}
+                <div className="why-market-niche">
+                  <strong>{copy.audience.nicheValue}</strong>
+                  <small>{copy.audience.nicheLabel}</small>
+                </div>
+              </div>
+            </div>
             <div className="why-audience-grid">
               {copy.audience.cards.map((card, index) => (
                 <article key={card.title}>
-                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <span className="why-audience-icon"><AudienceIcon name={card.icon} /></span>
+                  <small>{String(index + 1).padStart(2, '0')}</small>
                   <h3>{card.title}</h3>
                   <p>{card.body}</p>
                 </article>

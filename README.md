@@ -11,9 +11,8 @@ connecting a projector and seeing an idea come alive.
 
 ## Why Mapshroom is free
 
-This is not a launch offer, a limited plan, or a door into a subscription.
-Mapshroom is meant to stay free to use and open to study, change, fork, and
-extend.
+Mapshroom’s core is meant to stay free to use and open to study, change, fork,
+and extend.
 
 Software can be copied. Someone can take this application, build on it, clone
 it, or create something new from it. That is not the risk. The real risk would
@@ -24,14 +23,16 @@ people can help it grow.
 
 ## The bet
 
-Projection-mapping software is usually made for a small, specialised market.
-Perhaps only a fraction of that niche will use Mapshroom. But visual imagination
-is not a niche.
+Perhaps only 5% of today’s projection-mapping niche will use Mapshroom. That
+5% is the small visible centre of a much larger, mostly unseen territory.
+Visual imagination is not a niche.
 
 Mapshroom can also be useful to:
 
-- people producing events, installations, stages, and exhibitions;
+- people producing events, weddings, installations, stages, and exhibitions;
+- independent shops, window displays, restaurants, and pop-up spaces;
 - artists, illustrators, designers, and graffiti writers;
+- museums, schools, galleries, theatres, and community spaces;
 - online creators who want to transform photos and animate images;
 - coders who write shaders, prototype ideas, and learn by remixing;
 - anyone looking for a place to experiment visually.
@@ -86,9 +87,8 @@ prende vita.
 
 ### Perché Mapshroom è gratis
 
-Non è un’offerta di lancio, un piano limitato o l’ingresso verso un abbonamento.
-Mapshroom vuole restare gratuito da usare e aperto da studiare, modificare,
-copiare e far evolvere.
+Il cuore di Mapshroom vuole restare gratuito da usare e aperto da studiare,
+modificare, copiare e far evolvere.
 
 Il software si può copiare. Chiunque potrebbe prendere questa applicazione,
 costruirci sopra o creare qualcosa di nuovo. Non è questo il rischio. Il vero
@@ -99,14 +99,16 @@ dove troppo poche persone possano aiutarlo a crescere.
 
 ### La scommessa
 
-I software di projection mapping sono generalmente rivolti a un mercato piccolo
-e specializzato. Forse solo una parte di quella nicchia userà Mapshroom. Ma
-l’immaginazione visiva non è una nicchia.
+Forse solo il 5% della nicchia attuale del projection mapping userà Mapshroom.
+Quel 5% è il piccolo centro visibile di un territorio molto più grande e ancora
+quasi invisibile. L’immaginazione visiva non è una nicchia.
 
 Mapshroom può servire anche a:
 
-- chi produce eventi, installazioni, palchi e mostre;
+- chi produce eventi, matrimoni, installazioni, palchi e mostre;
+- negozi indipendenti, vetrine, ristoranti e spazi pop-up;
 - chi fa arte, disegno, design e writing;
+- musei, scuole, gallerie, teatri e spazi di comunità;
 - chi crea contenuti online e vuole trasformare foto o animare immagini;
 - chi scrive shader, prototipa idee e impara remixando;
 - chiunque cerchi uno spazio in cui sperimentare visivamente.
