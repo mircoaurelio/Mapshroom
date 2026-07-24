@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
 import { InstallAppButton } from './InstallAppCallout';
 import {
@@ -25,6 +26,7 @@ interface WorkspaceToolbarProps {
   onOpenExport: () => void;
   onOpenAssets: () => void;
   onOpenSettings: () => void;
+  onOpenProBeta: () => void;
   onNewShader: () => void;
   onOpenPresetBrowser: () => void;
   onPlayToggle: () => void;
@@ -100,6 +102,7 @@ export function WorkspaceToolbar({
   onOpenExport,
   onOpenAssets,
   onOpenSettings,
+  onOpenProBeta,
   onNewShader,
   onOpenPresetBrowser,
   onPlayToggle,
@@ -288,6 +291,11 @@ export function WorkspaceToolbar({
       <strong className="toolbar-brand">Mapshroom</strong>
       <div className="toolbar-actions">
         <div className="toolbar-menu-group toolbar-menu-group-right" ref={toolbarMenusRef}>
+          <InstallAppButton
+            className="workspace-install-control"
+            onOpenProBeta={onOpenProBeta}
+          />
+
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
             <button
               type="button"
@@ -444,11 +452,17 @@ export function WorkspaceToolbar({
                 >
                   Settings
                 </button>
+                <Link
+                  to="/download"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Install help
+                </Link>
               </div>
             ) : null}
           </div>
-
-          <InstallAppButton className="workspace-install-control" />
 
           <button
             type="button"

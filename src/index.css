@@ -808,11 +808,6 @@ a {
   border-left: 1px solid var(--line);
 }
 
-.workspace-pane-right-editing {
-  border-left-color: rgba(239, 68, 68, 0.72);
-  box-shadow: inset 2px 0 0 rgba(239, 68, 68, 0.24);
-}
-
 .workspace-pane-right .panel-section:first-child {
   border-top: 0;
 }
@@ -3629,7 +3624,6 @@ a {
 }
 
 .timeline-segment-block-editing {
-  box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.82);
   color: rgba(254, 242, 242, 0.96);
 }
 
@@ -6409,33 +6403,151 @@ a {
 }
 
 .pro-beta-panel-confirmed {
-  width: min(520px, 100%);
+  width: min(680px, 100%);
+  padding: 1.6rem;
+  border-color: rgba(167, 139, 250, .34);
+  background:
+    radial-gradient(ellipse 72% 60% at 6% -10%, rgba(109, 40, 217, .24), transparent 62%),
+    linear-gradient(150deg, #15121d, #0b0a10 72%);
+}
+
+.pro-beta-panel-confirmed::before {
+  background-image:
+    linear-gradient(rgba(196, 181, 253, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(196, 181, 253, .055) 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: .4;
 }
 
 .pro-beta-confirmation {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: .7rem;
+}
+
+.pro-beta-confirmation-header {
   display: flex;
-  align-items: flex-start;
-  flex-direction: column;
-  padding-top: .85rem;
+  align-items: center;
+  gap: .8rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(196, 181, 253, .15);
 }
 
 .pro-beta-confirmation-mark {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
-  margin-bottom: .9rem;
-  border: 1px solid rgba(216, 180, 254, .55);
-  border-radius: 50%;
-  background: rgba(126, 34, 206, .42);
-  color: #f3e8ff;
-  font-size: 1.15rem;
-  box-shadow: 0 0 24px rgba(168, 85, 247, .3);
+  flex: 0 0 auto;
+  border: 1px solid rgba(196, 181, 253, .42);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(109, 40, 217, .72), rgba(76, 29, 149, .42));
+  color: #f5f3ff;
+  box-shadow:
+    0 10px 26px rgba(76, 29, 149, .3),
+    inset 0 1px 0 rgba(255, 255, 255, .13);
 }
 
-.pro-beta-confirmation .pro-beta-join {
-  align-self: flex-end;
-  margin-top: 1.15rem;
+.pro-beta-confirmation-mark svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pro-beta-confirmation-header > div {
+  display: grid;
+  gap: .25rem;
+}
+
+.pro-beta-confirmation-header small {
+  color: #8f86a7;
+  font: 600 .58rem/1.2 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.pro-beta-confirmation-main {
+  display: grid;
+  max-width: 36rem;
+  gap: .55rem;
+}
+
+.pro-beta-confirmation-kicker {
+  color: #a78bfa;
+  font: 650 .62rem/1.2 'IBM Plex Mono', monospace;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.pro-beta-panel .pro-beta-confirmation-main h3 {
+  margin: 0;
+  max-width: 20ch;
+  font-size: clamp(1.55rem, 4vw, 2.15rem);
+  line-height: 1.08;
+}
+
+.pro-beta-panel .pro-beta-confirmation-main p {
+  color: #bcb4ca;
+  font-size: .84rem;
+  line-height: 1.65;
+}
+
+.pro-beta-confirmation-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(196, 181, 253, .16);
+  border-radius: var(--radius-md);
+  background: rgba(7, 6, 10, .46);
+}
+
+.pro-beta-confirmation-meta article {
+  display: grid;
+  min-width: 0;
+  gap: .38rem;
+  padding: .85rem .95rem;
+}
+
+.pro-beta-confirmation-meta article + article {
+  border-left: 1px solid rgba(196, 181, 253, .13);
+}
+
+.pro-beta-confirmation-meta span {
+  color: #81788f;
+  font: 600 .55rem/1.2 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.pro-beta-confirmation-meta strong {
+  overflow: hidden;
+  color: #f5f3ff;
+  font-size: .76rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pro-beta-confirmation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(196, 181, 253, .15);
+}
+
+.pro-beta-panel .pro-beta-confirmation-footer p {
+  color: #81788f;
+  font: 500 .62rem/1.4 'IBM Plex Mono', monospace;
+}
+
+.pro-beta-confirmation-footer .pro-beta-join {
+  flex: 0 0 auto;
 }
 
 @media (max-width: 560px) {
@@ -6453,6 +6565,24 @@ a {
   }
 
   .pro-beta-actions button {
+    width: 100%;
+  }
+
+  .pro-beta-confirmation-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .pro-beta-confirmation-meta article + article {
+    border-top: 1px solid rgba(196, 181, 253, .13);
+    border-left: 0;
+  }
+
+  .pro-beta-confirmation-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pro-beta-confirmation-footer .pro-beta-join {
     width: 100%;
   }
 }
@@ -8751,6 +8881,26 @@ a.download-link-open-app {
   flex: 0 0 auto;
 }
 
+.workspace-install-control {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(0.45rem);
+  transition:
+    max-width 220ms ease,
+    opacity 150ms ease,
+    transform 220ms ease;
+}
+
+.workspace-toolbar:hover .workspace-install-control,
+.workspace-toolbar:focus-within .workspace-install-control {
+  max-width: 15rem;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
 .install-app-button {
   display: inline-flex;
   align-items: center;
@@ -8764,67 +8914,22 @@ a.download-link-open-app {
 }
 
 .install-app-status-dot {
-  width: 0.48rem;
-  height: 0.48rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  display: grid;
+  place-items: center;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, .12);
+  color: currentColor;
+  font: 700 .68rem/1 'IBM Plex Mono', monospace;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
 }
 
-.install-app-button-checking .install-app-status-dot,
-.install-app-button-preparing .install-app-status-dot {
-  animation: install-app-status-pulse 1.1s ease-in-out infinite;
-}
-
-.install-app-button-error {
-  border-color: rgba(248, 113, 113, 0.72);
-  background: rgba(127, 29, 29, 0.78);
-  color: #fee2e2;
-}
-
-.install-app-manual-help {
-  position: absolute;
-  top: calc(100% + 0.55rem);
-  right: 0;
-  z-index: 140;
-  width: min(21rem, calc(100vw - 1.5rem));
-  padding: 0.9rem;
-  border: 1px solid rgba(var(--accent-rgb), 0.4);
-  border-radius: var(--radius-md);
-  background: rgba(9, 9, 11, 0.98);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
-}
-
-.install-app-manual-help strong {
-  display: block;
-  color: var(--text-bright);
-  font-size: 0.88rem;
-}
-
-.install-app-manual-help p,
-.install-app-manual-help small {
-  display: block;
-  margin: 0.45rem 0 0.7rem;
-  color: var(--text-dim);
-  font-size: 0.76rem;
-  line-height: 1.45;
-}
-
-.install-app-manual-help small {
-  margin-top: -0.25rem;
-}
-
-@keyframes install-app-status-pulse {
-  0%,
-  100% {
-    opacity: 0.42;
-    transform: scale(0.82);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
+.install-app-button-installed {
+  border-color: rgba(167, 139, 250, .5);
+  background: linear-gradient(135deg, rgba(76, 29, 149, .88), rgba(126, 34, 206, .76));
+  color: #f5f3ff;
 }
 
 .analytics-consent-banner {
@@ -9000,17 +9105,11 @@ a.download-link-open-app {
     top: calc(0.75rem + var(--safe-top));
   }
 
-  .mobile-install-control .install-app-manual-help {
-    position: fixed;
-    top: calc(3.8rem + var(--safe-top));
-    right: 0.65rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .install-app-callout,
-  .toolbar-assets-callout,
-  .install-app-status-dot {
+  .toolbar-assets-callout {
     animation: none;
   }
 

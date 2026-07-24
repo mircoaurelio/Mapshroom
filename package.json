@@ -7,9 +7,8 @@
   "scripts": {
     "check:secrets": "node ./scripts/check-no-secrets.mjs",
     "check:shaders": "node ./scripts/check-shader-presets.mjs",
-    "check:pwa": "node ./scripts/check-pwa-precache.mjs",
     "dev": "vite",
-    "build": "tsc -b && vite build && npm run check:pwa",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -36,7 +35,6 @@
     "globals": "^17.4.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",
-    "vite": "^8.0.1",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite": "^8.0.1"
   }
 }

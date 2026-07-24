@@ -12,6 +12,9 @@ const WorkspaceRoute = lazy(() =>
 const OutputRoute = lazy(() =>
   import('./routes/OutputRoute').then((module) => ({ default: module.OutputRoute })),
 );
+const DownloadRoute = lazy(() =>
+  import('./routes/DownloadRoute').then((module) => ({ default: module.DownloadRoute })),
+);
 const PrivacyRoute = lazy(() =>
   import('./routes/PrivacyRoute').then((module) => ({ default: module.PrivacyRoute })),
 );
@@ -34,7 +37,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<WorkspaceRoute />} />
           <Route path="/output/:sessionId" element={<OutputRoute />} />
-          <Route path="/download" element={<Navigate to="/" replace />} />
+          <Route path="/download" element={<DownloadRoute />} />
           <Route path="/privacy" element={<PrivacyRoute />} />
           <Route path="/tutorial" element={<TutorialRoute />} />
           <Route path="/why" element={<WhyRoute />} />

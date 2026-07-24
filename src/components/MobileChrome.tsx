@@ -13,6 +13,7 @@ interface MobileChromeProps {
   onOpenShare: () => void;
   onOpenAssets: () => void;
   onOpenSettings: () => void;
+  onOpenProBeta: () => void;
   onOpenTimeline: () => void;
   onToggleMapping: () => void;
   onHide: () => void;
@@ -38,6 +39,7 @@ export function MobileChrome({
   onOpenShare,
   onOpenAssets,
   onOpenSettings,
+  onOpenProBeta,
   onOpenTimeline,
   onToggleMapping,
   onHide,
@@ -67,7 +69,10 @@ export function MobileChrome({
           <button type="button" className="secondary-button" onClick={onOpenSettings}>
             Settings
           </button>
-          <InstallAppButton className="mobile-install-control" />
+          <InstallAppButton
+            className="mobile-install-control"
+            onOpenProBeta={onOpenProBeta}
+          />
         </div>
       </header>
 
