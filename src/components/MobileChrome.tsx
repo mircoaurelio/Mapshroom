@@ -9,6 +9,7 @@ interface MobileChromeProps {
   isTimelineOpen: boolean;
   uiMode: Exclude<MobileUiMode, 'hidden'>;
   activePanel: MobilePanelKey;
+  moveMode: boolean;
   onOpenProjects: () => void;
   onOpenShare: () => void;
   onOpenAssets: () => void;
@@ -35,6 +36,7 @@ export function MobileChrome({
   isTimelineOpen,
   uiMode,
   activePanel,
+  moveMode,
   onOpenProjects,
   onOpenShare,
   onOpenAssets,
@@ -48,6 +50,7 @@ export function MobileChrome({
 }: MobileChromeProps) {
   const hasVisibleControls =
     (activePanel !== null && uiMode === 'full') || activePanel === 'sliders';
+  const moveControlsVisible = moveMode && uiMode === 'full';
 
   return (
     <>
@@ -100,10 +103,24 @@ export function MobileChrome({
         </button>
         <button
           type="button"
-          className={hasVisibleControls ? 'mobile-dock-button-active' : ''}
+          data-onboarding-area="mapping"
+          className={
+            hasVisibleControls
+              ? 'mobile-dock-button-active'
+              : moveControlsVisible
+                ? 'mobile-dock-button-active mobile-dock-move-button-active'
+                : 'mobile-dock-move-button'
+          }
+          aria-pressed={hasVisibleControls ? undefined : moveControlsVisible}
           onClick={hasVisibleControls ? onHide : onToggleMapping}
         >
-          {hasVisibleControls ? 'Hide' : 'Map'}
+          {hasVisibleControls ? (
+            'Hide'
+          ) : (
+            <>
+              Move <small>{moveControlsVisible ? 'On' : 'Off'}</small>
+            </>
+          )}
         </button>
       </nav>
 

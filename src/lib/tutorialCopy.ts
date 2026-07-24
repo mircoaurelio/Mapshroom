@@ -7,6 +7,7 @@ export { resolveAppLocale as resolveTutorialLocale };
 export type TutorialCopy = {
   documentTitle: string;
   navViewSteps: string;
+  navWhy: string;
   navOpenWorkspace: string;
   eyebrow: string;
   heroTitleBefore: string;
@@ -63,6 +64,14 @@ export type TutorialCopy = {
       flow: Array<{ title: string; detail: string }>;
     };
   };
+  why: {
+    kicker: string;
+    title: string;
+    body: string;
+    link: string;
+    setupLabel: string;
+    artLabel: string;
+  };
   ctaReady: string;
   ctaTitle: string;
   ctaLead: string;
@@ -75,6 +84,7 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
   en: {
     documentTitle: 'Tutorial — Mapshroom',
     navViewSteps: 'View steps',
+    navWhy: 'Why Mapshroom?',
     navOpenWorkspace: 'Open workspace',
     eyebrow: 'Camera → Mapshroom → projector',
     heroTitleBefore: 'Projection map everything,',
@@ -165,6 +175,15 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
         ],
       },
     },
+    why: {
+      kicker: 'The mission behind the tool',
+      title: 'Less setup. More time making.',
+      body:
+        'Mapshroom is free and open source because projection mapping should spend less of your time on configuration—and more of it on artistic production.',
+      link: 'Read why Mapshroom is free →',
+      setupLabel: 'Setup time',
+      artLabel: 'Art time',
+    },
     ctaReady: 'Everything is ready.',
     ctaTitle: 'Text-to-shader, locally.',
     ctaLead: 'Run open models inside Mapshroom — or connect your favorite LLM.',
@@ -175,6 +194,7 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
   it: {
     documentTitle: 'Tutorial — Mapshroom',
     navViewSteps: 'Vedi i passi',
+    navWhy: 'Perché Mapshroom?',
     navOpenWorkspace: 'Apri workspace',
     eyebrow: 'Camera → Mapshroom → proiettore',
     heroTitleBefore: 'Projection mapping reso semplice,',
@@ -264,6 +284,15 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
           { title: 'Riproduci in loop', detail: 'Schermo intero' },
         ],
       },
+    },
+    why: {
+      kicker: 'La missione dietro lo strumento',
+      title: 'Meno setup. Più tempo per creare.',
+      body:
+        'Mapshroom è gratis e open source perché il projection mapping dovrebbe prendere meno tempo alla configurazione—e lasciarne di più alla produzione artistica.',
+      link: 'Scopri perché Mapshroom è gratis →',
+      setupLabel: 'Tempo di setup',
+      artLabel: 'Tempo per l’arte',
     },
     ctaReady: 'Tutto pronto.',
     ctaTitle: 'Text-to-shader, in locale.',

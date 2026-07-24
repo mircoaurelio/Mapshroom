@@ -196,7 +196,7 @@ export function DownloadRoute() {
               {installing
                 ? 'Opening installer…'
                 : installState === 'installed'
-                  ? 'Download for offline mode'
+                  ? 'Explore Mapshroom Pro beta'
                   : 'Install Mapshroom'}
             </button>
 
@@ -289,7 +289,7 @@ export function DownloadRoute() {
 
       <ProBetaDialog
         open={betaOpen}
-        source="offline_tutorial"
+        source="installed_app"
         onClose={() => setBetaOpen(false)}
       />
     </>

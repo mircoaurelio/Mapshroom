@@ -67,6 +67,10 @@ interface ShaderTimelineEditorProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
+  hasShuffleUndo?: boolean;
+  onRandomizeShaders?: () => void;
+  onRestoreShaders?: () => void;
+  onDismissShuffleUndo?: () => void;
   onPinnedStepToggle: (stepId: string) => void;
   onAssignStepAsset: (stepId: string, assetId: string | null) => void;
   onImportAsset: (stepId: string) => void;
@@ -160,6 +164,18 @@ function ErrorIcon() {
   );
 }
 
+function ShuffleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.25 4.25h1.5c3.75 0 4.5 7.5 8.5 7.5h1.5" />
+      <path d="m11.75 9.75 2 2-2 2" />
+      <path d="M2.25 11.75h1.5c1.55 0 2.55-1.28 3.48-2.75" />
+      <path d="M8.78 6.95c.93-1.45 1.93-2.7 3.47-2.7h1.5" />
+      <path d="m11.75 2.25 2 2-2 2" />
+    </svg>
+  );
+}
+
 export function ShaderTimelineEditor({
   assets,
   assetKind,
@@ -178,6 +194,10 @@ export function ShaderTimelineEditor({
   onSharedTransitionChange,
   onMixDurationChange,
   onStepChange,
+  hasShuffleUndo = false,
+  onRandomizeShaders,
+  onRestoreShaders,
+  onDismissShuffleUndo,
   onPinnedStepToggle,
   onAssignStepAsset,
   onImportAsset,
@@ -217,6 +237,7 @@ export function ShaderTimelineEditor({
   const [assetPickerStepId, setAssetPickerStepId] = useState<string | null>(null);
   const [assetPickerPreviewAssetId, setAssetPickerPreviewAssetId] = useState<string | null>(null);
   const [shaderPickerStepId, setShaderPickerStepId] = useState<string | null>(null);
+  const [isShuffleConfirmationOpen, setIsShuffleConfirmationOpen] = useState(false);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
@@ -579,6 +600,21 @@ export function ShaderTimelineEditor({
   }, [assetPickerStepId, sequence.steps]);
 
   useEffect(() => {
+    if (!isShuffleConfirmationOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsShuffleConfirmationOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isShuffleConfirmationOpen]);
+
+  useEffect(() => {
     if (!assetPickerRequestStepId) {
       return;
     }
@@ -716,10 +752,56 @@ export function ShaderTimelineEditor({
       <div className="timeline-sequence-toolbar">
         <div className="timeline-sequence-copy">
           <span className="timeline-sequence-label">Timeline Logic</span>
-          <strong className="timeline-sequence-title">
-            {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
-            {formatStepDuration(totalDurationSeconds)}
-          </strong>
+          <div className="timeline-sequence-title-row">
+            <strong className="timeline-sequence-title">
+              {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
+              {formatStepDuration(totalDurationSeconds)}
+            </strong>
+
+            {onRandomizeShaders && onRestoreShaders && onDismissShuffleUndo ? (
+              <div
+                className={`timeline-crazy-slot ${
+                  hasShuffleUndo ? 'timeline-crazy-slot-active' : ''
+                }`}
+              >
+                {hasShuffleUndo ? (
+                  <div className="timeline-crazy-undo" role="status">
+                    <button
+                      type="button"
+                      className="timeline-crazy-undo-button"
+                      onClick={onRestoreShaders}
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      type="button"
+                      className="timeline-crazy-dismiss"
+                      aria-label="Dismiss shader restore"
+                      title="Keep randomized shaders"
+                      onClick={onDismissShuffleUndo}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="timeline-crazy-button"
+                    disabled={sequence.steps.length === 0 || savedShaders.length === 0}
+                    aria-label="Shuffle timeline shaders with Get Me Crazy"
+                    title="Randomize every shader in this timeline"
+                    onClick={() => setIsShuffleConfirmationOpen(true)}
+                  >
+                    <ShuffleIcon />
+                    <span>
+                      <small>Shuffle shaders</small>
+                      <strong>Get Me Crazy</strong>
+                    </span>
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="timeline-sequence-toolbar-actions">
@@ -737,7 +819,7 @@ export function ShaderTimelineEditor({
           ) : (
             <div className="timeline-shared-transition-toolbar">
               {usesSharedSectionDuration ? (
-                <label className="field timeline-compact-field timeline-shared-transition-field">
+                <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
                   <span>Section Time</span>
                   <input
                     className="text-field"
@@ -757,7 +839,7 @@ export function ShaderTimelineEditor({
               {showMixTimeControls ? (
                 <>
                   {usesSharedTransition ? (
-                    <label className="field timeline-compact-field timeline-shared-transition-field">
+                    <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-fx">
                       <span>Fx</span>
                       <select
                         className="select-field"
@@ -778,7 +860,7 @@ export function ShaderTimelineEditor({
                     </label>
                   ) : null}
 
-                  <label className="field timeline-compact-field timeline-shared-transition-field">
+                  <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-mix">
                     <span>Mix Time</span>
                     <input
                       className="text-field"
@@ -1107,6 +1189,68 @@ export function ShaderTimelineEditor({
           </div>
         ) : null}
       </div>
+
+      {isShuffleConfirmationOpen ? (
+        <div
+          className="dialog-backdrop timeline-crazy-dialog-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsShuffleConfirmationOpen(false);
+            }
+          }}
+        >
+          <section
+            className="dialog-panel timeline-crazy-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-crazy-dialog-title"
+            aria-describedby="timeline-crazy-dialog-copy"
+          >
+            <header className="dialog-header">
+              <div>
+                <span className="panel-eyebrow">Timeline Shuffle</span>
+                <h2 id="timeline-crazy-dialog-title" className="dialog-title">
+                  Get Me Crazy?
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setIsShuffleConfirmationOpen(false)}
+              >
+                Close
+              </button>
+            </header>
+            <div className="dialog-body timeline-crazy-dialog-body">
+              <p id="timeline-crazy-dialog-copy">
+                Are you sure you want to do this? Every shader in the timeline will be
+                randomized using shaders already available in the app.
+              </p>
+              <small>You can restore the current shaders once with Go Back.</small>
+            </div>
+            <footer className="dialog-footer">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setIsShuffleConfirmationOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button timeline-crazy-confirm"
+                onClick={() => {
+                  onRandomizeShaders?.();
+                  setIsShuffleConfirmationOpen(false);
+                }}
+              >
+                Yes, Get Me Crazy
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
 
       {assetPickerStep && assetPickerShader ? (
         <div
