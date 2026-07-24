@@ -216,8 +216,8 @@ const ONBOARDING_COPY = {
     welcomeTitle: 'How would you like to begin?',
     welcomeCopy:
       'Start creating immediately, or take a short guided tour of the projection mapping workflow and workspace.',
-    welcomeStartMapping: 'Go directly into mapping',
-    welcomeLearnApp: 'Know how this app works',
+    welcomeStartMapping: 'Go directly to the workspace',
+    welcomeLearnApp: 'Start the guided tutorial',
     welcomeWhyLink: 'Discover why it is free',
     welcomeTutorialLink: 'Projector setup tutorial',
     stepLabel: (currentStep: number, totalSteps: number) => `Step ${currentStep} of ${totalSteps}`,
@@ -346,8 +346,8 @@ const ONBOARDING_COPY = {
     welcomeTitle: 'Come vuoi iniziare?',
     welcomeCopy:
       "Inizia subito a creare, oppure segui una breve guida al flusso di projection mapping e all'area di lavoro.",
-    welcomeStartMapping: 'Vai direttamente al mapping',
-    welcomeLearnApp: "Scopri come funziona l'app",
+    welcomeStartMapping: "Vai direttamente all'area di lavoro",
+    welcomeLearnApp: 'Inizia il tutorial guidato',
     welcomeWhyLink: 'Scopri perché è gratuita',
     welcomeTutorialLink: 'Tutorial configurazione proiettore',
     stepLabel: (currentStep: number, totalSteps: number) => `Passo ${currentStep} di ${totalSteps}`,
@@ -852,7 +852,10 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
         >
           <div className="onboarding-welcome-content">
             <div className="onboarding-welcome-mark" aria-hidden="true">
-              M
+              <img
+                src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
+                alt=""
+              />
             </div>
             <div className="onboarding-welcome-copy">
               <span className="panel-eyebrow">{onboardingCopy.welcomeEyebrow}</span>
@@ -863,16 +866,16 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
               <button
                 type="button"
                 className="primary-button onboarding-welcome-primary"
-                onClick={onClose}
+                onClick={() => setShowWelcome(false)}
               >
-                {onboardingCopy.welcomeStartMapping}
+                {onboardingCopy.welcomeLearnApp}
               </button>
               <button
                 type="button"
                 className="secondary-button onboarding-welcome-secondary"
-                onClick={() => setShowWelcome(false)}
+                onClick={onClose}
               >
-                {onboardingCopy.welcomeLearnApp}
+                {onboardingCopy.welcomeStartMapping}
               </button>
             </div>
             <nav className="onboarding-welcome-links" aria-label="Mapshroom resources">

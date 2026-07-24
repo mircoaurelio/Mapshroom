@@ -452,6 +452,24 @@ export function WorkspaceToolbar({
                 >
                   Settings
                 </button>
+                <div className="toolbar-menu-divider" role="separator" />
+                <span className="toolbar-menu-section-label">Help</span>
+                <Link
+                  to="/why"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Why Mapshroom?
+                </Link>
+                <Link
+                  to="/tutorial"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Tutorial &amp; help
+                </Link>
                 <Link
                   to="/download"
                   role="menuitem"
