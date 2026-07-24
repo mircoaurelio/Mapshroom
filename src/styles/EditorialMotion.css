@@ -1,0 +1,87 @@
+.has-editorial-motion [data-reveal] {
+  opacity: 0;
+  filter: blur(7px);
+  transform: translate3d(0, 34px, 0) scale(.985);
+  transition:
+    opacity .85s cubic-bezier(.22, 1, .36, 1),
+    filter .85s cubic-bezier(.22, 1, .36, 1),
+    transform .85s cubic-bezier(.22, 1, .36, 1);
+  will-change: opacity, filter, transform;
+}
+
+.has-editorial-motion [data-reveal='left'] {
+  transform: translate3d(-38px, 0, 0);
+}
+
+.has-editorial-motion [data-reveal='right'] {
+  transform: translate3d(38px, 0, 0);
+}
+
+.has-editorial-motion [data-reveal='scale'] {
+  transform: translate3d(0, 24px, 0) scale(.94);
+}
+
+.has-editorial-motion [data-reveal].is-in-view {
+  opacity: 1;
+  filter: blur(0);
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.has-editorial-motion [data-reveal-group] > * {
+  opacity: 0;
+  filter: blur(5px);
+  transform: translate3d(0, 26px, 0);
+  transition:
+    opacity .72s cubic-bezier(.22, 1, .36, 1),
+    filter .72s cubic-bezier(.22, 1, .36, 1),
+    transform .72s cubic-bezier(.22, 1, .36, 1);
+  will-change: opacity, filter, transform;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > * {
+  opacity: 1;
+  filter: blur(0);
+  transform: translate3d(0, 0, 0);
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(2) {
+  transition-delay: 70ms;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(3) {
+  transition-delay: 140ms;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(4) {
+  transition-delay: 210ms;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(5) {
+  transition-delay: 280ms;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(6) {
+  transition-delay: 350ms;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(7) {
+  transition-delay: 420ms;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(8) {
+  transition-delay: 490ms;
+}
+
+.has-editorial-motion [data-reveal-group].is-in-view > :nth-child(9) {
+  transition-delay: 560ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .has-editorial-motion [data-reveal],
+  .has-editorial-motion [data-reveal-group] > * {
+    opacity: 1;
+    filter: none;
+    transform: none;
+    transition: none;
+  }
+}
