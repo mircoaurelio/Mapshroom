@@ -452,6 +452,24 @@ export function WorkspaceToolbar({
                 >
                   Settings
                 </button>
+                <div className="toolbar-menu-divider" role="separator" />
+                <span className="toolbar-menu-section-label">Help</span>
+                <Link
+                  to="/why"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Why Mapshroom?
+                </Link>
+                <Link
+                  to="/tutorial"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Tutorial &amp; help
+                </Link>
                 <Link
                   to="/download"
                   role="menuitem"
@@ -466,14 +484,17 @@ export function WorkspaceToolbar({
 
           <button
             type="button"
-            className={`secondary-button toolbar-menu-button ${
+            data-onboarding-area="mapping"
+            className={`secondary-button toolbar-menu-button toolbar-move-button ${
               moveMode ? 'toolbar-menu-button-active toolbar-move-button-active' : ''
             }`}
             aria-pressed={moveMode}
             title={moveMode ? 'Turn move mode off' : 'Turn move mode on'}
             onClick={onToggleMoveMode}
           >
-            {moveMode ? 'Move Off' : 'Move'}
+            <span className="toolbar-move-indicator" aria-hidden="true" />
+            <span>Move</span>
+            <small>{moveMode ? 'On' : 'Off'}</small>
           </button>
 
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">

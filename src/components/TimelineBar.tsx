@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import {
@@ -48,6 +49,7 @@ interface TimelineBarProps {
   midiManualMixArmed?: boolean;
   markers: string[];
   tracks: TimelineStub['tracks'];
+  transportControls?: ReactNode;
   onSeek: (seconds: number) => void;
   onRepeatSectionSelect: (stepId: string, seconds: number) => void;
   onPlayToggle: () => void;
@@ -63,6 +65,10 @@ interface TimelineBarProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
+  hasSequenceShuffleUndo: boolean;
+  onRandomizeSequenceShaders: () => void;
+  onRestoreSequenceShaders: () => void;
+  onDismissSequenceShuffleUndo: () => void;
   onSequencePinnedStepToggle: (stepId: string) => void;
   onAssignSequenceStepAsset: (stepId: string, assetId: string | null) => void;
   onImportSequenceAsset: (stepId: string) => void;
@@ -305,12 +311,17 @@ export function TimelineBar({
   midiManualMixArmed = false,
   markers,
   tracks,
+  transportControls,
   onSeek,
   onRepeatSectionSelect,
   onSequenceModeChange,
   onSequenceSharedTransitionChange,
   onSequenceMixDurationChange,
   onSequenceStepChange,
+  hasSequenceShuffleUndo,
+  onRandomizeSequenceShaders,
+  onRestoreSequenceShaders,
+  onDismissSequenceShuffleUndo,
   onSequencePinnedStepToggle,
   onAssignSequenceStepAsset,
   onImportSequenceAsset,
@@ -749,6 +760,7 @@ export function TimelineBar({
       <div className="timeline-rail-grid">
         <div className="timeline-rail-leading">
           <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
+          {transportControls}
         </div>
 
         <div
@@ -1132,6 +1144,10 @@ export function TimelineBar({
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onMixDurationChange={onSequenceMixDurationChange}
         onStepChange={onSequenceStepChange}
+        hasShuffleUndo={hasSequenceShuffleUndo}
+        onRandomizeShaders={onRandomizeSequenceShaders}
+        onRestoreShaders={onRestoreSequenceShaders}
+        onDismissShuffleUndo={onDismissSequenceShuffleUndo}
         onPinnedStepToggle={onSequencePinnedStepToggle}
         onAssignStepAsset={onAssignSequenceStepAsset}
         onImportAsset={onImportSequenceAsset}

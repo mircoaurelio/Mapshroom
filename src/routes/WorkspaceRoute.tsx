@@ -9,14 +9,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
 import { AssetSegmentationDialog } from '../components/AssetSegmentationDialog';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
-import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PlaybackControls } from '../components/PlaybackControls';
@@ -213,6 +212,14 @@ const ONBOARDING_CALLOUT_GAP_PX = 16;
 const ONBOARDING_CALLOUT_MARGIN_PX = 16;
 const ONBOARDING_COPY = {
   en: {
+    welcomeEyebrow: 'Welcome to Mapshroom',
+    welcomeTitle: 'How would you like to begin?',
+    welcomeCopy:
+      'Start creating immediately, or take a short guided tour of the projection mapping workflow and workspace.',
+    welcomeStartMapping: 'Go directly to the workspace',
+    welcomeLearnApp: 'Start the guided tutorial',
+    welcomeWhyLink: 'Discover why it is free',
+    welcomeTutorialLink: 'Projector setup tutorial',
     stepLabel: (currentStep: number, totalSteps: number) => `Step ${currentStep} of ${totalSteps}`,
     dismissPermanently: "Don't show again",
     back: 'Back',
@@ -303,23 +310,23 @@ const ONBOARDING_COPY = {
         ],
       },
       {
-        title: 'Slider And Position Control',
-        eyebrow: 'Mapping',
+        title: 'Slider And Asset Control',
+        eyebrow: 'Controls',
         placement: 'controls',
         points: [
           'Tune shader values with sliders.',
-          'Move, resize, and reset the mapped image.',
-          'Use smaller precision values for final alignment.',
+          'Use Step Asset to load dedicated media for a timeline step.',
+          'Asset controls appear only after media is assigned.',
         ],
       },
       {
         title: 'Move The Mapping',
-        eyebrow: 'Tap Grid',
+        eyebrow: 'Move',
         placement: 'mapping',
         points: [
-          'Scroll to Stage Mapping and Tap Grid in the left controls.',
-          'Turn Move Mode On before aligning the projection.',
-          'Use Tap Grid to nudge, resize, and rotate the image onto the real subject.',
+          'Use the highlighted Move switch in the top bar.',
+          'Move On opens the direction, size, and precision controls over the canvas.',
+          'Turn Move off again when the projection is aligned.',
         ],
       },
       {
@@ -335,6 +342,14 @@ const ONBOARDING_COPY = {
     ],
   },
   it: {
+    welcomeEyebrow: 'Benvenuto in Mapshroom',
+    welcomeTitle: 'Come vuoi iniziare?',
+    welcomeCopy:
+      "Inizia subito a creare, oppure segui una breve guida al flusso di projection mapping e all'area di lavoro.",
+    welcomeStartMapping: "Vai direttamente all'area di lavoro",
+    welcomeLearnApp: 'Inizia il tutorial guidato',
+    welcomeWhyLink: 'Scopri perché è gratuita',
+    welcomeTutorialLink: 'Tutorial configurazione proiettore',
     stepLabel: (currentStep: number, totalSteps: number) => `Passo ${currentStep} di ${totalSteps}`,
     dismissPermanently: 'Non mostrare più',
     back: 'Indietro',
@@ -425,23 +440,23 @@ const ONBOARDING_COPY = {
         ],
       },
       {
-        title: 'Slider e controllo posizione',
-        eyebrow: 'Mapping',
+        title: 'Slider e controllo asset',
+        eyebrow: 'Controlli',
         placement: 'controls',
         points: [
           'Regola i valori dello shader con gli slider.',
-          "Sposta, ridimensiona e reimposta l'immagine mappata.",
-          "Usa valori di precisione più piccoli per l'allineamento finale.",
+          'Usa Step Asset per caricare un contenuto dedicato a un passaggio della timeline.',
+          "I controlli dell'asset compaiono solo dopo aver assegnato un contenuto.",
         ],
       },
       {
         title: 'Sposta il mapping',
-        eyebrow: 'Tap Grid',
+        eyebrow: 'Move',
         placement: 'mapping',
         points: [
-          'Scorri fino a Stage Mapping e Tap Grid nei controlli a sinistra.',
-          'Attiva Move Mode prima di allineare la proiezione.',
-          "Usa Tap Grid per spostare, ridimensionare e ruotare l'immagine sul soggetto reale.",
+          'Usa il pulsante Move evidenziato nella barra superiore.',
+          'Move On mostra sul canvas i controlli di direzione, dimensione e precisione.',
+          'Disattiva Move quando la proiezione è allineata.',
         ],
       },
       {
@@ -630,6 +645,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const calloutCardRef = useRef<HTMLElement | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
   const [highlightRect, setHighlightRect] = useState<{
@@ -639,6 +655,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
     height: number;
   } | null>(null);
   const [calloutStyle, setCalloutStyle] = useState<CSSProperties | undefined>(undefined);
+  const [onboardingTargetMissing, setOnboardingTargetMissing] = useState(false);
   const onboardingCopy = ONBOARDING_COPY[locale];
   const onboardingTotalStepCount = ONBOARDING_SETUP_STEP_COUNT + onboardingCopy.uiAreas.length;
   const activeUiArea =
@@ -651,11 +668,17 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   useLayoutEffect(() => {
     overlayRef.current?.scrollTo({ top: 0, left: 0 });
     bodyRef.current?.scrollTo({ top: 0, left: 0 });
-  }, [activeStepIndex]);
+  }, [activeStepIndex, showWelcome]);
 
   const goToPreviousStep = () => {
+    if (activeStepIndex === 0) {
+      setShowWelcome(true);
+      return;
+    }
+
     setHighlightRect(null);
     setCalloutStyle(undefined);
+    setOnboardingTargetMissing(false);
     setActiveStepIndex((currentValue) => Math.max(0, currentValue - 1));
   };
   const goToNextStep = () => {
@@ -666,6 +689,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
     setHighlightRect(null);
     setCalloutStyle(undefined);
+    setOnboardingTargetMissing(false);
     setActiveStepIndex((currentValue) =>
       Math.min(onboardingTotalStepCount - 1, currentValue + 1),
     );
@@ -680,7 +704,6 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
         <button
           type="button"
           className="secondary-button"
-          disabled={activeStepIndex === 0}
           onClick={goToPreviousStep}
         >
           {onboardingCopy.back}
@@ -706,9 +729,12 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
         if (!targetElement) {
           setHighlightRect(null);
+          setCalloutStyle(undefined);
+          setOnboardingTargetMissing(true);
           return;
         }
 
+        setOnboardingTargetMissing(false);
         const rect = targetElement.getBoundingClientRect();
         const padding = 6;
         setHighlightRect({
@@ -817,7 +843,51 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
         </div>
       ) : null}
 
-      {!activeUiArea ? (
+      {showWelcome ? (
+        <section
+          className="onboarding-panel onboarding-welcome-panel"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="onboarding-welcome-title"
+        >
+          <div className="onboarding-welcome-content">
+            <div className="onboarding-welcome-mark" aria-hidden="true">
+              <img
+                src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
+                alt=""
+              />
+            </div>
+            <div className="onboarding-welcome-copy">
+              <span className="panel-eyebrow">{onboardingCopy.welcomeEyebrow}</span>
+              <h2 id="onboarding-welcome-title">{onboardingCopy.welcomeTitle}</h2>
+              <p>{onboardingCopy.welcomeCopy}</p>
+            </div>
+            <div className="onboarding-welcome-actions">
+              <button
+                type="button"
+                className="primary-button onboarding-welcome-primary"
+                onClick={() => setShowWelcome(false)}
+              >
+                {onboardingCopy.welcomeLearnApp}
+              </button>
+              <button
+                type="button"
+                className="secondary-button onboarding-welcome-secondary"
+                onClick={onClose}
+              >
+                {onboardingCopy.welcomeStartMapping}
+              </button>
+            </div>
+            <nav className="onboarding-welcome-links" aria-label="Mapshroom resources">
+              <Link to="/why">{onboardingCopy.welcomeWhyLink}</Link>
+              <span aria-hidden="true">|</span>
+              <Link to="/tutorial">{onboardingCopy.welcomeTutorialLink}</Link>
+            </nav>
+          </div>
+        </section>
+      ) : null}
+
+      {!activeUiArea && !showWelcome ? (
         <section
           className="onboarding-panel onboarding-setup-panel"
           role="dialog"
@@ -907,7 +977,11 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
           <article
             ref={calloutCardRef}
             className={`onboarding-area-card onboarding-area-card-${activeUiArea.placement} ${
-              calloutStyle ? 'onboarding-area-card-positioned' : 'onboarding-area-card-measuring'
+              onboardingTargetMissing
+                ? 'onboarding-area-card-fallback'
+                : calloutStyle
+                  ? 'onboarding-area-card-positioned'
+                  : 'onboarding-area-card-measuring'
             }`}
             style={calloutStyle}
           >
@@ -1366,6 +1440,14 @@ interface TimelineRepeatExitPlan {
   focusedStepId: string;
   resumeAtTransportTimeSeconds: number;
   resumeTimelineTimeSeconds: number;
+}
+
+interface TimelineShaderShuffleUndo {
+  sessionId: string;
+  assignments: Array<{
+    stepId: string;
+    shaderId: string;
+  }>;
 }
 
 function getTimelineRepeatExitPlan(
@@ -2128,6 +2210,8 @@ export function WorkspaceRoute() {
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
   const [pendingTimelineRepeatExit, setPendingTimelineRepeatExit] =
     useState<TimelineRepeatExitPlan | null>(null);
+  const [timelineShaderShuffleUndo, setTimelineShaderShuffleUndo] =
+    useState<TimelineShaderShuffleUndo | null>(null);
   const [timelineScrollToStepRequest, setTimelineScrollToStepRequest] = useState<{
     stepId: string;
     token: number;
@@ -3615,6 +3699,100 @@ export function WorkspaceRoute() {
     }
   }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
+  const handleRandomizeTimelineShaders = useCallback(() => {
+    if (!project) {
+      return;
+    }
+
+    const shaderIds = project.studio.savedShaders
+      .filter((shader) => !shader.isTemporary)
+      .map((shader) => shader.id);
+    const steps = project.timeline.stub.shaderSequence.steps;
+    if (shaderIds.length === 0 || steps.length === 0) {
+      setStatusMessage('Add shaders to the app before using Get Me Crazy.');
+      return;
+    }
+
+    const assignments = steps.map((step) => {
+      const differentShaderIds = shaderIds.filter((shaderId) => shaderId !== step.shaderId);
+      const candidates = differentShaderIds.length > 0 ? differentShaderIds : shaderIds;
+      return {
+        stepId: step.id,
+        shaderId: candidates[Math.floor(Math.random() * candidates.length)] ?? step.shaderId,
+      };
+    });
+    const assignmentMap = new Map(
+      assignments.map((assignment) => [assignment.stepId, assignment.shaderId]),
+    );
+
+    setTimelineShaderShuffleUndo({
+      sessionId: project.sessionId,
+      assignments: steps.map((step) => ({
+        stepId: step.id,
+        shaderId: step.shaderId,
+      })),
+    });
+    setPendingTimelineRepeatExit(null);
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            randomSeedToken: createTimelineRandomSeedToken(),
+            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => ({
+              ...step,
+              shaderId: assignmentMap.get(step.id) ?? step.shaderId,
+            })),
+          },
+        },
+      },
+    }));
+    setStatusMessage('Timeline shaders randomized. Use Go Back to restore the previous set.');
+  }, [project, updateProject]);
+
+  const handleRestoreTimelineShaders = useCallback(() => {
+    if (!timelineShaderShuffleUndo || !project) {
+      return;
+    }
+
+    if (timelineShaderShuffleUndo.sessionId !== project.sessionId) {
+      setTimelineShaderShuffleUndo(null);
+      return;
+    }
+
+    const assignmentMap = new Map(
+      timelineShaderShuffleUndo.assignments.map((assignment) => [
+        assignment.stepId,
+        assignment.shaderId,
+      ]),
+    );
+    updateProject((currentProject) => ({
+      ...currentProject,
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            randomSeedToken: createTimelineRandomSeedToken(),
+            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => ({
+              ...step,
+              shaderId: assignmentMap.get(step.id) ?? step.shaderId,
+            })),
+          },
+        },
+      },
+    }));
+    setTimelineShaderShuffleUndo(null);
+    setStatusMessage('Previous timeline shaders restored.');
+  }, [project, timelineShaderShuffleUndo, updateProject]);
+
+  const handleDismissTimelineShaderRestore = useCallback(() => {
+    setTimelineShaderShuffleUndo(null);
+    setStatusMessage('Randomized timeline shaders kept.');
+  }, []);
+
   const handleTimelinePinnedStepToggle = useCallback((stepId: string) => {
     if (!project) {
       return;
@@ -3977,21 +4155,6 @@ export function WorkspaceRoute() {
     }));
   };
 
-  const handleMappingReset = () => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      mapping: {
-        stageTransform: {
-          ...currentProject.mapping.stageTransform,
-          offsetX: 0,
-          offsetY: 0,
-          widthAdjust: 0,
-          heightAdjust: 0,
-        },
-      },
-    }));
-  };
-
   const setMoveMode = (enabled: boolean) => {
     updateProject((currentProject) => ({
       ...currentProject,
@@ -4006,40 +4169,6 @@ export function WorkspaceRoute() {
 
   const toggleMoveMode = () => {
     setMoveMode(!project?.mapping.stageTransform.moveMode);
-  };
-
-  const toggleRotationLock = async () => {
-    const shouldLock = !project?.mapping.stageTransform.rotationLocked;
-    const orientationApi = screen.orientation as ScreenOrientation & {
-      lock?: (orientation: 'landscape' | 'portrait') => Promise<void>;
-      unlock?: () => void;
-    };
-
-    if (shouldLock) {
-      try {
-        await orientationApi.lock?.(
-          window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
-        );
-      } catch (error) {
-        console.debug('Rotation lock is not available on this browser.', error);
-      }
-    } else {
-      try {
-        orientationApi.unlock?.();
-      } catch (error) {
-        console.debug('Rotation unlock is not available on this browser.', error);
-      }
-    }
-
-    updateProject((currentProject) => ({
-      ...currentProject,
-      mapping: {
-        stageTransform: {
-          ...currentProject.mapping.stageTransform,
-          rotationLocked: !currentProject.mapping.stageTransform.rotationLocked,
-        },
-      },
-    }));
   };
 
   const updateStagePrecision = (nextPrecision: number) => {
@@ -6018,6 +6147,8 @@ ${errorSnapshot}`,
   )
     ? project.studio.savedShaders
     : [liveShaderEntry, ...project.studio.savedShaders];
+  const hasTimelineShaderShuffleUndo =
+    timelineShaderShuffleUndo?.sessionId === project.sessionId;
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
   const previewShader =
     previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
@@ -6027,7 +6158,10 @@ ${errorSnapshot}`,
     timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
     (isMobile ? editingTimelineStepId !== null : timelineSequenceEnabled);
   const desktopTimelineFocusedPreviewActive =
-    !isMobile && !workspaceStageMirrorsOutput && timelineFocusedPreviewActive;
+    !isMobile &&
+    !workspaceStageMirrorsOutput &&
+    timelineFocusedPreviewActive &&
+    pendingTimelineRepeatExit === null;
   const timelinePlaybackSteps = getEffectiveTimelinePlaybackSteps({
     mode: timelineStub.shaderSequence.mode,
     randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
@@ -6504,20 +6638,6 @@ ${errorSnapshot}`,
     />
   );
 
-  const mappingPanel = (
-    <MappingPanel
-      stageTransform={stageTransform}
-      onToggleMoveMode={toggleMoveMode}
-      onReset={handleMappingReset}
-      onPrecisionChange={updateStagePrecision}
-      onToggleRotationLock={() => {
-        void toggleRotationLock();
-      }}
-      onAction={handleMappingAction}
-      showPrecisionSlider={!isMobile}
-    />
-  );
-
   const timelineStepAssetPanel = (
     <TimelineStepAssetPanel
       stepLabel={
@@ -6546,6 +6666,7 @@ ${errorSnapshot}`,
           ? () => handleTimelineAssignStepAsset(inspectorTimelineStep.id, null)
           : null
       }
+      onOpenProBeta={() => setProBetaSource('asset_generate')}
       isPinnedStep={
         inspectorTimelineStep ? pinnedTimelineStepId === inspectorTimelineStep.id : false
       }
@@ -6568,6 +6689,21 @@ ${errorSnapshot}`,
       midiManualMixArmed={midiManualMixArmed}
       markers={timelineMarkers}
       tracks={timelineTracks}
+      transportControls={
+        !isMobile && uiPreferences.chromeVisible ? (
+          <PlaybackControls
+            canNavigate={playableTimelineSteps.length > 1}
+            hasTimeline={timelineSequenceEnabled}
+            isRepeatEnabled={
+              timelineStub.shaderSequence.singleStepLoopEnabled &&
+              pendingTimelineRepeatExit === null
+            }
+            onPrevious={() => handlePlaybackStepOffset(-1)}
+            onRepeatToggle={handlePlaybackFocusToggle}
+            onNext={() => handlePlaybackStepOffset(1)}
+          />
+        ) : null
+      }
       onSeek={handleTimelineSeek}
       onRepeatSectionSelect={handleTimelineRepeatSectionSelect}
       onPlayToggle={handlePlayToggle}
@@ -6575,6 +6711,10 @@ ${errorSnapshot}`,
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceMixDurationChange={handleTimelineMixDurationChange}
       onSequenceStepChange={handleTimelineStepChange}
+      hasSequenceShuffleUndo={hasTimelineShaderShuffleUndo}
+      onRandomizeSequenceShaders={handleRandomizeTimelineShaders}
+      onRestoreSequenceShaders={handleRestoreTimelineShaders}
+      onDismissSequenceShuffleUndo={handleDismissTimelineShaderRestore}
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
       onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
@@ -6667,17 +6807,39 @@ ${errorSnapshot}`,
         onCanvasReady={(canvas) => { stageCanvasRef.current = canvas; }}
       />
 
-      {(!isMobile && uiPreferences.chromeVisible) ||
-      (isMobile && mobileChromeVisible && mobilePanel === null && !isMobileTimelineOpen) ? (
-        <PlaybackControls
-          canNavigate={playableTimelineSteps.length > 1}
-          hasTimeline={timelineSequenceEnabled}
-          isRepeatEnabled={timelineStub.shaderSequence.singleStepLoopEnabled}
-          onPrevious={() => handlePlaybackStepOffset(-1)}
-          onRepeatToggle={handlePlaybackFocusToggle}
-          onNext={() => handlePlaybackStepOffset(1)}
-        />
-      ) : null}
+      <div
+        className={`stage-corner-controls ${
+          stageControlsVisible ? 'stage-corner-controls-mapping-visible' : ''
+        } ${isMobile ? 'stage-corner-controls-mobile' : ''}`}
+      >
+        {isMobile &&
+        mobileChromeVisible &&
+        mobilePanel === null &&
+        !isMobileTimelineOpen ? (
+          <PlaybackControls
+            canNavigate={playableTimelineSteps.length > 1}
+            hasTimeline={timelineSequenceEnabled}
+            isRepeatEnabled={
+              timelineStub.shaderSequence.singleStepLoopEnabled &&
+              pendingTimelineRepeatExit === null
+            }
+            onPrevious={() => handlePlaybackStepOffset(-1)}
+            onRepeatToggle={handlePlaybackFocusToggle}
+            onNext={() => handlePlaybackStepOffset(1)}
+          />
+        ) : null}
+
+        {stageControlsVisible ? (
+          <div className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}>
+            <MappingPad
+              onAction={handleMappingAction}
+              onPrecisionChange={updateStagePrecision}
+              precision={stageTransform.precision}
+              variant={isMobile ? 'overlay' : 'default'}
+            />
+          </div>
+        ) : null}
+      </div>
 
       {aiLoading ? (
         <div className="ai-loading-overlay">
@@ -6703,17 +6865,6 @@ ${errorSnapshot}`,
           >
             {aiLoading ? 'Fixing...' : 'Fix Error'}
           </button>
-        </div>
-      ) : null}
-
-      {stageControlsVisible ? (
-        <div className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}>
-          <MappingPad
-            onAction={handleMappingAction}
-            onPrecisionChange={updateStagePrecision}
-            precision={stageTransform.precision}
-            variant={isMobile ? 'overlay' : 'default'}
-          />
         </div>
       ) : null}
 
@@ -6823,7 +6974,7 @@ ${errorSnapshot}`,
             setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
-          onOpenProBeta={() => setProBetaSource('offline_tutorial')}
+          onOpenProBeta={() => setProBetaSource('installed_app')}
           onNewShader={() => {
             trackUiClick('new_shader');
             createNewShader();
@@ -6896,7 +7047,6 @@ ${errorSnapshot}`,
                       <div className="workspace-pane-scroll">
                         {desktopSlidersPanel}
                         {timelineStepAssetPanel}
-                        {mappingPanel}
                       </div>
                     </aside>
 
@@ -6943,9 +7093,7 @@ ${errorSnapshot}`,
             />
 
             <aside
-              className={`workspace-pane workspace-pane-right ${
-                timelineEditingInDesktopPane ? 'workspace-pane-right-editing' : ''
-              }`}
+              className="workspace-pane workspace-pane-right"
               data-onboarding-area="code"
               style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
             >
@@ -6967,7 +7115,6 @@ ${errorSnapshot}`,
                   {aiPanel}
                   {studioPanel}
                   {timelineStepAssetPanel}
-                  {mappingPanel}
                 </div>
               </aside>
             ) : null}
@@ -7019,6 +7166,7 @@ ${errorSnapshot}`,
           isTimelineOpen={isMobileTimelineOpen}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
+          moveMode={stageTransform.moveMode}
           onOpenProjects={() => {
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
@@ -7036,19 +7184,14 @@ ${errorSnapshot}`,
             setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
-          onOpenProBeta={() => setProBetaSource('offline_tutorial')}
+          onOpenProBeta={() => setProBetaSource('installed_app')}
           onOpenTimeline={handleOpenMobileTimeline}
           onToggleMapping={handleMobileToggleMapping}
           onHide={handleMobileHide}
           onPanelChange={handleMobilePanelChange}
           panels={{
             studio: mobileShaderPanel,
-            mapping: (
-              <>
-                {timelineStepAssetPanel}
-                {mappingPanel}
-              </>
-            ),
+            mapping: null,
           }}
         />
       ) : null}
@@ -7076,6 +7219,10 @@ ${errorSnapshot}`,
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
         onSequenceMixDurationChange={handleTimelineMixDurationChange}
         onSequenceStepChange={handleTimelineStepChange}
+        hasSequenceShuffleUndo={hasTimelineShaderShuffleUndo}
+        onRandomizeSequenceShaders={handleRandomizeTimelineShaders}
+        onRestoreSequenceShaders={handleRestoreTimelineShaders}
+        onDismissSequenceShuffleUndo={handleDismissTimelineShaderRestore}
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
         onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}

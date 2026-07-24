@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useEditorialMotion } from '../hooks/useEditorialMotion';
 import { resolveTutorialLocale, TUTORIAL_COPY } from '../lib/tutorialCopy';
+import '../styles/EditorialMotion.css';
 import './TutorialRoute.css';
 
 type MediaProps = {
@@ -13,7 +15,7 @@ type MediaProps = {
 
 function Media({ src, alt, className = '', marker, clickLabel = 'Click here' }: MediaProps) {
   return (
-    <figure className={`tutorial-media ${className}`.trim()}>
+    <figure className={`tutorial-media ${className}`.trim()} data-reveal="scale">
       <img src={src} alt={alt} loading="lazy" />
       {marker ? (
         <div className="tutorial-click-marker" style={{ left: marker.x, top: marker.y }}>
@@ -36,7 +38,7 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <div className="tutorial-step-copy">
+    <div className="tutorial-step-copy" data-reveal>
       <span className="tutorial-step-number">{number}</span>
       <div><p className="tutorial-step-kicker">{stepLabel}</p><h2>{title}</h2>{children}</div>
     </div>
@@ -45,6 +47,7 @@ function Step({
 
 export function TutorialRoute() {
   const [locale] = useState(() => resolveTutorialLocale());
+  const motionRef = useEditorialMotion<HTMLElement>();
   const copy = TUTORIAL_COPY[locale];
 
   useEffect(() => {
@@ -58,19 +61,37 @@ export function TutorialRoute() {
     };
   }, [copy.documentTitle, locale]);
 
+  const scrollToSteps = () => {
+    document.getElementById('steps')?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  };
+
   return (
-    <main className="tutorial-page" lang={locale}>
+    <main ref={motionRef} className="tutorial-page" lang={locale}>
       <nav className="tutorial-nav">
         <Link to="/" className="tutorial-brand"><img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" /><span>Mapshroom</span></Link>
-        <div><a href="#steps">{copy.navViewSteps}</a><Link to="/" className="tutorial-open-button">{copy.navOpenWorkspace}</Link></div>
+        <div>
+          <button type="button" className="tutorial-nav-anchor" onClick={scrollToSteps}>
+            {copy.navViewSteps}
+          </button>
+          <Link to="/why" className="tutorial-why-nav-link">{copy.navWhy}</Link>
+          <Link to="/" className="tutorial-open-button">{copy.navOpenWorkspace}</Link>
+        </div>
       </nav>
 
-      <header className="tutorial-hero">
+      <header className="tutorial-hero" data-scroll-hero>
         <div className="tutorial-hero-copy">
           <p className="tutorial-eyebrow">{copy.eyebrow}</p>
           <h1>{copy.heroTitleBefore}<br /><em>{copy.heroTitleEmphasis}</em></h1>
           <p className="tutorial-hero-lead">{copy.heroLead}</p>
-          <div className="tutorial-hero-actions"><a href="#steps" className="tutorial-primary-button">{copy.heroCta}</a><span>{copy.heroDuration}</span></div>
+          <div className="tutorial-hero-actions">
+            <button type="button" className="tutorial-primary-button" onClick={scrollToSteps}>
+              {copy.heroCta}
+            </button>
+            <span>{copy.heroDuration}</span>
+          </div>
         </div>
         <div className="tutorial-hero-visual">
           <img src="assets/onboarding/photo-source-garden.webp" alt="" />
@@ -79,7 +100,7 @@ export function TutorialRoute() {
         </div>
       </header>
 
-      <section className="tutorial-kit" aria-label={copy.kitLabel}>
+      <section className="tutorial-kit" aria-label={copy.kitLabel} data-reveal-group>
         {copy.kit.map((item) => (
           <div key={item.number}><span>{item.number}</span><strong>{item.title}</strong><small>{item.detail}</small></div>
         ))}
@@ -92,7 +113,7 @@ export function TutorialRoute() {
             <Media src="assets/onboarding/capture-from-projector-view.webp" alt="" />
             <Media src="assets/onboarding/align-phone-camera.webp" alt="" />
           </div>
-          <aside className="tutorial-tip"><strong>{copy.steps.photograph.tipLabel}</strong> {copy.steps.photograph.tip}</aside>
+          <aside className="tutorial-tip" data-reveal><strong>{copy.steps.photograph.tipLabel}</strong> {copy.steps.photograph.tip}</aside>
         </section>
 
         <section className="tutorial-step tutorial-step-load">
@@ -102,13 +123,13 @@ export function TutorialRoute() {
             </Step>
             <Media className="tutorial-ui-shot tutorial-zoom-shot" src="assets/tutorial/load-output-zoom-v2.png" alt="" marker={{ label: '1', x: '69%', y: '5%' }} clickLabel={copy.clickHere} />
           </div>
-          <div className="tutorial-action-line"><kbd>LOAD ASSET</kbd><span>→</span><p>{copy.steps.load.action}</p></div>
+          <div className="tutorial-action-line" data-reveal><kbd>LOAD ASSET</kbd><span>→</span><p>{copy.steps.load.action}</p></div>
         </section>
 
         <section className="tutorial-step">
           <Step number="03" title={copy.steps.process.title} stepLabel={copy.stepLabel('03')}><p>{copy.steps.process.body}</p></Step>
           <div className="tutorial-processing-demo">
-            <figure className="tutorial-media tutorial-mask-video">
+            <figure className="tutorial-media tutorial-mask-video" data-reveal="scale">
               <video autoPlay muted loop playsInline preload="metadata" poster="assets/tutorial/remove-background-loop-poster-v2.jpg" aria-label={copy.steps.process.videoAria}>
                 <source src="assets/tutorial/remove-background-loop-v3.mp4" type="video/mp4" />
               </video>
@@ -119,12 +140,12 @@ export function TutorialRoute() {
               <Media className="tutorial-depth-dialog-shot" src="assets/tutorial/create-depth-map-v2.png" alt="" />
             </div>
           </div>
-          <div className="tutorial-process-grid">
+          <div className="tutorial-process-grid" data-reveal-group>
             <article><Media src="assets/onboarding/photo-source-garden.webp" alt="" /><span>{copy.steps.process.original}</span><h3>{copy.steps.process.yourPhoto}</h3></article>
             <article><Media src="assets/onboarding/photo-background-removed.webp" alt="" /><span>{copy.steps.process.click1}</span><h3>{copy.steps.process.removeBackground}</h3></article>
             <article className="tutorial-depth-result-card"><Media src="assets/tutorial/depth-map-result-v2.png" alt="" /><span>{copy.steps.process.click2}</span><h3>{copy.steps.process.depthMap}</h3></article>
           </div>
-          <div className="tutorial-action-line"><kbd>REMOVE BACKGROUND</kbd><span>then</span><kbd>DEPTH MAP</kbd></div>
+          <div className="tutorial-action-line" data-reveal><kbd>REMOVE BACKGROUND</kbd><span>then</span><kbd>DEPTH MAP</kbd></div>
         </section>
 
         <section className="tutorial-step">
@@ -141,7 +162,7 @@ export function TutorialRoute() {
               clickLabel={copy.clickHere}
             />
           </div>
-          <ol className="tutorial-mini-steps">
+          <ol className="tutorial-mini-steps" data-reveal-group>
             {copy.steps.projector.mini.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -152,7 +173,11 @@ export function TutorialRoute() {
           <Step number="05" title={copy.steps.fit.title} stepLabel={copy.stepLabel('05')}>
             <p>{copy.steps.fit.bodyBefore}<strong>{copy.steps.fit.bodyStrong}</strong>{copy.steps.fit.bodyAfter}</p>
           </Step>
-          <figure className="tutorial-media tutorial-move-toolbar" aria-label={copy.steps.fit.toolbarHint}>
+          <figure
+            className="tutorial-media tutorial-move-toolbar"
+            aria-label={copy.steps.fit.toolbarHint}
+            data-reveal="scale"
+          >
             <div className="tutorial-move-toolbar-row">
               <span>File</span>
               <strong>Move</strong>
@@ -163,8 +188,8 @@ export function TutorialRoute() {
             </div>
             <figcaption>{copy.steps.fit.toolbarHint}</figcaption>
           </figure>
-          <div className="tutorial-action-line"><kbd>FILE</kbd><span>→</span><kbd>MOVE</kbd><span>→</span><p>{copy.steps.fit.action}</p></div>
-          <div className="tutorial-mapping-demo">
+          <div className="tutorial-action-line" data-reveal><kbd>FILE</kbd><span>→</span><kbd>MOVE</kbd><span>→</span><p>{copy.steps.fit.action}</p></div>
+          <div className="tutorial-mapping-demo" data-reveal="scale">
             <div className="tutorial-mapping-stage"><img src="assets/onboarding/photo-background-removed.webp" alt="" /><span /></div>
             <div className="tutorial-mapping-card"><p>MOVE / SIZE</p><div className="tutorial-mapping-pad"><button type="button">H−</button><button type="button" className="active">↑</button><button type="button">H+</button><button type="button" className="active">←</button><button type="button" className="precision">Precision<strong>12</strong></button><button type="button" className="active">→</button><button type="button">W−</button><button type="button" className="active">↓</button><button type="button">W+</button></div><small>{copy.steps.fit.cardHint}</small></div>
           </div>
@@ -181,19 +206,19 @@ export function TutorialRoute() {
             </p>
           </Step>
           <Media className="tutorial-ui-shot tutorial-hq-gallery" src="assets/tutorial/shader-gallery-hq-v3.png" alt="" marker={{ label: '3', x: '50%', y: '48%' }} clickLabel={copy.clickHere} />
-          <div className="tutorial-action-line"><kbd>SHADER</kbd><span>→</span><kbd>PRESET LIST</kbd><span>→</span><p>{copy.steps.shader.action}</p></div>
+          <div className="tutorial-action-line" data-reveal><kbd>SHADER</kbd><span>→</span><kbd>PRESET LIST</kbd><span>→</span><p>{copy.steps.shader.action}</p></div>
         </section>
 
         <section className="tutorial-step">
           <Step number="07" title={copy.steps.customize.title} stepLabel={copy.stepLabel('07')}><p>{copy.steps.customize.body}</p></Step>
           <Media className="tutorial-ui-shot tutorial-hq-controls" src="assets/tutorial/shader-controls-hq-v3.png" alt="" marker={{ label: '4', x: '14%', y: '29%' }} clickLabel={copy.clickHere} />
-          <aside className="tutorial-tip"><strong>{copy.steps.customize.tipLabel}</strong> {copy.steps.customize.tip}</aside>
+          <aside className="tutorial-tip" data-reveal><strong>{copy.steps.customize.tipLabel}</strong> {copy.steps.customize.tip}</aside>
         </section>
 
         <section className="tutorial-step">
           <Step number="08" title={copy.steps.timeline.title} stepLabel={copy.stepLabel('08')}><p>{copy.steps.timeline.body}</p></Step>
           <Media className="tutorial-ui-shot tutorial-hq-timeline" src="assets/tutorial/timeline-v4.png" alt="" />
-          <div className="tutorial-timeline-key">
+          <div className="tutorial-timeline-key" data-reveal-group>
             {copy.steps.timeline.keys.map((key) => (
               <span key={key}><i />{key}</span>
             ))}
@@ -202,7 +227,7 @@ export function TutorialRoute() {
 
         <section className="tutorial-step tutorial-step-finish">
           <Step number="09" title={copy.steps.export.title} stepLabel={copy.stepLabel('09')}><p>{copy.steps.export.body}</p></Step>
-          <div className="tutorial-finish-flow">
+          <div className="tutorial-finish-flow" data-reveal-group>
             {copy.steps.export.flow.map((item, index) => (
               <span key={item.title} className="tutorial-finish-flow-item">
                 {index > 0 ? <b aria-hidden="true">→</b> : null}
@@ -214,7 +239,29 @@ export function TutorialRoute() {
         </section>
       </div>
 
-      <section className="tutorial-cta">
+      <section className="tutorial-why">
+        <div className="tutorial-why-copy" data-reveal="left">
+          <p className="tutorial-eyebrow">{copy.why.kicker}</p>
+          <h2>{copy.why.title}</h2>
+          <p>{copy.why.body}</p>
+          <Link to="/why">{copy.why.link}</Link>
+        </div>
+        <div className="tutorial-why-visual" aria-hidden="true" data-reveal="right">
+          <div>
+            <span>01</span>
+            <small>{copy.why.setupLabel}</small>
+            <strong>↓</strong>
+          </div>
+          <i>→</i>
+          <div>
+            <span>02</span>
+            <small>{copy.why.artLabel}</small>
+            <strong>↑</strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="tutorial-cta" data-reveal-group>
         <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
         <p>{copy.ctaReady}</p>
         <h2>{copy.ctaTitle}</h2>
