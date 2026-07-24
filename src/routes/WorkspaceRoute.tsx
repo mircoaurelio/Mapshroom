@@ -1259,6 +1259,173 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
   };
 }
 
+function getProjectTimelinePlaybackSteps(project: ProjectDocument) {
+  const sequence = project.timeline.stub.shaderSequence;
+  return getEffectiveTimelinePlaybackSteps({
+    mode: sequence.mode,
+    randomChoiceEnabled: sequence.randomChoiceEnabled,
+    steps: sequence.steps,
+    sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
+    sharedTransitionEnabled: sequence.sharedTransitionEnabled,
+    sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
+    pinnedStepId: sequence.pinnedStepId ?? null,
+  }).filter(isTimelineStepEnabled);
+}
+
+function getProjectTimelineRandomSeedSalt(project: ProjectDocument): string {
+  const sequence = project.timeline.stub.shaderSequence;
+  const randomSeedToken = sequence.randomSeedToken || project.sessionId;
+
+  if (sequence.mode === 'double') {
+    return `double-primary:${randomSeedToken}`;
+  }
+
+  if (
+    sequence.mode === 'random' ||
+    sequence.mode === 'randomMix' ||
+    sequence.randomChoiceEnabled
+  ) {
+    return `random:${randomSeedToken}`;
+  }
+
+  return '';
+}
+
+function getProjectTimelineMode(project: ProjectDocument) {
+  const sequence = project.timeline.stub.shaderSequence;
+  return sequence.mode === 'double'
+    ? 'randomMix' as const
+    : sequence.randomChoiceEnabled
+      ? 'random' as const
+      : sequence.mode;
+}
+
+function resolveProjectTimelineState(
+  project: ProjectDocument,
+  singleStepLoopEnabled: boolean,
+  nowMs = performance.now(),
+) {
+  const sequence = project.timeline.stub.shaderSequence;
+  return resolveShaderTimelineState({
+    shaders: project.studio.savedShaders,
+    mode: sequence.mode,
+    focusedStepId: sequence.focusedStepId,
+    singleStepLoopEnabled,
+    randomChoiceEnabled: sequence.randomChoiceEnabled,
+    sharedTransitionEnabled: sequence.sharedTransitionEnabled,
+    sharedTransitionEffect: sequence.sharedTransitionEffect,
+    sharedTransitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
+    sharedSectionDurationSeconds: sequence.sharedSectionDurationSeconds,
+    steps: getProjectTimelinePlaybackSteps(project),
+    timeSeconds: getTransportTimeSeconds(project.playback.transport, nowMs),
+    loop: project.playback.transport.loop,
+    randomSeedSalt: getProjectTimelineRandomSeedSalt(project),
+  });
+}
+
+function getTimelineRepeatSeekTime(
+  project: ProjectDocument,
+  stepId: string,
+  localTimeSeconds = 0,
+): number {
+  const playbackSteps = getProjectTimelinePlaybackSteps(project);
+  const stepIndex = playbackSteps.findIndex((step) => step.id === stepId);
+  if (stepIndex < 0) {
+    return 0;
+  }
+
+  const stepStartSeconds = playbackSteps
+    .slice(0, stepIndex)
+    .reduce(
+      (totalSeconds, step) =>
+        totalSeconds + clampTimelineStepDuration(step.durationSeconds),
+      0,
+    );
+  const stepDurationSeconds = clampTimelineStepDuration(
+    playbackSteps[stepIndex].durationSeconds,
+  );
+  const boundedLocalTimeSeconds = Math.max(
+    0,
+    Math.min(stepDurationSeconds - 0.001, localTimeSeconds),
+  );
+
+  return stepStartSeconds + boundedLocalTimeSeconds;
+}
+
+function getTimelineResumeTimeFromRepeat(
+  project: ProjectDocument,
+  nowMs = performance.now(),
+): number {
+  const repeatState = resolveProjectTimelineState(project, true, nowMs);
+  if (!repeatState) {
+    return getTransportTimeSeconds(project.playback.transport, nowMs);
+  }
+
+  const playbackSteps = getProjectTimelinePlaybackSteps(project);
+  const totalDurationSeconds = getShaderTimelineDuration(playbackSteps);
+  if (totalDurationSeconds <= 0) {
+    return 0;
+  }
+
+  const absoluteTimeSeconds = getTransportTimeSeconds(
+    project.playback.transport,
+    nowMs,
+  );
+  const cycleIndex = Math.floor(
+    Math.max(0, absoluteTimeSeconds) / totalDurationSeconds,
+  );
+  const cycleSteps = getTimelineCycleSteps({
+    mode: getProjectTimelineMode(project),
+    steps: playbackSteps,
+    cycleIndex,
+    randomSeedSalt: getProjectTimelineRandomSeedSalt(project),
+  });
+  const focusedStepIndex = cycleSteps.findIndex(
+    (step) => step.id === repeatState.currentStep.id,
+  );
+  if (focusedStepIndex < 0) {
+    return getTimelineRepeatSeekTime(
+      project,
+      repeatState.currentStep.id,
+      repeatState.localTimeSeconds,
+    );
+  }
+
+  const stepStartSeconds = cycleSteps
+    .slice(0, focusedStepIndex)
+    .reduce(
+      (totalSeconds, step) =>
+        totalSeconds + clampTimelineStepDuration(step.durationSeconds),
+      0,
+    );
+
+  return (
+    cycleIndex * totalDurationSeconds +
+    stepStartSeconds +
+    repeatState.localTimeSeconds
+  );
+}
+
+function activateTimelineOnAppEntry(project: ProjectDocument): ProjectDocument {
+  return {
+    ...project,
+    timeline: {
+      stub: {
+        ...project.timeline.stub,
+        shaderSequence: {
+          ...project.timeline.stub.shaderSequence,
+          stagePreviewMode: 'timeline',
+          singleStepLoopEnabled: false,
+        },
+      },
+    },
+    playback: {
+      ...project.playback,
+      transport: playTransport(project.playback.transport),
+    },
+  };
+}
+
 function sanitizeAiMessage(message: string): string {
   return message
     .replaceAll('Google Gemini', 'AI')
@@ -1891,6 +2058,7 @@ export function WorkspaceRoute() {
   } | null>(null);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
+  const [highlightAssetStartMapping, setHighlightAssetStartMapping] = useState(false);
   const [showAssetImportFirstStep, setShowAssetImportFirstStep] = useState(() =>
     isAssetsImportStepPending(),
   );
@@ -1902,6 +2070,7 @@ export function WorkspaceRoute() {
   const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
   const [presetSelectionAddsToTimeline, setPresetSelectionAddsToTimeline] = useState(false);
+  const [mobilePresetAddFlow, setMobilePresetAddFlow] = useState(false);
   const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
   const [studioPreviewOverride, setStudioPreviewOverride] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
@@ -2047,8 +2216,10 @@ export function WorkspaceRoute() {
       // get a fresh starter project with a small random shader set.
       if (isBundledProjectSessionId(sessionId) && !linkedProject) {
         const nextSessionId = crypto.randomUUID();
-        const starterProject = normalizeProject(
-          createDefaultProject(nextSessionId, { isMobile: initialIsMobileRef.current }),
+        const starterProject = activateTimelineOnAppEntry(
+          normalizeProject(
+            createDefaultProject(nextSessionId, { isMobile: initialIsMobileRef.current }),
+          ),
         );
         persistActiveSessionId(nextSessionId);
         saveProjectDocument(starterProject);
@@ -2062,7 +2233,11 @@ export function WorkspaceRoute() {
         loadProjectDocument(sessionId) ??
         createDefaultProject(sessionId, { isMobile: initialIsMobileRef.current });
       const sliderCache = loadShaderSliderCache(sessionId);
-      setProject(applyPersistedSliderCache(normalizeProject(loadedProject), sliderCache));
+      setProject(
+        activateTimelineOnAppEntry(
+          applyPersistedSliderCache(normalizeProject(loadedProject), sliderCache),
+        ),
+      );
     })();
 
     return () => {
@@ -2080,7 +2255,9 @@ export function WorkspaceRoute() {
           return;
         }
 
-        const normalizedImportedProject = normalizeProject(importedSharedProject.project);
+        const normalizedImportedProject = activateTimelineOnAppEntry(
+          normalizeProject(importedSharedProject.project),
+        );
         setProject(normalizedImportedProject);
         setSavedProjects(
           saveProjectToLibrary(normalizedImportedProject, normalizedImportedProject.name),
@@ -2970,12 +3147,23 @@ export function WorkspaceRoute() {
         ? `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added to the library.`
         : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`,
     );
+    if (filePickerSource === 'library') {
+      setHighlightAssetStartMapping(true);
+    }
     event.target.value = '';
   };
 
   const handlePlayToggle = () => {
     updateProject((currentProject) => {
       const wasPlaying = currentProject.playback.transport.isPlaying;
+      const nowMs = performance.now();
+      const currentTimelineState = wasPlaying
+        ? resolveProjectTimelineState(
+            currentProject,
+            currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
+            nowMs,
+          )
+        : null;
       const startsFromBeginning =
         !wasPlaying &&
         currentProject.playback.transport.currentTimeSeconds <=
@@ -2986,10 +3174,21 @@ export function WorkspaceRoute() {
 
       return {
         ...nextProject,
+        timeline: currentTimelineState
+          ? {
+              stub: {
+                ...nextProject.timeline.stub,
+                shaderSequence: {
+                  ...nextProject.timeline.stub.shaderSequence,
+                  focusedStepId: currentTimelineState.currentStep.id,
+                },
+              },
+            }
+          : nextProject.timeline,
         playback: {
           ...nextProject.playback,
           transport: wasPlaying
-            ? pauseTransport(nextProject.playback.transport)
+            ? pauseTransport(nextProject.playback.transport, nowMs)
             : playTransport(nextProject.playback.transport),
         },
       };
@@ -3144,33 +3343,6 @@ export function WorkspaceRoute() {
       },
     }));
   }, [updateProject]);
-
-  const handleTimelineStagePreviewModeChange = useCallback(
-    (stagePreviewMode: TimelineStagePreviewMode) => {
-      setStudioPreviewOverride(false);
-      updateProject((currentProject) => {
-        const shaderSequence = currentProject.timeline.stub.shaderSequence;
-
-        return {
-          ...currentProject,
-          timeline: {
-            stub: {
-              ...currentProject.timeline.stub,
-              shaderSequence: {
-                ...shaderSequence,
-                stagePreviewMode,
-                singleStepLoopEnabled:
-                  stagePreviewMode === 'timeline'
-                    ? false
-                    : shaderSequence.singleStepLoopEnabled,
-              },
-            },
-          },
-        };
-      });
-    },
-    [updateProject],
-  );
 
   const handleTimelineSharedTransitionChange = useCallback((
     patch: {
@@ -5257,6 +5429,15 @@ ${errorSnapshot}`,
     setIsMobileTimelineOpen(true);
   };
 
+  const handleMobileAddShader = () => {
+    setPreviewShaderId(null);
+    setPresetSelectionAddsToTimeline(true);
+    setMobilePresetAddFlow(true);
+    setMobilePanel(null);
+    setIsMobileTimelineOpen(false);
+    setIsPresetBrowserOpen(true);
+  };
+
   const handleStageReveal = useCallback(() => {
     if (!isMobile || uiPreferences.mobileUiMode !== 'hidden') return;
     updateMobileUiMode('bar');
@@ -5315,36 +5496,17 @@ ${errorSnapshot}`,
         void selectTimelineStepForEditing(stepToEdit.id, {
           focusStudioOnMobile: false,
           stagePreviewMode: 'focused',
+          seekTimeSeconds: project
+            ? getTimelineRepeatSeekTime(
+                project,
+                stepToEdit.id,
+                currentTimelineState?.localTimeSeconds ?? 0,
+              )
+            : 0,
         });
       }
     }
     setMobilePanel(panel);
-  };
-
-  const handleFinishMobileShaderEditing = () => {
-    setEditingTimelineStepId(null);
-    setMobilePanel(null);
-    setIsMobileTimelineOpen(false);
-    setMoveMode(false);
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            stagePreviewMode: 'timeline',
-            singleStepLoopEnabled: false,
-          },
-        },
-      },
-      playback: {
-        ...currentProject.playback,
-        transport: playTransport(currentProject.playback.transport),
-      },
-    }));
-    updateMobileUiMode('bar');
-    setStatusMessage('Shader editing finished. Timeline playback resumed.');
   };
 
   const requestTimelineAssetPicker = useCallback((stepId: string) => {
@@ -5377,7 +5539,6 @@ ${errorSnapshot}`,
     options?: {
       suppressStatus?: boolean;
       focusStudioOnMobile?: boolean;
-      pauseTimeline?: boolean;
       stagePreviewMode?: TimelineStagePreviewMode;
       seekTimeSeconds?: number | null;
     },
@@ -5431,6 +5592,9 @@ ${errorSnapshot}`,
         item.id === stepId ? { ...item, shaderId: editableShader.id } : item,
       );
       const isAlreadyActive = currentProject.studio.activeShaderId === editableShader.id;
+      const nextStagePreviewMode =
+        options?.stagePreviewMode ??
+        currentProject.timeline.stub.shaderSequence.stagePreviewMode;
 
       nextStatusMessage = isOwnedDraft
         ? `Editing linked shader for timeline step ${stepIndex + 1}.`
@@ -5467,27 +5631,26 @@ ${errorSnapshot}`,
               ...currentProject.timeline.stub,
               shaderSequence: {
                 ...currentProject.timeline.stub.shaderSequence,
-                stagePreviewMode:
-                  options?.stagePreviewMode ??
-                  currentProject.timeline.stub.shaderSequence.stagePreviewMode,
+                stagePreviewMode: nextStagePreviewMode,
                 focusedStepId: stepId,
-                singleStepLoopEnabled: isMobile
-                  ? true
-                  : currentProject.timeline.stub.shaderSequence.singleStepLoopEnabled,
+                singleStepLoopEnabled: nextStagePreviewMode === 'focused',
                 steps: nextSteps,
               },
             },
           },
           playback:
-            options?.pauseTimeline
+            isMobile
               ? {
                   ...currentProject.playback,
-                  transport: pauseTransport(currentProject.playback.transport),
-                }
-              : isMobile
-              ? {
-                  ...currentProject.playback,
-                  transport: playTransport(currentProject.playback.transport),
+                  transport: playTransport(
+                    options?.seekTimeSeconds !== undefined &&
+                    options.seekTimeSeconds !== null
+                      ? seekTransport(
+                          currentProject.playback.transport,
+                          options.seekTimeSeconds,
+                        )
+                      : currentProject.playback.transport,
+                  ),
                 }
               : options?.seekTimeSeconds !== undefined && options.seekTimeSeconds !== null
               ? {
@@ -5525,7 +5688,26 @@ ${errorSnapshot}`,
   const handleTimelineEditStep = useCallback((stepId: string) => {
     void selectTimelineStepForEditing(stepId, {
       stagePreviewMode: 'focused',
+      seekTimeSeconds: project
+        ? getTimelineRepeatSeekTime(project, stepId)
+        : 0,
     });
+  }, [project, selectTimelineStepForEditing]);
+
+  const handleTimelineRepeatSectionSelect = useCallback((
+    stepId: string,
+    timeSeconds: number,
+  ) => {
+    void selectTimelineStepForEditing(stepId, {
+      focusStudioOnMobile: false,
+      stagePreviewMode: 'focused',
+      seekTimeSeconds: timeSeconds,
+    });
+    setTimelineScrollToStepRequest({
+      stepId,
+      token: performance.now(),
+    });
+    setStatusMessage('Repeating the selected timeline section.');
   }, [selectTimelineStepForEditing]);
 
   const handleMobileEditingStepOffset = useCallback((offset: number) => {
@@ -5542,6 +5724,9 @@ ${errorSnapshot}`,
     void selectTimelineStepForEditing(nextStep.id, {
       focusStudioOnMobile: false,
       stagePreviewMode: 'focused',
+      seekTimeSeconds: project
+        ? getTimelineRepeatSeekTime(project, nextStep.id)
+        : 0,
     });
     setStatusMessage(`Editing shader ${nextIndex + 1} of ${steps.length}.`);
   }, [editingTimelineStepId, project, selectTimelineStepForEditing]);
@@ -5694,8 +5879,6 @@ ${errorSnapshot}`,
     ? project.studio.savedShaders
     : [liveShaderEntry, ...project.studio.savedShaders];
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
-  const fullTimelineStagePreviewActive =
-    timelineStub.shaderSequence.stagePreviewMode === 'timeline';
   const previewShader =
     previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
   const workspaceStageMirrorsOutput = outputWindowOpen && !isMobile;
@@ -5832,41 +6015,61 @@ ${errorSnapshot}`,
     })?.currentStep.id ?? null;
   };
   const handlePlaybackFocusToggle = () => {
-    if (editingTimelineStepId !== null) {
+    if (
+      timelineStub.shaderSequence.singleStepLoopEnabled ||
+      timelineStub.shaderSequence.stagePreviewMode === 'focused'
+    ) {
       setEditingTimelineStepId(null);
       setStudioPreviewOverride(false);
-      handleTimelineStagePreviewModeChange('timeline');
-      setStatusMessage('Shader editing finished. Showing the full timeline in the stage.');
-      return;
-    }
+      updateProject((currentProject) => {
+        const nowMs = performance.now();
+        const resumeTimeSeconds = getTimelineResumeTimeFromRepeat(
+          currentProject,
+          nowMs,
+        );
 
-    if (timelineStub.shaderSequence.stagePreviewMode === 'focused') {
-      handleTimelineStagePreviewModeChange('timeline');
-      setStatusMessage('Showing the full timeline in the stage.');
-      return;
-    }
-
-    const focusedStepId = resolveCurrentPlaybackStepId();
-    setStudioPreviewOverride(false);
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            stagePreviewMode: 'focused',
-            focusedStepId:
-              focusedStepId ?? currentProject.timeline.stub.shaderSequence.focusedStepId,
+        return {
+          ...currentProject,
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              shaderSequence: {
+                ...currentProject.timeline.stub.shaderSequence,
+                stagePreviewMode: 'timeline',
+                singleStepLoopEnabled: false,
+              },
+            },
           },
-        },
-      },
-      playback: {
-        ...currentProject.playback,
-        transport: pauseTransport(currentProject.playback.transport),
-      },
-    }));
-    setStatusMessage('Timeline paused. Focused the current shader in the stage.');
+          playback: {
+            ...currentProject.playback,
+            transport: seekTransport(
+              currentProject.playback.transport,
+              resumeTimeSeconds,
+              nowMs,
+            ),
+          },
+        };
+      });
+      setStatusMessage('Full timeline resumed from the highlighted shader.');
+      return;
+    }
+
+    const currentTimelineState = resolveProjectTimelineState(project, false);
+    if (!currentTimelineState) {
+      return;
+    }
+
+    const repeatTimeSeconds = getTimelineRepeatSeekTime(
+      project,
+      currentTimelineState.currentStep.id,
+      currentTimelineState.localTimeSeconds,
+    );
+    void selectTimelineStepForEditing(currentTimelineState.currentStep.id, {
+      focusStudioOnMobile: false,
+      stagePreviewMode: 'focused',
+      seekTimeSeconds: repeatTimeSeconds,
+    });
+    setStatusMessage('Repeating the highlighted shader while its animation keeps running.');
   };
   const handlePlaybackStepOffset = (offset: -1 | 1) => {
     if (isMobile && editingTimelineStepId) {
@@ -5897,6 +6100,22 @@ ${errorSnapshot}`,
           totalSeconds + clampTimelineStepDuration(step.durationSeconds),
         0,
       );
+
+    if (
+      timelineStub.shaderSequence.singleStepLoopEnabled ||
+      timelineStub.shaderSequence.stagePreviewMode === 'focused'
+    ) {
+      void selectTimelineStepForEditing(nextStep.id, {
+        focusStudioOnMobile: false,
+        stagePreviewMode: 'focused',
+        seekTimeSeconds: nextTimeSeconds,
+      });
+      setStatusMessage(
+        `${offset > 0 ? 'Next' : 'Previous'} repeated shader: ${nextIndex + 1} of ${playableTimelineSteps.length}.`,
+      );
+      return;
+    }
+
     updateProject((currentProject) => {
       const currentSequence = currentProject.timeline.stub.shaderSequence;
       return {
@@ -5985,17 +6204,22 @@ ${errorSnapshot}`,
       return;
     }
 
-    const currentStepId = resolveCurrentPlaybackStepId();
-    if (!currentStepId) {
+    const currentTimelineState = resolveProjectTimelineState(project, false);
+    if (!currentTimelineState) {
       return;
     }
 
-    void selectTimelineStepForEditing(currentStepId, {
-      pauseTimeline: true,
+    const repeatTimeSeconds = getTimelineRepeatSeekTime(
+      project,
+      currentTimelineState.currentStep.id,
+      currentTimelineState.localTimeSeconds,
+    );
+    void selectTimelineStepForEditing(currentTimelineState.currentStep.id, {
       stagePreviewMode: 'focused',
+      seekTimeSeconds: repeatTimeSeconds,
     });
     setStatusMessage(
-      'Timeline paused. Editing the current shader. Use the red arrow to return to the full sequence.',
+      'Repeating and editing the current shader. Use the red repeat button to return to the full sequence.',
     );
   };
 
@@ -6069,9 +6293,7 @@ ${errorSnapshot}`,
       }}
     />
   );
-  const desktopSlidersPanel = timelineEditingInDesktopPane ? null : desktopSliderPanel;
-  const desktopInspectorSlidersPanel =
-    timelineEditingInDesktopPane ? desktopSliderPanel : null;
+  const desktopSlidersPanel = desktopSliderPanel;
 
   const desktopShaderToolsPanel = (
     <ShaderStudioControlsSection
@@ -6128,7 +6350,7 @@ ${errorSnapshot}`,
         onDuplicateStep={handleTimelineDuplicateStep}
         onRemoveStep={handleTimelineRemoveStep}
         onEditStep={handleMobileShaderCardEdit}
-        onAddStep={createNewShader}
+        onAddStep={handleMobileAddShader}
         mobileCardsOnly
       />
       {mobileShaderToolsPanel}
@@ -6219,6 +6441,7 @@ ${errorSnapshot}`,
       markers={timelineMarkers}
       tracks={timelineTracks}
       onSeek={handleTimelineSeek}
+      onRepeatSectionSelect={handleTimelineRepeatSectionSelect}
       onPlayToggle={handlePlayToggle}
       onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
@@ -6319,23 +6542,9 @@ ${errorSnapshot}`,
         <PlaybackControls
           canNavigate={playableTimelineSteps.length > 1}
           hasTimeline={timelineSequenceEnabled}
-          isEditing={editingTimelineStepId !== null}
-          isFocused={!fullTimelineStagePreviewActive}
-          isPlaying={
-            isMobile && editingTimelineStepId
-              ? false
-              : project.playback.transport.isPlaying
-          }
-          primaryActionLabel={
-            isMobile && editingTimelineStepId ? 'Resume timeline playback' : undefined
-          }
-          onFocusToggle={handlePlaybackFocusToggle}
+          isRepeatEnabled={timelineStub.shaderSequence.singleStepLoopEnabled}
           onPrevious={() => handlePlaybackStepOffset(-1)}
-          onPlayToggle={
-            isMobile && editingTimelineStepId
-              ? handleFinishMobileShaderEditing
-              : handlePlayToggle
-          }
+          onRepeatToggle={handlePlaybackFocusToggle}
           onNext={() => handlePlaybackStepOffset(1)}
         />
       ) : null}
@@ -6612,7 +6821,6 @@ ${errorSnapshot}`,
               <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
                 {aiPanel}
                 {desktopShaderToolsPanel}
-                {desktopInspectorSlidersPanel}
                 {desktopCodePanel}
                 {desktopHistoryPanel}
               </div>
@@ -6654,8 +6862,12 @@ ${errorSnapshot}`,
         onEditMask={handleAssetMaskOpen}
         onRemoveAsset={handleAssetRemove}
         onOpenProBeta={() => setProBetaSource('asset_generate')}
-        onClose={() => setIsAssetLibraryOpen(false)}
+        onClose={() => {
+          setHighlightAssetStartMapping(false);
+          setIsAssetLibraryOpen(false);
+        }}
         showImportFirstStep={showAssetImportFirstStep}
+        highlightStartMapping={highlightAssetStartMapping}
         onImportFirstStepDismiss={() => {
           dismissAssetsFirstStepPermanently();
           setShowAssetImportFirstStep(false);
@@ -6726,6 +6938,7 @@ ${errorSnapshot}`,
         markers={timelineMarkers}
         tracks={timelineTracks}
         onSeek={handleTimelineSeek}
+        onRepeatSectionSelect={handleTimelineRepeatSectionSelect}
         onPlayToggle={handlePlayToggle}
         onSequenceModeChange={handleTimelineSequenceModeChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
@@ -6747,7 +6960,7 @@ ${errorSnapshot}`,
         onRemoveSequenceStep={handleTimelineRemoveStep}
         onResizeSequenceBoundary={handleTimelineResizeBoundary}
         onEditSequenceStep={handleTimelineEditStep}
-        onAddSequenceStep={createNewShader}
+        onAddSequenceStep={handleMobileAddShader}
         scrollToStepRequest={timelineScrollToStepRequest}
         onClose={() => setIsMobileTimelineOpen(false)}
       />
@@ -6857,6 +7070,7 @@ ${errorSnapshot}`,
         activeShaderId={project.studio.activeShaderId}
         assetUrl={activeAssetUrl}
         addSelectionToTimeline={presetSelectionAddsToTimeline}
+        timelineAddRequired={mobilePresetAddFlow}
         onAddSelectionToTimelineChange={setPresetSelectionAddsToTimeline}
         onPreviewStart={(shaderId) => setPreviewShaderId(shaderId)}
         onPreviewEnd={(shaderId) =>
@@ -6868,6 +7082,10 @@ ${errorSnapshot}`,
         onClose={() => {
           setPreviewShaderId(null);
           setIsPresetBrowserOpen(false);
+          if (isMobile) {
+            setPresetSelectionAddsToTimeline(false);
+            setMobilePresetAddFlow(false);
+          }
         }}
       />
 

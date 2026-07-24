@@ -49,6 +49,7 @@ interface TimelineBarProps {
   markers: string[];
   tracks: TimelineStub['tracks'];
   onSeek: (seconds: number) => void;
+  onRepeatSectionSelect: (stepId: string, seconds: number) => void;
   onPlayToggle: () => void;
   onSequenceModeChange: (mode: TimelineSequenceMode) => void;
   onSequenceSharedTransitionChange: (patch: {
@@ -305,6 +306,7 @@ export function TimelineBar({
   markers,
   tracks,
   onSeek,
+  onRepeatSectionSelect,
   onSequenceModeChange,
   onSequenceSharedTransitionChange,
   onSequenceMixDurationChange,
@@ -520,15 +522,6 @@ export function TimelineBar({
     transportTimeSeconds,
   ]);
   const safeDurationSeconds = timelineState ? timelineState.totalDurationSeconds : baseDurationSeconds;
-  const visibleTimeSeconds = clampTimelineTime(
-    transportTimeSeconds,
-    safeDurationSeconds,
-    transport.loop,
-  );
-  const markerStops = useMemo(
-    () => getMarkerStops(markers, safeDurationSeconds),
-    [markers, safeDurationSeconds],
-  );
   const stepSegments = useMemo(
     () => getTimelineStepSegments(playbackDisplaySteps),
     [playbackDisplaySteps],
@@ -539,8 +532,20 @@ export function TimelineBar({
   );
   const repeatedDisplaySegment =
     sequence.singleStepLoopEnabled && sequence.focusedStepId
-      ? displayStepSegments.find((segment) => segment.step.id === sequence.focusedStepId) ?? null
+      ? stepSegments.find((segment) => segment.step.id === sequence.focusedStepId) ?? null
       : null;
+  const visibleTimeSeconds =
+    repeatedDisplaySegment && timelineState
+      ? timelineState.stepStartSeconds + timelineState.localTimeSeconds
+      : clampTimelineTime(
+          transportTimeSeconds,
+          safeDurationSeconds,
+          transport.loop,
+        );
+  const markerStops = useMemo(
+    () => getMarkerStops(markers, safeDurationSeconds),
+    [markers, safeDurationSeconds],
+  );
   const transitionSegments = useMemo(
     () => getTimelineTransitionSegments({ sequence, stepSegments }),
     [sequence, stepSegments],
@@ -589,6 +594,40 @@ export function TimelineBar({
     setScrubValue(null);
   };
 
+  const seekTimelinePosition = (nextTimeSeconds: number) => {
+    const boundedTimeSeconds = Math.max(
+      0,
+      Math.min(safeDurationSeconds, nextTimeSeconds),
+    );
+
+    if (repeatedDisplaySegment && stepSegments.length > 0) {
+      const targetRatio =
+        safeDurationSeconds > 0
+          ? Math.min(1, boundedTimeSeconds / safeDurationSeconds)
+          : 0;
+      const remainsInsideRepeatedSection =
+        targetRatio >= repeatedDisplaySegment.startRatio &&
+        targetRatio <= repeatedDisplaySegment.endRatio;
+      if (remainsInsideRepeatedSection) {
+        onSeek(boundedTimeSeconds);
+        return;
+      }
+      const targetSegment =
+        stepSegments.find(
+          (segment, index) =>
+            targetRatio >= segment.startRatio &&
+            (targetRatio < segment.endRatio || index === stepSegments.length - 1),
+        ) ?? repeatedDisplaySegment;
+
+      if (targetSegment.step.id !== repeatedDisplaySegment.step.id) {
+        onRepeatSectionSelect(targetSegment.step.id, boundedTimeSeconds);
+        return;
+      }
+    }
+
+    onSeek(boundedTimeSeconds);
+  };
+
   const handleScrubChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextTimeSeconds = Number(event.target.value);
     if (rangeScrubActiveRef.current) {
@@ -596,13 +635,13 @@ export function TimelineBar({
     } else {
       setScrubValue(null);
     }
-    onSeek(nextTimeSeconds);
+    seekTimelinePosition(nextTimeSeconds);
   };
 
   const handleScrubKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     handleVerticalRangeKey(event, (nextTimeSeconds) => {
       setScrubValue(null);
-      onSeek(nextTimeSeconds);
+      seekTimelinePosition(nextTimeSeconds);
     });
   };
 
@@ -712,7 +751,11 @@ export function TimelineBar({
           <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
         </div>
 
-        <div className="timeline-range-shell">
+        <div
+          className={`timeline-range-shell ${
+            repeatedDisplaySegment ? 'timeline-range-shell-repeat' : ''
+          }`}
+        >
           {displayStepSegments.length > 1 ? (
             <div className="timeline-range-step-overlay" aria-hidden="true">
               {displayStepSegments.slice(0, -1).map((segment, index) => {
@@ -733,6 +776,20 @@ export function TimelineBar({
             </div>
           ) : null}
 
+          {repeatedDisplaySegment ? (
+            <span
+              className="timeline-range-repeat-window"
+              aria-hidden="true"
+              style={{
+                left: `${repeatedDisplaySegment.startRatio * 100}%`,
+                width: `${Math.max(
+                  0.8,
+                  (repeatedDisplaySegment.endRatio - repeatedDisplaySegment.startRatio) * 100,
+                )}%`,
+              }}
+            />
+          ) : null}
+
           <input
             className={`timeline-range ${
               repeatedDisplaySegment ? 'timeline-range-repeated-section' : ''
@@ -746,17 +803,6 @@ export function TimelineBar({
               repeatedDisplaySegment
                 ? 'Repeated shader section position'
                 : 'Timeline position'
-            }
-            style={
-              repeatedDisplaySegment
-                ? {
-                    width: `${Math.max(
-                      0.8,
-                      (repeatedDisplaySegment.endRatio - repeatedDisplaySegment.startRatio) * 100,
-                    )}%`,
-                    marginLeft: `${repeatedDisplaySegment.startRatio * 100}%`,
-                  }
-                : undefined
             }
             onPointerDown={() => {
               rangeScrubActiveRef.current = true;

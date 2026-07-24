@@ -52,7 +52,7 @@ function buildStarterShaderSequence(presets: ShaderPresetDefinition[]) {
     enabled: true,
     mode: 'randomMix' as const,
     editorView: 'simple' as const,
-    stagePreviewMode: 'focused' as const,
+    stagePreviewMode: 'timeline' as const,
     focusedStepId: steps[0]?.id ?? null,
     pinnedStepId: null,
     randomSeedToken: crypto.randomUUID(),

@@ -61,6 +61,7 @@ interface AssetLibraryDialogProps {
   onOpenProBeta: () => void;
   onClose: () => void;
   showImportFirstStep: boolean;
+  highlightStartMapping: boolean;
   onImportFirstStepDismiss: () => void;
 }
 
@@ -78,6 +79,7 @@ export function AssetLibraryDialog({
   onOpenProBeta,
   onClose,
   showImportFirstStep,
+  highlightStartMapping,
   onImportFirstStepDismiss,
 }: AssetLibraryDialogProps) {
   const previewUrls = useAssetPreviewUrls(assets, open, activeAssetId, assetUrl);
@@ -126,10 +128,14 @@ export function AssetLibraryDialog({
           </div>
           <button
             type="button"
-            className="primary-button asset-browser-start-mapping"
+            className={`primary-button asset-browser-start-mapping ${
+              highlightStartMapping
+                ? 'asset-browser-start-mapping-highlight asset-browser-shine'
+                : ''
+            }`}
             onClick={handleClose}
           >
-            Start Mapping
+            <span>Start Mapping</span>
           </button>
           <div className="asset-browser-header-actions">
             <div className="asset-browser-import-shell">
