@@ -25,17 +25,13 @@ export function useEditorialMotion<T extends EditorialRoot>() {
 
       const expansion = clamp((progress - 0.1) / 0.78, 0, 1);
       const easedExpansion = expansion * expansion * (3 - 2 * expansion);
-      const potentialOpacity = clamp((expansion - 0.04) / 0.24, 0, 1);
-      const potentialPeopleOpacity = clamp((expansion - 0.58) / 0.24, 0, 1);
-      const potentialLabelOpacity = clamp((expansion - 0.62) / 0.22, 0, 1);
+      const potentialLabelOpacity = clamp((expansion - 0.76) / 0.16, 0, 1);
+      const potentialSeedOpacity = 1 - clamp((expansion - 0.68) / 0.16, 0, 1);
       const professionalPeopleOpacity =
-        1 - clamp((expansion - 0.3) / 0.32, 0, 1) * 0.82;
+        1 - clamp((expansion - 0.28) / 0.28, 0, 1);
       const compactMarket = window.innerWidth <= 760;
       const professionalShiftX = compactMarket ? -68 : -132;
       const professionalShiftY = compactMarket ? -64 : -118;
-      const bridgeShiftX = compactMarket ? -98 : -210;
-      const bridgeStartY = compactMarket ? 136 : 180;
-      const bridgeTravelY = compactMarket ? 115 : 205;
 
       marketStory.style.setProperty('--market-progress', `${progress}`);
       marketStory.style.setProperty(
@@ -58,22 +54,14 @@ export function useEditorialMotion<T extends EditorialRoot>() {
         '--market-potential-scale',
         `${0.18 + easedExpansion * 0.82}`,
       );
-      marketStory.style.setProperty('--market-potential-opacity', `${potentialOpacity}`);
-      marketStory.style.setProperty(
-        '--market-potential-people-opacity',
-        `${potentialPeopleOpacity}`,
-      );
+      marketStory.style.setProperty('--market-potential-opacity', '1');
       marketStory.style.setProperty(
         '--market-potential-label-opacity',
         `${potentialLabelOpacity}`,
       );
       marketStory.style.setProperty(
-        '--market-bridge-x',
-        `${easedExpansion * bridgeShiftX}px`,
-      );
-      marketStory.style.setProperty(
-        '--market-bridge-y',
-        `${bridgeStartY - easedExpansion * bridgeTravelY}px`,
+        '--market-potential-seed-opacity',
+        `${potentialSeedOpacity}`,
       );
       marketStory.dataset.marketPhase = expansion > 0.56 ? 'expanded' : 'professional';
     };

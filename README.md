@@ -24,38 +24,35 @@ people can help it grow.
 ## The bet
 
 Perhaps Mapshroom will reach only 5% of the people already using
-projection-mapping software. That is enough to start a movement. It is not
-where the opportunity ends.
+projection-mapping software. That 5% is a seed, not a boundary. It belongs to a
+much larger community of event crews, visual artists, cultural spaces, shops,
+creators, coders, and makers who all share one need: less time inside the
+process and more time making the work.
 
-One tool can already be picked up by many different professions:
-
-- people producing events, weddings, installations, stages, and exhibitions;
-- independent shops, window displays, restaurants, and pop-up spaces;
-- artists, illustrators, designers, and graffiti writers;
-- museums, schools, galleries, theatres, and community spaces;
-- online creators who want to transform photos and animate images;
-- coders who write shaders, prototype ideas, and learn by remixing;
-- anyone looking for a place to experiment visually.
-
-But the largest audience does not call itself projection mapping. It is
-everyone with a surface, an image, and an idea. Mapshroom can give them an
-almost immediate path from intent to a living image.
-
-> The opportunity is not a bigger slice. It is a bigger circle.
+> The 5% is the beginning. The larger market is every artist who wants less
+> process and more time to create.
 
 The second bet is just as simple: small, medium, and large-scale projection
 mapping should not require software that costs hundreds of euros every year.
 The complexity of an idea should not determine the height of the paywall.
 
-## What do I get?
+## Market, price, and return
 
-Nothing—and that is the point. I am not building Mapshroom to keep its value
-behind a gate. The return is participation. The more people use Mapshroom, the
-more shaders, experiments, fixes, and unexpected uses can emerge. Every
-contribution makes the tool richer for the next person, including people like
-me who want to use those shaders.
+There is no honest way to size this market by counting projection-mapping
+customers. It includes professional crews, but also the much larger group of
+artists and makers who lose time to setup before the creative work can begin.
 
-> We all get richer—not in money, but in possibilities.
+The local app costs **€0**. It is local-first and requires no registration for
+the local workflow. Images and projects can stay on your machine, there is no
+account between an idea and the first projection, and the tool does not need a
+company server just to begin.
+
+What do I get directly from that first local use? Nothing. The return I care
+about is participation: more people creating more shaders, experiments, fixes,
+and unexpected possibilities for everyone.
+
+> The entry price is zero. The work stays local. The value grows when people
+> share.
 
 ## The goal
 
@@ -105,38 +102,37 @@ dove troppo poche persone possano aiutarlo a crescere.
 ### La scommessa
 
 Forse Mapshroom raggiungerà solo il 5% di chi usa già software di projection
-mapping. Basta per iniziare un movimento. Non è lì che finisce l’opportunità.
+mapping. Quel 5% è un seme, non un confine. Fa parte di una comunità molto più
+grande di crew di eventi, artisti visivi, spazi culturali, negozi, creator,
+coder e maker che condividono lo stesso bisogno: meno tempo dentro il processo
+e più tempo per creare.
 
-Uno stesso strumento può già essere preso in mano da molte professioni:
-
-- chi produce eventi, matrimoni, installazioni, palchi e mostre;
-- negozi indipendenti, vetrine, ristoranti e spazi pop-up;
-- chi fa arte, disegno, design e writing;
-- musei, scuole, gallerie, teatri e spazi di comunità;
-- chi crea contenuti online e vuole trasformare foto o animare immagini;
-- chi scrive shader, prototipa idee e impara remixando;
-- chiunque cerchi uno spazio in cui sperimentare visivamente.
-
-Ma il pubblico più grande non si definisce projection mapper. È chiunque abbia
-una superficie, un’immagine e un’idea. Mapshroom può offrirgli una strada quasi
-immediata dall’intenzione all’immagine viva.
-
-> L’opportunità non è una fetta più grande. È un cerchio più grande.
+> Il 5% è l’inizio. Il mercato più grande è ogni artista che vuole meno processo
+> e più tempo per creare.
 
 La seconda scommessa è altrettanto semplice: il projection mapping di piccole,
 medie e grandi installazioni non dovrebbe richiedere software che costano
 centinaia di euro ogni anno. La complessità di un’idea non dovrebbe determinare
 l’altezza del paywall.
 
-### Che cosa ci guadagno?
+### Mercato, prezzo e ritorno
 
-Niente. Ed è proprio questo il punto. Non sto costruendo Mapshroom per chiuderne
-il valore dietro un cancello. Il ritorno è la partecipazione. Più persone usano
-Mapshroom, più shader, esperimenti, correzioni e utilizzi inattesi possono
-nascere. Ogni contributo rende lo strumento più ricco per la persona successiva,
-comprese persone come me che quegli shader vogliono usarli.
+Non esiste un modo onesto per misurare questo mercato contando soltanto i
+clienti del projection mapping. Comprende le crew professionali, ma anche il
+gruppo molto più grande di artisti e maker che perde tempo nel setup prima di
+iniziare il lavoro creativo.
 
-> Diventiamo tutti più ricchi: non di denaro, ma di possibilità.
+L’app locale costa **zero euro**. È local-first e non richiede registrazione per
+il flusso locale. Immagini e progetti possono restare sul tuo computer, non c’è
+un account tra un’idea e la prima proiezione e non serve dipendere da un server
+aziendale solo per iniziare.
+
+Che cosa ci guadagno direttamente da quel primo utilizzo locale? Niente. Il
+ritorno che mi interessa è la partecipazione: più persone creano più shader,
+esperimenti, correzioni e possibilità inattese per tutti.
+
+> Il prezzo d’ingresso è zero. Il lavoro resta locale. Il valore cresce quando
+> viene condiviso.
 
 ### L’obiettivo
 

@@ -244,16 +244,6 @@ export function WhyRoute() {
                   <p>{copy.audience.professions.body}</p>
                   <strong>{copy.audience.professions.statement}</strong>
                 </div>
-                <div className="why-story-profession-list" data-reveal-group>
-                  {copy.audience.cards.map((card, index) => (
-                    <div key={card.title}>
-                      <span className="why-story-icon"><AudienceIcon name={card.icon} /></span>
-                      <small>{String(index + 1).padStart(2, '0')}</small>
-                      <strong>{card.title}</strong>
-                      <p>{card.body}</p>
-                    </div>
-                  ))}
-                </div>
                 <span className="why-story-scroll-cue">{copy.audience.scrollCue} ↓</span>
               </article>
 
@@ -280,27 +270,16 @@ export function WhyRoute() {
                         </span>
                       ))}
                     </div>
-                    <div className="why-story-niche">
-                      <b>{copy.audience.nicheValue}</b>
-                      <small>{copy.audience.nicheLabel}</small>
-                    </div>
                   </div>
 
                   <div className="why-story-potential-circle" aria-hidden="true">
-                    <strong>{copy.audience.market.potentialLabel}</strong>
-                    <div className="why-story-potential-people">
-                      {copy.audience.potentialCards.map((card) => (
-                        <span key={card.title}>
-                          <AudienceIcon name={card.icon} />
-                          {card.title}
-                        </span>
-                      ))}
+                    <div className="why-story-growth-seed">
+                      <b>{copy.audience.nicheValue}</b>
+                      <small>{copy.audience.nicheLabel}</small>
                     </div>
+                    <strong>{copy.audience.market.potentialLabel}</strong>
                   </div>
 
-                  <span className="why-story-bridge" aria-hidden="true">
-                    {copy.audience.market.bridgeLabel}
-                  </span>
                   <div className="why-story-progress" aria-hidden="true"><i /></div>
                 </div>
               </div>
@@ -312,6 +291,15 @@ export function WhyRoute() {
           <div className="why-return-copy" data-reveal="left">
             <p className="why-kicker">{copy.return.kicker}</p>
             <h2>{copy.return.title}</h2>
+            <div className="why-return-facts" data-reveal-group>
+              {copy.return.facts.map((fact) => (
+                <article key={fact.label}>
+                  <small>{fact.label}</small>
+                  <strong>{fact.value}</strong>
+                  <p>{fact.detail}</p>
+                </article>
+              ))}
+            </div>
             {copy.return.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
             <blockquote>{copy.return.quote}</blockquote>
           </div>

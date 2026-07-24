@@ -59,16 +59,15 @@ type WhyCopy = {
       body: string;
       mappingLabel: string;
       potentialLabel: string;
-      bridgeLabel: string;
       thesis: string;
     };
     mapAria: string;
     cards: Array<{ icon: AudienceIconName; title: string; body: string }>;
-    potentialCards: Array<{ icon: AudienceIconName; title: string }>;
   };
   return: {
     kicker: string;
     title: string;
+    facts: Array<{ label: string; value: string; detail: string }>;
     paragraphs: string[];
     quote: string;
     loopAria: string;
@@ -159,28 +158,27 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       intro:
         'Perhaps Mapshroom will reach only 5% of the people already using projection-mapping software. That is enough to start a movement. It is not where the opportunity ends.',
       nicheValue: '5%',
-      nicheLabel: 'of today’s projection-mapping market',
+      nicheLabel: 'of professional crews',
       storyAria: 'A scroll-driven view that begins with professional users and zooms out to the much larger potential market',
       scrollCue: 'Scroll to zoom out',
       professions: {
         kicker: '01 / The people already in reach',
-        title: 'One tool. Six professions can pick it up today.',
+        title: 'Many professions. One shared need: less setup.',
         body:
-          'Event organisers, shop owners, artists, cultural spaces, creators, and coders do not need another specialised discipline. They need a faster path from an image to a living surface.',
-        statement: 'Six doors in. Thousands of uses out.',
+          'Event crews, visual artists, cultural spaces, shops, creators, and coders all want the same thing: less time inside the process and more time making the work.',
+        statement: 'Less process. More art.',
       },
       market: {
         kicker: '02 / Now zoom out',
-        title: 'The largest audience does not call itself projection mapping.',
+        title: 'That 5% can grow into something much bigger.',
         body:
-          'It is everyone with a surface, an image, and an idea. Mapshroom can turn spectators into visual makers, with almost no setup standing between intent and art.',
-        mappingLabel: 'Today’s projection-mapping market',
-        potentialLabel: 'Everyone who wants to make an image live on a surface',
-        bridgeLabel: 'Mapshroom · idea → surface',
-        thesis: 'The opportunity is not a bigger slice. It is a bigger circle.',
+          'A small share of professional crews is only the seed. Around it is a much larger community of artists who want the process to disappear so the work can begin.',
+        mappingLabel: 'Professional crews',
+        potentialLabel: 'Artists who want less process and more time to create.',
+        thesis: 'The 5% is the beginning, not the boundary.',
       },
       mapAria:
-        'A small circle for today’s projection-mapping market overlaps a much larger circle for everyone who wants to make images live on a surface; Mapshroom connects the two, and the first 5 percent sits inside the smaller circle',
+        'A yellow circle marked 5 percent begins inside a professional-crew circle, then grows into a much larger community of artists who want less process and more time to create',
       cards: [
         {
           icon: 'events',
@@ -213,23 +211,38 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
           body: 'People who write shaders, prototype ideas, learn by remixing, or simply want somewhere to experiment.',
         },
       ],
-      potentialCards: [
-        { icon: 'events', title: 'Private celebrations' },
-        { icon: 'shops', title: 'Everyday spaces' },
-        { icon: 'artists', title: 'Personal projects' },
-        { icon: 'culture', title: 'Schools & communities' },
-        { icon: 'creators', title: 'Hobbyists & makers' },
-        { icon: 'coders', title: 'Anyone with an idea' },
-      ],
     },
     return: {
-      kicker: '04 / What do I get?',
-      title: 'Nothing—and that is the point.',
-      paragraphs: [
-        'I am not building Mapshroom to keep its value behind a gate. The return I care about is participation.',
-        'The more people use Mapshroom, the more shaders, experiments, fixes, and unexpected uses can emerge. Every contribution makes the tool richer for the next person—including people like me who want to use those shaders.',
+      kicker: '04 / Market, price, return',
+      title: 'Beyond the niche. €0 locally. Nothing for me.',
+      facts: [
+        {
+          label: 'The market',
+          value: 'Beyond one niche',
+          detail: 'Every artist or crew that wants less setup and more time to make.',
+        },
+        {
+          label: 'The local app',
+          value: '€0',
+          detail: 'Open it and start. No registration is required for the local workflow.',
+        },
+        {
+          label: 'The model',
+          value: 'Local-first',
+          detail: 'Images and projects can stay on your machine instead of leaving it just to begin.',
+        },
+        {
+          label: 'My direct return',
+          value: 'Nothing',
+          detail: 'The return is participation: more users, shaders, experiments, and shared possibilities.',
+        },
       ],
-      quote: 'We all get richer—not in money, but in possibilities.',
+      paragraphs: [
+        'There is no honest way to size this market by counting projection-mapping customers. It includes professional crews, but also the much larger group of artists and makers who lose time to setup before the creative work can begin.',
+        'Local-first matters because access should be immediate. No registration means no account between an idea and the first projection; local processing means your images and projects do not need to leave your computer just to use the tool.',
+        'I get no direct return from that first local use. The return I care about is participation: more people creating more shaders, experiments, fixes, and unexpected possibilities for everyone.',
+      ],
+      quote: 'The entry price is zero. The work stays local. The value grows when people share.',
       loopAria: 'A shared loop: more people create more shaders, which create more possibilities',
       loop: ['More people', 'More shaders', 'More ideas', 'Better tools'],
       loopCenter: 'Shared\nvalue',
@@ -331,28 +344,27 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       intro:
         'Forse Mapshroom raggiungerà solo il 5% di chi usa già software di projection mapping. Basta per iniziare un movimento. Non è lì che finisce l’opportunità.',
       nicheValue: '5%',
-      nicheLabel: 'del mercato attuale del projection mapping',
+      nicheLabel: 'delle crew professionali',
       storyAria: 'Una visualizzazione legata allo scroll che parte dagli utenti professionali e si allarga fino al mercato potenziale molto più grande',
       scrollCue: 'Scorri per allargare lo sguardo',
       professions: {
         kicker: '01 / Le persone già raggiungibili',
-        title: 'Uno strumento. Sei professioni possono prenderlo in mano oggi.',
+        title: 'Tante professioni. Un solo bisogno: meno setup.',
         body:
-          'Organizzatori di eventi, negozi, artisti, spazi culturali, creator e coder non hanno bisogno di un’altra disciplina specialistica. Hanno bisogno di una strada più veloce dall’immagine alla superficie viva.',
-        statement: 'Sei porte d’ingresso. Migliaia di usi in uscita.',
+          'Crew di eventi, artisti visivi, spazi culturali, negozi, creator e coder vogliono la stessa cosa: meno tempo dentro il processo e più tempo per creare.',
+        statement: 'Meno processo. Più arte.',
       },
       market: {
         kicker: '02 / Ora allarghiamo lo sguardo',
-        title: 'Il pubblico più grande non si definisce projection mapper.',
+        title: 'Quel 5% può diventare qualcosa di molto più grande.',
         body:
-          'È chiunque abbia una superficie, un’immagine e un’idea. Mapshroom può trasformare gli spettatori in autori visivi, con quasi zero setup tra l’intenzione e l’arte.',
-        mappingLabel: 'Il mercato attuale del projection mapping',
-        potentialLabel: 'Chiunque voglia far vivere un’immagine su una superficie',
-        bridgeLabel: 'Mapshroom · idea → superficie',
-        thesis: 'L’opportunità non è una fetta più grande. È un cerchio più grande.',
+          'Una piccola parte delle crew professionali è soltanto il seme. Intorno c’è una comunità molto più grande di artisti che vuole far sparire il processo per iniziare a creare.',
+        mappingLabel: 'Crew professionali',
+        potentialLabel: 'Artisti che vogliono meno processo e più tempo per creare.',
+        thesis: 'Il 5% è l’inizio, non il confine.',
       },
       mapAria:
-        'Un piccolo cerchio per il mercato attuale del projection mapping si sovrappone a un cerchio molto più grande per chiunque voglia far vivere immagini su una superficie; Mapshroom collega i due e il primo 5 per cento si trova dentro il cerchio più piccolo',
+        'Un cerchio giallo con il 5 per cento nasce dentro il cerchio delle crew professionali e cresce fino a rappresentare una comunità molto più grande di artisti che vuole meno processo e più tempo per creare',
       cards: [
         {
           icon: 'events',
@@ -385,23 +397,38 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
           body: 'Chi scrive shader, prototipa idee, impara remixando o vuole semplicemente sperimentare.',
         },
       ],
-      potentialCards: [
-        { icon: 'events', title: 'Feste e ricorrenze' },
-        { icon: 'shops', title: 'Spazi di ogni giorno' },
-        { icon: 'artists', title: 'Progetti personali' },
-        { icon: 'culture', title: 'Scuole e comunità' },
-        { icon: 'creators', title: 'Hobbisti e maker' },
-        { icon: 'coders', title: 'Chiunque abbia un’idea' },
-      ],
     },
     return: {
-      kicker: '04 / Che cosa ci guadagno?',
-      title: 'Niente. Ed è proprio questo il punto.',
-      paragraphs: [
-        'Non sto costruendo Mapshroom per chiuderne il valore dietro un cancello. Il ritorno che mi interessa è la partecipazione.',
-        'Più persone usano Mapshroom, più shader, esperimenti, correzioni e utilizzi inattesi possono nascere. Ogni contributo rende lo strumento più ricco per la persona successiva—anche per persone come me, che quegli shader vogliono usarli.',
+      kicker: '04 / Mercato, prezzo, ritorno',
+      title: 'Oltre la nicchia. Zero in locale. Niente per me.',
+      facts: [
+        {
+          label: 'Il mercato',
+          value: 'Oltre una nicchia',
+          detail: 'Ogni artista o crew che vuole meno setup e più tempo per creare.',
+        },
+        {
+          label: 'L’app locale',
+          value: '€0',
+          detail: 'Apri e inizi. Nessuna registrazione richiesta per il flusso locale.',
+        },
+        {
+          label: 'Il modello',
+          value: 'Local-first',
+          detail: 'Immagini e progetti possono restare sul tuo computer invece di lasciarlo solo per iniziare.',
+        },
+        {
+          label: 'Il mio ritorno diretto',
+          value: 'Niente',
+          detail: 'Il ritorno è la partecipazione: più utenti, shader, esperimenti e possibilità condivise.',
+        },
       ],
-      quote: 'Diventiamo tutti più ricchi: non di denaro, ma di possibilità.',
+      paragraphs: [
+        'Non esiste un modo onesto per misurare questo mercato contando soltanto i clienti del projection mapping. Comprende le crew professionali, ma anche il gruppo molto più grande di artisti e maker che perde tempo nel setup prima di iniziare il lavoro creativo.',
+        'Local-first conta perché l’accesso deve essere immediato. Nessuna registrazione significa nessun account tra un’idea e la prima proiezione; l’elaborazione locale significa che immagini e progetti non devono lasciare il computer solo per usare lo strumento.',
+        'Io non ottengo un ritorno diretto da quel primo utilizzo locale. Il ritorno che mi interessa è la partecipazione: più persone creano più shader, esperimenti, correzioni e possibilità inattese per tutti.',
+      ],
+      quote: 'Il prezzo d’ingresso è zero. Il lavoro resta locale. Il valore cresce quando viene condiviso.',
       loopAria: 'Un ciclo condiviso: più persone creano più shader, che generano più possibilità',
       loop: ['Più persone', 'Più shader', 'Più idee', 'Strumenti migliori'],
       loopCenter: 'Valore\ncondiviso',
