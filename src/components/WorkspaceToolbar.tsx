@@ -466,6 +466,7 @@ export function WorkspaceToolbar({
 
           <button
             type="button"
+            data-onboarding-area="mapping"
             className={`secondary-button toolbar-menu-button toolbar-move-button ${
               moveMode ? 'toolbar-menu-button-active toolbar-move-button-active' : ''
             }`}

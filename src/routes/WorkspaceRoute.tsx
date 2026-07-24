@@ -302,23 +302,23 @@ const ONBOARDING_COPY = {
         ],
       },
       {
-        title: 'Slider And Position Control',
-        eyebrow: 'Mapping',
+        title: 'Slider And Asset Control',
+        eyebrow: 'Controls',
         placement: 'controls',
         points: [
           'Tune shader values with sliders.',
-          'Move, resize, and reset the mapped image.',
-          'Use smaller precision values for final alignment.',
+          'Use Step Asset to load dedicated media for a timeline step.',
+          'Asset controls appear only after media is assigned.',
         ],
       },
       {
         title: 'Move The Mapping',
-        eyebrow: 'Tap Grid',
+        eyebrow: 'Move',
         placement: 'mapping',
         points: [
-          'Scroll to Stage Mapping and Tap Grid in the left controls.',
-          'Turn Move Mode On before aligning the projection.',
-          'Use Tap Grid to nudge, resize, and rotate the image onto the real subject.',
+          'Use the highlighted Move switch in the top bar.',
+          'Move On opens the direction, size, and precision controls over the canvas.',
+          'Turn Move off again when the projection is aligned.',
         ],
       },
       {
@@ -424,23 +424,23 @@ const ONBOARDING_COPY = {
         ],
       },
       {
-        title: 'Slider e controllo posizione',
-        eyebrow: 'Mapping',
+        title: 'Slider e controllo asset',
+        eyebrow: 'Controlli',
         placement: 'controls',
         points: [
           'Regola i valori dello shader con gli slider.',
-          "Sposta, ridimensiona e reimposta l'immagine mappata.",
-          "Usa valori di precisione più piccoli per l'allineamento finale.",
+          'Usa Step Asset per caricare un contenuto dedicato a un passaggio della timeline.',
+          "I controlli dell'asset compaiono solo dopo aver assegnato un contenuto.",
         ],
       },
       {
         title: 'Sposta il mapping',
-        eyebrow: 'Tap Grid',
+        eyebrow: 'Move',
         placement: 'mapping',
         points: [
-          'Scorri fino a Stage Mapping e Tap Grid nei controlli a sinistra.',
-          'Attiva Move Mode prima di allineare la proiezione.',
-          "Usa Tap Grid per spostare, ridimensionare e ruotare l'immagine sul soggetto reale.",
+          'Usa il pulsante Move evidenziato nella barra superiore.',
+          'Move On mostra sul canvas i controlli di direzione, dimensione e precisione.',
+          'Disattiva Move quando la proiezione è allineata.',
         ],
       },
       {
@@ -638,6 +638,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
     height: number;
   } | null>(null);
   const [calloutStyle, setCalloutStyle] = useState<CSSProperties | undefined>(undefined);
+  const [onboardingTargetMissing, setOnboardingTargetMissing] = useState(false);
   const onboardingCopy = ONBOARDING_COPY[locale];
   const onboardingTotalStepCount = ONBOARDING_SETUP_STEP_COUNT + onboardingCopy.uiAreas.length;
   const activeUiArea =
@@ -655,6 +656,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   const goToPreviousStep = () => {
     setHighlightRect(null);
     setCalloutStyle(undefined);
+    setOnboardingTargetMissing(false);
     setActiveStepIndex((currentValue) => Math.max(0, currentValue - 1));
   };
   const goToNextStep = () => {
@@ -665,6 +667,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
     setHighlightRect(null);
     setCalloutStyle(undefined);
+    setOnboardingTargetMissing(false);
     setActiveStepIndex((currentValue) =>
       Math.min(onboardingTotalStepCount - 1, currentValue + 1),
     );
@@ -705,9 +708,12 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
         if (!targetElement) {
           setHighlightRect(null);
+          setCalloutStyle(undefined);
+          setOnboardingTargetMissing(true);
           return;
         }
 
+        setOnboardingTargetMissing(false);
         const rect = targetElement.getBoundingClientRect();
         const padding = 6;
         setHighlightRect({
@@ -906,7 +912,11 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
           <article
             ref={calloutCardRef}
             className={`onboarding-area-card onboarding-area-card-${activeUiArea.placement} ${
-              calloutStyle ? 'onboarding-area-card-positioned' : 'onboarding-area-card-measuring'
+              onboardingTargetMissing
+                ? 'onboarding-area-card-fallback'
+                : calloutStyle
+                  ? 'onboarding-area-card-positioned'
+                  : 'onboarding-area-card-measuring'
             }`}
             style={calloutStyle}
           >

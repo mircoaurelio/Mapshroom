@@ -103,6 +103,7 @@ export function MobileChrome({
         </button>
         <button
           type="button"
+          data-onboarding-area="mapping"
           className={
             hasVisibleControls
               ? 'mobile-dock-button-active'

@@ -740,10 +740,50 @@ export function ShaderTimelineEditor({
       <div className="timeline-sequence-toolbar">
         <div className="timeline-sequence-copy">
           <span className="timeline-sequence-label">Timeline Logic</span>
-          <strong className="timeline-sequence-title">
-            {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
-            {formatStepDuration(totalDurationSeconds)}
-          </strong>
+          <div className="timeline-sequence-title-row">
+            <strong className="timeline-sequence-title">
+              {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
+              {formatStepDuration(totalDurationSeconds)}
+            </strong>
+
+            {onRandomizeShaders && onRestoreShaders && onDismissShuffleUndo ? (
+              <div
+                className={`timeline-crazy-slot ${
+                  hasShuffleUndo ? 'timeline-crazy-slot-active' : ''
+                }`}
+              >
+                {hasShuffleUndo ? (
+                  <div className="timeline-crazy-undo" role="status">
+                    <button
+                      type="button"
+                      className="timeline-crazy-undo-button"
+                      onClick={onRestoreShaders}
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      type="button"
+                      className="timeline-crazy-dismiss"
+                      aria-label="Dismiss shader restore"
+                      title="Keep randomized shaders"
+                      onClick={onDismissShuffleUndo}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="timeline-crazy-button"
+                    disabled={sequence.steps.length === 0 || savedShaders.length === 0}
+                    onClick={() => setIsShuffleConfirmationOpen(true)}
+                  >
+                    Get Me Crazy
+                  </button>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="timeline-sequence-toolbar-actions">
@@ -827,44 +867,6 @@ export function ShaderTimelineEditor({
               ) : null}
             </div>
           )}
-
-          {onRandomizeShaders && onRestoreShaders && onDismissShuffleUndo ? (
-            <div
-              className={`timeline-crazy-slot ${
-                hasShuffleUndo ? 'timeline-crazy-slot-active' : ''
-              }`}
-            >
-              {hasShuffleUndo ? (
-                <div className="timeline-crazy-undo" role="status">
-                  <button
-                    type="button"
-                    className="timeline-crazy-undo-button"
-                    onClick={onRestoreShaders}
-                  >
-                    Go Back
-                  </button>
-                  <button
-                    type="button"
-                    className="timeline-crazy-dismiss"
-                    aria-label="Dismiss shader restore"
-                    title="Keep randomized shaders"
-                    onClick={onDismissShuffleUndo}
-                  >
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="timeline-crazy-button"
-                  disabled={sequence.steps.length === 0 || savedShaders.length === 0}
-                  onClick={() => setIsShuffleConfirmationOpen(true)}
-                >
-                  Get Me Crazy
-                </button>
-              )}
-            </div>
-          ) : null}
 
           <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
             {TIMELINE_SEQUENCE_MODE_OPTIONS.map((option) => (
