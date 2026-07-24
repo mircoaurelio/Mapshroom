@@ -3261,32 +3261,6 @@ export function WorkspaceRoute() {
     });
   }, [updateProject]);
 
-  const handleTimelineSingleStepLoopToggle = useCallback(() => {
-    updateProject((currentProject) => {
-      const shaderSequence = currentProject.timeline.stub.shaderSequence;
-      const nextSingleStepLoopEnabled = !shaderSequence.singleStepLoopEnabled;
-
-      return {
-        ...currentProject,
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...shaderSequence,
-              stagePreviewMode: nextSingleStepLoopEnabled
-                ? 'focused'
-                : shaderSequence.stagePreviewMode,
-              singleStepLoopEnabled: nextSingleStepLoopEnabled,
-              randomChoiceEnabled: shaderSequence.singleStepLoopEnabled
-                ? shaderSequence.randomChoiceEnabled
-                : false,
-            },
-          },
-        },
-      };
-    });
-  }, [updateProject]);
-
   const handleTimelineStepChange = useCallback((
     stepId: string,
     patch: Partial<ProjectDocument['timeline']['stub']['shaderSequence']['steps'][number]>,
@@ -5716,8 +5690,6 @@ ${errorSnapshot}`,
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
   const fullTimelineStagePreviewActive =
     timelineStub.shaderSequence.stagePreviewMode === 'timeline';
-  const focusedShaderRepeatActive =
-    timelineStub.shaderSequence.singleStepLoopEnabled;
   const previewShader =
     previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
   const workspaceStageMirrorsOutput = outputWindowOpen && !isMobile;
@@ -5854,6 +5826,14 @@ ${errorSnapshot}`,
     })?.currentStep.id ?? null;
   };
   const handlePlaybackFocusToggle = () => {
+    if (editingTimelineStepId !== null) {
+      setEditingTimelineStepId(null);
+      setStudioPreviewOverride(false);
+      handleTimelineStagePreviewModeChange('timeline');
+      setStatusMessage('Shader editing finished. Showing the full timeline in the stage.');
+      return;
+    }
+
     if (timelineStub.shaderSequence.stagePreviewMode === 'focused') {
       handleTimelineStagePreviewModeChange('timeline');
       setStatusMessage('Showing the full timeline in the stage.');
@@ -5987,6 +5967,33 @@ ${errorSnapshot}`,
     );
   };
 
+  const handlePromptFocus = () => {
+    if (
+      editingTimelineStepId ||
+      !timelineSequenceEnabled ||
+      timelineStub.shaderSequence.stagePreviewMode !== 'timeline'
+    ) {
+      return;
+    }
+
+    const currentStepId = resolveCurrentPlaybackStepId();
+    if (!currentStepId) {
+      return;
+    }
+
+    void selectTimelineStepForEditing(currentStepId, {
+      stagePreviewMode: 'focused',
+    });
+    setStatusMessage(
+      'Editing the current timeline shader. Use the red timeline button to return to the full sequence.',
+    );
+  };
+
+  const useDesktopPaneLayout =
+    !isMobile && uiPreferences.chromeVisible && uiPreferences.workspaceMode !== 'immersive';
+  const timelineEditingInDesktopPane =
+    useDesktopPaneLayout && editingTimelineStepId !== null;
+
   const aiPanel = (
     <AiPanel
       prompt={aiPrompt}
@@ -5995,6 +6002,7 @@ ${errorSnapshot}`,
       feedbackTone={aiFeedbackTone}
       shaderError={compilerError}
       onPromptChange={setAiPrompt}
+      onPromptFocus={handlePromptFocus}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
       }}
@@ -6032,9 +6040,15 @@ ${errorSnapshot}`,
     />
   );
 
-  const slidersPanel = showDesktopSlidersWindow ? (
+  const desktopSliderPanel = (
     <UniformPanel
-      title="Sliders Window"
+      title={
+        timelineEditingInDesktopPane
+          ? `Editing · ${project.studio.activeShaderName}`
+          : showDesktopSlidersWindow
+            ? 'Sliders Window'
+            : 'Sliders'
+      }
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}
@@ -6044,21 +6058,10 @@ ${errorSnapshot}`,
         void handleUniformQuickAdd();
       }}
     />
-  ) : null;
-  const desktopSlidersPanel =
-    slidersPanel ?? (
-      <UniformPanel
-        title="Sliders"
-        uniformDefinitions={uniformDefinitions}
-        uniformValues={project.studio.uniformValues}
-        onUniformChange={handleUniformChange}
-        newUniformName={newUniformName}
-        onNewUniformNameChange={setNewUniformName}
-        onQuickAddUniform={() => {
-          void handleUniformQuickAdd();
-        }}
-      />
-    );
+  );
+  const desktopSlidersPanel = timelineEditingInDesktopPane ? null : desktopSliderPanel;
+  const desktopInspectorSlidersPanel =
+    timelineEditingInDesktopPane ? desktopSliderPanel : null;
 
   const desktopShaderToolsPanel = (
     <ShaderStudioControlsSection
@@ -6239,8 +6242,6 @@ ${errorSnapshot}`,
   }
   const sharedTimelineShaderCount = sharedTimelineShaderIds.size;
 
-  const useDesktopPaneLayout =
-    !isMobile && uiPreferences.chromeVisible && uiPreferences.workspaceMode !== 'immersive';
   const desktopGridTemplateColumns = `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
   const desktopMainTopGridTemplateColumns = uiPreferences.sidebarVisible
     ? `${desktopLayout.leftSidebarWidth}px 10px minmax(0, 1fr)`
@@ -6308,13 +6309,13 @@ ${errorSnapshot}`,
         <PlaybackControls
           canNavigate={playableTimelineSteps.length > 1}
           hasTimeline={timelineSequenceEnabled}
+          isEditing={editingTimelineStepId !== null}
           isFocused={!fullTimelineStagePreviewActive}
           isPlaying={
             isMobile && editingTimelineStepId
               ? false
               : project.playback.transport.isPlaying
           }
-          isRepeatOneEnabled={focusedShaderRepeatActive}
           primaryActionLabel={
             isMobile && editingTimelineStepId ? 'Resume timeline playback' : undefined
           }
@@ -6326,7 +6327,6 @@ ${errorSnapshot}`,
               : handlePlayToggle
           }
           onNext={() => handlePlaybackStepOffset(1)}
-          onRepeatOneToggle={handleTimelineSingleStepLoopToggle}
         />
       ) : null}
 
@@ -6593,13 +6593,16 @@ ${errorSnapshot}`,
             />
 
             <aside
-              className="workspace-pane workspace-pane-right"
+              className={`workspace-pane workspace-pane-right ${
+                timelineEditingInDesktopPane ? 'workspace-pane-right-editing' : ''
+              }`}
               data-onboarding-area="code"
               style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
             >
               <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
                 {aiPanel}
                 {desktopShaderToolsPanel}
+                {desktopInspectorSlidersPanel}
                 {desktopCodePanel}
                 {desktopHistoryPanel}
               </div>

@@ -7,9 +7,16 @@ import {
   reportOfflineRegistrationError,
 } from './lib/offlineAvailability';
 import { captureInstallPrompt } from './lib/pwaInstall';
+import { installRangePressMotion } from './lib/rangePressMotion';
 import './index.css';
 
 captureInstallPrompt();
+
+const disposeRangePressMotion = installRangePressMotion();
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(disposeRangePressMotion);
+}
 
 const updateServiceWorker = registerSW({
   immediate: true,

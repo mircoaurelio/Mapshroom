@@ -1,15 +1,14 @@
 interface PlaybackControlsProps {
   canNavigate: boolean;
   hasTimeline: boolean;
+  isEditing: boolean;
   isFocused: boolean;
   isPlaying: boolean;
-  isRepeatOneEnabled: boolean;
   primaryActionLabel?: string;
   onFocusToggle: () => void;
   onNext: () => void;
   onPlayToggle: () => void;
   onPrevious: () => void;
-  onRepeatOneToggle: () => void;
 }
 
 function FocusIcon() {
@@ -55,30 +54,20 @@ function NextIcon() {
   );
 }
 
-function RepeatOneIcon() {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M5.25 6.25h8.9L12.4 4.5M14.75 13.75h-8.9L7.6 15.5" />
-      <path d="M15.5 7.5v2M4.5 12.5v-2" />
-      <path className="playback-repeat-one-number" d="M9.35 8.8 10.5 8v4" />
-    </svg>
-  );
-}
-
 export function PlaybackControls({
   canNavigate,
   hasTimeline,
+  isEditing,
   isFocused,
   isPlaying,
-  isRepeatOneEnabled,
   primaryActionLabel,
   onFocusToggle,
   onNext,
   onPlayToggle,
   onPrevious,
-  onRepeatOneToggle,
 }: PlaybackControlsProps) {
-  const focusLabel = isFocused ? 'Return to full timeline' : 'Focus current shader';
+  const focusLabel =
+    isFocused || isEditing ? 'Return to full timeline' : 'Focus current shader';
   const playLabel = primaryActionLabel ?? (isPlaying ? 'Pause timeline' : 'Play timeline');
 
   return (
@@ -89,20 +78,6 @@ export function PlaybackControls({
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <button
-        type="button"
-        className={`playback-control-button playback-control-mode ${
-          isFocused ? 'playback-control-active' : ''
-        }`}
-        disabled={!hasTimeline}
-        aria-label={focusLabel}
-        aria-pressed={isFocused}
-        title={focusLabel}
-        onClick={onFocusToggle}
-      >
-        <FocusIcon />
-      </button>
-
       <button
         type="button"
         className="playback-control-button"
@@ -126,6 +101,20 @@ export function PlaybackControls({
 
       <button
         type="button"
+        className={`playback-control-button playback-control-mode ${
+          isFocused ? 'playback-control-active' : ''
+        } ${isEditing ? 'playback-control-editing' : ''}`}
+        disabled={!hasTimeline}
+        aria-label={focusLabel}
+        aria-pressed={isFocused || isEditing}
+        title={focusLabel}
+        onClick={onFocusToggle}
+      >
+        <FocusIcon />
+      </button>
+
+      <button
+        type="button"
         className="playback-control-button"
         disabled={!canNavigate}
         aria-label="Next timeline shader"
@@ -133,20 +122,6 @@ export function PlaybackControls({
         onClick={onNext}
       >
         <NextIcon />
-      </button>
-
-      <button
-        type="button"
-        className={`playback-control-button playback-control-mode ${
-          isRepeatOneEnabled ? 'playback-control-active' : ''
-        }`}
-        disabled={!hasTimeline}
-        aria-label="Repeat focused shader"
-        aria-pressed={isRepeatOneEnabled}
-        title="Repeat focused shader"
-        onClick={onRepeatOneToggle}
-      >
-        <RepeatOneIcon />
       </button>
     </section>
   );

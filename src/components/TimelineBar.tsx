@@ -537,6 +537,10 @@ export function TimelineBar({
     () => getTimelineDisplayStepSegments(playbackDisplaySteps),
     [playbackDisplaySteps],
   );
+  const repeatedDisplaySegment =
+    sequence.singleStepLoopEnabled && sequence.focusedStepId
+      ? displayStepSegments.find((segment) => segment.step.id === sequence.focusedStepId) ?? null
+      : null;
   const transitionSegments = useMemo(
     () => getTimelineTransitionSegments({ sequence, stepSegments }),
     [sequence, stepSegments],
@@ -730,13 +734,30 @@ export function TimelineBar({
           ) : null}
 
           <input
-            className="timeline-range"
+            className={`timeline-range ${
+              repeatedDisplaySegment ? 'timeline-range-repeated-section' : ''
+            }`}
             type="range"
             min={0}
             max={safeDurationSeconds}
             step={0.01}
             value={sliderValue}
-            aria-label="Timeline position"
+            aria-label={
+              repeatedDisplaySegment
+                ? 'Repeated shader section position'
+                : 'Timeline position'
+            }
+            style={
+              repeatedDisplaySegment
+                ? {
+                    width: `${Math.max(
+                      0.8,
+                      (repeatedDisplaySegment.endRatio - repeatedDisplaySegment.startRatio) * 100,
+                    )}%`,
+                    marginLeft: `${repeatedDisplaySegment.startRatio * 100}%`,
+                  }
+                : undefined
+            }
             onPointerDown={() => {
               rangeScrubActiveRef.current = true;
             }}
