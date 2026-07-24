@@ -18,7 +18,27 @@ interface TimelineStepAssetPanelProps {
   onChooseAsset: (() => void) | null;
   onImportAsset: (() => void) | null;
   onUseLiveStageAsset: (() => void) | null;
+  onOpenProBeta: () => void;
   isPinnedStep?: boolean;
+}
+
+function AssetIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
+      <rect x="2.75" y="3.25" width="14.5" height="13.5" rx="2" />
+      <circle cx="13.25" cy="7" r="1.25" />
+      <path d="m4.75 14 3.4-3.6 2.5 2.35 1.7-1.75 2.9 3" />
+    </svg>
+  );
+}
+
+function VariantIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
+      <path d="m10 2.5 1.25 4.25L15.5 8l-4.25 1.25L10 13.5 8.75 9.25 4.5 8l4.25-1.25L10 2.5Z" />
+      <path d="m15.25 12.25.65 2.1 2.1.65-2.1.65-.65 2.1-.65-2.1-2.1-.65 2.1-.65.65-2.1Z" />
+    </svg>
+  );
 }
 
 export function TimelineStepAssetPanel({
@@ -30,6 +50,7 @@ export function TimelineStepAssetPanel({
   onChooseAsset,
   onImportAsset,
   onUseLiveStageAsset,
+  onOpenProBeta,
   isPinnedStep = false,
 }: TimelineStepAssetPanelProps) {
   const assignedAssetResolution = useAssetObjectUrl(assignedAsset);
@@ -41,6 +62,35 @@ export function TimelineStepAssetPanel({
         <p className="empty-copy">
           Select a timeline step to edit media size, fit, transparency, blend, and clip timing.
         </p>
+      </PanelSection>
+    );
+  }
+
+  if (!assignedAsset) {
+    const handleLoadAsset = onChooseAsset ?? onImportAsset;
+
+    return (
+      <PanelSection title="Step Asset">
+        <div className="timeline-step-asset-empty-actions">
+          <button
+            type="button"
+            className="timeline-step-asset-launch-button"
+            onClick={handleLoadAsset ?? undefined}
+            disabled={!handleLoadAsset}
+          >
+            <AssetIcon />
+            <span>Load Asset</span>
+          </button>
+          <button
+            type="button"
+            className="timeline-step-asset-launch-button timeline-step-asset-variant-button"
+            onClick={onOpenProBeta}
+          >
+            <VariantIcon />
+            <span>Generate Variants</span>
+            <small>Pro</small>
+          </button>
+        </div>
       </PanelSection>
     );
   }

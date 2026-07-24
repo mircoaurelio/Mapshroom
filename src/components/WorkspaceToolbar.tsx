@@ -466,14 +466,16 @@ export function WorkspaceToolbar({
 
           <button
             type="button"
-            className={`secondary-button toolbar-menu-button ${
+            className={`secondary-button toolbar-menu-button toolbar-move-button ${
               moveMode ? 'toolbar-menu-button-active toolbar-move-button-active' : ''
             }`}
             aria-pressed={moveMode}
             title={moveMode ? 'Turn move mode off' : 'Turn move mode on'}
             onClick={onToggleMoveMode}
           >
-            {moveMode ? 'Move Off' : 'Move'}
+            <span className="toolbar-move-indicator" aria-hidden="true" />
+            <span>Move</span>
+            <small>{moveMode ? 'On' : 'Off'}</small>
           </button>
 
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">

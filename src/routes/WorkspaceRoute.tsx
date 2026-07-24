@@ -16,7 +16,6 @@ import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
 import { AssetSegmentationDialog } from '../components/AssetSegmentationDialog';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
-import { MappingPanel } from '../components/MappingPanel';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PlaybackControls } from '../components/PlaybackControls';
@@ -4081,21 +4080,6 @@ export function WorkspaceRoute() {
     }));
   };
 
-  const handleMappingReset = () => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      mapping: {
-        stageTransform: {
-          ...currentProject.mapping.stageTransform,
-          offsetX: 0,
-          offsetY: 0,
-          widthAdjust: 0,
-          heightAdjust: 0,
-        },
-      },
-    }));
-  };
-
   const setMoveMode = (enabled: boolean) => {
     updateProject((currentProject) => ({
       ...currentProject,
@@ -4110,40 +4094,6 @@ export function WorkspaceRoute() {
 
   const toggleMoveMode = () => {
     setMoveMode(!project?.mapping.stageTransform.moveMode);
-  };
-
-  const toggleRotationLock = async () => {
-    const shouldLock = !project?.mapping.stageTransform.rotationLocked;
-    const orientationApi = screen.orientation as ScreenOrientation & {
-      lock?: (orientation: 'landscape' | 'portrait') => Promise<void>;
-      unlock?: () => void;
-    };
-
-    if (shouldLock) {
-      try {
-        await orientationApi.lock?.(
-          window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
-        );
-      } catch (error) {
-        console.debug('Rotation lock is not available on this browser.', error);
-      }
-    } else {
-      try {
-        orientationApi.unlock?.();
-      } catch (error) {
-        console.debug('Rotation unlock is not available on this browser.', error);
-      }
-    }
-
-    updateProject((currentProject) => ({
-      ...currentProject,
-      mapping: {
-        stageTransform: {
-          ...currentProject.mapping.stageTransform,
-          rotationLocked: !currentProject.mapping.stageTransform.rotationLocked,
-        },
-      },
-    }));
   };
 
   const updateStagePrecision = (nextPrecision: number) => {
@@ -6610,20 +6560,6 @@ ${errorSnapshot}`,
     />
   );
 
-  const mappingPanel = (
-    <MappingPanel
-      stageTransform={stageTransform}
-      onToggleMoveMode={toggleMoveMode}
-      onReset={handleMappingReset}
-      onPrecisionChange={updateStagePrecision}
-      onToggleRotationLock={() => {
-        void toggleRotationLock();
-      }}
-      onAction={handleMappingAction}
-      showPrecisionSlider={!isMobile}
-    />
-  );
-
   const timelineStepAssetPanel = (
     <TimelineStepAssetPanel
       stepLabel={
@@ -6652,6 +6588,7 @@ ${errorSnapshot}`,
           ? () => handleTimelineAssignStepAsset(inspectorTimelineStep.id, null)
           : null
       }
+      onOpenProBeta={() => setProBetaSource('asset_generate')}
       isPinnedStep={
         inspectorTimelineStep ? pinnedTimelineStepId === inspectorTimelineStep.id : false
       }
@@ -7015,7 +6952,6 @@ ${errorSnapshot}`,
                       <div className="workspace-pane-scroll">
                         {desktopSlidersPanel}
                         {timelineStepAssetPanel}
-                        {mappingPanel}
                       </div>
                     </aside>
 
@@ -7086,7 +7022,6 @@ ${errorSnapshot}`,
                   {aiPanel}
                   {studioPanel}
                   {timelineStepAssetPanel}
-                  {mappingPanel}
                 </div>
               </aside>
             ) : null}
@@ -7138,6 +7073,7 @@ ${errorSnapshot}`,
           isTimelineOpen={isMobileTimelineOpen}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
           activePanel={mobilePanel}
+          moveMode={stageTransform.moveMode}
           onOpenProjects={() => {
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
@@ -7162,12 +7098,7 @@ ${errorSnapshot}`,
           onPanelChange={handleMobilePanelChange}
           panels={{
             studio: mobileShaderPanel,
-            mapping: (
-              <>
-                {timelineStepAssetPanel}
-                {mappingPanel}
-              </>
-            ),
+            mapping: null,
           }}
         />
       ) : null}
