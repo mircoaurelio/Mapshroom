@@ -164,6 +164,18 @@ function ErrorIcon() {
   );
 }
 
+function ShuffleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.25 4.25h1.5c3.75 0 4.5 7.5 8.5 7.5h1.5" />
+      <path d="m11.75 9.75 2 2-2 2" />
+      <path d="M2.25 11.75h1.5c1.55 0 2.55-1.28 3.48-2.75" />
+      <path d="M8.78 6.95c.93-1.45 1.93-2.7 3.47-2.7h1.5" />
+      <path d="m11.75 2.25 2 2-2 2" />
+    </svg>
+  );
+}
+
 export function ShaderTimelineEditor({
   assets,
   assetKind,
@@ -776,9 +788,15 @@ export function ShaderTimelineEditor({
                     type="button"
                     className="timeline-crazy-button"
                     disabled={sequence.steps.length === 0 || savedShaders.length === 0}
+                    aria-label="Shuffle timeline shaders with Get Me Crazy"
+                    title="Randomize every shader in this timeline"
                     onClick={() => setIsShuffleConfirmationOpen(true)}
                   >
-                    Get Me Crazy
+                    <ShuffleIcon />
+                    <span>
+                      <small>Shuffle shaders</small>
+                      <strong>Get Me Crazy</strong>
+                    </span>
                   </button>
                 )}
               </div>
@@ -801,7 +819,7 @@ export function ShaderTimelineEditor({
           ) : (
             <div className="timeline-shared-transition-toolbar">
               {usesSharedSectionDuration ? (
-                <label className="field timeline-compact-field timeline-shared-transition-field">
+                <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
                   <span>Section Time</span>
                   <input
                     className="text-field"
@@ -821,7 +839,7 @@ export function ShaderTimelineEditor({
               {showMixTimeControls ? (
                 <>
                   {usesSharedTransition ? (
-                    <label className="field timeline-compact-field timeline-shared-transition-field">
+                    <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-fx">
                       <span>Fx</span>
                       <select
                         className="select-field"
@@ -842,7 +860,7 @@ export function ShaderTimelineEditor({
                     </label>
                   ) : null}
 
-                  <label className="field timeline-compact-field timeline-shared-transition-field">
+                  <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-mix">
                     <span>Mix Time</span>
                     <input
                       className="text-field"

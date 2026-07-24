@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import {
@@ -48,6 +49,7 @@ interface TimelineBarProps {
   midiManualMixArmed?: boolean;
   markers: string[];
   tracks: TimelineStub['tracks'];
+  transportControls?: ReactNode;
   onSeek: (seconds: number) => void;
   onRepeatSectionSelect: (stepId: string, seconds: number) => void;
   onPlayToggle: () => void;
@@ -309,6 +311,7 @@ export function TimelineBar({
   midiManualMixArmed = false,
   markers,
   tracks,
+  transportControls,
   onSeek,
   onRepeatSectionSelect,
   onSequenceModeChange,
@@ -757,6 +760,7 @@ export function TimelineBar({
       <div className="timeline-rail-grid">
         <div className="timeline-rail-leading">
           <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
+          {transportControls}
         </div>
 
         <div

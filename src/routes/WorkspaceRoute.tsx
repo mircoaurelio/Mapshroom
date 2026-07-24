@@ -6683,6 +6683,21 @@ ${errorSnapshot}`,
       midiManualMixArmed={midiManualMixArmed}
       markers={timelineMarkers}
       tracks={timelineTracks}
+      transportControls={
+        !isMobile && uiPreferences.chromeVisible ? (
+          <PlaybackControls
+            canNavigate={playableTimelineSteps.length > 1}
+            hasTimeline={timelineSequenceEnabled}
+            isRepeatEnabled={
+              timelineStub.shaderSequence.singleStepLoopEnabled &&
+              pendingTimelineRepeatExit === null
+            }
+            onPrevious={() => handlePlaybackStepOffset(-1)}
+            onRepeatToggle={handlePlaybackFocusToggle}
+            onNext={() => handlePlaybackStepOffset(1)}
+          />
+        ) : null
+      }
       onSeek={handleTimelineSeek}
       onRepeatSectionSelect={handleTimelineRepeatSectionSelect}
       onPlayToggle={handlePlayToggle}
@@ -6791,8 +6806,10 @@ ${errorSnapshot}`,
           stageControlsVisible ? 'stage-corner-controls-mapping-visible' : ''
         } ${isMobile ? 'stage-corner-controls-mobile' : ''}`}
       >
-        {(!isMobile && uiPreferences.chromeVisible) ||
-        (isMobile && mobileChromeVisible && mobilePanel === null && !isMobileTimelineOpen) ? (
+        {isMobile &&
+        mobileChromeVisible &&
+        mobilePanel === null &&
+        !isMobileTimelineOpen ? (
           <PlaybackControls
             canNavigate={playableTimelineSteps.length > 1}
             hasTimeline={timelineSequenceEnabled}
