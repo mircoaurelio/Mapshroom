@@ -1,5 +1,4 @@
 import { blankShaderTemplate } from './templates/blankShader';
-import { SHADER_SYSTEM_PROMPT } from './systemPrompt';
 
 export const SHADER_REQUEST_CONTRACT = `Return one complete replacement fragment shader.
 The first non-empty line must be: // NAME: <Short Name>
@@ -30,10 +29,14 @@ ${SHADER_REQUEST_CONTRACT}
 Return a complete shader that follows the required structure exactly.`;
 }
 
-export function buildExternalChatShaderPrompt(prompt: string, currentCode: string): string {
-  return `${SHADER_SYSTEM_PROMPT}
-
-You are generating a shader that will be pasted directly into Mapshroom. Follow every rule below.
+export function buildExternalChatShaderPrompt(
+  prompt: string,
+  currentCode: string,
+  shaderApplyLinkPrefix: string,
+): string {
+  return `You are a strict GLSL WebGL 1.0 shader generator.
+Generate a complete replacement shader internally. Your visible response will be a clickable link that opens it directly in Mapshroom.
+Follow every shader rule and final-response rule below.
 
 CURRENT GLSL TO REPLACE:
 \`\`\`glsl
@@ -48,7 +51,13 @@ ${blankShaderTemplate}
 SHADER CONTRACT:
 ${SHADER_REQUEST_CONTRACT}
 
-Return exactly one complete replacement shader. Put it in a single \`\`\`glsl code block and do not add any explanation before or after it.
+Generate one complete replacement shader internally, then return ONLY one clickable Markdown link in this exact form:
+[Apply shader in Mapshroom](${shaderApplyLinkPrefix}<URL_ENCODED_GLSL>)
+
+Replace <URL_ENCODED_GLSL> with the complete shader encoded exactly like JavaScript encodeURIComponent().
+The encoded shader must decode with decodeURIComponent() to the complete GLSL, beginning with // NAME: and containing processColor().
+Percent-encode every reserved character, including #, %, &, +, ?, parentheses, brackets, braces, semicolons, newlines, and spaces.
+Do not return the GLSL separately. Do not use a code block. Do not add an explanation, title, warning, or any text before or after the single Markdown link.
 
 USER REQUEST:
 ${prompt.trim()}`;

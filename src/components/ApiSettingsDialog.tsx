@@ -5,6 +5,7 @@ import {
   DEFAULT_OPENAI_MODEL_OPTIONS,
 } from '../config';
 import { isLocalModelReady, LOCAL_SHADER_MODELS, LOCAL_VISION_MODEL, prepareLocalModel } from '../lib/localAi';
+import { openExternalAiWindow } from '../lib/openExternalAiWindow';
 import type { AiSettings, ShaderRuntime } from '../types';
 
 export type ApiSettingsVariant = 'setup' | 'settings';
@@ -194,7 +195,10 @@ export function ApiSettingsDialog({
     setChatMessage('');
     if (!externalChatPrompt) return;
     const chatGptUrl = `https://chatgpt.com/?q=${encodeURIComponent(externalChatPrompt)}`;
-    window.open(chatGptUrl, '_blank', 'noopener,noreferrer');
+    const openResult = openExternalAiWindow(chatGptUrl);
+    if (openResult === 'blocked') {
+      setChatMessage('The browser blocked the ChatGPT window. Allow popups for Mapshroom, then open it again.');
+    }
   };
   const handleChooseChatRuntime = () => {
     chooseRuntime('chat');
@@ -208,7 +212,10 @@ export function ApiSettingsDialog({
     setChatMessage('');
     if (!externalChatPrompt) return;
     const perplexityUrl = `https://www.perplexity.ai/?q=${encodeURIComponent(externalChatPrompt)}`;
-    window.open(perplexityUrl, '_blank', 'noopener,noreferrer');
+    const openResult = openExternalAiWindow(perplexityUrl);
+    if (openResult === 'blocked') {
+      setChatMessage('The browser blocked the Perplexity window. Allow popups for Mapshroom, then open it again.');
+    }
   };
   const handlePasteAndApply = async (responseOverride?: string) => {
     setChatMessage('');
@@ -282,7 +289,7 @@ export function ApiSettingsDialog({
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Direct &amp; free</span>
                   <strong>Use ChatGPT for free</strong>
-                  <span>Open ChatGPT in a new tab with your complete shader prompt already filled in.</span>
+                  <span>Open ChatGPT with the prompt, then click its Mapshroom link to apply the shader.</span>
                 </div>
               </button>
             ) : null}
@@ -298,7 +305,7 @@ export function ApiSettingsDialog({
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Direct &amp; free</span>
                   <strong>Use Perplexity for free</strong>
-                  <span>Open Perplexity in a new tab with your complete shader prompt already filled in.</span>
+                  <span>Open Perplexity with the prompt, then click its Mapshroom link to apply the shader.</span>
                 </div>
               </button>
             ) : null}
@@ -340,7 +347,7 @@ export function ApiSettingsDialog({
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Any chat &amp; free</span>
                   <strong>Use your AI chat for free</strong>
-                  <span>Copy the prompt into Claude, Gemini, or another AI chat, then paste its shader back here.</span>
+                  <span>Copy the prompt into another AI chat, then click the Mapshroom link it returns.</span>
                 </div>
                 {showCopyTooltip ? (
                   <span className="ai-chat-copied-tooltip" role="status" aria-live="polite">
@@ -361,7 +368,7 @@ export function ApiSettingsDialog({
                       <span className="ai-chat-copy-check" aria-hidden="true">↗</span>
                       <div>
                         <strong>{usingPerplexity ? 'Perplexity' : 'ChatGPT'} opened</strong>
-                        <small>Generate the shader there, then copy the reply.</small>
+                        <small>Mapshroom stays open behind the AI window. Click the returned link when ready.</small>
                       </div>
                       <button
                         type="button"
@@ -382,7 +389,7 @@ export function ApiSettingsDialog({
                         <strong>{promptCopied ? 'Prompt copied' : 'Prompt ready'}</strong>
                         <small>
                           {promptCopied
-                            ? 'Paste it into your AI chat, then copy the reply.'
+                            ? 'Paste it into your AI chat, then click the returned link.'
                             : 'Copy the prompt to continue.'}
                         </small>
                       </div>
@@ -407,8 +414,8 @@ export function ApiSettingsDialog({
                   </details>
                   <div className="ai-chat-paste-zone">
                     <div className="ai-chat-paste-heading">
-                      <span className="ai-chat-paste-label">Paste the shader reply</span>
-                      <small>Mapshroom applies it automatically.</small>
+                      <span className="ai-chat-paste-label">Fallback: paste the reply</span>
+                      <small>You can still apply a shader or Mapshroom link manually.</small>
                     </div>
                     <textarea
                       className="prompt-field ai-chat-response"
