@@ -104,7 +104,6 @@ type WhyCopy = {
     lead: string;
     openWorkspace: string;
     readTutorial: string;
-    viewSource: string;
   };
   footerTagline: string;
   footerWorkspace: string;
@@ -292,7 +291,6 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'The only way to know whether this bet is true is to let as many people as possible try it.',
       openWorkspace: 'Open Mapshroom',
       readTutorial: 'Start with the tutorial',
-      viewSource: 'View the source',
     },
     footerTagline: 'Free forever. Open source forever.',
     footerWorkspace: 'Open workspace',
@@ -478,7 +476,6 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'L’unico modo per sapere se questa scommessa è vera è permettere a più persone possibile di provarla.',
       openWorkspace: 'Apri Mapshroom',
       readTutorial: 'Inizia dal tutorial',
-      viewSource: 'Guarda il codice',
     },
     footerTagline: 'Gratis per sempre. Open source per sempre.',
     footerWorkspace: 'Apri il workspace',

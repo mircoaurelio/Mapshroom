@@ -1850,16 +1850,6 @@ body.why-page-active {
   color: #fff;
 }
 
-.why-text-link {
-  padding: 12px;
-  color: rgba(255, 255, 255, .74);
-  font: 600 12px 'IBM Plex Mono', monospace;
-}
-
-.why-text-link:hover {
-  color: #fff;
-}
-
 .why-footer {
   display: flex;
   justify-content: space-between;

@@ -10,8 +10,6 @@ import { useEditorialMotion } from '../hooks/useEditorialMotion';
 import '../styles/EditorialMotion.css';
 import './WhyRoute.css';
 
-const SOURCE_URL = 'https://github.com/mircoaurelio/Mapshroom';
-
 function isWhyLocale(value: string | null): value is WhyLocale {
   return value === 'en' || value === 'it';
 }
@@ -358,9 +356,6 @@ export function WhyRoute() {
         <div className="why-closing-actions">
           <Link to="/" className="why-primary-button">{copy.closing.openWorkspace}</Link>
           <Link to="/tutorial" className="why-secondary-button">{copy.closing.readTutorial}</Link>
-          <a href={SOURCE_URL} target="_blank" rel="noreferrer" className="why-text-link">
-            {copy.closing.viewSource} ↗
-          </a>
         </div>
       </section>
 
