@@ -291,6 +291,11 @@ export function WorkspaceToolbar({
       <strong className="toolbar-brand">Mapshroom</strong>
       <div className="toolbar-actions">
         <div className="toolbar-menu-group toolbar-menu-group-right" ref={toolbarMenusRef}>
+          <InstallAppButton
+            className="workspace-install-control"
+            onOpenProBeta={onOpenProBeta}
+          />
+
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
             <button
               type="button"
@@ -458,11 +463,6 @@ export function WorkspaceToolbar({
               </div>
             ) : null}
           </div>
-
-          <InstallAppButton
-            className="workspace-install-control"
-            onOpenProBeta={onOpenProBeta}
-          />
 
           <button
             type="button"

@@ -84,8 +84,8 @@ export function InstallAppButton({
   const buttonLabel = installing
     ? 'Opening installer…'
     : installed
-      ? 'App installed'
-      : 'Install app';
+      ? 'Download for offline mode'
+      : 'Download app';
 
   return (
     <div className={`install-app-control ${className}`.trim()}>
@@ -97,9 +97,9 @@ export function InstallAppButton({
         disabled={installing}
         title={
           installed
-            ? 'Mapshroom is installed. Click to explore the Pro beta.'
+            ? 'Join the Pro beta for the offline setup tutorial'
             : installAvailable
-              ? 'Install Mapshroom'
+              ? 'Download Mapshroom'
               : 'Open installation help for this device'
         }
         onClick={() => void handleInstall()}

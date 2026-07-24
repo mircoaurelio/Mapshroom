@@ -808,11 +808,6 @@ a {
   border-left: 1px solid var(--line);
 }
 
-.workspace-pane-right-editing {
-  border-left-color: rgba(239, 68, 68, 0.72);
-  box-shadow: inset 2px 0 0 rgba(239, 68, 68, 0.24);
-}
-
 .workspace-pane-right .panel-section:first-child {
   border-top: 0;
 }
@@ -8663,6 +8658,26 @@ a.download-link-open-app {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
+}
+
+.workspace-install-control {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(0.45rem);
+  transition:
+    max-width 220ms ease,
+    opacity 150ms ease,
+    transform 220ms ease;
+}
+
+.workspace-toolbar:hover .workspace-install-control,
+.workspace-toolbar:focus-within .workspace-install-control {
+  max-width: 15rem;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
 }
 
 .install-app-button {
