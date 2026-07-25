@@ -27,6 +27,7 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       const easedExpansion = expansion * expansion * (3 - 2 * expansion);
       const potentialLabelOpacity = clamp((expansion - 0.76) / 0.16, 0, 1);
       const potentialSeedOpacity = 1 - clamp((expansion - 0.68) / 0.16, 0, 1);
+      const potentialSeedScale = 1 - easedExpansion * 0.08;
       const professionalPeopleOpacity =
         1 - clamp((expansion - 0.28) / 0.28, 0, 1);
       const compactMarket = window.innerWidth <= 760;
@@ -62,6 +63,10 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       marketStory.style.setProperty(
         '--market-potential-seed-opacity',
         `${potentialSeedOpacity}`,
+      );
+      marketStory.style.setProperty(
+        '--market-potential-seed-scale',
+        `${potentialSeedScale}`,
       );
       marketStory.dataset.marketPhase = expansion > 0.56 ? 'expanded' : 'professional';
     };

@@ -45,6 +45,7 @@ type WhyCopy = {
     intro: string;
     nicheValue: string;
     nicheLabel: string;
+    seedLabel: string;
     storyAria: string;
     scrollCue: string;
     professions: {
@@ -158,6 +159,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'Even if Mapshroom reaches only 5% of today’s projection-mapping users, that group is only the seed inside a huge market of artists who want less setup and more time to create.',
       nicheValue: '5%',
       nicheLabel: 'of professional crews',
+      seedLabel: 'Market seed',
       storyAria: 'A scroll-driven view that begins with professional users and zooms out to the much larger potential market',
       scrollCue: 'Scroll to zoom out',
       professions: {
@@ -343,6 +345,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'Anche se Mapshroom raggiungesse solo il 5% di chi usa già software di projection mapping, quel gruppo sarebbe soltanto il seme dentro un mercato enorme di artisti che vuole meno setup e più tempo per creare.',
       nicheValue: '5%',
       nicheLabel: 'delle crew professionali',
+      seedLabel: 'Seme del mercato',
       storyAria: 'Una visualizzazione legata allo scroll che parte dagli utenti professionali e si allarga fino al mercato potenziale molto più grande',
       scrollCue: 'Scorri per allargare lo sguardo',
       professions: {

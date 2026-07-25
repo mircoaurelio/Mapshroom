@@ -271,11 +271,13 @@ export function WhyRoute() {
                   </div>
 
                   <div className="why-story-potential-circle" aria-hidden="true">
-                    <div className="why-story-growth-seed">
-                      <b>{copy.audience.nicheValue}</b>
-                      <small>{copy.audience.nicheLabel}</small>
-                    </div>
                     <strong>{copy.audience.market.potentialLabel}</strong>
+                  </div>
+
+                  <div className="why-story-growth-seed" aria-hidden="true">
+                    <span>{copy.audience.seedLabel}</span>
+                    <b>{copy.audience.nicheValue}</b>
+                    <small>{copy.audience.nicheLabel}</small>
                   </div>
 
                   <div className="why-story-progress" aria-hidden="true"><i /></div>
