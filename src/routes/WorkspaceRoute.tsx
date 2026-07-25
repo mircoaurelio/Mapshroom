@@ -7690,7 +7690,6 @@ ${errorSnapshot}`,
             setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
-          onOpenProBeta={() => setProBetaSource('installed_app')}
           onOpenTimeline={handleOpenMobileTimeline}
           onToggleMapping={handleMobileToggleMapping}
           onHide={handleMobileHide}

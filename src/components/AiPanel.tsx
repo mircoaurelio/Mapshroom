@@ -59,6 +59,18 @@ const TYPE_INTERVAL_MS = 18;
 const DOT_INTERVAL_MS = 150;
 const PHRASE_HOLD_MS = 1400;
 
+const AI_ROUTE_OPTIONS: Array<{
+  value: AiGenerationRoute;
+  label: string;
+  note: string;
+  mark: string;
+}> = [
+  { value: 'chatgpt', label: 'ChatGPT', note: 'Free handoff', mark: 'G' },
+  { value: 'perplexity', label: 'Perplexity', note: 'Free handoff', mark: 'P' },
+  { value: 'local', label: 'Local model', note: 'Private & offline', mark: '◎' },
+  { value: 'api', label: 'API', note: 'Connected provider', mark: '⌁' },
+];
+
 interface PlaceholderAnimation {
   phraseIndex: number;
   characterCount: number;
@@ -172,9 +184,13 @@ export function AiPanel({
   onFixError,
 }: AiPanelProps) {
   const [pasteMenuOpen, setPasteMenuOpen] = useState(false);
+  const [routeMenuOpen, setRouteMenuOpen] = useState(false);
   const showFeedback =
     Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
   const promptPlaceholder = useShaderPromptPlaceholder(!prompt);
+  const selectedRouteOption =
+    AI_ROUTE_OPTIONS.find((option) => option.value === selectedRoute) ??
+    AI_ROUTE_OPTIONS[0];
 
   return (
     <PanelSection>
@@ -244,21 +260,62 @@ export function AiPanel({
             </div>
 
             <div className="ai-prompt-route-actions">
-              <label className="ai-prompt-route-select">
-                <span className="sr-only">Shader AI model</span>
-                <select
-                  value={selectedRoute}
-                  aria-label="Shader AI model"
-                  onChange={(event) =>
-                    onRouteChange(event.target.value as AiGenerationRoute)
+              <div
+                className="ai-prompt-route-select"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setRouteMenuOpen(false);
                   }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setRouteMenuOpen(false);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  className={`ai-prompt-route-trigger ${routeMenuOpen ? 'active' : ''}`}
+                  aria-label={`Shader AI model: ${selectedRouteOption.label}`}
+                  aria-haspopup="listbox"
+                  aria-expanded={routeMenuOpen}
+                  onClick={() => setRouteMenuOpen((current) => !current)}
                 >
-                  <option value="chatgpt">ChatGPT</option>
-                  <option value="perplexity">Perplexity</option>
-                  <option value="local">Local model</option>
-                  <option value="api">API</option>
-                </select>
-              </label>
+                  <span className="ai-prompt-route-mark" aria-hidden="true">
+                    {selectedRouteOption.mark}
+                  </span>
+                  <span>{selectedRouteOption.label}</span>
+                  <span className="ai-prompt-route-chevron" aria-hidden="true">⌄</span>
+                </button>
+                {routeMenuOpen ? (
+                  <div className="ai-prompt-route-menu" role="listbox" aria-label="Shader AI model">
+                    {AI_ROUTE_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={option.value === selectedRoute}
+                        className={option.value === selectedRoute ? 'active' : ''}
+                        onClick={() => {
+                          onRouteChange(option.value);
+                          setRouteMenuOpen(false);
+                        }}
+                      >
+                        <span className="ai-prompt-route-mark" aria-hidden="true">
+                          {option.mark}
+                        </span>
+                        <span className="ai-prompt-route-menu-copy">
+                          <strong>{option.label}</strong>
+                          <small>{option.note}</small>
+                        </span>
+                        {option.value === selectedRoute ? (
+                          <span className="ai-prompt-route-check" aria-hidden="true">✓</span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
               <button
                 type="button"
                 className="ai-prompt-send-button"
