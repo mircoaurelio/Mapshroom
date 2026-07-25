@@ -1,4 +1,13 @@
-import { useRef, useState, type PointerEvent } from 'react';
+import {
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
+import {
+  MAX_MAPPING_ROTATION,
+  MIN_MAPPING_ROTATION,
+} from '../lib/mappingPosition';
 
 export type MappingAction =
   | 'move-up'
@@ -38,6 +47,7 @@ const MIN_PRECISION = 1;
 const MAX_PRECISION = 40;
 const PRECISION_DRAG_STEP = 14;
 const PRECISION_DOT_SCALES = [0.52, 0.68, 0.84, 1, 0.84, 0.68, 0.52];
+const ROTATION_STEP = 0.1;
 
 const MAPPING_PAD_ACTIONS: MappingPadActionItem[] = [
   { key: 'height-minus', label: 'H-', action: 'height-minus' },
@@ -53,6 +63,14 @@ const MAPPING_PAD_ACTIONS: MappingPadActionItem[] = [
 
 function clampPrecision(value: number): number {
   return Math.max(MIN_PRECISION, Math.min(MAX_PRECISION, Math.round(value)));
+}
+
+function clampRotation(value: number): number {
+  const clamped = Math.max(
+    MIN_MAPPING_ROTATION,
+    Math.min(MAX_MAPPING_ROTATION, value),
+  );
+  return Math.round(clamped * 10) / 10;
 }
 
 function ImportPositionIcon() {
@@ -198,6 +216,21 @@ export function MappingPad({
     }, 140);
   };
 
+  const handleRotationKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'ArrowRight'
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    const direction = event.key === 'ArrowLeft' ? -1 : 1;
+    onRotationChange?.(
+      clampRotation(rotationDegrees + direction * ROTATION_STEP),
+    );
+  };
+
   return (
     <div
       className={`mapping-control-shell mapping-control-shell-${variant} ${
@@ -235,8 +268,9 @@ export function MappingPad({
             <span>Size</span>
           </div>
           <p className="mapping-first-step-note">
-            Import and export preserve this framing as JSON. Rotate opens the output angle;
-            Distort is reserved for a future update.
+            Import and export preserve this framing as JSON. Rotate gives you a −20° to +20°
+            fine control; select its slider and use ← / → for 0.1° steps. Distort is reserved
+            for a future update.
           </p>
           <button
             type="button"
@@ -296,17 +330,28 @@ export function MappingPad({
       {rotationExpanded ? (
         <div className="mapping-rotation-control">
           <label className="mapping-rotation-range">
-            <span className="mapping-rotation-label">Rotate output</span>
+            <span className="mapping-rotation-label-row">
+              <span className="mapping-rotation-label">Rotate output</span>
+              <span className="mapping-rotation-shortcut">
+                ← / → 0.1°
+              </span>
+            </span>
             <input
               type="range"
-              min="-180"
-              max="180"
-              step="1"
+              min={MIN_MAPPING_ROTATION}
+              max={MAX_MAPPING_ROTATION}
+              step={ROTATION_STEP}
               value={rotationDegrees}
-              onChange={(event) => onRotationChange?.(Number(event.target.value))}
+              aria-label="Rotate output from minus 20 to plus 20 degrees"
+              aria-valuetext={`${rotationDegrees.toFixed(1)} degrees`}
+              aria-keyshortcuts="ArrowLeft ArrowRight"
+              onChange={(event) =>
+                onRotationChange?.(clampRotation(Number(event.target.value)))
+              }
+              onKeyDown={handleRotationKeyDown}
             />
           </label>
-          <output>{Math.round(rotationDegrees)}°</output>
+          <output>{rotationDegrees.toFixed(1)}°</output>
           <button
             type="button"
             className="mapping-rotation-reset"

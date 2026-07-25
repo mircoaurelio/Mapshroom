@@ -4,8 +4,8 @@ export const MAPPING_POSITION_FORMAT = 'mapshroom-position';
 export const MAPPING_POSITION_VERSION = 1;
 export const MIN_MAPPING_PRECISION = 1;
 export const MAX_MAPPING_PRECISION = 40;
-export const MIN_MAPPING_ROTATION = -180;
-export const MAX_MAPPING_ROTATION = 180;
+export const MIN_MAPPING_ROTATION = -20;
+export const MAX_MAPPING_ROTATION = 20;
 
 export interface MappingPositionValues {
   offsetX: number;
@@ -43,8 +43,9 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function normalizeRotation(value: number): number {
-  const wrapped = ((value + 180) % 360 + 360) % 360 - 180;
-  return Object.is(wrapped, -0) ? 0 : wrapped;
+  const clamped = clamp(value, MIN_MAPPING_ROTATION, MAX_MAPPING_ROTATION);
+  const rounded = Math.round(clamped * 10) / 10;
+  return Object.is(rounded, -0) ? 0 : rounded;
 }
 
 export function normalizeMappingPosition(
