@@ -162,7 +162,7 @@ interface AiPanelProps {
   onPromptChange: (value: string) => void;
   onPromptFocus: () => void;
   onRouteChange: (route: AiGenerationRoute) => void;
-  onPasteShader: () => Promise<void>;
+  onPasteShader: () => Promise<boolean>;
   onPastePosition: () => Promise<void>;
   onSubmit: () => void;
   onFixError: () => void;

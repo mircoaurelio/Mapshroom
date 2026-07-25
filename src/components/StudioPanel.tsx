@@ -31,6 +31,9 @@ interface ShaderCodeSectionProps {
   aiLoading: boolean;
   onFixError: () => void;
   onReloadShaderCode: () => void;
+  onPasteCode: () => Promise<boolean>;
+  pasteCodeSuggested?: boolean;
+  pasteCodeSource?: string;
 }
 
 interface StudioPanelProps
@@ -62,6 +65,16 @@ function CheckIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
       <path d="M4 10.5 7.25 13.75 16 5" />
+    </svg>
+  );
+}
+
+function PasteIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M7 4.5H5.75A1.75 1.75 0 0 0 4 6.25v9A1.75 1.75 0 0 0 5.75 17h8.5A1.75 1.75 0 0 0 16 15.25v-9a1.75 1.75 0 0 0-1.75-1.75H13" />
+      <path d="M7 3.75A1.75 1.75 0 0 1 8.75 2h2.5A1.75 1.75 0 0 1 13 3.75V6H7V3.75Z" />
+      <path d="M7.25 10h5.5M7.25 13h4" />
     </svg>
   );
 }
@@ -386,26 +399,39 @@ export function ShaderCodeSection({
   aiLoading,
   onFixError,
   onReloadShaderCode,
+  onPasteCode,
+  pasteCodeSuggested = false,
+  pasteCodeSource,
 }: ShaderCodeSectionProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [pasteState, setPasteState] = useState<'idle' | 'pasted' | 'error'>('idle');
   const [collapsed, setCollapsed] = useState(false);
   const [isExpandedEditorOpen, setIsExpandedEditorOpen] = useState(false);
   const copyLabel =
     copyState === 'copied' ? 'Code copied' : copyState === 'error' ? 'Copy failed' : 'Copy code';
+  const pasteLabel =
+    pasteState === 'pasted'
+      ? 'Code pasted'
+      : pasteState === 'error'
+        ? 'Paste failed'
+        : pasteCodeSource
+          ? `Paste code from ${pasteCodeSource}`
+          : 'Paste code';
 
   useEffect(() => {
-    if (copyState === 'idle') {
+    if (copyState === 'idle' && pasteState === 'idle') {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
       setCopyState('idle');
+      setPasteState('idle');
     }, 1800);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [copyState]);
+  }, [copyState, pasteState]);
 
   useEffect(() => {
     if (!isExpandedEditorOpen) {
@@ -435,11 +461,36 @@ export function ShaderCodeSection({
     }
   };
 
+  const handlePasteCode = async () => {
+    const pasted = await onPasteCode();
+    setPasteState(pasted ? 'pasted' : 'error');
+  };
+
+  const pasteCodeButton = (
+    <button
+      type="button"
+      className={`shader-code-paste-button ${
+        pasteCodeSuggested ? 'is-suggested' : ''
+      } ${pasteState === 'pasted' ? 'is-success' : ''} ${
+        pasteState === 'error' ? 'is-error' : ''
+      }`}
+      aria-label={pasteLabel}
+      title={pasteLabel}
+      onClick={() => {
+        void handlePasteCode();
+      }}
+    >
+      {pasteState === 'pasted' ? <CheckIcon /> : <PasteIcon />}
+      <span>{pasteState === 'pasted' ? 'Pasted' : 'Paste code'}</span>
+    </button>
+  );
+
   return (
     <PanelSection
       title="Code"
       actions={
         <>
+          {pasteCodeButton}
           <button
             type="button"
             className="icon-button"
@@ -532,6 +583,7 @@ export function ShaderCodeSection({
                 </h2>
               </div>
               <div className="button-row">
+                {pasteCodeButton}
                 <button
                   type="button"
                   className={`icon-button ${
@@ -614,6 +666,9 @@ export function StudioPanel({
   onFixError,
   onBrowsePresets,
   onReloadShaderCode,
+  onPasteCode,
+  pasteCodeSuggested,
+  pasteCodeSource,
   versions,
   onRestoreVersion,
   showUniformPanel = true,
@@ -650,6 +705,9 @@ export function StudioPanel({
         aiLoading={aiLoading}
         onFixError={onFixError}
         onReloadShaderCode={onReloadShaderCode}
+        onPasteCode={onPasteCode}
+        pasteCodeSuggested={pasteCodeSuggested}
+        pasteCodeSource={pasteCodeSource}
       />
 
       <ShaderVersionTrailSection versions={versions} onRestoreVersion={onRestoreVersion} />

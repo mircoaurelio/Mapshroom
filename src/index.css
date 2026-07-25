@@ -3231,6 +3231,84 @@ a {
   color: #fca5a5;
 }
 
+.shader-code-paste-button {
+  display: inline-flex;
+  max-width: 0;
+  height: 28px;
+  align-items: center;
+  gap: 0.34rem;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-soft);
+  color: var(--text-muted);
+  font: 700 0.56rem/1 'IBM Plex Mono', monospace;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(4px);
+  transition:
+    max-width 160ms ease,
+    padding 160ms ease,
+    border-color 140ms ease,
+    background 140ms ease,
+    color 140ms ease,
+    opacity 120ms ease,
+    transform 160ms ease,
+    visibility 0s linear 160ms;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.shader-code-paste-button svg {
+  width: 14px;
+  min-width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.panel-section:hover .shader-code-paste-button,
+.panel-section:focus-within .shader-code-paste-button,
+.shader-code-paste-button.is-suggested {
+  max-width: 108px;
+  padding: 0 0.52rem;
+  border-color: var(--line);
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  transition-delay: 0s;
+  visibility: visible;
+}
+
+.shader-code-paste-button:hover,
+.shader-code-paste-button:focus-visible {
+  border-color: var(--line-strong);
+  background: #18181b;
+  color: var(--text-bright);
+  outline: none;
+}
+
+.shader-code-paste-button.is-suggested {
+  border-color: rgba(var(--accent-rgb), 0.32);
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent-pale);
+}
+
+.shader-code-paste-button.is-success {
+  border-color: rgba(var(--accent-rgb), 0.36);
+  color: #86efac;
+}
+
+.shader-code-paste-button.is-error {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+}
+
 .shader-chat-error {
   max-height: 180px;
   overflow: auto;
