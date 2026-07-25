@@ -25,15 +25,18 @@ export function useEditorialMotion<T extends EditorialRoot>() {
 
       const expansion = clamp((progress - 0.1) / 0.78, 0, 1);
       const easedExpansion = expansion * expansion * (3 - 2 * expansion);
-      const knownValueOpacity = 1 - clamp((expansion - 0.58) / 0.2, 0, 1);
-      const unknownValueOpacity = clamp((expansion - 0.66) / 0.2, 0, 1);
-      const professionalPeopleOpacity =
-        1 - clamp((expansion - 0.28) / 0.28, 0, 1);
       const compactMarket = window.innerWidth <= 760;
       const professionalShiftX = compactMarket ? -68 : -132;
       const professionalShiftY = compactMarket ? -64 : -118;
       const initialPotentialScale = compactMarket ? 0.32 : 0.18;
+      const growthThresholds = [0, 0.12, 0.23, 0.34, 0.45, 0.56, 0.68, 0.86];
+      let growthStep = 0;
 
+      growthThresholds.forEach((threshold, index) => {
+        if (expansion >= threshold) growthStep = index;
+      });
+
+      marketStory.style.setProperty('--market-expansion', `${expansion}`);
       marketStory.style.setProperty(
         '--market-professional-scale',
         `${1 - easedExpansion * 0.5}`,
@@ -47,22 +50,11 @@ export function useEditorialMotion<T extends EditorialRoot>() {
         `${easedExpansion * professionalShiftY}px`,
       );
       marketStory.style.setProperty(
-        '--market-professional-people-opacity',
-        `${professionalPeopleOpacity}`,
-      );
-      marketStory.style.setProperty(
         '--market-potential-scale',
         `${initialPotentialScale + easedExpansion * (1 - initialPotentialScale)}`,
       );
       marketStory.style.setProperty('--market-potential-opacity', '1');
-      marketStory.style.setProperty(
-        '--market-known-value-opacity',
-        `${knownValueOpacity}`,
-      );
-      marketStory.style.setProperty(
-        '--market-unknown-value-opacity',
-        `${unknownValueOpacity}`,
-      );
+      marketStory.dataset.marketStep = `${growthStep}`;
       marketStory.dataset.marketPhase = expansion > 0.56 ? 'expanded' : 'professional';
     };
 
@@ -72,6 +64,7 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       return () => {
         root.classList.remove('has-editorial-motion');
         marketStory?.removeAttribute('data-market-phase');
+        marketStory?.removeAttribute('data-market-step');
       };
     }
 
@@ -137,6 +130,7 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       root.style.removeProperty('--editorial-visual-scale');
       root.style.removeProperty('--editorial-hero-opacity');
       marketStory?.removeAttribute('data-market-phase');
+      marketStory?.removeAttribute('data-market-step');
     };
   }, []);
 
