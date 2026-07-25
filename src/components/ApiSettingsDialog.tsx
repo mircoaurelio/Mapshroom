@@ -38,6 +38,7 @@ interface ApiSettingsDialogProps {
 }
 
 type AiPath = 'perplexity' | 'chatgpt' | Exclude<ShaderRuntime, ''>;
+type DirectHandoffPhase = 'opening' | 'send' | 'waiting' | 'copy';
 
 function LocalModelIcon() {
   return (
@@ -145,8 +146,15 @@ export function ApiSettingsDialog({
   const [promptCopied, setPromptCopied] = useState(false);
   const [showCopyTooltip, setShowCopyTooltip] = useState(false);
   const [isApplyingChatResponse, setIsApplyingChatResponse] = useState(false);
+  const [directHandoffPhase, setDirectHandoffPhase] = useState<DirectHandoffPhase>('opening');
   const dialogRef = useRef<HTMLElement>(null);
   const isSetup = variant === 'setup';
+  const directHandoffActive =
+    open &&
+    Boolean(externalChatPrompt) &&
+    externalWindowMode !== null &&
+    externalWindowMode !== 'blocked' &&
+    (selectedPath === 'chatgpt' || selectedPath === 'perplexity');
 
   useEffect(() => {
     if (!downloading) return;
@@ -171,6 +179,30 @@ export function ApiSettingsDialog({
     const timeoutId = window.setTimeout(() => setShowCopyTooltip(false), 2800);
     return () => window.clearTimeout(timeoutId);
   }, [showCopyTooltip]);
+
+  useEffect(() => {
+    if (!directHandoffActive) return;
+    setDirectHandoffPhase('opening');
+  }, [directHandoffActive, externalChatPrompt, externalWindowMode, selectedPath]);
+
+  useEffect(() => {
+    if (!directHandoffActive || directHandoffPhase === 'copy') return;
+
+    const delay =
+      directHandoffPhase === 'opening'
+        ? 3000
+        : directHandoffPhase === 'send'
+          ? 5000
+          : 3000;
+    const nextPhase: DirectHandoffPhase =
+      directHandoffPhase === 'opening'
+        ? 'send'
+        : directHandoffPhase === 'send'
+          ? 'waiting'
+          : 'copy';
+    const timeoutId = window.setTimeout(() => setDirectHandoffPhase(nextPhase), delay);
+    return () => window.clearTimeout(timeoutId);
+  }, [directHandoffActive, directHandoffPhase]);
 
   useEffect(() => {
     const usingPopup =
@@ -301,6 +333,12 @@ export function ApiSettingsDialog({
       handleChooseChatGpt();
     }
   };
+  const handleDirectGuideCue = () => {
+    if (directHandoffPhase === 'send') {
+      setDirectHandoffPhase('waiting');
+    }
+    handleFocusDirectChat();
+  };
   const handlePasteAndApply = async (responseOverride?: string) => {
     setChatMessage('');
     let response = responseOverride?.trim() || chatResponse.trim();
@@ -330,6 +368,26 @@ export function ApiSettingsDialog({
     }
   };
   const directProviderName = usingPerplexity ? 'Perplexity' : 'ChatGPT';
+  const directHandoffCue =
+    directHandoffPhase === 'opening'
+      ? {
+          title: `Opening ${directProviderName}`,
+          note: 'Preparing your prompt in the left window.',
+        }
+      : directHandoffPhase === 'send'
+        ? {
+            title: `Click Send in ${directProviderName}`,
+            note: 'Press the black arrow at the bottom-right of the left window.',
+          }
+        : directHandoffPhase === 'waiting'
+          ? {
+              title: 'Generating your shader',
+              note: `Give ${directProviderName} a moment to finish the GLSL code.`,
+            }
+          : {
+              title: 'Copy the shader code',
+              note: `Use the Copy button on ${directProviderName}, then paste it below.`,
+            };
   const externalSurfaceLabel =
     externalWindowMode === 'popup'
       ? 'left-side window'
@@ -699,10 +757,31 @@ export function ApiSettingsDialog({
                           </div>
                         </li>
                       </ol>
-                      <div className="ai-chat-waiting">
-                        <span aria-hidden="true" />
-                        Waiting for the shader code
-                      </div>
+                      <button
+                        type="button"
+                        className={`ai-chat-guide-cue ai-chat-guide-cue-${directHandoffPhase}`}
+                        onClick={handleDirectGuideCue}
+                      >
+                        <span className="ai-chat-guide-icon" aria-hidden="true">
+                          {directHandoffPhase === 'opening' || directHandoffPhase === 'waiting' ? (
+                            <span className="ai-chat-guide-spinner" />
+                          ) : directHandoffPhase === 'send' ? (
+                            <span className="ai-chat-guide-send-icon">↑</span>
+                          ) : (
+                            <svg viewBox="0 0 24 24">
+                              <rect x="8" y="8" width="11" height="11" rx="2" />
+                              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className="ai-chat-guide-copy">
+                          <strong>{directHandoffCue.title}</strong>
+                          <small>{directHandoffCue.note}</small>
+                        </span>
+                        <span className="ai-chat-guide-action" aria-hidden="true">
+                          {directHandoffPhase === 'send' ? 'Open ↗' : directHandoffPhase === 'copy' ? 'Copy ↗' : ''}
+                        </span>
+                      </button>
                     </div>
                     )
                   ) : (
