@@ -259,28 +259,21 @@ export function WhyRoute() {
               <div className="why-story-sticky">
                 <div className="why-story-stage" role="img" aria-label={copy.audience.mapAria}>
                   <div className="why-story-professional-circle" aria-hidden="true">
-                    <strong>{copy.audience.market.mappingLabel}</strong>
                     <div className="why-story-professional-people">
                       {copy.audience.cards.map((card) => (
-                        <span key={card.title}>
+                        <span key={card.icon}>
                           <AudienceIcon name={card.icon} />
-                          {card.title}
                         </span>
                       ))}
                     </div>
                   </div>
 
                   <div className="why-story-potential-circle" aria-hidden="true">
-                    <strong>{copy.audience.market.potentialLabel}</strong>
+                    <div className="why-story-growth-value">
+                      <b><span>{copy.audience.nicheValue.replace('%', '')}</span><i>%</i></b>
+                      <b><span>?</span><i>%</i></b>
+                    </div>
                   </div>
-
-                  <div className="why-story-growth-seed" aria-hidden="true">
-                    <span>{copy.audience.seedLabel}</span>
-                    <b>{copy.audience.nicheValue}</b>
-                    <small>{copy.audience.nicheLabel}</small>
-                  </div>
-
-                  <div className="why-story-progress" aria-hidden="true"><i /></div>
                 </div>
               </div>
             </div>
