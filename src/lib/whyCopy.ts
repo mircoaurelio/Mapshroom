@@ -157,7 +157,20 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'Even if Mapshroom reaches only 5% of today’s projection-mapping users, that group is only the seed inside a huge market of artists who want less setup and more time to create.',
       nicheValue: '5%',
       expertLabel: 'Experts',
-      marketWords: ['Artists', 'Exhibitions', 'Shops', 'Coders', 'Music events', 'Installations'],
+      marketWords: [
+        'Artists',
+        'Exhibitions',
+        'Shops',
+        'Coders',
+        'Music events',
+        'Installations',
+        'Theatres',
+        'Museums',
+        'Stage designers',
+        'Architecture',
+        'Fashion',
+        'Experiential retail',
+      ],
       storyAria: 'A scroll-driven view that begins with professional users and zooms out to the much larger potential market',
       scrollCue: 'Scroll to zoom out',
       professions: {
@@ -175,7 +188,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         thesis: 'The 5% is the seed of a much larger market.',
       },
       mapAria:
-        'An expert circle surrounds a small green Mapshroom circle marked 5 percent. The green circle grows through 6, 7, 8, 9, 10, and 12 percent before becoming an unknown percentage, while artists, exhibitions, shops, coders, music events, and installations appear.',
+        'An expert circle surrounds a small green Mapshroom circle marked 5 percent. As the green circle grows through 6, 7, 8, 9, 10, and 12 percent toward an unknown percentage, the expert circle turns yellow and a sentence reveals artists, exhibitions, shops, coders, music events, installations, theatres, museums, stage designers, architecture, fashion, and experiential retail.',
       cards: [
         {
           icon: 'events',
@@ -341,7 +354,20 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         'Anche se Mapshroom raggiungesse solo il 5% di chi usa già software di projection mapping, quel gruppo sarebbe soltanto il seme dentro un mercato enorme di artisti che vuole meno setup e più tempo per creare.',
       nicheValue: '5%',
       expertLabel: 'Esperti',
-      marketWords: ['Artisti', 'Mostre', 'Negozi', 'Coder', 'Eventi musicali', 'Installazioni'],
+      marketWords: [
+        'Artisti',
+        'Mostre',
+        'Negozi',
+        'Coder',
+        'Eventi musicali',
+        'Installazioni',
+        'Teatri',
+        'Musei',
+        'Scenografi',
+        'Architettura',
+        'Moda',
+        'Retail esperienziale',
+      ],
       storyAria: 'Una visualizzazione legata allo scroll che parte dagli utenti professionali e si allarga fino al mercato potenziale molto più grande',
       scrollCue: 'Scorri per allargare lo sguardo',
       professions: {
@@ -359,7 +385,7 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         thesis: 'Il 5% è il seme di un mercato molto più grande.',
       },
       mapAria:
-        'Un cerchio di esperti circonda un piccolo cerchio verde Mapshroom con il 5 per cento. Il cerchio verde cresce attraverso 6, 7, 8, 9, 10 e 12 per cento prima di diventare una percentuale sconosciuta, mentre compaiono artisti, mostre, negozi, coder, eventi musicali e installazioni.',
+        'Un cerchio di esperti circonda un piccolo cerchio verde Mapshroom con il 5 per cento. Mentre il cerchio verde cresce attraverso 6, 7, 8, 9, 10 e 12 per cento verso una percentuale sconosciuta, il cerchio degli esperti diventa giallo e una frase rivela artisti, mostre, negozi, coder, eventi musicali, installazioni, teatri, musei, scenografi, architettura, moda e retail esperienziale.',
       cards: [
         {
           icon: 'events',
