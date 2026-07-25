@@ -172,6 +172,8 @@ import {
 } from '../lib/mappingFirstStep';
 import {
   createMappingPositionFile,
+  MAX_MAPPING_ROTATION,
+  MIN_MAPPING_ROTATION,
   normalizeMappingPosition,
   parseMappingPositionFile,
 } from '../lib/mappingPosition';
@@ -4273,7 +4275,13 @@ export function WorkspaceRoute() {
       mapping: {
         stageTransform: {
           ...currentProject.mapping.stageTransform,
-          rotationDegrees: Math.max(-180, Math.min(180, nextRotationDegrees)),
+          rotationDegrees: Math.max(
+            MIN_MAPPING_ROTATION,
+            Math.min(
+              MAX_MAPPING_ROTATION,
+              Math.round(nextRotationDegrees * 10) / 10,
+            ),
+          ),
         },
       },
     }));
@@ -4891,6 +4899,16 @@ export function WorkspaceRoute() {
         return;
       }
 
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+      ) {
+        return;
+      }
+
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         event.stopPropagation();
@@ -4919,6 +4937,14 @@ export function WorkspaceRoute() {
 
   const handleStageViewportPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     if (isMobile || hasDesktopDialogOpen) {
+      return;
+    }
+
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest('button, input, select, textarea, a, [contenteditable="true"]')
+    ) {
       return;
     }
 
