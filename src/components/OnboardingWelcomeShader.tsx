@@ -17,6 +17,8 @@ precision mediump float;
 
 uniform vec2 u_resolution;
 uniform float u_time;
+uniform vec2 u_pointer;
+uniform float u_pointer_strength;
 varying vec2 v_uv;
 
 float hash21(vec2 p) {
@@ -48,34 +50,48 @@ float fbm(vec2 p) {
   return value;
 }
 
-float gridLine(float coordinate, float width) {
-  float distanceToLine = abs(fract(coordinate) - 0.5);
-  return 1.0 - smoothstep(width, width + 0.035, distanceToLine);
-}
-
 void main() {
   vec2 uv = v_uv;
   vec2 p = uv - 0.5;
-  p.x *= u_resolution.x / max(u_resolution.y, 1.0);
+  float aspect = u_resolution.x / max(u_resolution.y, 1.0);
+  p.x *= aspect;
 
-  float time = mod(u_time, 120.0);
-  float field = fbm(p * 2.4 + vec2(time * 0.035, -time * 0.025));
+  vec2 pointer = u_pointer - 0.5;
+  pointer.x *= aspect;
+  float pointerDistance = length(p - pointer);
+  float pointerAura = exp(-pointerDistance * 1.7) * u_pointer_strength;
+  vec2 pointerFlow = (pointer - p) / max(pointerDistance, 0.2);
+  pointerFlow *= pointerAura * 0.075;
+
+  float time = u_time;
+  float field = fbm((p + pointerFlow) * 2.25 + vec2(time * 0.035, -time * 0.025));
   vec2 warp = vec2(
     sin(p.y * 5.0 + field * 5.5 + time * 0.42),
     cos(p.x * 4.2 - field * 4.8 - time * 0.34)
-  ) * 0.055;
+  ) * 0.055 + pointerFlow;
 
   vec2 mapped = p + warp;
-  vec2 gridUv = mapped * 8.0;
-  float grid = max(gridLine(gridUv.x, 0.025), gridLine(gridUv.y, 0.025));
-  grid *= 0.34 + 0.66 * smoothstep(0.2, 0.82, field);
+  float filamentA = abs(sin(
+    field * 29.0 + mapped.x * 3.8 + mapped.y * 2.2 - time * 0.68
+  ));
+  filamentA = 1.0 - smoothstep(0.025, 0.14, filamentA);
+
+  float secondaryField = fbm(
+    mapped * 3.1 + vec2(-time * 0.022, time * 0.028) + pointerFlow * 2.0
+  );
+  float filamentB = abs(sin(
+    secondaryField * 27.0 + (mapped.x - mapped.y) * 2.6 + time * 0.48
+  ));
+  filamentB = 1.0 - smoothstep(0.03, 0.15, filamentB);
 
   float contours = abs(sin((field + length(mapped) * 0.22) * 31.0 - time * 0.7));
   contours = 1.0 - smoothstep(0.035, 0.16, contours);
 
-  float radialPhase = length(mapped + vec2(0.12, -0.04)) * 17.0 - time * 1.15;
+  vec2 pulseOrigin = mix(vec2(-0.12, 0.04), pointer, u_pointer_strength * 0.9);
+  float pulseDistance = length(mapped - pulseOrigin);
+  float radialPhase = pulseDistance * 17.0 - time * 1.15;
   float projectionPulse = 1.0 - smoothstep(0.03, 0.18, abs(sin(radialPhase)));
-  projectionPulse *= smoothstep(0.95, 0.12, length(mapped));
+  projectionPulse *= 0.18 + 0.82 * exp(-pulseDistance * 1.25);
 
   float coralTrace = 1.0 - smoothstep(
     0.018,
@@ -84,15 +100,31 @@ void main() {
   );
   coralTrace *= smoothstep(0.58, 0.84, field) * 0.32;
 
-  float vignette = smoothstep(0.95, 0.18, length(p * vec2(0.78, 1.0)));
+  float pointerRing = 1.0 - smoothstep(
+    0.025,
+    0.13,
+    abs(sin(pointerDistance * 18.0 - time * 1.45))
+  );
+  pointerRing *= pointerAura;
+
   float topGlow = smoothstep(0.85, 0.05, distance(uv, vec2(0.5, -0.12)));
 
-  vec3 background = vec3(0.018, 0.024, 0.024);
+  vec3 background = mix(
+    vec3(0.016, 0.024, 0.023),
+    vec3(0.018, 0.040, 0.034),
+    1.0 - uv.y
+  );
   vec3 emerald = vec3(0.20, 0.82, 0.58);
   vec3 coral = vec3(1.0, 0.38, 0.41);
   vec3 color = background;
-  color += emerald * (grid * 0.18 + contours * 0.34 + projectionPulse * 0.16) * vignette;
-  color += coral * coralTrace * vignette;
+  color += emerald * (
+    filamentA * 0.2 +
+    filamentB * 0.12 +
+    contours * 0.23 +
+    projectionPulse * 0.15
+  ) * (0.42 + field * 0.58);
+  color += emerald * pointerAura * 0.085;
+  color += coral * (coralTrace + pointerRing * 0.16);
   color += emerald * topGlow * 0.035;
 
   gl_FragColor = vec4(color, 1.0);
@@ -175,6 +207,8 @@ export function MapshroomShaderBackdrop({
     const positionLocation = gl.getAttribLocation(program, 'a_position');
     const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
     const timeLocation = gl.getUniformLocation(program, 'u_time');
+    const pointerLocation = gl.getUniformLocation(program, 'u_pointer');
+    const pointerStrengthLocation = gl.getUniformLocation(program, 'u_pointer_strength');
     if (positionLocation === -1) {
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
@@ -205,7 +239,18 @@ export function MapshroomShaderBackdrop({
       gl.viewport(0, 0, width, height);
     };
 
-    const draw = (timeSeconds: number) => {
+    let pointerTargetX = 0.5;
+    let pointerTargetY = 0.5;
+    let pointerX = 0.5;
+    let pointerY = 0.5;
+    let pointerStrengthTarget = 0;
+    let pointerStrength = 0;
+
+    const draw = (timeSeconds: number, pointerSmoothing = 0.085) => {
+      pointerX += (pointerTargetX - pointerX) * pointerSmoothing;
+      pointerY += (pointerTargetY - pointerY) * pointerSmoothing;
+      pointerStrength +=
+        (pointerStrengthTarget - pointerStrength) * Math.min(1, pointerSmoothing * 1.5);
       resize();
       if (resolutionLocation) {
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
@@ -213,10 +258,38 @@ export function MapshroomShaderBackdrop({
       if (timeLocation) {
         gl.uniform1f(timeLocation, timeSeconds);
       }
+      if (pointerLocation) {
+        gl.uniform2f(pointerLocation, pointerX, pointerY);
+      }
+      if (pointerStrengthLocation) {
+        gl.uniform1f(pointerStrengthLocation, pointerStrength);
+      }
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     };
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const pointerSurface = canvas.parentElement;
+    const handlePointerMove = (event: PointerEvent) => {
+      const bounds = pointerSurface?.getBoundingClientRect();
+      if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+        return;
+      }
+      pointerTargetX = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+      pointerTargetY = 1 - Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+      pointerStrengthTarget = event.pointerType === 'touch' ? 0.55 : 1;
+      if (reducedMotion) {
+        draw(1.8, 1);
+      }
+    };
+    const handlePointerLeave = () => {
+      pointerStrengthTarget = 0;
+      if (reducedMotion) {
+        draw(1.8, 1);
+      }
+    };
+    pointerSurface?.addEventListener('pointermove', handlePointerMove, { passive: true });
+    pointerSurface?.addEventListener('pointerleave', handlePointerLeave);
+
     let animationFrameId = 0;
     const startedAt = performance.now();
 
@@ -234,6 +307,8 @@ export function MapshroomShaderBackdrop({
     }
 
     return () => {
+      pointerSurface?.removeEventListener('pointermove', handlePointerMove);
+      pointerSurface?.removeEventListener('pointerleave', handlePointerLeave);
       window.cancelAnimationFrame(animationFrameId);
       gl.disableVertexAttribArray(positionLocation);
       gl.deleteBuffer(buffer);
