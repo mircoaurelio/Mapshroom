@@ -781,22 +781,18 @@ export function ApiSettingsDialog({
                           </div>
                         </li>
                       </ol>
-                      {usingChatGpt ? (
-                        <figure className="ai-chat-copy-reference">
-                          <img
-                            src={`${import.meta.env.BASE_URL}assets/guides/chatgpt-copy-response.png`}
-                            alt="ChatGPT Copy response control below an answer, shown as two overlapping squares."
-                          />
-                          <figcaption>
-                            <span>Look in ChatGPT</span>
-                            <div>
-                              <strong>The two overlapping squares are below the finished answer.</strong>
-                              <small>
-                                ChatGPT labels this “Copy response” or “Copia risposta.” This image is a guide, not a button.
-                              </small>
-                            </div>
-                          </figcaption>
-                        </figure>
+                      {isSetup && usingChatGpt ? (
+                        <div className="ai-chat-copy-instruction">
+                          <span aria-hidden="true">
+                            <CopyResponseIcon />
+                          </span>
+                          <div>
+                            <strong>Copy the finished answer in ChatGPT—not in this panel.</strong>
+                            <small>
+                              Click the two overlapping squares below ChatGPT’s answer (“Copy response”), then paste the full reply here.
+                            </small>
+                          </div>
+                        </div>
                       ) : null}
                     </div>
                     )

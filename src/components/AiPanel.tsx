@@ -194,6 +194,7 @@ export function AiPanel({
   const [routeMenuOpen, setRouteMenuOpen] = useState(false);
   const pasteMenuRef = useRef<HTMLDivElement>(null);
   const routeMenuRef = useRef<HTMLDivElement>(null);
+  const promptPointerActivationRef = useRef(false);
   const showFeedback =
     Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
   const promptPlaceholder = useShaderPromptPlaceholder(!prompt);
@@ -243,7 +244,18 @@ export function AiPanel({
             aria-label="Shader prompt"
             placeholder={promptPlaceholder}
             value={prompt}
-            onFocus={onPromptFocus}
+            onPointerDown={() => {
+              promptPointerActivationRef.current = true;
+              onPromptFocus();
+              window.queueMicrotask(() => {
+                promptPointerActivationRef.current = false;
+              });
+            }}
+            onFocus={() => {
+              if (!promptPointerActivationRef.current) {
+                onPromptFocus();
+              }
+            }}
             onChange={(event) => onPromptChange(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey) {
