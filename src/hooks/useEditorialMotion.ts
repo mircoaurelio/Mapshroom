@@ -25,16 +25,15 @@ export function useEditorialMotion<T extends EditorialRoot>() {
 
       const expansion = clamp((progress - 0.1) / 0.78, 0, 1);
       const easedExpansion = expansion * expansion * (3 - 2 * expansion);
-      const potentialLabelOpacity = clamp((expansion - 0.76) / 0.16, 0, 1);
-      const potentialSeedOpacity = 1 - clamp((expansion - 0.68) / 0.16, 0, 1);
-      const potentialSeedScale = 1 - easedExpansion * 0.08;
+      const knownValueOpacity = 1 - clamp((expansion - 0.58) / 0.2, 0, 1);
+      const unknownValueOpacity = clamp((expansion - 0.66) / 0.2, 0, 1);
       const professionalPeopleOpacity =
         1 - clamp((expansion - 0.28) / 0.28, 0, 1);
       const compactMarket = window.innerWidth <= 760;
       const professionalShiftX = compactMarket ? -68 : -132;
       const professionalShiftY = compactMarket ? -64 : -118;
+      const initialPotentialScale = compactMarket ? 0.32 : 0.18;
 
-      marketStory.style.setProperty('--market-progress', `${progress}`);
       marketStory.style.setProperty(
         '--market-professional-scale',
         `${1 - easedExpansion * 0.5}`,
@@ -53,20 +52,16 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       );
       marketStory.style.setProperty(
         '--market-potential-scale',
-        `${0.18 + easedExpansion * 0.82}`,
+        `${initialPotentialScale + easedExpansion * (1 - initialPotentialScale)}`,
       );
       marketStory.style.setProperty('--market-potential-opacity', '1');
       marketStory.style.setProperty(
-        '--market-potential-label-opacity',
-        `${potentialLabelOpacity}`,
+        '--market-known-value-opacity',
+        `${knownValueOpacity}`,
       );
       marketStory.style.setProperty(
-        '--market-potential-seed-opacity',
-        `${potentialSeedOpacity}`,
-      );
-      marketStory.style.setProperty(
-        '--market-potential-seed-scale',
-        `${potentialSeedScale}`,
+        '--market-unknown-value-opacity',
+        `${unknownValueOpacity}`,
       );
       marketStory.dataset.marketPhase = expansion > 0.56 ? 'expanded' : 'professional';
     };

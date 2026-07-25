@@ -44,8 +44,6 @@ type WhyCopy = {
     title: string;
     intro: string;
     nicheValue: string;
-    nicheLabel: string;
-    seedLabel: string;
     storyAria: string;
     scrollCue: string;
     professions: {
@@ -58,8 +56,6 @@ type WhyCopy = {
       kicker: string;
       title: string;
       body: string;
-      mappingLabel: string;
-      potentialLabel: string;
       thesis: string;
     };
     mapAria: string;
@@ -158,8 +154,6 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       intro:
         'Even if Mapshroom reaches only 5% of today’s projection-mapping users, that group is only the seed inside a huge market of artists who want less setup and more time to create.',
       nicheValue: '5%',
-      nicheLabel: 'of professional crews',
-      seedLabel: 'Market seed',
       storyAria: 'A scroll-driven view that begins with professional users and zooms out to the much larger potential market',
       scrollCue: 'Scroll to zoom out',
       professions: {
@@ -174,12 +168,10 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         title: 'This market is much bigger than projection mapping.',
         body:
           'The 5% is only the seed. Around it is a huge community of artists who want the process to disappear so the work can begin.',
-        mappingLabel: 'Professional crews',
-        potentialLabel: 'A huge community of artists who want less process and more time to create.',
         thesis: 'The 5% is the seed of a much larger market.',
       },
       mapAria:
-        'A yellow circle marked 5 percent begins inside a professional-crew circle, then grows into a much larger community of artists who want less process and more time to create',
+        'Six profession icons surround a small yellow circle marked 5 percent. The yellow circle grows until the value becomes an unknown percentage.',
       cards: [
         {
           icon: 'events',
@@ -344,8 +336,6 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
       intro:
         'Anche se Mapshroom raggiungesse solo il 5% di chi usa già software di projection mapping, quel gruppo sarebbe soltanto il seme dentro un mercato enorme di artisti che vuole meno setup e più tempo per creare.',
       nicheValue: '5%',
-      nicheLabel: 'delle crew professionali',
-      seedLabel: 'Seme del mercato',
       storyAria: 'Una visualizzazione legata allo scroll che parte dagli utenti professionali e si allarga fino al mercato potenziale molto più grande',
       scrollCue: 'Scorri per allargare lo sguardo',
       professions: {
@@ -360,12 +350,10 @@ export const WHY_COPY: Record<WhyLocale, WhyCopy> = {
         title: 'Questo mercato è molto più grande del projection mapping.',
         body:
           'Il 5% è soltanto il seme. Intorno c’è una comunità enorme di artisti che vuole far sparire il processo per iniziare a creare.',
-        mappingLabel: 'Crew professionali',
-        potentialLabel: 'Una comunità enorme di artisti che vuole meno processo e più tempo per creare.',
         thesis: 'Il 5% è il seme di un mercato molto più grande.',
       },
       mapAria:
-        'Un cerchio giallo con il 5 per cento nasce dentro il cerchio delle crew professionali e cresce fino a rappresentare una comunità molto più grande di artisti che vuole meno processo e più tempo per creare',
+        'Sei icone professionali circondano un piccolo cerchio giallo con il 5 per cento. Il cerchio giallo cresce finché il valore diventa una percentuale sconosciuta.',
       cards: [
         {
           icon: 'events',
