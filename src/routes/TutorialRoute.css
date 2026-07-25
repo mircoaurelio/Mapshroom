@@ -257,7 +257,7 @@
   .tutorial-nav { height:62px; }
   .tutorial-brand span { display:none; }
   .tutorial-nav>div { gap:10px; }
-  .tutorial-nav-anchor { display:none; }
+  .tutorial-nav-anchor,.tutorial-why-nav-link { display:none; }
   .tutorial-open-button { padding:9px 11px; font-size:9px; white-space:nowrap; }
   .tutorial-hero-copy { padding:64px 22px; }
   .tutorial-hero h1 { font-size:48px; }

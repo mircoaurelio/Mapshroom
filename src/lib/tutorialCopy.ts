@@ -8,6 +8,7 @@ export type TutorialCopy = {
   documentTitle: string;
   navViewSteps: string;
   navWhy: string;
+  navCreatorChallenge: string;
   navOpenWorkspace: string;
   eyebrow: string;
   heroTitleBefore: string;
@@ -85,6 +86,7 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
     documentTitle: 'Tutorial — Mapshroom',
     navViewSteps: 'View steps',
     navWhy: 'Why Mapshroom?',
+    navCreatorChallenge: 'Creator Challenge',
     navOpenWorkspace: 'Open workspace',
     eyebrow: 'Camera → Mapshroom → projector',
     heroTitleBefore: 'Projection map everything,',
@@ -195,6 +197,7 @@ export const TUTORIAL_COPY: Record<TutorialLocale, TutorialCopy> = {
     documentTitle: 'Tutorial — Mapshroom',
     navViewSteps: 'Vedi i passi',
     navWhy: 'Perché Mapshroom?',
+    navCreatorChallenge: 'Creator Challenge',
     navOpenWorkspace: 'Apri workspace',
     eyebrow: 'Camera → Mapshroom → proiettore',
     heroTitleBefore: 'Projection mapping reso semplice,',

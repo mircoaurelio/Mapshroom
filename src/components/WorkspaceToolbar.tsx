@@ -499,6 +499,14 @@ export function WorkspaceToolbar({
                   Tutorial &amp; help
                 </Link>
                 <Link
+                  to="/creatorchallenge"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Creator Challenge
+                </Link>
+                <Link
                   to="/download"
                   role="menuitem"
                   className="toolbar-menu-item"

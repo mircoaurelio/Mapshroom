@@ -77,6 +77,9 @@ export function TutorialRoute() {
             {copy.navViewSteps}
           </button>
           <Link to="/why" className="tutorial-why-nav-link">{copy.navWhy}</Link>
+          <Link to="/creatorchallenge" className="tutorial-challenge-nav-link">
+            {copy.navCreatorChallenge}
+          </Link>
           <Link to="/" className="tutorial-open-button">{copy.navOpenWorkspace}</Link>
         </div>
       </nav>

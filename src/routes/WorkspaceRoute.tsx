@@ -41,6 +41,7 @@ import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDial
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import { MapshroomBrandLockup } from '../components/MapshroomBrandLockup';
+import { OnboardingWelcomeShader } from '../components/OnboardingWelcomeShader';
 import {
   getAnalyticsConsent,
   setAnalyticsAiPresence,
@@ -193,6 +194,10 @@ import {
 } from '../lib/mappingPosition';
 import { normalizeStageDistortion } from '../lib/distortion';
 import { blankShaderTemplate } from '../shaders/templates/blankShader';
+import {
+  ONBOARDING_MISSION_COPY,
+  resolveOnboardingMissionLocale,
+} from '../lib/onboardingMissionCopy';
 import type {
   AiSettings,
   AssetKind,
@@ -247,7 +252,7 @@ const TIMELINE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
 const ONBOARDING_ENTRY_COOKIE = 'mapshroom_onboarding_entries';
 const ONBOARDING_ENTRY_SESSION_KEY = 'mapshroom:onboarding-entry-counted';
 const ONBOARDING_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-const ONBOARDING_AUTO_OPEN_LIMIT = 1;
+const ONBOARDING_AUTO_OPEN_LIMIT = 3;
 
 const ONBOARDING_SETUP_STEP_COUNT = 2;
 const ONBOARDING_CALLOUT_GAP_PX = 16;
@@ -535,9 +540,17 @@ function resolveOnboardingLocale(): OnboardingLocale {
       ? [...navigator.languages, navigator.language].filter(Boolean)
       : [];
 
-  return preferredLanguages.some((language) => language.toLowerCase().startsWith('it'))
-    ? 'it'
-    : 'en';
+  for (const language of preferredLanguages) {
+    const normalized = language.toLowerCase();
+    if (normalized.startsWith('it')) {
+      return 'it';
+    }
+    if (normalized.startsWith('en')) {
+      return 'en';
+    }
+  }
+
+  return 'en';
 }
 
 function createTimelineRandomSeedToken(): string {
@@ -728,6 +741,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   const [welcomeRevealed, setWelcomeRevealed] = useState(() => hasBootExitStarted());
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
+  const [missionLocale] = useState(() => resolveOnboardingMissionLocale());
   const [highlightRect, setHighlightRect] = useState<{
     top: number;
     left: number;
@@ -944,6 +958,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
           aria-labelledby="onboarding-welcome-title"
         >
           <div className="onboarding-welcome-content">
+            <OnboardingWelcomeShader active={welcomeRevealed} />
             <div className="onboarding-welcome-copy">
               <span className="panel-eyebrow">{onboardingCopy.welcomeEyebrow}</span>
               <h2 id="onboarding-welcome-title">{onboardingCopy.welcomeTitle}</h2>
@@ -966,6 +981,14 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
               >
                 {onboardingCopy.welcomeStartMapping}
               </button>
+            </div>
+            <div className="onboarding-welcome-mission">
+              <p
+                lang={missionLocale}
+                dir={missionLocale === 'ar' ? 'rtl' : 'auto'}
+              >
+                {ONBOARDING_MISSION_COPY[missionLocale]}
+              </p>
             </div>
             <nav className="onboarding-welcome-links" aria-label="Mapshroom resources">
               <Link to="/why">{onboardingCopy.welcomeWhyLink}</Link>
