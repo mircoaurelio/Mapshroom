@@ -1,0 +1,12 @@
+name = "mapshroom-analytics-proxy"
+main = "src/index.ts"
+compatibility_date = "2025-07-01"
+
+# Only /a/... — not /assets (a* would steal static JS/CSS).
+[[routes]]
+pattern = "mapshroom.dev/a/*"
+zone_name = "mapshroom.dev"
+
+[[routes]]
+pattern = "www.mapshroom.dev/a/*"
+zone_name = "mapshroom.dev"

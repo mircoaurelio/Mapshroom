@@ -125,9 +125,7 @@ export function WorkspaceToolbar({
   const [assetsFirstStepAdvanced, setAssetsFirstStepAdvanced] = useState(() =>
     isAssetsImportStepPending(),
   );
-  const [moveOutputTipVisible, setMoveOutputTipVisible] = useState(false);
   const toolbarMenusRef = useRef<HTMLDivElement | null>(null);
-  const moveOutputTipTimeoutRef = useRef<number | null>(null);
   const assetsFirstStepRemainingMsRef = useRef(
     Math.max(
       0,
@@ -263,15 +261,6 @@ export function WorkspaceToolbar({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [assetsFirstStepVisible]);
 
-  useEffect(
-    () => () => {
-      if (moveOutputTipTimeoutRef.current !== null) {
-        window.clearTimeout(moveOutputTipTimeoutRef.current);
-      }
-    },
-    [],
-  );
-
   const toggleMenu = (menu: ToolbarMenuKey) => {
     setOpenMenu((currentMenu) => (currentMenu === menu ? null : menu));
   };
@@ -295,23 +284,6 @@ export function WorkspaceToolbar({
 
     dismissAssetsFirstStep();
     onOpenAssets();
-  };
-  const dismissMoveOutputTip = () => {
-    if (moveOutputTipTimeoutRef.current !== null) {
-      window.clearTimeout(moveOutputTipTimeoutRef.current);
-      moveOutputTipTimeoutRef.current = null;
-    }
-    setMoveOutputTipVisible(false);
-  };
-  const revealMoveOutputTip = () => {
-    if (moveOutputTipTimeoutRef.current !== null) {
-      window.clearTimeout(moveOutputTipTimeoutRef.current);
-    }
-    setMoveOutputTipVisible(true);
-    moveOutputTipTimeoutRef.current = window.setTimeout(() => {
-      moveOutputTipTimeoutRef.current = null;
-      setMoveOutputTipVisible(false);
-    }, 7_000);
   };
 
   return (
@@ -518,14 +490,7 @@ export function WorkspaceToolbar({
             }`}
             aria-pressed={moveMode}
             title={moveMode ? 'Turn move mode off' : 'Turn move mode on'}
-            onClick={() => {
-              if (!moveMode && !onboardingActive) {
-                revealMoveOutputTip();
-              } else {
-                dismissMoveOutputTip();
-              }
-              onToggleMoveMode();
-            }}
+            onClick={onToggleMoveMode}
           >
             <span className="toolbar-move-indicator" aria-hidden="true" />
             <span>Move</span>
@@ -622,55 +587,9 @@ export function WorkspaceToolbar({
               </aside>
             ) : null}
           </div>
-          <div className="toolbar-output-shell">
-            <button
-              type="button"
-              className={`primary-button toolbar-output-button ${
-                moveMode ? 'toolbar-output-button-active asset-browser-shine' : ''
-              }`}
-              aria-describedby={
-                moveMode && moveOutputTipVisible && !assetsFirstStepVisible
-                  ? 'move-output-tip-description'
-                  : undefined
-              }
-              onClick={() => {
-                dismissMoveOutputTip();
-                onOpenOutput();
-              }}
-            >
-              <span>Output</span>
-              {moveMode ? <small>Affected by Move</small> : null}
-            </button>
-            {moveMode && moveOutputTipVisible && !assetsFirstStepVisible ? (
-              <aside className="toolbar-output-callout" aria-live="polite">
-                <span className="toolbar-output-callout-arrow" aria-hidden="true" />
-                <button
-                  type="button"
-                  className="toolbar-output-callout-close"
-                  aria-label="Close output window tip"
-                  onClick={dismissMoveOutputTip}
-                >
-                  ×
-                </button>
-                <span className="toolbar-output-callout-kicker">Move is on</span>
-                <strong>Only the Output window is affected</strong>
-                <p id="move-output-tip-description">
-                  Your workspace preview stays fixed. Open Output to see and align the image on the
-                  projector.
-                </p>
-                <button
-                  type="button"
-                  className="primary-button toolbar-output-callout-cta"
-                  onClick={() => {
-                    dismissMoveOutputTip();
-                    onOpenOutput();
-                  }}
-                >
-                  Open Output
-                </button>
-              </aside>
-            ) : null}
-          </div>
+          <button type="button" className="primary-button" onClick={onOpenOutput}>
+            Output
+          </button>
           <button
             type="button"
             className="icon-button toolbar-transport-button"

@@ -7093,12 +7093,6 @@ ${errorSnapshot}`,
 
         {stageControlsVisible ? (
           <div className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}>
-            {!isMobile ? (
-              <p className="mapping-output-disclaimer">
-                <strong>Output window only</strong>
-                <span>These controls change the projector output, not this workspace preview.</span>
-              </p>
-            ) : null}
             <MappingPad
               onAction={handleMappingAction}
               onPrecisionChange={updateStagePrecision}
