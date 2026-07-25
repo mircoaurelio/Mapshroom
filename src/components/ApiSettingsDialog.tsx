@@ -332,12 +332,12 @@ export function ApiSettingsDialog({
   const directProviderName = usingPerplexity ? 'Perplexity' : 'ChatGPT';
   const externalSurfaceLabel =
     externalWindowMode === 'popup'
-      ? 'right-side window'
+      ? 'left-side window'
       : externalWindowMode === 'tab'
         ? 'browser tab'
         : 'AI window';
   const guideTitle = usingDirectChat
-    ? `${directProviderName} is open on the right`
+    ? `${directProviderName} is open on the left`
     : selectedPath === 'api'
       ? 'Connect your API'
       : selectedPath === 'local'
@@ -428,7 +428,7 @@ export function ApiSettingsDialog({
     >
       <section
         ref={dialogRef}
-        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''}`}
+        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && selectedPath === 'chat' ? 'ai-settings-dialog-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="api-settings-title"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { MapshroomShaderFooter } from '../components/MapshroomShaderFooter';
 import { useEditorialMotion } from '../hooks/useEditorialMotion';
 import '../styles/EditorialMotion.css';
 import './CreatorChallengeRoute.css';
@@ -10,22 +11,22 @@ const INSTAGRAM_URL = 'https://www.instagram.com/mirco.aurelio/';
 
 const COPY = {
   en: {
-    documentTitle: 'Mapshroom Creator Challenge — Make a video, unlock Pro',
+    documentTitle: 'Free $50 Mapshroom Credits | Creator Challenge',
     description:
-      'Post the Mapshroom process as a YouTube Short or Instagram Reel with #mapshroom. Reach 4,000 views and we give you one month of Mapshroom Pro for free.',
+      'Post your Mapshroom process as a YouTube Short or Instagram Reel with #mapshroom. Reach 4,000 public views and get $50 in Mapshroom credits—free.',
     navHow: 'How it works',
     navTutorial: 'Tutorial',
     navOpen: 'Open Mapshroom',
     languageLabel: 'Choose language',
     eyebrow: 'Mapshroom Creator Challenge',
-    titleBefore: 'Show the process.',
-    titleAccent: 'Unlock Pro.',
+    titleBefore: 'Go viral.',
+    titleAccent: 'Get $50 in free credits.',
     lead:
-      'Make a video that follows your complete experience using Mapshroom—from choosing an object to the final projection. Publish it as a YouTube Short or Instagram Reel with #mapshroom. When it reaches 4,000 views, we give you one full month of Mapshroom Pro—completely free.',
+      'Show your full Mapshroom process in a YouTube Short or Instagram Reel with #mapshroom. Reach 4,000 public views and we’ll add $50 in credits to your Mapshroom account.',
     heroCta: 'See what to film',
     instagramCta: 'Send me your video',
     metricViews: 'public views',
-    metricReward: 'WE GIVE YOU 1 MONTH OF MAPSHROOM PRO — FREE',
+    metricReward: '$50 IN MAPSHROOM CREDITS — FREE',
     heroCaption: 'YouTube Short or Instagram Reel / Add #mapshroom / Show the process',
     missionKicker: 'The point of the challenge',
     missionTitle: 'Don’t post only the final reveal.',
@@ -52,7 +53,7 @@ const COPY = {
       {
         title: 'Publish and send the link',
         body: 'Publish it publicly as a YouTube Short or Instagram Reel and add #mapshroom. When that video reaches 4,000 views, send its link to @mirco.aurelio on Instagram.',
-        label: 'Claim Pro',
+        label: 'Claim $50',
       },
     ],
     processNoteStrong: 'The process is the story.',
@@ -67,7 +68,7 @@ const COPY = {
     ],
     tutorialLink: 'Use the full tutorial as your filming checklist',
     benefitsKicker: 'Every valid creator joins the community',
-    benefitsTitle: 'We give you 1 month of Pro. Free.',
+    benefitsTitle: 'You get $50 in credits. Free.',
     benefits: [
       {
         title: 'Mushroom Creator badge',
@@ -85,7 +86,7 @@ const COPY = {
     submitKicker: 'Ready to participate?',
     submitTitle: 'Map it. Film it. Share it.',
     submitBody:
-      'Publish your process video as a YouTube Short or Instagram Reel, add #mapshroom and send me its link on Instagram. Once that Short or Reel passes 4,000 public views, we give you one month of Mapshroom Pro for free.',
+      'Publish your process video as a YouTube Short or Instagram Reel, add #mapshroom and send me its link on Instagram. Once that Short or Reel passes 4,000 public views, we’ll add $50 in credits to your Mapshroom account.',
     submitCta: 'Open @mirco.aurelio',
     submitHandle: 'Send the link by DM',
     checklistTitle: 'Quick checklist',
@@ -101,22 +102,22 @@ const COPY = {
     footerTutorial: 'Read the tutorial',
   },
   it: {
-    documentTitle: 'Mapshroom Creator Challenge — Crea un video, ottieni Pro',
+    documentTitle: 'Crediti Mapshroom gratis per i creator | Creator Challenge',
     description:
-      'Pubblica il processo Mapshroom come YouTube Short o Instagram Reel con #mapshroom. Raggiungi 4.000 views e ti regaliamo un mese di Mapshroom Pro.',
+      'Pubblica il tuo processo Mapshroom come YouTube Short o Instagram Reel con #mapshroom. Raggiungi 4.000 visualizzazioni pubbliche e ricevi $50 in crediti Mapshroom gratis.',
     navHow: 'Come funziona',
     navTutorial: 'Tutorial',
     navOpen: 'Apri Mapshroom',
     languageLabel: 'Scegli la lingua',
     eyebrow: 'Mapshroom Creator Challenge',
-    titleBefore: 'Mostra il processo.',
-    titleAccent: 'Ottieni Pro.',
+    titleBefore: 'Vai virale.',
+    titleAccent: 'Ricevi $50 in crediti gratis.',
     lead:
-      'Crea un video che racconti tutta la tua esperienza con Mapshroom: dalla scelta dell’oggetto alla proiezione finale. Pubblicalo come YouTube Short o Instagram Reel con #mapshroom. Quando raggiunge 4.000 visualizzazioni, ti regaliamo un mese intero di Mapshroom Pro.',
+      'Mostra tutto il tuo processo Mapshroom in uno YouTube Short o Instagram Reel con #mapshroom. Raggiungi 4.000 visualizzazioni pubbliche e aggiungeremo $50 in crediti al tuo account Mapshroom.',
     heroCta: 'Scopri cosa filmare',
     instagramCta: 'Mandami il tuo video',
     metricViews: 'visualizzazioni pubbliche',
-    metricReward: 'TI REGALIAMO 1 MESE DI MAPSHROOM PRO — GRATIS',
+    metricReward: '$50 IN CREDITI MAPSHROOM — GRATIS',
     heroCaption: 'YouTube Short o Instagram Reel / Aggiungi #mapshroom / Mostra il processo',
     missionKicker: 'Lo scopo della challenge',
     missionTitle: 'Non pubblicare soltanto il risultato.',
@@ -143,7 +144,7 @@ const COPY = {
       {
         title: 'Pubblica e manda il link',
         body: 'Pubblicalo come YouTube Short o Instagram Reel e aggiungi #mapshroom. Quando quel video raggiunge 4.000 views, invia il link a @mirco.aurelio su Instagram.',
-        label: 'Ottieni Pro',
+        label: 'Ricevi $50',
       },
     ],
     processNoteStrong: 'Il processo è la storia.',
@@ -158,7 +159,7 @@ const COPY = {
     ],
     tutorialLink: 'Usa il tutorial completo come checklist per le riprese',
     benefitsKicker: 'Ogni creator valido entra nella community',
-    benefitsTitle: 'Ti regaliamo 1 mese di Pro. Gratis.',
+    benefitsTitle: 'Ricevi $50 in crediti. Gratis.',
     benefits: [
       {
         title: 'Badge Mushroom Creator',
@@ -176,7 +177,7 @@ const COPY = {
     submitKicker: 'Vuoi partecipare?',
     submitTitle: 'Mappa. Filma. Condividi.',
     submitBody:
-      'Pubblica il video del tuo processo come YouTube Short o Instagram Reel, aggiungi #mapshroom e mandami il link su Instagram. Quando quello Short o Reel supera 4.000 visualizzazioni pubbliche, ti regaliamo un mese di Mapshroom Pro.',
+      'Pubblica il video del tuo processo come YouTube Short o Instagram Reel, aggiungi #mapshroom e mandami il link su Instagram. Quando quello Short o Reel supera 4.000 visualizzazioni pubbliche, aggiungeremo $50 in crediti al tuo account Mapshroom.',
     submitCta: 'Apri @mirco.aurelio',
     submitHandle: 'Invia il link in DM',
     checklistTitle: 'Checklist veloce',
@@ -412,16 +413,16 @@ export function CreatorChallengeRoute() {
             <strong>4,000</strong>
             <span>VIEWS</span>
             <i aria-hidden="true">=</i>
-            <b>{locale === 'it' ? '1 MESE PRO GRATIS' : '1 MONTH PRO FREE'}</b>
+            <b>{locale === 'it' ? '$50 IN CREDITI' : '$50 IN CREDITS'}</b>
           </div>
         </div>
       </section>
 
-      <footer className="creator-footer">
+      <MapshroomShaderFooter className="creator-footer">
         <span>Mapshroom</span>
         <span>{copy.footerTagline}</span>
         <Link to="/tutorial">{copy.footerTutorial}</Link>
-      </footer>
+      </MapshroomShaderFooter>
     </main>
   );
 }

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MapshroomShaderFooter } from '../components/MapshroomShaderFooter';
 import { useEditorialMotion } from '../hooks/useEditorialMotion';
 import { resolveTutorialLocale, TUTORIAL_COPY } from '../lib/tutorialCopy';
 import '../styles/EditorialMotion.css';
@@ -77,6 +78,9 @@ export function TutorialRoute() {
             {copy.navViewSteps}
           </button>
           <Link to="/why" className="tutorial-why-nav-link">{copy.navWhy}</Link>
+          <Link to="/creatorchallenge" className="tutorial-challenge-nav-link">
+            {copy.navCreatorChallenge}
+          </Link>
           <Link to="/" className="tutorial-open-button">{copy.navOpenWorkspace}</Link>
         </div>
       </nav>
@@ -268,11 +272,11 @@ export function TutorialRoute() {
         <p className="tutorial-cta-lead">{copy.ctaLead}</p>
         <Link to="/" className="tutorial-primary-button">{copy.ctaButton}</Link>
       </section>
-      <footer className="tutorial-footer">
+      <MapshroomShaderFooter className="tutorial-footer">
         <span>Mapshroom</span>
         <span>{copy.footerTagline}</span>
         <Link to="/">{copy.footerWorkspace}</Link>
-      </footer>
+      </MapshroomShaderFooter>
     </main>
   );
 }

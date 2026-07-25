@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { MapshroomShaderFooter } from '../components/MapshroomShaderFooter';
 import {
   resolveWhyLocale,
   type WhyLocale,
@@ -309,11 +310,11 @@ export function WhyRoute() {
         </div>
       </section>
 
-      <footer className="why-footer">
+      <MapshroomShaderFooter className="why-footer">
         <span>Mapshroom</span>
         <span>{copy.footerTagline}</span>
         <Link to="/">{copy.footerWorkspace}</Link>
-      </footer>
+      </MapshroomShaderFooter>
     </main>
   );
 }

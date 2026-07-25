@@ -2,6 +2,10 @@ import type { AssetRecord } from '../types';
 
 export const BUNDLED_STATUE_ASSET_ID = 'bundled-basestatue';
 export const BUNDLED_STATUE_DEPTH_ASSET_ID = 'bundled-basestatue-depth';
+export const BUNDLED_STATUE_GREEN_EYES_ASSET_ID = 'bundled-statue-green-eyes';
+export const BUNDLED_STATUE_BIOMECHANICAL_ASSET_ID = 'bundled-statue-biomechanical';
+export const BUNDLED_STATUE_CREATURE_ASSET_ID = 'bundled-statue-creature';
+export const BUNDLED_STATUE_MAGMA_ASSET_ID = 'bundled-statue-magma';
 export const BUNDLED_STAGE_ASSET_ID = 'bundled-palco-stage';
 export const BUNDLED_STAGE_1B_ASSET_ID = 'bundled-stage-1b';
 export const BUNDLED_STAGE_2A_ASSET_ID = 'bundled-stage-2a';
@@ -21,6 +25,10 @@ export function pickStarterBundledAssetId(isMobile = false): string {
 const BUNDLED_ASSET_URLS: Record<string, string> = {
   [BUNDLED_STATUE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue.png`,
   [BUNDLED_STATUE_DEPTH_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-basestatue-depth.png`,
+  [BUNDLED_STATUE_GREEN_EYES_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-statue-green-eyes.png`,
+  [BUNDLED_STATUE_BIOMECHANICAL_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-statue-biomechanical.png`,
+  [BUNDLED_STATUE_CREATURE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-statue-creature.png`,
+  [BUNDLED_STATUE_MAGMA_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-statue-magma.png`,
   [BUNDLED_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-palco.png`,
   [BUNDLED_STAGE_1B_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-1b.png`,
   [BUNDLED_STAGE_2A_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-2a.jpg`,
@@ -34,9 +42,9 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
     name: 'Base Statue',
     kind: 'image',
     mimeType: 'image/png',
-    size: 133051,
-    lastModified: 1753104000000,
-    createdAt: '2026-07-21T15:15:00.000Z',
+    size: 967560,
+    lastModified: 1784995200000,
+    createdAt: '2026-07-25T16:00:00.000Z',
     sourceType: 'bundled',
   },
   {
@@ -44,9 +52,49 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
     name: 'Base Statue Depth',
     kind: 'image',
     mimeType: 'image/png',
-    size: 993425,
-    lastModified: 1753104000000,
-    createdAt: '2026-07-21T14:00:00.000Z',
+    size: 967560,
+    lastModified: 1784995200000,
+    createdAt: '2026-07-25T16:00:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STATUE_GREEN_EYES_ASSET_ID,
+    name: 'Green Eyes Statue',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 1019601,
+    lastModified: 1784995200000,
+    createdAt: '2026-07-25T16:00:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STATUE_BIOMECHANICAL_ASSET_ID,
+    name: 'Biomechanical Statue',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 1859445,
+    lastModified: 1784995200000,
+    createdAt: '2026-07-25T16:00:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STATUE_CREATURE_ASSET_ID,
+    name: 'Creature Statue',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 1144304,
+    lastModified: 1784995200000,
+    createdAt: '2026-07-25T16:00:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_STATUE_MAGMA_ASSET_ID,
+    name: 'Magma Statue',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 1838456,
+    lastModified: 1784995200000,
+    createdAt: '2026-07-25T16:00:00.000Z',
     sourceType: 'bundled',
   },
   {
