@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AiGenerationRoute } from '../lib/aiRoute';
 import { PanelSection } from './PanelSection';
 
@@ -192,12 +192,47 @@ export function AiPanel({
 }: AiPanelProps) {
   const [pasteMenuOpen, setPasteMenuOpen] = useState(false);
   const [routeMenuOpen, setRouteMenuOpen] = useState(false);
+  const pasteMenuRef = useRef<HTMLDivElement>(null);
+  const routeMenuRef = useRef<HTMLDivElement>(null);
   const showFeedback =
     Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
   const promptPlaceholder = useShaderPromptPlaceholder(!prompt);
   const selectedRouteOption =
     AI_ROUTE_OPTIONS.find((option) => option.value === selectedRoute) ??
     AI_ROUTE_OPTIONS[0];
+
+  useEffect(() => {
+    if (!pasteMenuOpen && !routeMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (pasteMenuOpen && !pasteMenuRef.current?.contains(target)) {
+        setPasteMenuOpen(false);
+      }
+      if (routeMenuOpen && !routeMenuRef.current?.contains(target)) {
+        setRouteMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPasteMenuOpen(false);
+        setRouteMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [pasteMenuOpen, routeMenuOpen]);
 
   return (
     <PanelSection>
@@ -220,7 +255,7 @@ export function AiPanel({
             }}
           />
           <div className="ai-prompt-composer-footer">
-            <div className="ai-prompt-add-shell">
+            <div ref={pasteMenuRef} className="ai-prompt-add-shell">
               <button
                 type="button"
                 className={`ai-prompt-add-button ${pasteMenuOpen ? 'active' : ''}`}
@@ -268,6 +303,7 @@ export function AiPanel({
 
             <div className="ai-prompt-route-actions">
               <div
+                ref={routeMenuRef}
                 className="ai-prompt-route-select"
                 onBlur={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget)) {
