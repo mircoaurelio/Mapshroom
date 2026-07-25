@@ -88,6 +88,7 @@ interface CompactSharedProjectPayload {
     r?: number;
     mm?: 1;
     rl?: 1;
+    g?: 1;
   };
   t: CompactSharedTimelinePayload;
   h: CompactSharedShaderPayload[];
@@ -292,6 +293,7 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
       r: project.mapping.stageTransform.rotationDegrees || undefined,
       mm: project.mapping.stageTransform.moveMode ? 1 : undefined,
       rl: project.mapping.stageTransform.rotationLocked ? 1 : undefined,
+      g: project.mapping.stageTransform.showGrid ? 1 : undefined,
     },
     t: {
       d: project.timeline.stub.durationSeconds,
@@ -443,6 +445,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
           payload.m?.r ?? baseProject.mapping.stageTransform.rotationDegrees,
         moveMode: Boolean(payload.m?.mm),
         rotationLocked: Boolean(payload.m?.rl),
+        showGrid: Boolean(payload.m?.g),
       },
     },
     library: {

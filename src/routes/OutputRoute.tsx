@@ -221,6 +221,7 @@ export function OutputRoute() {
           progress: midiOutputMix?.progress ?? 0,
         }}
         isOutputOnly
+        showGrid={Boolean(project.mapping?.stageTransform?.showGrid)}
       />
       {showScreenPicker ? (
         <section className="output-screen-picker" aria-labelledby="output-screen-picker-title">
