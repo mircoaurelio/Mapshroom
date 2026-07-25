@@ -1,14 +1,14 @@
 export type ExternalAiWindowResult = 'popup' | 'tab' | 'blocked';
 
 const DESKTOP_MIN_SCREEN_WIDTH = 1280;
-const POPUP_MIN_WIDTH = 480;
-const POPUP_MAX_WIDTH = 620;
-const POPUP_WIDTH_RATIO = 0.37;
-const POPUP_MIN_HEIGHT = 540;
-const POPUP_MAX_HEIGHT = 680;
-const POPUP_HEIGHT_RATIO = 0.6;
+const POPUP_MIN_WIDTH = 520;
+const POPUP_MAX_WIDTH = 820;
+const POPUP_WIDTH_RATIO = 0.425;
+const POPUP_MIN_HEIGHT = 520;
+const POPUP_MAX_HEIGHT = 700;
+const POPUP_HEIGHT_RATIO = 0.64;
 const POPUP_MARGIN = 24;
-const POPUP_EDGE_INSET_RATIO = 0.05;
+const POPUP_EDGE_INSET_RATIO = 0.04;
 const AI_POPUP_NAME = 'mapshroom-ai-chat';
 let activeExternalAiWindow: Window | null = null;
 let activePopupGeometry: { width: number; left: number } | null = null;
@@ -74,10 +74,15 @@ export function alignExternalAiWindowToElement(element: HTMLElement): boolean {
     }
 
     const panelRect = element.getBoundingClientRect();
+    const availableWidth = window.screen.availWidth;
     const availableTop = window.screen.availTop ?? window.screenY;
     const availableHeight = window.screen.availHeight;
     const browserChromeHeight = Math.max(0, window.outerHeight - window.innerHeight);
     const browserViewportTop = window.screenY + browserChromeHeight;
+    const width = Math.min(
+      Math.round(panelRect.width),
+      Math.max(320, availableWidth - POPUP_MARGIN * 2),
+    );
     const height = Math.min(
       Math.round(panelRect.height),
       Math.max(320, availableHeight - POPUP_MARGIN * 2),
@@ -88,7 +93,8 @@ export function alignExternalAiWindowToElement(element: HTMLElement): boolean {
       availableTop + availableHeight - height,
     );
 
-    activeExternalAiWindow.resizeTo(activePopupGeometry.width, height);
+    activePopupGeometry.width = width;
+    activeExternalAiWindow.resizeTo(width, height);
     activeExternalAiWindow.moveTo(activePopupGeometry.left, top);
     return true;
   } catch {
@@ -127,7 +133,7 @@ export function openExternalAiWindow(url: string): ExternalAiWindowResult {
     availableLeft + availableWidth - hostWindowWidth,
   );
   const edgeInset = Math.max(POPUP_MARGIN, Math.round(hostWindowWidth * POPUP_EDGE_INSET_RATIO));
-  const desiredLeft = hostWindowLeft + hostWindowWidth - width - edgeInset;
+  const desiredLeft = hostWindowLeft + edgeInset;
   const browserChromeHeight = Math.max(0, window.outerHeight - window.innerHeight);
   const browserViewportTop = window.screenY + browserChromeHeight;
   const desiredTop = browserViewportTop + Math.round((window.innerHeight - height) / 2);
