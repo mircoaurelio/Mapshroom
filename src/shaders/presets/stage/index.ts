@@ -1325,4 +1325,5 @@ export const stagePresetList: ShaderPresetDefinition[] =
   recoveredStagePresetListSource.map((preset) => ({
     ...preset,
     template: 'sculpture',
+    templates: ['sculpture', 'stage'],
   }));
