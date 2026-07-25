@@ -10752,6 +10752,9 @@ a {
   cursor: pointer;
   transition: background 150ms ease, color 150ms ease;
 }
+.ai-chat-guide-slot {
+  width: 100%;
+}
 .ai-chat-guide-cue:hover,
 .ai-chat-guide-cue:focus-visible {
   background: rgba(6, 78, 59, .32);
@@ -11091,9 +11094,9 @@ a {
 .ai-settings-dialog-direct-chat.ai-settings-dialog-setup .dialog-body {
   flex: 1;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  align-content: start;
-  align-items: start;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  align-items: stretch;
 }
 
 .ai-settings-dialog-direct-chat .ai-quick-guide {
@@ -11104,11 +11107,17 @@ a {
 .ai-settings-dialog-direct-chat .ai-chat-section,
 .ai-settings-dialog-direct-chat .ai-chat-workflow {
   min-height: 0;
-  height: auto;
+  height: 100%;
 }
 
 .ai-settings-dialog-direct-chat .ai-chat-workflow {
-  grid-template-rows: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-guide-slot {
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
 .ai-settings-dialog-direct-chat .ai-chat-paste-zone {
