@@ -59,7 +59,6 @@ export function MobileUniformOverlay({
               onClick={randomizeUniforms}
             >
               <ShuffleIcon />
-              <span>Randomize</span>
             </button>
             <button
               type="button"
@@ -94,9 +93,6 @@ export function MobileUniformOverlay({
                     <span>{name}</span>
                     <span className="uniform-field-meta">
                       {isNumeric ? (
-                        <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
-                      ) : null}
-                      {isNumeric ? (
                         <button
                           type="button"
                           className={`uniform-random-lock-button ${
@@ -112,6 +108,9 @@ export function MobileUniformOverlay({
                         >
                           <ShuffleIcon blocked={isLocked} />
                         </button>
+                      ) : null}
+                      {isNumeric ? (
+                        <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
                       ) : null}
                     </span>
                   </span>
