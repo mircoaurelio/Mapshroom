@@ -41,7 +41,10 @@ import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDial
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import { MapshroomBrandLockup } from '../components/MapshroomBrandLockup';
-import { OnboardingWelcomeShader } from '../components/OnboardingWelcomeShader';
+import {
+  MapshroomShaderBackdrop,
+  OnboardingWelcomeShader,
+} from '../components/OnboardingWelcomeShader';
 import {
   getAnalyticsConsent,
   setAnalyticsAiPresence,
@@ -742,6 +745,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
   const [missionLocale] = useState(() => resolveOnboardingMissionLocale());
+  const [missionShaderActive, setMissionShaderActive] = useState(false);
   const [highlightRect, setHighlightRect] = useState<{
     top: number;
     left: number;
@@ -982,7 +986,16 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
                 {onboardingCopy.welcomeStartMapping}
               </button>
             </div>
-            <div className="onboarding-welcome-mission">
+            <div
+              className="onboarding-welcome-mission"
+              onPointerEnter={() => setMissionShaderActive(true)}
+              onPointerLeave={() => setMissionShaderActive(false)}
+            >
+              <MapshroomShaderBackdrop
+                active={missionShaderActive}
+                continuous
+                className="onboarding-welcome-mission-shader"
+              />
               <p
                 lang={missionLocale}
                 dir={missionLocale === 'ar' ? 'rtl' : 'auto'}

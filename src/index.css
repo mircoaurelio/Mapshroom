@@ -3499,15 +3499,23 @@ a {
   text-align: center;
 }
 
-.onboarding-welcome-shader {
+.mapshroom-shader-backdrop {
   position: absolute;
   inset: 0;
-  z-index: 0;
   width: 100%;
   height: 100%;
   display: block;
   opacity: 0;
   pointer-events: none;
+  transition: opacity 420ms ease;
+}
+
+.mapshroom-shader-backdrop-continuous-active {
+  opacity: .66;
+}
+
+.onboarding-welcome-shader {
+  z-index: 0;
 }
 
 .onboarding-welcome-shader-active {
@@ -3613,6 +3621,8 @@ a {
 
 .onboarding-welcome-mission {
   position: absolute;
+  isolation: isolate;
+  overflow: hidden;
   top: calc(50% + var(--welcome-anchor-shift) + 150px);
   right: 1.5rem;
   left: 1.5rem;
@@ -3638,7 +3648,13 @@ a {
     transform 420ms ease 230ms;
 }
 
+.onboarding-welcome-mission-shader {
+  z-index: 0;
+}
+
 .onboarding-welcome-mission p {
+  position: relative;
+  z-index: 1;
   max-width: 470px;
   margin: 0;
   color: rgba(236, 253, 245, 0.84);
@@ -4179,6 +4195,14 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .mapshroom-shader-backdrop {
+    transition: none;
+  }
+
+  .mapshroom-shader-backdrop-continuous-active {
+    opacity: .42;
+  }
+
   .onboarding-welcome-shader-active {
     animation-duration: 2.8s;
   }

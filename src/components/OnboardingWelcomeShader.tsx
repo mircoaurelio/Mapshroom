@@ -58,7 +58,7 @@ void main() {
   vec2 p = uv - 0.5;
   p.x *= u_resolution.x / max(u_resolution.y, 1.0);
 
-  float time = min(u_time, 4.2);
+  float time = mod(u_time, 120.0);
   float field = fbm(p * 2.4 + vec2(time * 0.035, -time * 0.025));
   vec2 warp = vec2(
     sin(p.y * 5.0 + field * 5.5 + time * 0.42),
@@ -120,11 +120,17 @@ function compileShader(
   return shader;
 }
 
-interface OnboardingWelcomeShaderProps {
+export interface MapshroomShaderBackdropProps {
   active: boolean;
+  className?: string;
+  continuous?: boolean;
 }
 
-export function OnboardingWelcomeShader({ active }: OnboardingWelcomeShaderProps) {
+export function MapshroomShaderBackdrop({
+  active,
+  className = '',
+  continuous = false,
+}: MapshroomShaderBackdropProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -220,7 +226,7 @@ export function OnboardingWelcomeShader({ active }: OnboardingWelcomeShaderProps
       const render = (timestamp: number) => {
         const elapsedMs = timestamp - startedAt;
         draw(elapsedMs / 1_000);
-        if (elapsedMs < SHADER_RENDER_DURATION_MS) {
+        if (continuous || elapsedMs < SHADER_RENDER_DURATION_MS) {
           animationFrameId = window.requestAnimationFrame(render);
         }
       };
@@ -235,15 +241,35 @@ export function OnboardingWelcomeShader({ active }: OnboardingWelcomeShaderProps
       gl.deleteShader(fragmentShader);
       gl.deleteShader(vertexShader);
     };
-  }, [active]);
+  }, [active, continuous]);
 
   return (
     <canvas
       ref={canvasRef}
+      className={[
+        'mapshroom-shader-backdrop',
+        className,
+        active ? 'mapshroom-shader-backdrop-active' : '',
+        active && continuous ? 'mapshroom-shader-backdrop-continuous-active' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-hidden="true"
+    />
+  );
+}
+
+interface OnboardingWelcomeShaderProps {
+  active: boolean;
+}
+
+export function OnboardingWelcomeShader({ active }: OnboardingWelcomeShaderProps) {
+  return (
+    <MapshroomShaderBackdrop
+      active={active}
       className={`onboarding-welcome-shader ${
         active ? 'onboarding-welcome-shader-active' : ''
       }`}
-      aria-hidden="true"
     />
   );
 }

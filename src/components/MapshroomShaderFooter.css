@@ -1,0 +1,14 @@
+.mapshroom-shader-footer {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.mapshroom-shader-footer > :not(.mapshroom-shader-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+.mapshroom-shader-footer-backdrop {
+  z-index: 0;
+}

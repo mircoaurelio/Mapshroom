@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { MapshroomShaderFooter } from '../components/MapshroomShaderFooter';
 import { ProBetaDialog } from '../components/ProBetaDialog';
 import {
   getDeferredInstallPrompt,
@@ -275,7 +276,7 @@ export function DownloadRoute() {
             </article>
           </section>
 
-          <footer className="download-page-footer">
+          <MapshroomShaderFooter className="download-page-footer">
             <p>
               Your projects and imported media remain in this browser. Internet access is required
               to open and use Mapshroom.
@@ -283,7 +284,7 @@ export function DownloadRoute() {
             <Link to="/" className="secondary-button">
               Back to workspace
             </Link>
-          </footer>
+          </MapshroomShaderFooter>
         </div>
       </main>
 

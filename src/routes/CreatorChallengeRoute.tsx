@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { MapshroomShaderFooter } from '../components/MapshroomShaderFooter';
 import { useEditorialMotion } from '../hooks/useEditorialMotion';
 import '../styles/EditorialMotion.css';
 import './CreatorChallengeRoute.css';
@@ -417,11 +418,11 @@ export function CreatorChallengeRoute() {
         </div>
       </section>
 
-      <footer className="creator-footer">
+      <MapshroomShaderFooter className="creator-footer">
         <span>Mapshroom</span>
         <span>{copy.footerTagline}</span>
         <Link to="/tutorial">{copy.footerTutorial}</Link>
-      </footer>
+      </MapshroomShaderFooter>
     </main>
   );
 }
