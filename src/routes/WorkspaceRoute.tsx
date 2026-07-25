@@ -5413,7 +5413,7 @@ export function WorkspaceRoute() {
       setAiFeedbackTone('idle');
       setAiFeedbackMessage(
         usingExternalChat
-          ? `${aiGenerationRoute === 'perplexity' ? 'Perplexity' : 'ChatGPT'} is opening on the right. Follow the short guide, then paste the shader reply back into Mapshroom.`
+          ? `${aiGenerationRoute === 'perplexity' ? 'Perplexity' : 'ChatGPT'} is opening on the left. Follow the short guide, then paste the shader reply back into Mapshroom.`
           : aiGenerationRoute === 'local'
             ? 'Choose and download a local model to continue.'
             : 'Connect your cloud API to continue.',
