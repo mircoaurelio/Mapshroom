@@ -1247,6 +1247,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
       name: normalizedName,
       description: defaultPreset?.description ?? shader.description,
       template: defaultPreset?.template ?? shader.template ?? 'stage',
+      templates: defaultPreset?.templates ?? shader.templates,
       group: defaultPreset?.group ?? shader.group,
       code: normalizedCode,
       versions: getShaderVersionTrail(

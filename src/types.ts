@@ -45,6 +45,7 @@ export interface SavedShader {
   lastValidCode?: string;
   description?: string;
   template?: ShaderTemplate;
+  templates?: ShaderTemplate[];
   group?: string;
   uniformValues?: ShaderUniformValueMap;
   lastValidUniformValues?: ShaderUniformValueMap;
@@ -176,6 +177,7 @@ export interface ShaderDefinition {
   code: string;
   description: string;
   template: ShaderTemplate;
+  templates?: ShaderTemplate[];
   group: string;
 }
 

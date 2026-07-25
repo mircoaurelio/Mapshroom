@@ -85,7 +85,9 @@ export function createBundledProjectDocument(sessionId: string): ProjectDocument
     return null;
   }
 
-  const sculpturePool = shaderPresetList.filter((preset) => preset.template === 'sculpture');
+  const sculpturePool = shaderPresetList.filter((preset) =>
+    (preset.templates ?? [preset.template]).includes('sculpture'),
+  );
   const starterPresets = pickRandomShaderPresets(
     STARTER_TIMELINE_SHADER_COUNT,
     sculpturePool.length >= STARTER_TIMELINE_SHADER_COUNT ? sculpturePool : shaderPresetList,
