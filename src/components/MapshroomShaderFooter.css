@@ -1,5 +1,6 @@
 .mapshroom-shader-footer {
   position: relative;
+  min-height: 82px;
   isolation: isolate;
   overflow: hidden;
 }
@@ -11,4 +12,8 @@
 
 .mapshroom-shader-footer-backdrop {
   z-index: 0;
+}
+
+.mapshroom-shader-footer .mapshroom-shader-backdrop-continuous-active {
+  opacity: .78;
 }
