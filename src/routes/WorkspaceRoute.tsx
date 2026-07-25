@@ -6330,11 +6330,12 @@ ${errorSnapshot}`,
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
   const previewShader =
     previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
-  const workspaceStageMirrorsOutput = outputWindowOpen && !isMobile;
-  const workspaceStagePreviewShader = workspaceStageMirrorsOutput ? null : previewShader;
   const timelineFocusedPreviewActive =
     timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
     (isMobile ? editingTimelineStepId !== null : timelineSequenceEnabled);
+  const workspaceStageMirrorsOutput =
+    outputWindowOpen && !isMobile && !timelineFocusedPreviewActive;
+  const workspaceStagePreviewShader = workspaceStageMirrorsOutput ? null : previewShader;
   const desktopTimelineFocusedPreviewActive =
     !isMobile &&
     !workspaceStageMirrorsOutput &&
