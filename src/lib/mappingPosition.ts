@@ -1,7 +1,11 @@
-import type { StageTransform } from '../types';
+import type { StageDistortion, StageTransform } from '../types';
+import {
+  DEFAULT_STAGE_DISTORTION,
+  normalizeStageDistortion,
+} from './distortion';
 
 export const MAPPING_POSITION_FORMAT = 'mapshroom-position';
-export const MAPPING_POSITION_VERSION = 1;
+export const MAPPING_POSITION_VERSION = 2;
 export const MIN_MAPPING_PRECISION = 1;
 export const MAX_MAPPING_PRECISION = 40;
 export const MIN_MAPPING_ROTATION = -20;
@@ -14,6 +18,7 @@ export interface MappingPositionValues {
   heightAdjust: number;
   precision: number;
   rotationDegrees: number;
+  distortion: StageDistortion;
 }
 
 export interface MappingPositionFile {
@@ -29,7 +34,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function readFiniteNumber(
   source: Record<string, unknown>,
-  key: keyof MappingPositionValues,
+  key: Exclude<keyof MappingPositionValues, 'distortion'>,
 ): number {
   const value = source[key];
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -50,7 +55,9 @@ function normalizeRotation(value: number): number {
 
 export function normalizeMappingPosition(
   value: Partial<MappingPositionValues> | null | undefined,
-  fallback: MappingPositionValues,
+  fallback: Omit<MappingPositionValues, 'distortion'> & {
+    distortion?: StageDistortion;
+  },
 ): MappingPositionValues {
   const finiteOrFallback = (
     candidate: number | undefined,
@@ -70,6 +77,10 @@ export function normalizeMappingPosition(
     rotationDegrees: normalizeRotation(
       finiteOrFallback(value?.rotationDegrees, fallback.rotationDegrees),
     ),
+    distortion: normalizeStageDistortion(
+      value?.distortion,
+      fallback.distortion ?? DEFAULT_STAGE_DISTORTION,
+    ),
   };
 }
 
@@ -87,6 +98,7 @@ export function createMappingPositionFile(
       heightAdjust: stageTransform.heightAdjust,
       precision: stageTransform.precision,
       rotationDegrees: stageTransform.rotationDegrees,
+      distortion: normalizeStageDistortion(stageTransform.distortion),
     },
   };
 }
@@ -104,7 +116,11 @@ export function parseMappingPositionFile(source: string): MappingPositionValues 
   }
 
   const isPortableFile = parsed.format === MAPPING_POSITION_FORMAT;
-  if (isPortableFile && parsed.version !== MAPPING_POSITION_VERSION) {
+  if (
+    isPortableFile &&
+    parsed.version !== 1 &&
+    parsed.version !== MAPPING_POSITION_VERSION
+  ) {
     throw new Error('This position file version is not supported.');
   }
 
@@ -125,6 +141,7 @@ export function parseMappingPositionFile(source: string): MappingPositionValues 
         Number.isFinite(position.rotationDegrees)
           ? position.rotationDegrees
           : 0,
+      distortion: normalizeStageDistortion(position.distortion),
     },
     {
       offsetX: 0,
@@ -133,6 +150,7 @@ export function parseMappingPositionFile(source: string): MappingPositionValues 
       heightAdjust: 0,
       precision: 12,
       rotationDegrees: 0,
+      distortion: DEFAULT_STAGE_DISTORTION,
     },
   );
 }

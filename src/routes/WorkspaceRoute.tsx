@@ -90,6 +90,12 @@ import {
 } from '../lib/shader';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import {
+  readConfiguredLocalModel,
+  readStoredAiGenerationRoute,
+  storeAiGenerationRoute,
+  type AiGenerationRoute,
+} from '../lib/aiRoute';
+import {
   extractShaderApplyLinkFromText,
   loadPendingShaderApplyRequest,
   parseShaderApplyLink,
@@ -99,7 +105,11 @@ import {
   type PendingShaderApplyRequest,
   type ShaderApplyTrigger,
 } from '../lib/shaderApplyLink';
-import { LEGACY_ULTRA_MODEL_ID, ULTRA_MODEL_ID } from '../lib/localAi';
+import {
+  isLocalModelReady,
+  LEGACY_ULTRA_MODEL_ID,
+  ULTRA_MODEL_ID,
+} from '../lib/localAi';
 import {
   getRenderableShaderUniformValues,
   validateShaderCodeCompilation,
@@ -134,6 +144,10 @@ import type {
 } from '../lib/midi/types';
 import { createMidiOutputSync } from '../lib/midi/outputSync';
 import { openOutputWindow } from '../lib/openOutputWindow';
+import {
+  openExternalAiWindow,
+  type ExternalAiWindowResult,
+} from '../lib/openExternalAiWindow';
 import {
   createProjectShareLink,
   importProjectFromSharedUrl,
@@ -177,6 +191,7 @@ import {
   normalizeMappingPosition,
   parseMappingPositionFile,
 } from '../lib/mappingPosition';
+import { normalizeStageDistortion } from '../lib/distortion';
 import { blankShaderTemplate } from '../shaders/templates/blankShader';
 import type {
   AiSettings,
@@ -189,6 +204,7 @@ import type {
   ShaderVersion,
   ShaderUniformValue,
   ShaderUniformValueMap,
+  StageDistortion,
   StageTransform,
   TimelineStagePreviewMode,
   TimelineTransitionEffect,
@@ -197,7 +213,13 @@ import type {
 } from '../types';
 
 function hasConfiguredShaderAi(settings: AiSettings): boolean {
-  if (settings.shaderRuntime === 'local') return Boolean(settings.localShaderModel);
+  if (settings.shaderRuntime === 'local') {
+    return Boolean(
+      settings.localShaderModel &&
+        (isLocalModelReady(settings.localShaderModel, settings.visionEnabled) ||
+          readConfiguredLocalModel() === settings.localShaderModel),
+    );
+  }
   if (settings.shaderRuntime !== 'api') return false;
   if (settings.shaderProvider === 'openai') {
     return Boolean(settings.openaiApiKey.trim() && settings.openaiShaderModel);
@@ -1344,6 +1366,11 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         moveMode: Boolean(requestedStageTransform?.moveMode),
         rotationLocked: Boolean(requestedStageTransform?.rotationLocked),
         showGrid: Boolean(requestedStageTransform?.showGrid),
+        distortMode: Boolean(requestedStageTransform?.distortMode),
+        distortion: normalizeStageDistortion(
+          requestedStageTransform?.distortion,
+          normalizedMappingPosition.distortion,
+        ),
       },
     },
     timeline: {
@@ -2229,6 +2256,13 @@ export function WorkspaceRoute() {
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
   );
   const [aiPrompt, setAiPrompt] = useState('');
+  const initialStoredAiRouteRef = useRef<AiGenerationRoute | null>(
+    readStoredAiGenerationRoute(),
+  );
+  const [aiGenerationRoute, setAiGenerationRoute] = useState<AiGenerationRoute>(
+    () => initialStoredAiRouteRef.current ?? 'chatgpt',
+  );
+  const aiRouteHydratedSessionRef = useRef<string | null>(null);
   const [compilerError, setCompilerError] = useState('');
   const [compileFeedbackVersion, setCompileFeedbackVersion] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
@@ -2250,6 +2284,8 @@ export function WorkspaceRoute() {
     currentCode: string;
     targetShaderId: string;
     trigger: ShaderApplyTrigger;
+    route: AiGenerationRoute;
+    externalWindowMode: ExternalAiWindowResult | null;
   } | null>(null);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
@@ -2377,6 +2413,51 @@ export function WorkspaceRoute() {
       return updater(currentProject);
     });
   }, []);
+
+  useEffect(() => {
+    if (!project || aiRouteHydratedSessionRef.current === project.sessionId) {
+      return;
+    }
+
+    aiRouteHydratedSessionRef.current = project.sessionId;
+    const storedRoute = readStoredAiGenerationRoute();
+    const settings = project.ai.settings;
+    const hasAnyApi =
+      Boolean(settings.openaiApiKey.trim()) ||
+      Boolean(settings.anthropicApiKey.trim()) ||
+      Boolean(settings.googleApiKey.trim());
+    const resolvedRoute: AiGenerationRoute =
+      storedRoute ??
+      (settings.shaderRuntime === 'api' && hasAnyApi
+        ? 'api'
+        : settings.shaderRuntime === 'local' && settings.localShaderModel
+          ? 'local'
+          : settings.shaderRuntime === 'chat'
+            ? 'chatgpt'
+            : hasAnyApi
+              ? 'api'
+              : 'chatgpt');
+    const resolvedRuntime =
+      resolvedRoute === 'api'
+        ? 'api'
+        : resolvedRoute === 'local'
+          ? 'local'
+          : 'chat';
+
+    setAiGenerationRoute(resolvedRoute);
+    storeAiGenerationRoute(resolvedRoute);
+    if (settings.shaderRuntime !== resolvedRuntime) {
+      updateProject((currentProject) => ({
+        ...currentProject,
+        ai: {
+          settings: {
+            ...currentProject.ai.settings,
+            shaderRuntime: resolvedRuntime,
+          },
+        },
+      }));
+    }
+  }, [project, updateProject]);
 
   useEffect(() => {
     if (!project || !pendingTimelineRepeatExit) {
@@ -4245,12 +4326,19 @@ export function WorkspaceRoute() {
         stageTransform: {
           ...currentProject.mapping.stageTransform,
           moveMode: enabled,
+          distortMode: enabled
+            ? currentProject.mapping.stageTransform.distortMode
+            : false,
         },
       },
     }));
   };
 
   const toggleMoveMode = () => {
+    if (project?.mapping.stageTransform.distortMode) {
+      setDistortMode(false);
+      return;
+    }
     setMoveMode(!project?.mapping.stageTransform.moveMode);
   };
 
@@ -4261,6 +4349,33 @@ export function WorkspaceRoute() {
         stageTransform: {
           ...currentProject.mapping.stageTransform,
           showGrid: !currentProject.mapping.stageTransform.showGrid,
+        },
+      },
+    }));
+  };
+
+  const setDistortMode = (enabled: boolean) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      mapping: {
+        stageTransform: {
+          ...currentProject.mapping.stageTransform,
+          distortMode: enabled,
+        },
+      },
+    }));
+  };
+
+  const updateStageDistortion = (distortion: StageDistortion) => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      mapping: {
+        stageTransform: {
+          ...currentProject.mapping.stageTransform,
+          distortion: normalizeStageDistortion(
+            distortion,
+            normalizeStageDistortion(currentProject.mapping.stageTransform.distortion),
+          ),
         },
       },
     }));
@@ -5193,7 +5308,9 @@ export function WorkspaceRoute() {
     }
 
     const aiReady = hasConfiguredShaderAi(project.ai.settings);
-    if (project.ai.settings.shaderRuntime === 'chat' || !aiReady) {
+    const usingExternalChat =
+      aiGenerationRoute === 'chatgpt' || aiGenerationRoute === 'perplexity';
+    if (usingExternalChat || !aiReady) {
       const requestId = crypto.randomUUID();
       const pendingRequest: PendingShaderApplyRequest = {
         version: 1,
@@ -5208,6 +5325,17 @@ export function WorkspaceRoute() {
       };
       saveProjectDocument(project);
       savePendingShaderApplyRequest(pendingRequest);
+      const preparedPrompt = buildExternalChatShaderPrompt(
+        trimmedPrompt,
+        project.studio.activeShaderCode,
+      );
+      const externalWindowMode = usingExternalChat
+        ? openExternalAiWindow(
+            aiGenerationRoute === 'perplexity'
+              ? `https://www.perplexity.ai/?q=${encodeURIComponent(preparedPrompt)}`
+              : `https://chatgpt.com/?q=${encodeURIComponent(preparedPrompt)}`,
+          )
+        : null;
       setExternalChatRequest({
         requestId,
         prompt: trimmedPrompt,
@@ -5215,14 +5343,18 @@ export function WorkspaceRoute() {
         currentCode: project.studio.activeShaderCode,
         targetShaderId: project.studio.activeShaderId,
         trigger: llmTrigger,
+        route: aiGenerationRoute,
+        externalWindowMode,
       });
       setApiSettingsVariant('setup');
       setIsApiSettingsOpen(true);
       setAiFeedbackTone('idle');
       setAiFeedbackMessage(
-        project.ai.settings.shaderRuntime === 'chat'
-          ? 'Open the prepared prompt in your AI chat, then copy its shader reply back into Mapshroom.'
-          : 'Choose a local model, connect a cloud API, or use your existing AI chat.',
+        usingExternalChat
+          ? `${aiGenerationRoute === 'perplexity' ? 'Perplexity' : 'ChatGPT'} is opening on the right. Follow the short guide, then paste the shader reply back into Mapshroom.`
+          : aiGenerationRoute === 'local'
+            ? 'Choose and download a local model to continue.'
+            : 'Connect your cloud API to continue.',
       );
       return;
     }
@@ -5829,6 +5961,15 @@ ${errorSnapshot}`,
     }
   };
 
+  const handleAiGenerationRouteChange = (route: AiGenerationRoute) => {
+    setAiGenerationRoute(route);
+    storeAiGenerationRoute(route);
+    updateAiSetting(
+      'shaderRuntime',
+      route === 'api' ? 'api' : route === 'local' ? 'local' : 'chat',
+    );
+  };
+
   const updateWorkspaceMode = (mode: WorkspaceMode) => {
     setUiPreferences((currentValue) => ({
       ...currentValue,
@@ -6372,7 +6513,13 @@ ${errorSnapshot}`,
   }
 
   const stageTransform = project.mapping.stageTransform;
-  const workspacePreviewStageTransform = isMobile ? stageTransform : DEFAULT_STAGE_TRANSFORM;
+  const workspacePreviewStageTransform = isMobile
+    ? stageTransform
+    : {
+        ...DEFAULT_STAGE_TRANSFORM,
+        distortion: stageTransform.distortion,
+        distortMode: stageTransform.distortMode,
+      };
   const mobileUiMode = uiPreferences.mobileUiMode;
   const mobileChromeVisible = mobileUiMode !== 'hidden';
   const stageControlsVisible = isMobile
@@ -6708,6 +6855,52 @@ ${errorSnapshot}`,
     );
   };
 
+  const handlePasteShaderFromClipboard = async () => {
+    try {
+      const clipboardText = (await navigator.clipboard.readText()).trim();
+      if (!clipboardText) {
+        throw new Error('The clipboard is empty.');
+      }
+      const nextCode = validateGeneratedShader(extractGlslCode(clipboardText));
+      handleActiveShaderCodeChange(nextCode);
+      const shaderName = parseShaderName(nextCode);
+      setAiFeedbackTone('success');
+      setAiFeedbackMessage(`Shader pasted and applied: ${shaderName}.`);
+      setStatusMessage(`Shader updated from clipboard: ${shaderName}.`);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Clipboard access was blocked. Copy a shader, then try again.';
+      setAiFeedbackTone('error');
+      setAiFeedbackMessage(message);
+      setStatusMessage(message);
+    }
+  };
+
+  const handlePastePositionFromClipboard = async () => {
+    try {
+      const clipboardText = (await navigator.clipboard.readText()).trim();
+      if (!clipboardText) {
+        throw new Error('The clipboard is empty.');
+      }
+      const importError = applyMappingPositionSource(clipboardText, 'clipboard');
+      if (importError) {
+        throw new Error(importError);
+      }
+      setAiFeedbackTone('success');
+      setAiFeedbackMessage('Mapping position pasted and applied.');
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Clipboard access was blocked. Copy a position JSON, then try again.';
+      setAiFeedbackTone('error');
+      setAiFeedbackMessage(message);
+      setStatusMessage(message);
+    }
+  };
+
   const handlePromptFocus = () => {
     if (
       editingTimelineStepId ||
@@ -6744,12 +6937,16 @@ ${errorSnapshot}`,
   const aiPanel = (
     <AiPanel
       prompt={aiPrompt}
+      selectedRoute={aiGenerationRoute}
       aiLoading={aiLoading}
       feedbackMessage={aiFeedbackMessage}
       feedbackTone={aiFeedbackTone}
       shaderError={compilerError}
       onPromptChange={setAiPrompt}
       onPromptFocus={handlePromptFocus}
+      onRouteChange={handleAiGenerationRouteChange}
+      onPasteShader={handlePasteShaderFromClipboard}
+      onPastePosition={handlePastePositionFromClipboard}
       onSubmit={() => {
         void handleShaderMutation(aiPrompt);
       }}
@@ -7063,6 +7260,7 @@ ${errorSnapshot}`,
         }}
         preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
         showGrid={Boolean(stageTransform.showGrid)}
+        onDistortionChange={updateStageDistortion}
         onPinnedIndicatorClick={handlePinnedIndicatorClick}
         onNavigateToTimelineStep={handleStageNavigateToTimelineStep}
         onCompilerError={applyCompilerFeedback}
@@ -7092,7 +7290,23 @@ ${errorSnapshot}`,
         ) : null}
 
         {stageControlsVisible ? (
-          <div className={`stage-mapping-overlay ${isMobile ? 'stage-mapping-overlay-mobile' : ''}`}>
+          <div
+            className={`stage-mapping-overlay ${
+              isMobile ? 'stage-mapping-overlay-mobile' : ''
+            } ${
+              stageTransform.distortMode
+                ? 'stage-mapping-overlay-distort-active'
+                : ''
+            }`}
+          >
+            {!isMobile && !stageTransform.distortMode ? (
+              <p className="mapping-output-disclaimer">
+                <strong>Output window only</strong>
+                <span>
+                  Movement changes projector output. Distort adds an editable workspace preview.
+                </span>
+              </p>
+            ) : null}
             <MappingPad
               onAction={handleMappingAction}
               onPrecisionChange={updateStagePrecision}
@@ -7103,6 +7317,10 @@ ${errorSnapshot}`,
               onExportPosition={handleMappingPositionExport}
               getPositionJson={createCurrentMappingPositionJson}
               onRotationChange={updateStageRotation}
+              onDistortModeChange={(enabled) => {
+                trackUiClick(enabled ? 'distortion_editor_on' : 'distortion_editor_off');
+                setDistortMode(enabled);
+              }}
               onToggleGrid={() => {
                 trackUiClick(stageTransform.showGrid ? 'alignment_grid_off' : 'alignment_grid_on');
                 toggleAlignmentGrid();
@@ -7111,6 +7329,7 @@ ${errorSnapshot}`,
               precision={stageTransform.precision}
               rotationDegrees={stageTransform.rotationDegrees}
               showGrid={Boolean(stageTransform.showGrid)}
+              distortMode={Boolean(stageTransform.distortMode)}
               showFirstStep={showMappingFirstStep}
               variant={isMobile ? 'overlay' : 'default'}
             />
@@ -7543,6 +7762,8 @@ ${errorSnapshot}`,
                 )
               : ''
         }
+        initialPath={externalChatRequest?.route}
+        initialExternalWindowMode={externalChatRequest?.externalWindowMode}
         isClearingLocalData={isClearingLocalData}
         onOpenProBeta={() => setProBetaSource('shader_pro_teaser')}
         onClose={() => {
@@ -7550,6 +7771,21 @@ ${errorSnapshot}`,
           setExternalChatRequest(null);
         }}
         onChange={updateAiSetting}
+        onRouteChange={handleAiGenerationRouteChange}
+        onContinueWithRuntime={() => {
+          const pendingRequest = externalChatRequest;
+          if (!pendingRequest) {
+            setIsApiSettingsOpen(false);
+            return;
+          }
+          removePendingShaderApplyRequest(pendingRequest.requestId);
+          setIsApiSettingsOpen(false);
+          setExternalChatRequest(null);
+          void handleShaderMutation(pendingRequest.prompt, {
+            historyPrompt: pendingRequest.historyPrompt,
+            trigger: pendingRequest.trigger,
+          });
+        }}
         onApplyExternalChatResponse={handleApplyExternalChatResponse}
         onClearLocalData={() => {
           void handleClearLocalData();

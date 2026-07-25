@@ -33,6 +33,7 @@ import type {
   PlaybackTransport,
   SavedShader,
   ShaderUniformValueMap,
+  StageDistortion,
   StageTransform,
   TimelineStub,
   TimelineSequenceMode,
@@ -331,6 +332,7 @@ interface TimelineStageRendererProps {
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
   showGrid?: boolean;
+  onDistortionChange?: (distortion: StageDistortion) => void;
   onPinnedIndicatorClick?: () => void;
   onNavigateToTimelineStep?: (stepId: string) => void;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
@@ -363,6 +365,7 @@ export function TimelineStageRenderer({
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
   showGrid = false,
+  onDistortionChange,
   onPinnedIndicatorClick,
   onNavigateToTimelineStep,
   onCanvasReady,
@@ -2211,6 +2214,7 @@ export function TimelineStageRenderer({
       transport={transport}
       isOutputOnly={isOutputOnly}
       showGrid={showGrid}
+      onDistortionChange={onDistortionChange}
       personalPreviewActive={workspacePersonalPreviewActive}
       personalPreviewGuideActive={
         workspacePersonalPreviewActive && focusedPreviewGuideActive

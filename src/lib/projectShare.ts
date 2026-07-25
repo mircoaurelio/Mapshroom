@@ -3,6 +3,10 @@ import { persistActiveSessionId, saveProjectDocument } from './storage';
 import { parseShaderName, parseUniforms, syncUniformValues } from './shader';
 import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings';
 import { normalizeTimelineTransitionEffect } from './timeline';
+import {
+  isStageDistortionIdentity,
+  normalizeStageDistortion,
+} from './distortion';
 import type {
   ProjectDocument,
   SavedShader,
@@ -89,6 +93,7 @@ interface CompactSharedProjectPayload {
     mm?: 1;
     rl?: 1;
     g?: 1;
+    d?: [number, number, number, number, number, number, number, number];
   };
   t: CompactSharedTimelinePayload;
   h: CompactSharedShaderPayload[];
@@ -279,6 +284,7 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
       : null) ??
     timelineShaders[0] ??
     null;
+  const distortion = normalizeStageDistortion(project.mapping.stageTransform.distortion);
 
   return {
     v: APP_VERSION,
@@ -294,6 +300,18 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
       mm: project.mapping.stageTransform.moveMode ? 1 : undefined,
       rl: project.mapping.stageTransform.rotationLocked ? 1 : undefined,
       g: project.mapping.stageTransform.showGrid ? 1 : undefined,
+      d: isStageDistortionIdentity(distortion)
+        ? undefined
+        : [
+            distortion.topLeft.x,
+            distortion.topLeft.y,
+            distortion.topRight.x,
+            distortion.topRight.y,
+            distortion.bottomRight.x,
+            distortion.bottomRight.y,
+            distortion.bottomLeft.x,
+            distortion.bottomLeft.y,
+          ],
     },
     t: {
       d: project.timeline.stub.durationSeconds,
@@ -446,6 +464,18 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
         moveMode: Boolean(payload.m?.mm),
         rotationLocked: Boolean(payload.m?.rl),
         showGrid: Boolean(payload.m?.g),
+        distortMode: false,
+        distortion: normalizeStageDistortion(
+          payload.m?.d && payload.m.d.length === 8
+            ? {
+                topLeft: { x: payload.m.d[0], y: payload.m.d[1] },
+                topRight: { x: payload.m.d[2], y: payload.m.d[3] },
+                bottomRight: { x: payload.m.d[4], y: payload.m.d[5] },
+                bottomLeft: { x: payload.m.d[6], y: payload.m.d[7] },
+              }
+            : undefined,
+          baseProject.mapping.stageTransform.distortion,
+        ),
       },
     },
     library: {

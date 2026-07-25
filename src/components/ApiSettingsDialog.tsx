@@ -6,10 +6,15 @@ import {
 } from '../config';
 import { isLocalModelReady, LOCAL_SHADER_MODELS, LOCAL_VISION_MODEL, prepareLocalModel } from '../lib/localAi';
 import {
+  closeExternalAiWindow,
   focusExternalAiWindow,
   openExternalAiWindow,
   type ExternalAiWindowResult,
 } from '../lib/openExternalAiWindow';
+import {
+  storeConfiguredLocalModel,
+  type AiGenerationRoute,
+} from '../lib/aiRoute';
 import type { AiSettings, ShaderRuntime } from '../types';
 
 export type ApiSettingsVariant = 'setup' | 'settings';
@@ -19,10 +24,14 @@ interface ApiSettingsDialogProps {
   settings: AiSettings;
   variant?: ApiSettingsVariant;
   externalChatPrompt?: string;
+  initialPath?: AiGenerationRoute;
+  initialExternalWindowMode?: ExternalAiWindowResult | null;
   isClearingLocalData?: boolean;
   onOpenProBeta: () => void;
   onClose: () => void;
   onChange: (field: keyof AiSettings, value: string | boolean) => void;
+  onRouteChange?: (route: AiGenerationRoute) => void;
+  onContinueWithRuntime?: () => void;
   onApplyExternalChatResponse: (response: string) => Promise<void>;
   onClearLocalData: () => void;
 }
@@ -114,10 +123,14 @@ export function ApiSettingsDialog({
   settings,
   variant = 'settings',
   externalChatPrompt = '',
+  initialPath,
+  initialExternalWindowMode = null,
   isClearingLocalData = false,
   onOpenProBeta,
   onClose,
   onChange,
+  onRouteChange,
+  onContinueWithRuntime,
   onApplyExternalChatResponse,
   onClearLocalData,
 }: ApiSettingsDialogProps) {
@@ -142,14 +155,14 @@ export function ApiSettingsDialog({
   }, [downloading]);
 
   useEffect(() => {
-    setSelectedPath('');
+    setSelectedPath(initialPath ?? '');
     setChatResponse('');
     setChatMessage('');
-    setExternalWindowMode(null);
+    setExternalWindowMode(initialExternalWindowMode);
     setPromptCopied(false);
     setShowCopyTooltip(false);
     setIsApplyingChatResponse(false);
-  }, [externalChatPrompt, open]);
+  }, [externalChatPrompt, initialExternalWindowMode, initialPath, open]);
 
   useEffect(() => {
     if (!showCopyTooltip) return;
@@ -160,16 +173,28 @@ export function ApiSettingsDialog({
   if (!open) return null;
 
   const chooseRuntime = (runtime: Exclude<ShaderRuntime, ''>) => {
+    if (runtime === 'api' || runtime === 'local') {
+      closeExternalAiWindow();
+      onRouteChange?.(runtime);
+    }
     setSelectedPath(runtime);
     onChange('shaderRuntime', runtime);
   };
-  const showRuntimeChoice = (path: AiPath) => !selectedPath || selectedPath === path;
+  const showRuntimeChoice = (path: AiPath) =>
+    isSetup || !selectedPath || selectedPath === path;
   const usingPerplexity = selectedPath === 'perplexity';
   const usingChatGpt = selectedPath === 'chatgpt';
   const usingDirectChat = usingPerplexity || usingChatGpt;
   const usingPairedExternalWindow = usingDirectChat && externalWindowMode === 'popup';
+  const usingEmbeddedSettings = selectedPath === 'local' || selectedPath === 'api';
   const selectedLocal = LOCAL_SHADER_MODELS.find((model) => model.id === settings.localShaderModel);
   const ready = settings.localShaderModel ? isLocalModelReady(settings.localShaderModel, settings.visionEnabled) : false;
+  const apiReady =
+    settings.shaderProvider === 'openai'
+      ? Boolean(settings.openaiApiKey.trim() && settings.openaiShaderModel)
+      : settings.shaderProvider === 'anthropic'
+        ? Boolean(settings.anthropicApiKey.trim() && settings.anthropicShaderModel)
+        : Boolean(settings.googleApiKey.trim() && settings.googleShaderModel);
   const handleDownload = async () => {
     if (!settings.localShaderModel) return;
     setDownloading(true);
@@ -177,6 +202,7 @@ export function ApiSettingsDialog({
     setDownloadError('');
     try {
       await prepareLocalModel(settings.localShaderModel, settings.visionEnabled);
+      storeConfiguredLocalModel(settings.localShaderModel);
       setDownloadProgress(100);
     } catch (error) {
       setDownloadProgress(0);
@@ -203,6 +229,7 @@ export function ApiSettingsDialog({
       return;
     }
     setSelectedPath('chatgpt');
+    onRouteChange?.('chatgpt');
     onChange('shaderRuntime', 'chat');
     setChatMessage('');
     if (!externalChatPrompt) return;
@@ -214,6 +241,7 @@ export function ApiSettingsDialog({
     }
   };
   const handleChooseChatRuntime = () => {
+    closeExternalAiWindow();
     chooseRuntime('chat');
     if (externalChatPrompt) {
       void handleCopyChatPrompt();
@@ -224,6 +252,7 @@ export function ApiSettingsDialog({
       return;
     }
     setSelectedPath('perplexity');
+    onRouteChange?.('perplexity');
     onChange('shaderRuntime', 'chat');
     setChatMessage('');
     if (!externalChatPrompt) return;
@@ -280,6 +309,53 @@ export function ApiSettingsDialog({
       : externalWindowMode === 'tab'
         ? 'browser tab'
         : 'AI window';
+  const guideTitle = usingDirectChat
+    ? `${directProviderName} is open on the right`
+    : selectedPath === 'api'
+      ? 'Connect your API'
+      : selectedPath === 'local'
+        ? 'Prepare a local model'
+        : selectedPath === 'chat'
+          ? 'Use any AI chat'
+          : 'Choose your generator';
+  const guideNote = usingDirectChat
+    ? 'Three quick moves, then your shader is live.'
+    : selectedPath === 'api'
+      ? 'Your key stays in this browser.'
+      : selectedPath === 'local'
+        ? 'Download once, then work offline.'
+        : selectedPath === 'chat'
+          ? 'The prepared prompt is already copied.'
+          : 'ChatGPT is the default. You can switch anytime.';
+  const guideSteps = usingDirectChat
+    ? [
+        ['↑', 'Send'],
+        ['{}', 'Copy code'],
+        ['⌘V', 'Paste here'],
+      ]
+    : selectedPath === 'api'
+      ? [
+          ['1', 'Provider'],
+          ['⌁', 'API key'],
+          ['↑', 'Generate'],
+        ]
+      : selectedPath === 'local'
+        ? [
+            ['1', 'Model'],
+            ['↓', 'Download'],
+            ['↑', 'Generate'],
+          ]
+        : selectedPath === 'chat'
+          ? [
+              ['⌘C', 'Copy'],
+              ['✦', 'Ask'],
+              ['⌘V', 'Paste'],
+            ]
+          : [
+              ['✦', 'Choose'],
+              ['↑', 'Generate'],
+              ['✓', 'Apply'],
+            ];
   const pasteReplyControls = (
     <div className="ai-chat-paste-zone">
       <div className="ai-chat-paste-heading">
@@ -324,7 +400,7 @@ export function ApiSettingsDialog({
       onClick={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
-        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''}`}
+        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="api-settings-title"
@@ -339,6 +415,51 @@ export function ApiSettingsDialog({
           <button type="button" className="ghost-button" onClick={onClose}>Close</button>
         </header>
         <div className="dialog-body">
+          <div className="ai-route-sidebar">
+          {isSetup ? (
+            <section className="ai-quick-guide" aria-label="Quick guide">
+              <div className="ai-quick-guide-heading">
+                <span
+                  className={`ai-quick-guide-mark ${
+                    usingPerplexity
+                      ? 'ai-quick-guide-mark-perplexity'
+                      : usingChatGpt
+                        ? 'ai-quick-guide-mark-chatgpt'
+                        : ''
+                  }`}
+                  aria-hidden="true"
+                >
+                  {usingDirectChat ? (
+                    <img
+                      src={`${import.meta.env.BASE_URL}assets/icons/${
+                        usingPerplexity ? 'perplexity.svg' : 'chatgpt.svg'
+                      }`}
+                      alt=""
+                    />
+                  ) : selectedPath === 'api' ? (
+                    'API'
+                  ) : selectedPath === 'local' ? (
+                    '◎'
+                  ) : (
+                    '✦'
+                  )}
+                </span>
+                <div>
+                  <span className="panel-eyebrow">Quick guide</span>
+                  <h3>{guideTitle}</h3>
+                  <p>{guideNote}</p>
+                </div>
+              </div>
+              <ol className="ai-quick-guide-steps">
+                {guideSteps.map(([symbol, label]) => (
+                  <li key={label}>
+                    <span aria-hidden="true">{symbol}</span>
+                    <strong>{label}</strong>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
           {!selectedPath ? (
             <p className="dialog-note">
               {isSetup
@@ -468,6 +589,7 @@ export function ApiSettingsDialog({
                 </div>
               </button>
             ) : null}
+          </div>
           </div>
 
           {selectedPath === 'chat' || usingDirectChat ? (
@@ -835,8 +957,34 @@ export function ApiSettingsDialog({
           ) : null}
         </div>
         <footer className="dialog-footer">
-          <button type="button" className="primary-button" onClick={onClose}>
-            {isSetup ? 'Continue' : 'Done'}
+          <button
+            type="button"
+            className="primary-button"
+            disabled={
+              isSetup &&
+              ((selectedPath === 'api' && !apiReady) ||
+                (selectedPath === 'local' && !ready))
+            }
+            onClick={() => {
+              if (
+                isSetup &&
+                onContinueWithRuntime &&
+                ((selectedPath === 'api' && apiReady) ||
+                  (selectedPath === 'local' && ready))
+              ) {
+                onContinueWithRuntime();
+                return;
+              }
+              onClose();
+            }}
+          >
+            {isSetup && selectedPath === 'api'
+              ? 'Generate with API'
+              : isSetup && selectedPath === 'local'
+                ? 'Generate locally'
+                : isSetup
+                  ? 'Close'
+                  : 'Done'}
           </button>
         </footer>
       </section>

@@ -1,10 +1,12 @@
 import {
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   AssetKind,
   AssetRecord,
@@ -12,8 +14,18 @@ import type {
   ShaderUniformMap,
   ShaderUniformValueMap,
   StageTransform,
+  StageDistortion,
   TimelineAssetQuality,
 } from '../types';
+import {
+  createStageDistortionMatrix3d,
+  getStageDistortionPoint,
+  normalizeStageDistortion,
+  nudgeStageDistortionPoint,
+  setStageDistortionPoint,
+  STAGE_DISTORTION_CORNERS,
+  type StageDistortionCorner,
+} from '../lib/distortion';
 import {
   buildFragmentShaderSource,
   VERTEX_SHADER_SOURCE,
@@ -36,6 +48,7 @@ interface StageRendererProps {
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
   showGrid?: boolean;
+  onDistortionChange?: (distortion: StageDistortion) => void;
   personalPreviewActive?: boolean;
   personalPreviewGuideActive?: boolean;
   showPinnedIndicator?: boolean;
@@ -49,6 +62,15 @@ interface StageRendererProps {
   onCompiledShaderCodesChange?: (compiledShaderCodes: ReadonlySet<string>) => void;
   onFrameRendered?: (frame: StageFrameInfo) => void;
 }
+
+const DISTORTION_GRID_STEPS = Array.from({ length: 9 }, (_, index) => (index + 1) / 10);
+
+const DISTORTION_CORNER_LABELS: Record<StageDistortionCorner, string> = {
+  topLeft: 'top left',
+  topRight: 'top right',
+  bottomRight: 'bottom right',
+  bottomLeft: 'bottom left',
+};
 
 export interface StageFrameInfo {
   /** True when every requested render layer was drawn with its own compiled program. */
@@ -851,6 +873,7 @@ export function StageRenderer({
   transport,
   isOutputOnly = false,
   showGrid = false,
+  onDistortionChange,
   personalPreviewActive = false,
   personalPreviewGuideActive = false,
   showPinnedIndicator = false,
@@ -867,6 +890,11 @@ export function StageRenderer({
   const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const distortionDragRef = useRef<{
+    corner: StageDistortionCorner;
+    pointerId: number;
+    cleanup: () => void;
+  } | null>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
   const programCacheRef = useRef<Map<string, CachedProgram>>(new Map());
   const pendingProgramCacheRef = useRef<Map<string, PendingProgramBundle>>(new Map());
@@ -892,10 +920,17 @@ export function StageRenderer({
   // its resources (programs, textures, buffers) against the restored context.
   const [glContextGeneration, setGlContextGeneration] = useState(0);
   const [shellSize, setShellSize] = useState({ width: 1, height: 1 });
+  const [canvasCssSize, setCanvasCssSize] = useState({ width: 1, height: 1 });
   const onCanvasReadyRef = useRef(onCanvasReady);
   const onRenderStateChangeRef = useRef(onRenderStateChange);
   const onCompiledShaderCodesChangeRef = useRef(onCompiledShaderCodesChange);
   const onFrameRenderedRef = useRef(onFrameRendered);
+  useEffect(
+    () => () => {
+      distortionDragRef.current?.cleanup();
+    },
+    [],
+  );
   const defaultInputSource = useMemo<StageRenderInputSource | null>(
     () =>
       asset
@@ -1229,28 +1264,33 @@ export function StageRenderer({
     }
 
     const resize = () => {
-      const rect = surface.getBoundingClientRect();
+      const surfaceWidth = Math.max(1, surface.clientWidth);
+      const surfaceHeight = Math.max(1, surface.clientHeight);
       const dpr = window.devicePixelRatio || 1;
       const nextAspectRatio =
         mediaAspectRatioRef.current && mediaAspectRatioRef.current > 0
           ? mediaAspectRatioRef.current
-          : rect.width > 0 && rect.height > 0
-            ? rect.width / rect.height
-            : 1;
-      const containerAspectRatio = rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1;
+          : surfaceWidth / surfaceHeight;
+      const containerAspectRatio = surfaceWidth / surfaceHeight;
       const targetWidth =
         nextAspectRatio > containerAspectRatio
-          ? rect.width
-          : Math.min(rect.width, rect.height * nextAspectRatio);
+          ? surfaceWidth
+          : Math.min(surfaceWidth, surfaceHeight * nextAspectRatio);
       const targetHeight =
         nextAspectRatio > containerAspectRatio
-          ? Math.min(rect.height, rect.width / nextAspectRatio)
-          : rect.height;
+          ? Math.min(surfaceHeight, surfaceWidth / nextAspectRatio)
+          : surfaceHeight;
 
       canvas.width = Math.max(1, Math.round(targetWidth * dpr));
       canvas.height = Math.max(1, Math.round(targetHeight * dpr));
       canvas.style.width = `${targetWidth}px`;
       canvas.style.height = `${targetHeight}px`;
+      setCanvasCssSize((currentSize) =>
+        Math.abs(currentSize.width - targetWidth) < 0.5 &&
+        Math.abs(currentSize.height - targetHeight) < 0.5
+          ? currentSize
+          : { width: targetWidth, height: targetHeight },
+      );
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
 
@@ -1941,10 +1981,120 @@ export function StageRenderer({
     };
   }, [defaultInputSource]);
 
+  const distortion = useMemo(
+    () => normalizeStageDistortion(stageTransform.distortion),
+    [stageTransform.distortion],
+  );
+  const distortionPoints = useMemo(
+    () => ({
+      topLeft: getStageDistortionPoint(distortion, 'topLeft'),
+      topRight: getStageDistortionPoint(distortion, 'topRight'),
+      bottomRight: getStageDistortionPoint(distortion, 'bottomRight'),
+      bottomLeft: getStageDistortionPoint(distortion, 'bottomLeft'),
+    }),
+    [distortion],
+  );
+  const distortEditing =
+    !isOutputOnly &&
+    Boolean(stageTransform.distortMode) &&
+    Boolean(onDistortionChange);
+  const canvasFrameStyle = useMemo<CSSProperties>(() => {
+    const transform = createStageDistortionMatrix3d(
+      distortion,
+      canvasCssSize.width,
+      canvasCssSize.height,
+    );
+    return transform ? { transform } : {};
+  }, [canvasCssSize.height, canvasCssSize.width, distortion]);
+
+  const startDistortionCornerDrag = (
+    corner: StageDistortionCorner,
+    event: ReactPointerEvent<SVGCircleElement>,
+  ) => {
+    if (!onDistortionChange) {
+      return;
+    }
+
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const pointerId = event.pointerId;
+    const updateFromPointer = (pointerEvent: PointerEvent) => {
+      if (pointerEvent.pointerId !== pointerId) {
+        return;
+      }
+      const screenMatrix = svg.getScreenCTM();
+      if (!screenMatrix) {
+        return;
+      }
+      const pointer = svg.createSVGPoint();
+      pointer.x = pointerEvent.clientX;
+      pointer.y = pointerEvent.clientY;
+      const localPoint = pointer.matrixTransform(screenMatrix.inverse());
+      onDistortionChange(
+        setStageDistortionPoint(distortion, corner, {
+          x: localPoint.x / 1000,
+          y: localPoint.y / 1000,
+        }),
+      );
+    };
+    const finishDrag = (pointerEvent?: PointerEvent) => {
+      if (pointerEvent && pointerEvent.pointerId !== pointerId) {
+        return;
+      }
+      window.removeEventListener('pointermove', updateFromPointer);
+      window.removeEventListener('pointerup', finishDrag);
+      window.removeEventListener('pointercancel', finishDrag);
+      if (distortionDragRef.current?.pointerId === pointerId) {
+        distortionDragRef.current = null;
+      }
+    };
+
+    distortionDragRef.current?.cleanup();
+    distortionDragRef.current = {
+      corner,
+      pointerId,
+      cleanup: () => finishDrag(),
+    };
+    window.addEventListener('pointermove', updateFromPointer);
+    window.addEventListener('pointerup', finishDrag);
+    window.addEventListener('pointercancel', finishDrag);
+    event.currentTarget.setPointerCapture(pointerId);
+  };
+
+  const nudgeDistortionCorner = (
+    corner: StageDistortionCorner,
+    horizontalDirection: number,
+    verticalDirection: number,
+  ) => {
+    if (!onDistortionChange) {
+      return;
+    }
+
+    const precisionPixels = Math.max(1, stageTransform.precision);
+    onDistortionChange(
+      nudgeStageDistortionPoint(
+        distortion,
+        corner,
+        horizontalDirection * precisionPixels / Math.max(1, canvasCssSize.width),
+        verticalDirection * precisionPixels / Math.max(1, canvasCssSize.height),
+      ),
+    );
+  };
+
   const mediaSurfaceStyle = useMemo<CSSProperties>(
     () => {
-      const scaleX = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / shellSize.width);
-      const scaleY = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.heightAdjust / shellSize.height);
+      const editingScale = distortEditing ? 0.76 : 1;
+      const scaleX =
+        Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / shellSize.width) *
+        editingScale;
+      const scaleY =
+        Math.max(MIN_STAGE_SCALE, 1 + stageTransform.heightAdjust / shellSize.height) *
+        editingScale;
       const rotationDegrees = Number.isFinite(stageTransform.rotationDegrees)
         ? stageTransform.rotationDegrees
         : 0;
@@ -1953,7 +2103,7 @@ export function StageRenderer({
         transform: `translate(${stageTransform.offsetX}px, ${stageTransform.offsetY}px) rotate(${rotationDegrees}deg) scale(${scaleX}, ${scaleY})`,
       };
     },
-    [shellSize.height, shellSize.width, stageTransform],
+    [distortEditing, shellSize.height, shellSize.width, stageTransform],
   );
 
   const hasRequiredInputSource = requiredInputSources.length > 0;
@@ -2005,7 +2155,7 @@ export function StageRenderer({
       ref={shellRef}
       className={`stage-shell ${isOutputOnly ? 'stage-shell-output' : ''} ${
         personalPreviewActive ? 'stage-shell-personal-preview' : ''
-      }`}
+      } ${distortEditing ? 'stage-shell-distort-editing' : ''}`}
       title={isOutputOnly ? undefined : renderStatus}
     >
       <div
@@ -2022,24 +2172,207 @@ export function StageRenderer({
             : undefined
         }
       >
-        <div className="stage-canvas-frame">
-          <canvas ref={canvasRef} className="stage-canvas" />
-          {showGrid ? (
-            <div className="stage-alignment-grid" aria-hidden="true">
-              <span className="stage-alignment-grid-center-x" />
-              <span className="stage-alignment-grid-center-y" />
-            </div>
-          ) : null}
-          {personalPreviewGuideActive ? (
-            <svg
-              className="stage-repeat-guide-trace"
-              viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              <rect x="1" y="1" width="98" height="98" pathLength="1" />
-            </svg>
-          ) : null}
+        <div className="stage-canvas-composition">
+          <div className="stage-canvas-frame" style={canvasFrameStyle}>
+            <canvas ref={canvasRef} className="stage-canvas" />
+            {showGrid ? (
+              <div className="stage-alignment-grid" aria-hidden="true">
+                <span className="stage-alignment-grid-center-x" />
+                <span className="stage-alignment-grid-center-y" />
+              </div>
+            ) : null}
+            {personalPreviewGuideActive ? (
+              <svg
+                className="stage-repeat-guide-trace"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <rect x="1" y="1" width="98" height="98" pathLength="1" />
+              </svg>
+            ) : null}
+          </div>
+
+          {distortEditing && shellRef.current?.parentElement
+            ? createPortal(
+              <div className="stage-distort-editor-surface" style={mediaSurfaceStyle}>
+                <div
+                  className="stage-distort-editor-composition"
+                  style={{
+                    width: `${canvasCssSize.width}px`,
+                    height: `${canvasCssSize.height}px`,
+                  }}
+                >
+              <svg
+                className="stage-distort-overlay"
+                viewBox="0 0 1000 1000"
+                preserveAspectRatio="none"
+                aria-label="Four-corner distortion grid"
+              >
+                <polygon
+                  className="stage-distort-grid-surface"
+                  points={STAGE_DISTORTION_CORNERS.map((corner) => {
+                    const point = distortionPoints[corner];
+                    return `${point.x * 1000},${point.y * 1000}`;
+                  }).join(' ')}
+                />
+                {DISTORTION_GRID_STEPS.map((step) => (
+                  <line
+                    key={`vertical-${step}`}
+                    className="stage-distort-grid-line"
+                    x1={
+                      (distortionPoints.topLeft.x +
+                        (distortionPoints.topRight.x - distortionPoints.topLeft.x) * step) *
+                      1000
+                    }
+                    y1={
+                      (distortionPoints.topLeft.y +
+                        (distortionPoints.topRight.y - distortionPoints.topLeft.y) * step) *
+                      1000
+                    }
+                    x2={
+                      (distortionPoints.bottomLeft.x +
+                        (distortionPoints.bottomRight.x - distortionPoints.bottomLeft.x) * step) *
+                      1000
+                    }
+                    y2={
+                      (distortionPoints.bottomLeft.y +
+                        (distortionPoints.bottomRight.y - distortionPoints.bottomLeft.y) * step) *
+                      1000
+                    }
+                  />
+                ))}
+                {DISTORTION_GRID_STEPS.map((step) => (
+                  <line
+                    key={`horizontal-${step}`}
+                    className="stage-distort-grid-line"
+                    x1={
+                      (distortionPoints.topLeft.x +
+                        (distortionPoints.bottomLeft.x - distortionPoints.topLeft.x) * step) *
+                      1000
+                    }
+                    y1={
+                      (distortionPoints.topLeft.y +
+                        (distortionPoints.bottomLeft.y - distortionPoints.topLeft.y) * step) *
+                      1000
+                    }
+                    x2={
+                      (distortionPoints.topRight.x +
+                        (distortionPoints.bottomRight.x - distortionPoints.topRight.x) * step) *
+                      1000
+                    }
+                    y2={
+                      (distortionPoints.topRight.y +
+                        (distortionPoints.bottomRight.y - distortionPoints.topRight.y) * step) *
+                      1000
+                    }
+                  />
+                ))}
+                {STAGE_DISTORTION_CORNERS.map((corner) => {
+                  const point = distortionPoints[corner];
+                  return (
+                    <circle
+                      key={corner}
+                      className="stage-distort-handle"
+                      data-distort-corner={corner}
+                      cx={point.x * 1000}
+                      cy={point.y * 1000}
+                      r="28"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Drag ${DISTORTION_CORNER_LABELS[corner]} distortion corner`}
+                      onPointerDown={(event) => startDistortionCornerDrag(corner, event)}
+                    />
+                  );
+                })}
+              </svg>
+
+              {STAGE_DISTORTION_CORNERS.map((corner) => {
+                const point = distortionPoints[corner];
+                return (
+                  <span
+                    key={`${corner}-dot`}
+                    className="stage-distort-corner-dot"
+                    style={{
+                      left: `${point.x * 100}%`,
+                      top: `${point.y * 100}%`,
+                    }}
+                    aria-hidden="true"
+                  />
+                );
+              })}
+
+              {STAGE_DISTORTION_CORNERS.map((corner) => {
+                const point = distortionPoints[corner];
+                const cornerLabel = DISTORTION_CORNER_LABELS[corner];
+                return (
+                  <div
+                    key={corner}
+                    className={`stage-distort-corner-controls stage-distort-corner-controls-${corner}`}
+                    style={{
+                      left: `${point.x * 100}%`,
+                      top: `${point.y * 100}%`,
+                    }}
+                    role="group"
+                    aria-label={`${cornerLabel} corner precision controls`}
+                  >
+                    <button
+                      type="button"
+                      className="stage-distort-nudge stage-distort-nudge-up"
+                      aria-label={`Move ${cornerLabel} corner up`}
+                      title={`Move ${cornerLabel} corner up`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        nudgeDistortionCorner(corner, 0, -1);
+                      }}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="stage-distort-nudge stage-distort-nudge-left"
+                      aria-label={`Move ${cornerLabel} corner left`}
+                      title={`Move ${cornerLabel} corner left`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        nudgeDistortionCorner(corner, -1, 0);
+                      }}
+                    >
+                      ←
+                    </button>
+                    <span className="stage-distort-nudge-center" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="stage-distort-nudge stage-distort-nudge-right"
+                      aria-label={`Move ${cornerLabel} corner right`}
+                      title={`Move ${cornerLabel} corner right`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        nudgeDistortionCorner(corner, 1, 0);
+                      }}
+                    >
+                      →
+                    </button>
+                    <button
+                      type="button"
+                      className="stage-distort-nudge stage-distort-nudge-down"
+                      aria-label={`Move ${cornerLabel} corner down`}
+                      title={`Move ${cornerLabel} corner down`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        nudgeDistortionCorner(corner, 0, 1);
+                      }}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                );
+              })}
+                </div>
+              </div>,
+              shellRef.current.parentElement,
+            )
+            : null}
         </div>
       </div>
       {showPinnedIndicator && !isOutputOnly ? (
