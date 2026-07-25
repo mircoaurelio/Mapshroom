@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { BootScreenController } from './components/BootScreenController';
 import { initAnalytics } from './lib/analytics';
@@ -30,6 +30,32 @@ const CreatorChallengeRoute = lazy(() =>
   })),
 );
 
+const PUBLIC_ROUTE_PATHS: Record<string, string> = {
+  '/tutorial': '/tutorial/',
+  '/why': '/why/',
+  '/creatorchallenge': '/creatorchallenge/',
+};
+
+function CanonicalRouteUrl() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const pathname = PUBLIC_ROUTE_PATHS[location.pathname] ?? '/';
+    const hash = `#${location.pathname}${location.search}`;
+    if (window.location.pathname === pathname && window.location.hash === hash) {
+      return;
+    }
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${pathname}${hash}`,
+    );
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   useEffect(() => {
     initAnalytics();
@@ -37,6 +63,7 @@ export default function App() {
 
   return (
     <HashRouter>
+      <CanonicalRouteUrl />
       <BootScreenController />
       <Suspense fallback={null}>
         <Routes>
