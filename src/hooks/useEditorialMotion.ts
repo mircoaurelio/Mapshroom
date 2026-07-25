@@ -36,6 +36,7 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       const visibleValueSize = compactMarket
         ? 34 + easedExpansion * 14
         : 42 + easedExpansion * 26;
+      const professionalCoverage = clamp((easedExpansion - 0.08) / 0.24, 0, 1);
       const growthThresholds = [0, 0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.6];
       let growthStep = 0;
 
@@ -55,6 +56,10 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       marketStory.style.setProperty(
         '--market-professional-y',
         `${easedExpansion * professionalShiftY}px`,
+      );
+      marketStory.style.setProperty(
+        '--market-professional-fill',
+        `rgba(217, 221, 38, ${professionalCoverage * 0.9})`,
       );
       marketStory.style.setProperty(
         '--market-potential-scale',
