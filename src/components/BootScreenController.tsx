@@ -1,38 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { PROJECT_READY_EVENT, signalBootExitStarted } from '../lib/bootFlow';
-import { MapshroomBrandLockup } from './MapshroomBrandLockup';
+import {
+  BRAND_REVEAL_DURATION_MS,
+  MapshroomBrandLockup,
+} from './MapshroomBrandLockup';
 
-const BRAND_LETTER_COUNT = 9;
-const LETTER_STAGGER_MS = 28;
-const FADE_AFTER_REVEAL_MS = BRAND_LETTER_COUNT * LETTER_STAGGER_MS + 120;
+const BRAND_HOLD_MS = 420;
+const MINIMUM_INTRO_MS = BRAND_REVEAL_DURATION_MS + BRAND_HOLD_MS;
 
 type BootPhase = 'loading' | 'fading' | 'gone';
 
 export function BootScreenController() {
   const location = useLocation();
   const [phase, setPhase] = useState<BootPhase>('loading');
+  const introStartedAtRef = useRef<number | null>(null);
   const isWorkspace = location.pathname === '/';
-
-  useEffect(() => {
-    if (phase === 'gone') {
-      return;
-    }
-
-    if (isWorkspace) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => setPhase('gone'), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [isWorkspace, phase]);
 
   useEffect(() => {
     if (phase !== 'loading') {
       return;
     }
 
+    introStartedAtRef.current ??= performance.now();
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const beginFade = () => {
@@ -46,17 +37,26 @@ export function BootScreenController() {
     };
 
     let fadeTimeoutId = 0;
-    const onProjectReady = () => {
+    const beginFadeAfterIntro = () => {
       window.clearTimeout(fadeTimeoutId);
-      fadeTimeoutId = window.setTimeout(beginFade, FADE_AFTER_REVEAL_MS);
+      const elapsedMs = performance.now() - (introStartedAtRef.current ?? 0);
+      fadeTimeoutId = window.setTimeout(
+        beginFade,
+        Math.max(0, MINIMUM_INTRO_MS - elapsedMs),
+      );
     };
 
-    window.addEventListener(PROJECT_READY_EVENT, onProjectReady);
+    if (!isWorkspace) {
+      beginFadeAfterIntro();
+      return () => window.clearTimeout(fadeTimeoutId);
+    }
+
+    window.addEventListener(PROJECT_READY_EVENT, beginFadeAfterIntro);
     return () => {
-      window.removeEventListener(PROJECT_READY_EVENT, onProjectReady);
+      window.removeEventListener(PROJECT_READY_EVENT, beginFadeAfterIntro);
       window.clearTimeout(fadeTimeoutId);
     };
-  }, [phase]);
+  }, [isWorkspace, phase]);
 
   if (phase === 'gone' || typeof document === 'undefined') {
     return null;
