@@ -6663,7 +6663,7 @@ a {
 }
 
 .mapping-tool-row-with-close {
-  grid-template-columns: repeat(6, 2rem);
+  grid-template-columns: repeat(5, 2rem) 1.7rem;
 }
 
 .mapping-tool-button {
@@ -6708,8 +6708,16 @@ a {
 }
 
 .mapping-tool-button-close {
+  width: 1.7rem;
+  height: 1.7rem;
+  justify-self: center;
   border-color: rgba(248, 113, 113, 0.48);
   color: #fecaca;
+}
+
+.mapping-tool-button-close svg {
+  width: 0.78rem;
+  height: 0.78rem;
 }
 
 .mapping-tool-button-close:hover:not(:disabled),
