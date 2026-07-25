@@ -787,49 +787,6 @@ a {
   height: 30px;
 }
 
-.toolbar-output-group {
-  height: 30px;
-  display: inline-flex;
-  align-items: stretch;
-}
-
-.toolbar-output-button {
-  min-height: 30px;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.toolbar-grid-button {
-  width: 31px;
-  min-height: 30px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid rgba(var(--accent-rgb), 0.38);
-  border-left: 0;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: rgba(9, 9, 11, 0.84);
-  color: var(--text-muted);
-}
-
-.toolbar-grid-button svg {
-  width: 14px;
-  height: 14px;
-}
-
-.toolbar-grid-button:hover,
-.toolbar-grid-button:focus-visible,
-.toolbar-grid-button-active {
-  background: rgba(var(--accent-rgb), 0.15);
-  color: var(--accent-pale);
-  outline: none;
-}
-
-.toolbar-grid-button-active {
-  border-color: rgba(var(--accent-rgb), 0.78);
-  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.14);
-}
-
 .toolbar-menu-item {
   width: 100%;
   min-height: 30px;
@@ -6012,7 +5969,7 @@ a {
 
 .mapping-tool-row {
   display: grid;
-  grid-template-columns: repeat(4, 2rem);
+  grid-template-columns: repeat(5, 2rem);
   align-items: center;
   justify-content: center;
   gap: 0.58rem;

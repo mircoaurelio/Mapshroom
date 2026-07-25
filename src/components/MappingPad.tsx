@@ -27,9 +27,11 @@ interface MappingPadProps {
   onExportPosition?: (source?: string) => void;
   getPositionJson?: () => string;
   onRotationChange?: (value: number) => void;
+  onToggleGrid?: () => void;
   onFirstStepDismiss?: () => void;
   precision?: number;
   rotationDegrees?: number;
+  showGrid?: boolean;
   showFirstStep?: boolean;
   disabled?: boolean;
   variant?: 'default' | 'overlay';
@@ -120,6 +122,15 @@ function RotateIcon() {
   );
 }
 
+function GridIcon() {
+  return (
+    <svg viewBox="0 0 18 18" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="13" height="13" rx="1.25" />
+      <path d="M6.83 2.5v13M11.17 2.5v13M2.5 6.83h13M2.5 11.17h13" />
+    </svg>
+  );
+}
+
 export function MappingPad({
   onAction,
   onPrecisionChange,
@@ -128,9 +139,11 @@ export function MappingPad({
   onExportPosition,
   getPositionJson,
   onRotationChange,
+  onToggleGrid,
   onFirstStepDismiss,
   precision = 12,
   rotationDegrees = 0,
+  showGrid = false,
   showFirstStep = false,
   disabled = false,
   variant = 'default',
@@ -578,6 +591,19 @@ export function MappingPad({
           disabled={disabled || !onRotationChange}
         >
           <RotateIcon />
+        </button>
+        <button
+          type="button"
+          className={`mapping-tool-button ${
+            showGrid ? 'mapping-tool-button-active' : ''
+          }`}
+          title={`${showGrid ? 'Hide' : 'Show'} grid on canvas and output`}
+          aria-label={`${showGrid ? 'Hide' : 'Show'} alignment grid on canvas and output`}
+          aria-pressed={showGrid}
+          onClick={onToggleGrid}
+          disabled={disabled || !onToggleGrid}
+        >
+          <GridIcon />
         </button>
       </div>
 

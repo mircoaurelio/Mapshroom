@@ -7103,9 +7103,14 @@ ${errorSnapshot}`,
               onExportPosition={handleMappingPositionExport}
               getPositionJson={createCurrentMappingPositionJson}
               onRotationChange={updateStageRotation}
+              onToggleGrid={() => {
+                trackUiClick(stageTransform.showGrid ? 'alignment_grid_off' : 'alignment_grid_on');
+                toggleAlignmentGrid();
+              }}
               onFirstStepDismiss={dismissMappingFirstStep}
               precision={stageTransform.precision}
               rotationDegrees={stageTransform.rotationDegrees}
+              showGrid={Boolean(stageTransform.showGrid)}
               showFirstStep={showMappingFirstStep}
               variant={isMobile ? 'overlay' : 'default'}
             />
@@ -7235,7 +7240,6 @@ ${errorSnapshot}`,
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           colorTheme={uiPreferences.colorTheme}
           moveMode={stageTransform.moveMode}
-          showGrid={Boolean(stageTransform.showGrid)}
           onOpenProjects={() => {
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
@@ -7274,10 +7278,6 @@ ${errorSnapshot}`,
           onOpenOutput={() => {
             trackUiClick('open_output');
             handleOutputWindowOpen();
-          }}
-          onToggleGrid={() => {
-            trackUiClick(stageTransform.showGrid ? 'alignment_grid_off' : 'alignment_grid_on');
-            toggleAlignmentGrid();
           }}
           onToggleMoveMode={() => {
             trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');
