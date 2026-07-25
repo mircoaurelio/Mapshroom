@@ -342,38 +342,81 @@ export function ApiSettingsDialog({
           {!selectedPath ? (
             <p className="dialog-note">
               {isSetup
-                ? 'Choose a browser brain, connect a cloud API, or borrow the AI chat you already use.'
-                : 'Run a model in this browser, connect an API, or copy a ready-made prompt into your usual AI chat.'}
+                ? 'For the best shaders, start with ChatGPT or Perplexity. The smaller options are for another AI, API keys, or offline use.'
+                : 'ChatGPT and Perplexity are the recommended routes. Use the smaller options for another AI, API keys, or offline work.'}
             </p>
           ) : null}
 
           <div
             className={`ai-runtime-choice ${selectedPath ? 'has-selection' : ''} ${
-              usingChatGpt ? 'has-pro-teaser' : ''
+              usingDirectChat ? 'has-pro-teaser' : ''
             }`}
-            role="radiogroup"
-            aria-label="AI runtime"
+            role="group"
+            aria-label="Shader generation route"
           >
             {showRuntimeChoice('chatgpt') ? (
               <button
                 type="button"
-                className={`ai-path-card ai-path-card-chat ${usingChatGpt ? 'active' : ''}`}
+                className={`ai-path-card ai-path-card-featured ai-path-card-chat ${usingChatGpt ? 'active' : ''}`}
                 onClick={handleChooseChatGpt}
               >
                 <span className="ai-path-brand-mark ai-path-brand-mark-chatgpt" aria-hidden="true">
                   <img src={`${import.meta.env.BASE_URL}assets/icons/chatgpt.svg`} alt="" />
                 </span>
                 <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Direct &amp; free</span>
-                  <strong>Use ChatGPT for free</strong>
-                  <span>Open ChatGPT with the prompt, then copy its shader reply back into Mapshroom.</span>
+                  <span className="ai-path-card-tag">Recommended · Free</span>
+                  <strong>Go with ChatGPT</strong>
+                  <span className="ai-path-card-description">
+                    The easiest path to strong shaders. We prepare the prompt; you bring the result back.
+                  </span>
                 </div>
               </button>
             ) : null}
-            {usingChatGpt ? (
+            {showRuntimeChoice('perplexity') ? (
               <button
                 type="button"
-                className="ai-path-card ai-path-card-pro"
+                className={`ai-path-card ai-path-card-featured ai-path-card-perplexity ${usingPerplexity ? 'active' : ''}`}
+                onClick={handleChoosePerplexity}
+              >
+                <span className="ai-path-brand-mark ai-path-brand-mark-perplexity" aria-hidden="true">
+                  <img src={`${import.meta.env.BASE_URL}assets/icons/perplexity.svg`} alt="" />
+                </span>
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Recommended · Free</span>
+                  <strong>Go with Perplexity</strong>
+                  <span className="ai-path-card-description">
+                    Another top-quality route. Open the ready prompt, then bring the shader back.
+                  </span>
+                </div>
+              </button>
+            ) : null}
+            {showRuntimeChoice('chat') ? (
+              <button
+                type="button"
+                className={`ai-path-card ai-path-card-supporting ai-path-card-generic ${selectedPath === 'chat' ? 'active' : ''}`}
+                onClick={handleChooseChatRuntime}
+              >
+                <ChatModelIcon />
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Any AI chat · Free</span>
+                  <strong>Use another AI</strong>
+                  <span className="ai-path-card-description">
+                    Take a copy-ready prompt to Claude, Gemini, or the AI chat you already use.
+                  </span>
+                  <span className="ai-path-card-cta">Copy ready prompt <span aria-hidden="true">→</span></span>
+                </div>
+                {showCopyTooltip ? (
+                  <span className="ai-chat-copied-tooltip" role="status" aria-live="polite">
+                    <span aria-hidden="true">✓</span>
+                    Prompt copied
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
+            {!selectedPath || usingDirectChat ? (
+              <button
+                type="button"
+                className="ai-path-card ai-path-card-supporting ai-path-card-pro"
                 onClick={onOpenProBeta}
               >
                 <span className="ai-path-pro-mark" aria-hidden="true">
@@ -384,74 +427,45 @@ export function ApiSettingsDialog({
                   <small>Pro</small>
                 </span>
                 <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Pro · Closed beta</span>
-                  <strong>Modify directly in the app</strong>
-                  <span>Generate and edit without leaving Mapshroom or copying shader code.</span>
-                </div>
-              </button>
-            ) : null}
-            {showRuntimeChoice('perplexity') ? (
-              <button
-                type="button"
-                className={`ai-path-card ai-path-card-perplexity ${usingPerplexity ? 'active' : ''}`}
-                onClick={handleChoosePerplexity}
-              >
-                <span className="ai-path-brand-mark ai-path-brand-mark-perplexity" aria-hidden="true">
-                  <img src={`${import.meta.env.BASE_URL}assets/icons/perplexity.svg`} alt="" />
-                </span>
-                <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Direct &amp; free</span>
-                  <strong>Use Perplexity for free</strong>
-                  <span>Open Perplexity with the prompt, then copy its shader reply back into Mapshroom.</span>
+                  <span className="ai-path-card-tag">Built in · Closed beta</span>
+                  <strong>Mapshroom Pro</strong>
+                  <span className="ai-path-card-description">
+                    Generate and edit directly in the app, without copying shader code.
+                  </span>
+                  <span className="ai-path-card-cta">View closed beta <span aria-hidden="true">→</span></span>
                 </div>
               </button>
             ) : null}
             {showRuntimeChoice('local') ? (
               <button
                 type="button"
-                className={`ai-path-card ai-path-card-local ${selectedPath === 'local' ? 'active' : ''}`}
+                className={`ai-path-card ai-path-card-compact ai-path-card-local ${selectedPath === 'local' ? 'active' : ''}`}
                 onClick={() => chooseRuntime('local')}
               >
                 <LocalModelIcon />
                 <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Cheap &amp; a bit stupid</span>
-                  <strong>Use local models for free</strong>
-                  <span>Free, private, offline after download. Smaller browser brains — messier, funnier shaders.</span>
+                  <span className="ai-path-card-tag">Offline fallback</span>
+                  <strong>Local model</strong>
+                  <span className="ai-path-card-description">
+                    Small and a bit dumb, but useful on a plane or whenever you have no internet.
+                  </span>
                 </div>
               </button>
             ) : null}
             {showRuntimeChoice('api') ? (
               <button
                 type="button"
-                className={`ai-path-card ai-path-card-cloud ${selectedPath === 'api' ? 'active' : ''}`}
+                className={`ai-path-card ai-path-card-compact ai-path-card-cloud ${selectedPath === 'api' ? 'active' : ''}`}
                 onClick={() => chooseRuntime('api')}
               >
                 <CloudModelIcon />
                 <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Strange &amp; costly</span>
-                  <strong>Cloud API</strong>
-                  <span>Sharper results, weirder tricks, and a meter that notices. Recommended when quality matters.</span>
-                </div>
-              </button>
-            ) : null}
-            {showRuntimeChoice('chat') ? (
-              <button
-                type="button"
-                className={`ai-path-card ai-path-card-generic ${selectedPath === 'chat' ? 'active' : ''}`}
-                onClick={handleChooseChatRuntime}
-              >
-                <ChatModelIcon />
-                <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Any chat &amp; free</span>
-                  <strong>Use your AI chat for free</strong>
-                  <span>Copy the prompt into another AI chat, then paste its shader reply back here.</span>
-                </div>
-                {showCopyTooltip ? (
-                  <span className="ai-chat-copied-tooltip" role="status" aria-live="polite">
-                    <span aria-hidden="true">✓</span>
-                    Prompt copied
+                  <span className="ai-path-card-tag">API · Pay per use</span>
+                  <strong>Connect a cloud API</strong>
+                  <span className="ai-path-card-description">
+                    Bring your own OpenAI, Anthropic, or Google API key.
                   </span>
-                ) : null}
+                </div>
               </button>
             ) : null}
           </div>
@@ -580,8 +594,9 @@ export function ApiSettingsDialog({
                 <div>
                   <span className="panel-eyebrow">Local shader model</span>
                   <p className="helper-copy">
-                    The local version is free and private, but browser-sized models can produce lower-quality or less
-                    consistent shaders. For repeatable production work, a cloud API is the better choice.
+                    The local version is free, private, and works offline after download—handy on flights or without
+                    Wi-Fi. These small browser models are much less capable and make rougher, less consistent shaders;
+                    use ChatGPT or Perplexity when quality matters.
                   </p>
                 </div>
                 <span className="ai-local-badge">WebGPU · browser cache</span>

@@ -23,7 +23,9 @@ interface MappingPadProps {
   onAction: (action: MappingAction) => void;
   onPrecisionChange?: (value: number) => void;
   onImportPosition?: () => void;
-  onExportPosition?: () => void;
+  onImportPositionText?: (source: string) => string | null;
+  onExportPosition?: (source?: string) => void;
+  getPositionJson?: () => string;
   onRotationChange?: (value: number) => void;
   onFirstStepDismiss?: () => void;
   precision?: number;
@@ -34,6 +36,11 @@ interface MappingPadProps {
 }
 
 type PrecisionDirection = 'left' | 'right' | null;
+type PositionPanel = 'import' | 'export' | null;
+type PositionPanelMessage = {
+  tone: 'success' | 'error' | 'info';
+  text: string;
+} | null;
 
 interface MappingPadActionItem {
   key: string;
@@ -73,12 +80,11 @@ function clampRotation(value: number): number {
   return Math.round(clamped * 10) / 10;
 }
 
-function ImportPositionIcon() {
+function AddPositionIcon() {
   return (
     <svg viewBox="0 0 18 18" aria-hidden="true">
-      <path d="M9 2.5v8.2" />
-      <path d="m5.9 7.7 3.1 3.1 3.1-3.1" />
-      <path d="M3.5 12.1v2.4h11v-2.4" />
+      <path d="M9 3v12" />
+      <path d="M3 9h12" />
     </svg>
   );
 }
@@ -118,7 +124,9 @@ export function MappingPad({
   onAction,
   onPrecisionChange,
   onImportPosition,
+  onImportPositionText,
   onExportPosition,
+  getPositionJson,
   onRotationChange,
   onFirstStepDismiss,
   precision = 12,
@@ -136,6 +144,11 @@ export function MappingPad({
   const [previewPrecision, setPreviewPrecision] = useState<number | null>(null);
   const [dragDirection, setDragDirection] = useState<PrecisionDirection>(null);
   const [rotationExpanded, setRotationExpanded] = useState(false);
+  const [positionPanel, setPositionPanel] = useState<PositionPanel>(null);
+  const [positionPaste, setPositionPaste] = useState('');
+  const [positionExportJson, setPositionExportJson] = useState('');
+  const [positionPanelMessage, setPositionPanelMessage] =
+    useState<PositionPanelMessage>(null);
 
   const displayPrecision = clampPrecision(previewPrecision ?? precision);
   const filledDots = Math.max(
@@ -231,13 +244,112 @@ export function MappingPad({
     );
   };
 
+  const closePositionPanel = () => {
+    setPositionPanel(null);
+    setPositionPanelMessage(null);
+  };
+
+  const toggleImportPanel = () => {
+    if (positionPanel === 'import') {
+      closePositionPanel();
+      return;
+    }
+
+    setRotationExpanded(false);
+    setPositionPanelMessage(null);
+    setPositionPanel('import');
+  };
+
+  const toggleExportPanel = () => {
+    if (positionPanel === 'export') {
+      closePositionPanel();
+      return;
+    }
+
+    setRotationExpanded(false);
+    setPositionPanelMessage(null);
+    setPositionExportJson(getPositionJson?.() ?? '');
+    setPositionPanel('export');
+  };
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      const clipboardText = await navigator.clipboard.readText();
+      if (!clipboardText.trim()) {
+        setPositionPanelMessage({
+          tone: 'error',
+          text: 'The clipboard does not contain movement JSON.',
+        });
+        return;
+      }
+
+      setPositionPaste(clipboardText);
+      setPositionPanelMessage({
+        tone: 'info',
+        text: 'JSON pasted. Review it, then apply the movement.',
+      });
+    } catch {
+      setPositionPanelMessage({
+        tone: 'error',
+        text: 'Clipboard access was blocked. Paste the JSON into the field manually.',
+      });
+    }
+  };
+
+  const handleApplyPastedPosition = () => {
+    const source = positionPaste.trim();
+    if (!source) {
+      setPositionPanelMessage({
+        tone: 'error',
+        text: 'Paste movement JSON before applying it.',
+      });
+      return;
+    }
+
+    if (!onImportPositionText) {
+      return;
+    }
+
+    const errorMessage = onImportPositionText(source);
+    setPositionPanelMessage(
+      errorMessage
+        ? { tone: 'error', text: errorMessage }
+        : { tone: 'success', text: 'Movement imported successfully.' },
+    );
+  };
+
+  const handleCopyPositionJson = async () => {
+    if (!positionExportJson) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(positionExportJson);
+      setPositionPanelMessage({
+        tone: 'success',
+        text: 'Movement JSON copied to the clipboard.',
+      });
+    } catch {
+      setPositionPanelMessage({
+        tone: 'error',
+        text: 'Clipboard access was blocked. Select the JSON and copy it manually.',
+      });
+    }
+  };
+
   return (
     <div
       className={`mapping-control-shell mapping-control-shell-${variant} ${
         rotationExpanded ? 'mapping-control-shell-rotation-open' : ''
-      }`}
+      } ${positionPanel ? 'mapping-control-shell-position-open' : ''}`}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && positionPanel) {
+          event.stopPropagation();
+          closePositionPanel();
+        }
+      }}
     >
-      {showFirstStep ? (
+      {showFirstStep && !positionPanel ? (
         <aside
           className="mapping-first-step-callout"
           role="dialog"
@@ -282,24 +394,163 @@ export function MappingPad({
         </aside>
       ) : null}
 
+      {positionPanel ? (
+        <section
+          className={`mapping-position-panel mapping-position-panel-${positionPanel}`}
+          role="dialog"
+          aria-labelledby={`mapping-position-panel-${positionPanel}-title`}
+        >
+          <header className="mapping-position-panel-header">
+            <div>
+              <span className="mapping-position-panel-kicker">Movement JSON</span>
+              <h2 id={`mapping-position-panel-${positionPanel}-title`}>
+                {positionPanel === 'import'
+                  ? 'Add saved movement'
+                  : 'Save this movement'}
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="mapping-position-panel-close"
+              aria-label={`Close movement ${positionPanel} panel`}
+              onClick={closePositionPanel}
+            >
+              ×
+            </button>
+          </header>
+
+          {positionPanel === 'import' ? (
+            <>
+              <p className="mapping-position-panel-copy">
+                Load a Mapshroom <strong>.json</strong> position file, or paste JSON
+                copied from the download panel. It changes only movement, size,
+                precision, and rotation—your asset and shaders stay untouched.
+              </p>
+              <div className="mapping-position-panel-button-grid">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    setPositionPanelMessage(null);
+                    onImportPosition?.();
+                  }}
+                  disabled={disabled || !onImportPosition}
+                >
+                  Choose JSON file
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void handlePasteFromClipboard()}
+                  disabled={disabled || !onImportPositionText}
+                >
+                  Paste clipboard
+                </button>
+              </div>
+              <label className="mapping-position-text-field">
+                <span>Paste movement JSON</span>
+                <textarea
+                  value={positionPaste}
+                  rows={8}
+                  spellCheck={false}
+                  placeholder={'{\n  "format": "mapshroom-position",\n  "position": { ... }\n}'}
+                  onChange={(event) => {
+                    setPositionPaste(event.target.value);
+                    setPositionPanelMessage(null);
+                  }}
+                  disabled={disabled || !onImportPositionText}
+                />
+              </label>
+              <p className="mapping-position-panel-footnote">
+                Accepted: Mapshroom position JSON, up to 128 KB.
+              </p>
+              <div className="mapping-position-panel-actions">
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={handleApplyPastedPosition}
+                  disabled={
+                    disabled ||
+                    !onImportPositionText ||
+                    positionPaste.trim().length === 0
+                  }
+                >
+                  Apply movement
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mapping-position-panel-copy">
+                This JSON stores the current movement, size, precision, and rotation.
+                Copy it for another Mapshroom session or download it as a reusable file.
+              </p>
+              <label className="mapping-position-text-field">
+                <span>Current movement JSON</span>
+                <textarea
+                  value={positionExportJson}
+                  rows={10}
+                  spellCheck={false}
+                  readOnly
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </label>
+              <div className="mapping-position-panel-actions mapping-position-panel-actions-split">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void handleCopyPositionJson()}
+                  disabled={disabled || !positionExportJson}
+                >
+                  Copy JSON
+                </button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => onExportPosition?.(positionExportJson)}
+                  disabled={disabled || !onExportPosition || !positionExportJson}
+                >
+                  Download JSON
+                </button>
+              </div>
+            </>
+          )}
+
+          {positionPanelMessage ? (
+            <p
+              className={`mapping-position-panel-message mapping-position-panel-message-${positionPanelMessage.tone}`}
+              role={positionPanelMessage.tone === 'error' ? 'alert' : 'status'}
+            >
+              {positionPanelMessage.text}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="mapping-tool-row" aria-label="Mapping position tools">
         <button
           type="button"
-          className="mapping-tool-button"
-          title="Import position JSON"
-          aria-label="Import position JSON"
-          onClick={onImportPosition}
-          disabled={disabled || !onImportPosition}
+          className={`mapping-tool-button ${
+            positionPanel === 'import' ? 'mapping-tool-button-active' : ''
+          }`}
+          title="Add or paste movement JSON"
+          aria-label="Open movement import panel"
+          aria-expanded={positionPanel === 'import'}
+          onClick={toggleImportPanel}
+          disabled={disabled || (!onImportPosition && !onImportPositionText)}
         >
-          <ImportPositionIcon />
+          <AddPositionIcon />
         </button>
         <button
           type="button"
-          className="mapping-tool-button"
-          title="Export position JSON"
-          aria-label="Export position JSON"
-          onClick={onExportPosition}
-          disabled={disabled || !onExportPosition}
+          className={`mapping-tool-button ${
+            positionPanel === 'export' ? 'mapping-tool-button-active' : ''
+          }`}
+          title="Copy or download movement JSON"
+          aria-label="Open movement download panel"
+          aria-expanded={positionPanel === 'export'}
+          onClick={toggleExportPanel}
+          disabled={disabled || !onExportPosition || !getPositionJson}
         >
           <ExportPositionIcon />
         </button>
@@ -320,7 +571,10 @@ export function MappingPad({
           title={rotationExpanded ? 'Close rotation control' : 'Rotate output'}
           aria-label={rotationExpanded ? 'Close rotation control' : 'Rotate output'}
           aria-expanded={rotationExpanded}
-          onClick={() => setRotationExpanded((currentValue) => !currentValue)}
+          onClick={() => {
+            closePositionPanel();
+            setRotationExpanded((currentValue) => !currentValue);
+          }}
           disabled={disabled || !onRotationChange}
         >
           <RotateIcon />
