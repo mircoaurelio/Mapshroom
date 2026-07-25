@@ -1999,13 +1999,17 @@ export function StageRenderer({
     Boolean(stageTransform.distortMode) &&
     Boolean(onDistortionChange);
   const canvasFrameStyle = useMemo<CSSProperties>(() => {
+    if (!isOutputOnly) {
+      return {};
+    }
+
     const transform = createStageDistortionMatrix3d(
       distortion,
       canvasCssSize.width,
       canvasCssSize.height,
     );
     return transform ? { transform } : {};
-  }, [canvasCssSize.height, canvasCssSize.width, distortion]);
+  }, [canvasCssSize.height, canvasCssSize.width, distortion, isOutputOnly]);
 
   const startDistortionCornerDrag = (
     corner: StageDistortionCorner,
@@ -2180,6 +2184,44 @@ export function StageRenderer({
                 <span className="stage-alignment-grid-center-x" />
                 <span className="stage-alignment-grid-center-y" />
               </div>
+            ) : null}
+            {isOutputOnly && stageTransform.distortMode ? (
+              <svg
+                className="stage-distort-output-grid"
+                data-distortion-grid="output"
+                viewBox="0 0 1000 1000"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <polygon
+                  className="stage-distort-grid-surface"
+                  points="0,0 1000,0 1000,1000 0,1000"
+                />
+                {DISTORTION_GRID_STEPS.map((step) => (
+                  <line
+                    key={`output-vertical-${step}`}
+                    className="stage-distort-grid-line"
+                    x1={step * 1000}
+                    y1="0"
+                    x2={step * 1000}
+                    y2="1000"
+                  />
+                ))}
+                {DISTORTION_GRID_STEPS.map((step) => (
+                  <line
+                    key={`output-horizontal-${step}`}
+                    className="stage-distort-grid-line"
+                    x1="0"
+                    y1={step * 1000}
+                    x2="1000"
+                    y2={step * 1000}
+                  />
+                ))}
+                <circle className="stage-distort-output-corner" cx="0" cy="0" r="18" />
+                <circle className="stage-distort-output-corner" cx="1000" cy="0" r="18" />
+                <circle className="stage-distort-output-corner" cx="1000" cy="1000" r="18" />
+                <circle className="stage-distort-output-corner" cx="0" cy="1000" r="18" />
+              </svg>
             ) : null}
             {personalPreviewGuideActive ? (
               <svg

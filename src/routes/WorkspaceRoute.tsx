@@ -690,6 +690,31 @@ function useIsMobile(breakpoint = 960): boolean {
   return isMobile;
 }
 
+function MappingOutputDisclaimer() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setVisible(false);
+    }, 2_000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <p className="mapping-output-disclaimer">
+      <strong>Output window only</strong>
+      <span>
+        Movement changes projector output. Distort adds an editable workspace preview.
+      </span>
+    </p>
+  );
+}
+
 interface OnboardingGuideProps {
   onClose: () => void;
   onDismissPermanently: () => void;
@@ -7321,12 +7346,7 @@ ${errorSnapshot}`,
             }`}
           >
             {!isMobile && !stageTransform.distortMode ? (
-              <p className="mapping-output-disclaimer">
-                <strong>Output window only</strong>
-                <span>
-                  Movement changes projector output. Distort adds an editable workspace preview.
-                </span>
-              </p>
+              <MappingOutputDisclaimer />
             ) : null}
             <MappingPad
               onAction={handleMappingAction}

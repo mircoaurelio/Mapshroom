@@ -468,6 +468,13 @@ export function ApiSettingsDialog({
             </p>
           ) : null}
 
+          {isSetup ? (
+            <div className="ai-route-picker-heading">
+              <span>AI model</span>
+              <small>Switch anytime</small>
+            </div>
+          ) : null}
+
           <div
             className={`ai-runtime-choice ${selectedPath ? 'has-selection' : ''} ${
               usingDirectChat ? 'has-pro-teaser' : ''
@@ -479,6 +486,7 @@ export function ApiSettingsDialog({
               <button
                 type="button"
                 className={`ai-path-card ai-path-card-featured ai-path-card-chat ${usingChatGpt ? 'active' : ''}`}
+                aria-pressed={usingChatGpt}
                 onClick={handleChooseChatGpt}
               >
                 <span className="ai-path-brand-mark ai-path-brand-mark-chatgpt" aria-hidden="true">
@@ -486,7 +494,7 @@ export function ApiSettingsDialog({
                 </span>
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Recommended · Free</span>
-                  <strong>Go with ChatGPT</strong>
+                  <strong>{isSetup ? 'ChatGPT' : 'Go with ChatGPT'}</strong>
                   <span className="ai-path-card-description">
                     The easiest path to strong shaders. We prepare the prompt; you bring the result back.
                   </span>
@@ -497,6 +505,7 @@ export function ApiSettingsDialog({
               <button
                 type="button"
                 className={`ai-path-card ai-path-card-featured ai-path-card-perplexity ${usingPerplexity ? 'active' : ''}`}
+                aria-pressed={usingPerplexity}
                 onClick={handleChoosePerplexity}
               >
                 <span className="ai-path-brand-mark ai-path-brand-mark-perplexity" aria-hidden="true">
@@ -504,7 +513,7 @@ export function ApiSettingsDialog({
                 </span>
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Recommended · Free</span>
-                  <strong>Go with Perplexity</strong>
+                  <strong>{isSetup ? 'Perplexity' : 'Go with Perplexity'}</strong>
                   <span className="ai-path-card-description">
                     Another top-quality route. Open the ready prompt, then bring the shader back.
                   </span>
@@ -515,12 +524,13 @@ export function ApiSettingsDialog({
               <button
                 type="button"
                 className={`ai-path-card ai-path-card-supporting ai-path-card-generic ${selectedPath === 'chat' ? 'active' : ''}`}
+                aria-pressed={selectedPath === 'chat'}
                 onClick={handleChooseChatRuntime}
               >
                 <ChatModelIcon />
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Any AI chat · Free</span>
-                  <strong>Use another AI</strong>
+                  <strong>{isSetup ? 'Other AI' : 'Use another AI'}</strong>
                   <span className="ai-path-card-description">
                     Take a copy-ready prompt to Claude, Gemini, or the AI chat you already use.
                   </span>
@@ -561,12 +571,13 @@ export function ApiSettingsDialog({
               <button
                 type="button"
                 className={`ai-path-card ai-path-card-compact ai-path-card-local ${selectedPath === 'local' ? 'active' : ''}`}
+                aria-pressed={selectedPath === 'local'}
                 onClick={() => chooseRuntime('local')}
               >
                 <LocalModelIcon />
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">Offline fallback</span>
-                  <strong>Local model</strong>
+                  <strong>{isSetup ? 'Local' : 'Local model'}</strong>
                   <span className="ai-path-card-description">
                     Small and a bit dumb, but useful on a plane or whenever you have no internet.
                   </span>
@@ -577,12 +588,13 @@ export function ApiSettingsDialog({
               <button
                 type="button"
                 className={`ai-path-card ai-path-card-compact ai-path-card-cloud ${selectedPath === 'api' ? 'active' : ''}`}
+                aria-pressed={selectedPath === 'api'}
                 onClick={() => chooseRuntime('api')}
               >
                 <CloudModelIcon />
                 <div className="ai-path-card-copy">
                   <span className="ai-path-card-tag">API · Pay per use</span>
-                  <strong>Connect a cloud API</strong>
+                  <strong>{isSetup ? 'Cloud API' : 'Connect a cloud API'}</strong>
                   <span className="ai-path-card-description">
                     Bring your own OpenAI, Anthropic, or Google API key.
                   </span>

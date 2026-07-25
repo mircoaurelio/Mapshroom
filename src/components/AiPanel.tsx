@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AiGenerationRoute } from '../lib/aiRoute';
 import { PanelSection } from './PanelSection';
 
@@ -64,11 +64,18 @@ const AI_ROUTE_OPTIONS: Array<{
   label: string;
   note: string;
   mark: string;
+  icon?: string;
 }> = [
-  { value: 'chatgpt', label: 'ChatGPT', note: 'Free handoff', mark: 'G' },
-  { value: 'perplexity', label: 'Perplexity', note: 'Free handoff', mark: 'P' },
-  { value: 'local', label: 'Local model', note: 'Private & offline', mark: '◎' },
-  { value: 'api', label: 'API', note: 'Connected provider', mark: '⌁' },
+  { value: 'chatgpt', label: 'ChatGPT', note: 'Free handoff', mark: 'G', icon: 'chatgpt.svg' },
+  {
+    value: 'perplexity',
+    label: 'Perplexity',
+    note: 'Free handoff',
+    mark: 'P',
+    icon: 'perplexity.svg',
+  },
+  { value: 'local', label: 'Local model', note: 'Runs on device', mark: 'L' },
+  { value: 'api', label: 'API', note: 'Use your key', mark: 'API' },
 ];
 
 interface PlaceholderAnimation {
@@ -185,12 +192,47 @@ export function AiPanel({
 }: AiPanelProps) {
   const [pasteMenuOpen, setPasteMenuOpen] = useState(false);
   const [routeMenuOpen, setRouteMenuOpen] = useState(false);
+  const pasteMenuRef = useRef<HTMLDivElement>(null);
+  const routeMenuRef = useRef<HTMLDivElement>(null);
   const showFeedback =
     Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
   const promptPlaceholder = useShaderPromptPlaceholder(!prompt);
   const selectedRouteOption =
     AI_ROUTE_OPTIONS.find((option) => option.value === selectedRoute) ??
     AI_ROUTE_OPTIONS[0];
+
+  useEffect(() => {
+    if (!pasteMenuOpen && !routeMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (pasteMenuOpen && !pasteMenuRef.current?.contains(target)) {
+        setPasteMenuOpen(false);
+      }
+      if (routeMenuOpen && !routeMenuRef.current?.contains(target)) {
+        setRouteMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPasteMenuOpen(false);
+        setRouteMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [pasteMenuOpen, routeMenuOpen]);
 
   return (
     <PanelSection>
@@ -213,7 +255,7 @@ export function AiPanel({
             }}
           />
           <div className="ai-prompt-composer-footer">
-            <div className="ai-prompt-add-shell">
+            <div ref={pasteMenuRef} className="ai-prompt-add-shell">
               <button
                 type="button"
                 className={`ai-prompt-add-button ${pasteMenuOpen ? 'active' : ''}`}
@@ -261,6 +303,7 @@ export function AiPanel({
 
             <div className="ai-prompt-route-actions">
               <div
+                ref={routeMenuRef}
                 className="ai-prompt-route-select"
                 onBlur={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget)) {
@@ -282,7 +325,14 @@ export function AiPanel({
                   onClick={() => setRouteMenuOpen((current) => !current)}
                 >
                   <span className="ai-prompt-route-mark" aria-hidden="true">
-                    {selectedRouteOption.mark}
+                    {selectedRouteOption.icon ? (
+                      <img
+                        src={`${import.meta.env.BASE_URL}assets/icons/${selectedRouteOption.icon}`}
+                        alt=""
+                      />
+                    ) : (
+                      selectedRouteOption.mark
+                    )}
                   </span>
                   <span>{selectedRouteOption.label}</span>
                   <span className="ai-prompt-route-chevron" aria-hidden="true">⌄</span>
@@ -302,7 +352,14 @@ export function AiPanel({
                         }}
                       >
                         <span className="ai-prompt-route-mark" aria-hidden="true">
-                          {option.mark}
+                          {option.icon ? (
+                            <img
+                              src={`${import.meta.env.BASE_URL}assets/icons/${option.icon}`}
+                              alt=""
+                            />
+                          ) : (
+                            option.mark
+                          )}
                         </span>
                         <span className="ai-prompt-route-menu-copy">
                           <strong>{option.label}</strong>
