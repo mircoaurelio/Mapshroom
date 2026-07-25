@@ -1542,6 +1542,28 @@ function getProjectTimelineMode(project: ProjectDocument) {
       : sequence.mode;
 }
 
+function getProjectTimelineShaders(project: ProjectDocument): SavedShader[] {
+  if (
+    project.studio.savedShaders.some(
+      (shader) => shader.id === project.studio.activeShaderId,
+    )
+  ) {
+    return project.studio.savedShaders;
+  }
+
+  return [
+    {
+      id: project.studio.activeShaderId,
+      name: project.studio.activeShaderName,
+      code: project.studio.activeShaderCode,
+      description: 'Current shader from the editor.',
+      group: 'Autosaved',
+      uniformValues: project.studio.uniformValues,
+    },
+    ...project.studio.savedShaders,
+  ];
+}
+
 function resolveProjectTimelineState(
   project: ProjectDocument,
   singleStepLoopEnabled: boolean,
@@ -1549,7 +1571,7 @@ function resolveProjectTimelineState(
 ) {
   const sequence = project.timeline.stub.shaderSequence;
   return resolveShaderTimelineState({
-    shaders: project.studio.savedShaders,
+    shaders: getProjectTimelineShaders(project),
     mode: sequence.mode,
     focusedStepId: sequence.focusedStepId,
     singleStepLoopEnabled,
@@ -6229,7 +6251,9 @@ ${errorSnapshot}`,
         return currentProject;
       }
 
-      const sourceShader = currentProject.studio.savedShaders.find((shader) => shader.id === step.shaderId);
+      const sourceShader = getProjectTimelineShaders(currentProject).find(
+        (shader) => shader.id === step.shaderId,
+      );
       if (!sourceShader) {
         return currentProject;
       }
@@ -6588,20 +6612,7 @@ ${errorSnapshot}`,
     ? mobileUiMode === 'full' && stageTransform.moveMode
     : uiPreferences.chromeVisible && stageTransform.moveMode;
   const timelineStub = project.timeline.stub;
-  const liveShaderEntry = {
-    ...project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId),
-    id: project.studio.activeShaderId,
-    name: project.studio.activeShaderName,
-    code: project.studio.activeShaderCode,
-    description: 'Current shader from the editor.',
-    group: 'Autosaved',
-    uniformValues: project.studio.uniformValues,
-  };
-  const timelineSelectableShaders = project.studio.savedShaders.some(
-    (shader) => shader.id === project.studio.activeShaderId,
-  )
-    ? project.studio.savedShaders
-    : [liveShaderEntry, ...project.studio.savedShaders];
+  const timelineSelectableShaders = getProjectTimelineShaders(project);
   const hasTimelineShaderShuffleUndo =
     timelineShaderShuffleUndo?.sessionId === project.sessionId;
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
