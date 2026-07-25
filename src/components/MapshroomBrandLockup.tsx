@@ -1,6 +1,11 @@
 const BRAND_LETTERS = ['M', 'a', 'p', 's', 'h', 'r', 'o', 'o', 'm'] as const;
-const LETTER_STAGGER_MS = 28;
-const LETTER_REVEAL_MS = 70;
+export const BRAND_LOGO_REVEAL_MS = 260;
+export const BRAND_LETTER_STAGGER_MS = 55;
+export const BRAND_LETTER_REVEAL_MS = 180;
+export const BRAND_REVEAL_DURATION_MS =
+  BRAND_LOGO_REVEAL_MS +
+  (BRAND_LETTERS.length - 1) * BRAND_LETTER_STAGGER_MS +
+  BRAND_LETTER_REVEAL_MS;
 
 export function MapshroomBrandLockup() {
   return (
@@ -9,6 +14,7 @@ export function MapshroomBrandLockup() {
         className="loading-brand-logo"
         src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
         alt=""
+        style={{ animationDuration: `${BRAND_LOGO_REVEAL_MS}ms` }}
       />
       <span className="loading-brand-name" aria-hidden="true">
         {BRAND_LETTERS.map((letter, index) => (
@@ -16,8 +22,10 @@ export function MapshroomBrandLockup() {
             key={`${letter}-${index}`}
             className={`loading-brand-letter ${index < 3 ? 'loading-brand-letter-accent' : ''}`}
             style={{
-              animationDelay: `${index * LETTER_STAGGER_MS}ms`,
-              animationDuration: `${LETTER_REVEAL_MS}ms`,
+              animationDelay: `${
+                BRAND_LOGO_REVEAL_MS + index * BRAND_LETTER_STAGGER_MS
+              }ms`,
+              animationDuration: `${BRAND_LETTER_REVEAL_MS}ms`,
             }}
           >
             {letter}

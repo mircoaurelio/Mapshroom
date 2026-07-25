@@ -1211,8 +1211,8 @@ body.why-page-active {
   left: 50%;
   width: 78%;
   color: rgba(12, 61, 43, .88);
-  font: italic 600 23px/1.38 Georgia, serif;
-  letter-spacing: -.015em;
+  font: 600 20px/1.5 'IBM Plex Sans', sans-serif;
+  letter-spacing: -.01em;
   text-align: center;
   transform: translate(-50%, -50%);
 }
@@ -1414,8 +1414,8 @@ body.why-page-active {
 
   .why-story-growth-words {
     width: 80%;
-    font-size: 14px;
-    line-height: 1.34;
+    font-size: 13px;
+    line-height: 1.42;
   }
 }
 

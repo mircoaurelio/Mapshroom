@@ -454,7 +454,8 @@ a {
 .loading-brand-logo {
   width: var(--loading-logo-size);
   height: var(--loading-logo-size);
-  transform: translateY(7px);
+  opacity: 0;
+  transform: translateY(13px) scale(.92);
   margin-top: 0;
   margin-left: calc(var(--loading-logo-size) * -0.12);
   margin-right: calc(var(--loading-logo-size) * -0.16);
@@ -463,6 +464,9 @@ a {
   object-fit: contain;
   object-position: center bottom;
   filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.42));
+  animation-name: loading-brand-logo-in;
+  animation-timing-function: cubic-bezier(.2, .75, .2, 1);
+  animation-fill-mode: forwards;
 }
 
 .loading-brand-name {
@@ -501,7 +505,24 @@ a {
   }
 }
 
+@keyframes loading-brand-logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(13px) scale(.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(7px) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .loading-brand-logo {
+    opacity: 1;
+    transform: translateY(7px);
+    animation: none;
+  }
+
   .loading-brand-letter {
     opacity: 1;
     transform: none;
