@@ -1943,9 +1943,12 @@ export function StageRenderer({
     () => {
       const scaleX = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / shellSize.width);
       const scaleY = Math.max(MIN_STAGE_SCALE, 1 + stageTransform.heightAdjust / shellSize.height);
+      const rotationDegrees = Number.isFinite(stageTransform.rotationDegrees)
+        ? stageTransform.rotationDegrees
+        : 0;
 
       return {
-        transform: `translate(${stageTransform.offsetX}px, ${stageTransform.offsetY}px) scale(${scaleX}, ${scaleY})`,
+        transform: `translate(${stageTransform.offsetX}px, ${stageTransform.offsetY}px) rotate(${rotationDegrees}deg) scale(${scaleX}, ${scaleY})`,
       };
     },
     [shellSize.height, shellSize.width, stageTransform],

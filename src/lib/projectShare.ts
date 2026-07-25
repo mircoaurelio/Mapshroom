@@ -85,6 +85,7 @@ interface CompactSharedProjectPayload {
     w?: number;
     h?: number;
     p?: number;
+    r?: number;
     mm?: 1;
     rl?: 1;
   };
@@ -288,6 +289,7 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
       w: project.mapping.stageTransform.widthAdjust,
       h: project.mapping.stageTransform.heightAdjust,
       p: project.mapping.stageTransform.precision,
+      r: project.mapping.stageTransform.rotationDegrees || undefined,
       mm: project.mapping.stageTransform.moveMode ? 1 : undefined,
       rl: project.mapping.stageTransform.rotationLocked ? 1 : undefined,
     },
@@ -437,6 +439,8 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
         widthAdjust: payload.m?.w ?? baseProject.mapping.stageTransform.widthAdjust,
         heightAdjust: payload.m?.h ?? baseProject.mapping.stageTransform.heightAdjust,
         precision: payload.m?.p ?? baseProject.mapping.stageTransform.precision,
+        rotationDegrees:
+          payload.m?.r ?? baseProject.mapping.stageTransform.rotationDegrees,
         moveMode: Boolean(payload.m?.mm),
         rotationLocked: Boolean(payload.m?.rl),
       },

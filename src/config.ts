@@ -59,6 +59,7 @@ export const DEFAULT_STAGE_TRANSFORM: StageTransform = {
   widthAdjust: 0,
   heightAdjust: 0,
   precision: 12,
+  rotationDegrees: 0,
   moveMode: false,
   rotationLocked: false,
 };

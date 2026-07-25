@@ -129,6 +129,7 @@ export function createBundledProjectDocument(sessionId: string): ProjectDocument
         widthAdjust: 0,
         heightAdjust: 0,
         precision: 12,
+        rotationDegrees: 0,
         moveMode: false,
         rotationLocked: false,
       },

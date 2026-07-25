@@ -166,6 +166,15 @@ import {
   dismissRepeatFocusFirstStepPermanently,
   isRepeatFocusFirstStepDismissed,
 } from '../lib/repeatFocusFirstStep';
+import {
+  dismissMappingFirstStepPermanently,
+  isMappingFirstStepDismissed,
+} from '../lib/mappingFirstStep';
+import {
+  createMappingPositionFile,
+  normalizeMappingPosition,
+  parseMappingPositionFile,
+} from '../lib/mappingPosition';
 import { blankShaderTemplate } from '../shaders/templates/blankShader';
 import type {
   AiSettings,
@@ -337,6 +346,9 @@ const ONBOARDING_COPY = {
         points: [
           'Use the highlighted Move switch in the top bar.',
           'Move opens the direction, size, and precision controls over the canvas.',
+          'Click the left or right side of Precision for one step, or drag it horizontally.',
+          'Import or export a position JSON to reuse the same framing with another asset.',
+          'Rotate opens the output angle slider. Distort is reserved for a future update.',
           'Click Move Off when the projection is aligned.',
         ],
       },
@@ -470,6 +482,9 @@ const ONBOARDING_COPY = {
         points: [
           'Usa il pulsante Move evidenziato nella barra superiore.',
           'Move mostra sul canvas i controlli di direzione, dimensione e precisione.',
+          'Clicca il lato sinistro o destro di Precision per un passo, oppure trascina in orizzontale.',
+          'Importa o esporta un JSON di posizione per riutilizzare la stessa inquadratura con un altro asset.',
+          "Rotate apre lo slider dell'angolo di output. Distort è riservato a un aggiornamento futuro.",
           'Clicca Move Off quando la proiezione è allineata.',
         ],
       },
@@ -1049,6 +1064,18 @@ function detectAssetKind(file: File): AssetKind | null {
   return null;
 }
 
+function createMappingPositionFileName(projectName: string): string {
+  const safeName = projectName
+    .trim()
+    // eslint-disable-next-line no-control-regex -- strip unsupported filename characters
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return `${safeName || 'mapshroom'}-position.json`;
+}
+
 function applyMappingTransform(transform: StageTransform, action: MappingAction): StageTransform {
   const next = { ...transform };
 
@@ -1276,6 +1303,11 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
     Number.isFinite(requestedRenderTimeOffsetSeconds)
       ? requestedRenderTimeOffsetSeconds
       : 0;
+  const requestedStageTransform = project.mapping?.stageTransform;
+  const normalizedMappingPosition = normalizeMappingPosition(
+    requestedStageTransform,
+    defaultProject.mapping.stageTransform,
+  );
 
   return {
     ...project,
@@ -1301,6 +1333,15 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
       ...project.library,
       assets: mergedLibraryAssets,
       activeAssetId: normalizedActiveAssetId,
+    },
+    mapping: {
+      stageTransform: {
+        ...defaultProject.mapping.stageTransform,
+        ...requestedStageTransform,
+        ...normalizedMappingPosition,
+        moveMode: Boolean(requestedStageTransform?.moveMode),
+        rotationLocked: Boolean(requestedStageTransform?.rotationLocked),
+      },
     },
     timeline: {
       stub: {
@@ -2171,6 +2212,7 @@ export function WorkspaceRoute() {
   const isMobile = useIsMobile();
   const initialIsMobileRef = useRef(isMobile);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const mappingPositionInputRef = useRef<HTMLInputElement | null>(null);
   const filePickerSourceRef = useRef<FilePickerSource>('library');
   const timelineImportStepIdRef = useRef<string | null>(null);
   const stageViewportRef = useRef<HTMLElement | null>(null);
@@ -2260,6 +2302,7 @@ export function WorkspaceRoute() {
     createTimelineRandomSeedToken(),
   );
   const [showOnboardingGuide, setShowOnboardingGuide] = useState(false);
+  const [showMappingFirstStep, setShowMappingFirstStep] = useState(false);
   const [assetsFirstStepEligible, setAssetsFirstStepEligible] = useState(false);
   const [repeatFocusFirstStepVisible, setRepeatFocusFirstStepVisible] = useState(false);
   const appOpenTrackedRef = useRef(false);
@@ -3342,6 +3385,11 @@ export function WorkspaceRoute() {
             ? playTransport(currentProject.playback.transport)
             : currentProject.playback.transport,
         },
+        mapping: {
+          stageTransform: {
+            ...currentProject.mapping.stageTransform,
+          },
+        },
       };
 
       if (filePickerSource !== 'timeline-picker' || !timelineImportStepId) {
@@ -4182,6 +4230,12 @@ export function WorkspaceRoute() {
   };
 
   const setMoveMode = (enabled: boolean) => {
+    if (enabled && !showOnboardingGuide && !isMappingFirstStepDismissed()) {
+      setShowMappingFirstStep(true);
+    } else if (!enabled) {
+      setShowMappingFirstStep(false);
+    }
+
     updateProject((currentProject) => ({
       ...currentProject,
       mapping: {
@@ -4207,6 +4261,76 @@ export function WorkspaceRoute() {
         },
       },
     }));
+  };
+
+  const updateStageRotation = (nextRotationDegrees: number) => {
+    if (!Number.isFinite(nextRotationDegrees)) {
+      return;
+    }
+
+    updateProject((currentProject) => ({
+      ...currentProject,
+      mapping: {
+        stageTransform: {
+          ...currentProject.mapping.stageTransform,
+          rotationDegrees: Math.max(-180, Math.min(180, nextRotationDegrees)),
+        },
+      },
+    }));
+  };
+
+  const dismissMappingFirstStep = () => {
+    dismissMappingFirstStepPermanently();
+    setShowMappingFirstStep(false);
+  };
+
+  const handleMappingPositionExport = () => {
+    if (!project) {
+      return;
+    }
+
+    const fileName = createMappingPositionFileName(project.name);
+    const payload = createMappingPositionFile(project.mapping.stageTransform);
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
+      type: 'application/json',
+    });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = fileName;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
+    setStatusMessage(`Downloaded ${fileName}.`);
+  };
+
+  const handleMappingPositionImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+
+    try {
+      if (file.size > 128 * 1024) {
+        throw new Error('This position file is too large.');
+      }
+
+      const position = parseMappingPositionFile(await file.text());
+      updateProject((currentProject) => ({
+        ...currentProject,
+        mapping: {
+          stageTransform: {
+            ...currentProject.mapping.stageTransform,
+            ...position,
+          },
+        },
+      }));
+      setStatusMessage(`Imported mapping position from ${file.name}.`);
+    } catch (error) {
+      setStatusMessage(
+        error instanceof Error ? error.message : 'Unable to import this position file.',
+      );
+    }
   };
 
   const handleUniformChange = (name: string, value: ShaderUniformValue) => {
@@ -6572,6 +6696,7 @@ ${errorSnapshot}`,
       savedShaders={project.studio.savedShaders}
       activeShaderId={project.studio.activeShaderId}
       onSaveShader={saveCurrentShader}
+      randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}
@@ -6603,6 +6728,7 @@ ${errorSnapshot}`,
             ? 'Sliders Window'
             : 'Sliders'
       }
+      randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}
@@ -6900,7 +7026,13 @@ ${errorSnapshot}`,
             <MappingPad
               onAction={handleMappingAction}
               onPrecisionChange={updateStagePrecision}
+              onImportPosition={() => mappingPositionInputRef.current?.click()}
+              onExportPosition={handleMappingPositionExport}
+              onRotationChange={updateStageRotation}
+              onFirstStepDismiss={dismissMappingFirstStep}
               precision={stageTransform.precision}
+              rotationDegrees={stageTransform.rotationDegrees}
+              showFirstStep={showMappingFirstStep}
               variant={isMobile ? 'overlay' : 'default'}
             />
           </div>
@@ -6944,6 +7076,7 @@ ${errorSnapshot}`,
       {isMobile && mobilePanel === 'sliders' && mobileUiMode === 'full' ? (
         <MobileUniformOverlay
           shaderName={project.studio.activeShaderName}
+          randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
           uniformDefinitions={uniformDefinitions}
           uniformValues={project.studio.uniformValues}
           onUniformChange={handleUniformChange}
@@ -6999,6 +7132,15 @@ ${errorSnapshot}`,
         accept="image/*,video/*"
         multiple
         onChange={handleFileSelection}
+      />
+      <input
+        ref={mappingPositionInputRef}
+        className="hidden-input"
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => {
+          void handleMappingPositionImport(event);
+        }}
       />
 
       <MidiControllerGuideDialog

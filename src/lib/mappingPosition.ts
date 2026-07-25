@@ -1,0 +1,137 @@
+import type { StageTransform } from '../types';
+
+export const MAPPING_POSITION_FORMAT = 'mapshroom-position';
+export const MAPPING_POSITION_VERSION = 1;
+export const MIN_MAPPING_PRECISION = 1;
+export const MAX_MAPPING_PRECISION = 40;
+export const MIN_MAPPING_ROTATION = -180;
+export const MAX_MAPPING_ROTATION = 180;
+
+export interface MappingPositionValues {
+  offsetX: number;
+  offsetY: number;
+  widthAdjust: number;
+  heightAdjust: number;
+  precision: number;
+  rotationDegrees: number;
+}
+
+export interface MappingPositionFile {
+  format: typeof MAPPING_POSITION_FORMAT;
+  version: typeof MAPPING_POSITION_VERSION;
+  exportedAt: string;
+  position: MappingPositionValues;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readFiniteNumber(
+  source: Record<string, unknown>,
+  key: keyof MappingPositionValues,
+): number {
+  const value = source[key];
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`Position file is missing a valid "${key}" value.`);
+  }
+  return value;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizeRotation(value: number): number {
+  const wrapped = ((value + 180) % 360 + 360) % 360 - 180;
+  return Object.is(wrapped, -0) ? 0 : wrapped;
+}
+
+export function normalizeMappingPosition(
+  value: Partial<MappingPositionValues> | null | undefined,
+  fallback: MappingPositionValues,
+): MappingPositionValues {
+  const finiteOrFallback = (
+    candidate: number | undefined,
+    fallbackValue: number,
+  ) => (typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : fallbackValue);
+
+  return {
+    offsetX: finiteOrFallback(value?.offsetX, fallback.offsetX),
+    offsetY: finiteOrFallback(value?.offsetY, fallback.offsetY),
+    widthAdjust: finiteOrFallback(value?.widthAdjust, fallback.widthAdjust),
+    heightAdjust: finiteOrFallback(value?.heightAdjust, fallback.heightAdjust),
+    precision: clamp(
+      Math.round(finiteOrFallback(value?.precision, fallback.precision)),
+      MIN_MAPPING_PRECISION,
+      MAX_MAPPING_PRECISION,
+    ),
+    rotationDegrees: normalizeRotation(
+      finiteOrFallback(value?.rotationDegrees, fallback.rotationDegrees),
+    ),
+  };
+}
+
+export function createMappingPositionFile(
+  stageTransform: StageTransform,
+): MappingPositionFile {
+  return {
+    format: MAPPING_POSITION_FORMAT,
+    version: MAPPING_POSITION_VERSION,
+    exportedAt: new Date().toISOString(),
+    position: {
+      offsetX: stageTransform.offsetX,
+      offsetY: stageTransform.offsetY,
+      widthAdjust: stageTransform.widthAdjust,
+      heightAdjust: stageTransform.heightAdjust,
+      precision: stageTransform.precision,
+      rotationDegrees: stageTransform.rotationDegrees,
+    },
+  };
+}
+
+export function parseMappingPositionFile(source: string): MappingPositionValues {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    throw new Error('This is not a valid JSON position file.');
+  }
+
+  if (!isRecord(parsed)) {
+    throw new Error('This position file has an invalid structure.');
+  }
+
+  const isPortableFile = parsed.format === MAPPING_POSITION_FORMAT;
+  if (isPortableFile && parsed.version !== MAPPING_POSITION_VERSION) {
+    throw new Error('This position file version is not supported.');
+  }
+
+  const position = isPortableFile ? parsed.position : parsed;
+  if (!isRecord(position)) {
+    throw new Error('This position file does not contain mapping coordinates.');
+  }
+
+  return normalizeMappingPosition(
+    {
+      offsetX: readFiniteNumber(position, 'offsetX'),
+      offsetY: readFiniteNumber(position, 'offsetY'),
+      widthAdjust: readFiniteNumber(position, 'widthAdjust'),
+      heightAdjust: readFiniteNumber(position, 'heightAdjust'),
+      precision: readFiniteNumber(position, 'precision'),
+      rotationDegrees:
+        typeof position.rotationDegrees === 'number' &&
+        Number.isFinite(position.rotationDegrees)
+          ? position.rotationDegrees
+          : 0,
+    },
+    {
+      offsetX: 0,
+      offsetY: 0,
+      widthAdjust: 0,
+      heightAdjust: 0,
+      precision: 12,
+      rotationDegrees: 0,
+    },
+  );
+}

@@ -37,6 +37,7 @@ interface StudioPanelProps
   extends ShaderStudioControlsSectionProps,
     ShaderVersionTrailSectionProps,
     ShaderCodeSectionProps {
+  randomizationKey: string;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
@@ -599,6 +600,7 @@ export function StudioPanel({
   savedShaders,
   activeShaderId,
   onSaveShader,
+  randomizationKey,
   uniformDefinitions,
   uniformValues,
   onUniformChange,
@@ -631,6 +633,7 @@ export function StudioPanel({
       {showUniformPanel ? (
         <UniformPanel
           title={uniformPanelTitle}
+          randomizationKey={randomizationKey}
           uniformDefinitions={uniformDefinitions}
           uniformValues={uniformValues}
           onUniformChange={onUniformChange}

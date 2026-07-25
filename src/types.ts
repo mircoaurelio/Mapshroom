@@ -63,6 +63,7 @@ export interface StageTransform {
   widthAdjust: number;
   heightAdjust: number;
   precision: number;
+  rotationDegrees: number;
   moveMode: boolean;
   rotationLocked: boolean;
 }
