@@ -918,7 +918,12 @@ body.why-page-active {
   --market-professional-x: 0px;
   --market-professional-y: 0px;
   --market-potential-scale: .18;
+  --market-potential-x: 104px;
+  --market-potential-y: 98px;
   --market-potential-opacity: 1;
+  --market-value-x: 50%;
+  --market-value-y: 50%;
+  --market-value-size: 233px;
   position: relative;
   display: grid;
   grid-template-columns: minmax(340px, .82fr) minmax(500px, 1.18fr);
@@ -1123,7 +1128,10 @@ body.why-page-active {
     0 28px 80px rgba(27, 128, 91, .16),
     inset 0 1px 0 rgba(255, 255, 255, .72);
   opacity: var(--market-potential-opacity);
-  transform: translate(-50%, -50%) scale(var(--market-potential-scale));
+  transform:
+    translate(-50%, -50%)
+    translate(var(--market-potential-x), var(--market-potential-y))
+    scale(var(--market-potential-scale));
 }
 
 .why-story-mapshroom-label {
@@ -1143,11 +1151,13 @@ body.why-page-active {
 .why-story-growth-value {
   position: absolute;
   z-index: 2;
-  inset: 0;
+  top: var(--market-value-y);
+  left: var(--market-value-x);
   display: grid;
-  place-items: center;
   color: #171714;
   text-align: center;
+  transform: translate(-50%, -50%);
+  transition: top .12s linear, left .12s linear;
 }
 
 .why-story-growth-value b {
@@ -1155,10 +1165,10 @@ body.why-page-active {
   display: inline-flex;
   align-items: flex-start;
   justify-content: center;
-  font: 800 230px/.8 'IBM Plex Mono', monospace;
+  font: 800 var(--market-value-size)/.8 'IBM Plex Mono', monospace;
   opacity: 0;
   white-space: nowrap;
-  transition: opacity .24s ease;
+  transition: opacity .12s ease;
   will-change: opacity;
 }
 
@@ -1185,63 +1195,57 @@ body.why-page-active {
   opacity: 1;
 }
 
-.why-story-growth-value b:last-child {
-  font-size: 132px;
-}
-
 .why-story-growth-words {
   position: absolute;
   z-index: 1;
-  inset: 0;
+  top: 52%;
+  left: 50%;
+  width: 72%;
+  color: rgba(16, 70, 51, .8);
+  font: 700 20px/1.55 'IBM Plex Mono', monospace;
+  letter-spacing: .05em;
+  text-align: center;
+  text-transform: uppercase;
+  transform: translate(-50%, -50%);
 }
 
 .why-story-growth-words span {
   --word-reveal: 0;
-  position: absolute;
-  color: rgba(16, 70, 51, .78);
-  font: 700 18px/1 'IBM Plex Mono', monospace;
-  letter-spacing: .08em;
+  display: inline;
   opacity: var(--word-reveal);
-  text-transform: uppercase;
-  transform: translateY(calc((1 - var(--word-reveal)) * 14px));
-  transition: opacity .3s ease, transform .3s ease;
-  white-space: nowrap;
+  transition: opacity .35s ease;
+}
+
+.why-story-growth-words span:not(:last-child)::after {
+  content: ', ';
+}
+
+.why-story-growth-words span:last-child::after {
+  content: '.';
 }
 
 .why-story-growth-words span:nth-child(1) {
   --word-reveal: clamp(0, calc((var(--market-expansion) - .2) * 8), 1);
-  top: 18%;
-  left: 14%;
 }
 
 .why-story-growth-words span:nth-child(2) {
-  --word-reveal: clamp(0, calc((var(--market-expansion) - .32) * 8), 1);
-  top: 20%;
-  right: 14%;
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .3) * 8), 1);
 }
 
 .why-story-growth-words span:nth-child(3) {
-  --word-reveal: clamp(0, calc((var(--market-expansion) - .44) * 8), 1);
-  top: 58%;
-  right: 9%;
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .4) * 8), 1);
 }
 
 .why-story-growth-words span:nth-child(4) {
-  --word-reveal: clamp(0, calc((var(--market-expansion) - .56) * 8), 1);
-  right: 22%;
-  bottom: 17%;
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .5) * 8), 1);
 }
 
 .why-story-growth-words span:nth-child(5) {
-  --word-reveal: clamp(0, calc((var(--market-expansion) - .68) * 8), 1);
-  bottom: 16%;
-  left: 14%;
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .6) * 8), 1);
 }
 
 .why-story-growth-words span:nth-child(6) {
-  --word-reveal: clamp(0, calc((var(--market-expansion) - .8) * 8), 1);
-  top: 64%;
-  left: 8%;
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .7) * 8), 1);
 }
 
 @media (max-width: 960px) {
@@ -1369,23 +1373,17 @@ body.why-page-active {
   }
 
   .why-story-growth-value b {
-    font-size: 140px;
-  }
-
-  .why-story-growth-value b:last-child {
-    font-size: 74px;
+    transition-duration: .1s;
   }
 
   .why-story-mapshroom-label {
     font-size: 28px;
   }
 
-  .why-story-growth-words span {
-    font-size: 11px;
-  }
-
-  .why-story-growth-words span:nth-child(1) {
-    top: 27%;
+  .why-story-growth-words {
+    width: 76%;
+    font-size: 12px;
+    line-height: 1.45;
   }
 }
 
