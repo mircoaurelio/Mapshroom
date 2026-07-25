@@ -6973,11 +6973,22 @@ ${errorSnapshot}`,
   };
 
   const handlePromptFocus = () => {
-    if (
-      editingTimelineStepId ||
-      !timelineSequenceEnabled
-    ) {
+    if (!timelineSequenceEnabled) {
       return;
+    }
+
+    const sequence = project.timeline.stub.shaderSequence;
+    const repeatAlreadyActive =
+      sequence.stagePreviewMode === 'focused' &&
+      sequence.singleStepLoopEnabled &&
+      sequence.focusedStepId === editingTimelineStepId &&
+      pendingTimelineRepeatExit === null;
+    if (repeatAlreadyActive) {
+      return;
+    }
+
+    if (pendingTimelineRepeatExit) {
+      setPendingTimelineRepeatExit(null);
     }
 
     const currentTimelineState = resolveProjectTimelineState(project, false);
