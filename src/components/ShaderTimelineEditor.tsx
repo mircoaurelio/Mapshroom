@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
+  clampTimelineStepDuration,
   roundTimelineSeconds,
   shouldUseSharedTransition,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
@@ -172,6 +173,14 @@ function ShuffleIcon() {
       <path d="M2.25 11.75h1.5c1.55 0 2.55-1.28 3.48-2.75" />
       <path d="M8.78 6.95c.93-1.45 1.93-2.7 3.47-2.7h1.5" />
       <path d="m11.75 2.25 2 2-2 2" />
+    </svg>
+  );
+}
+
+function StepperChevronIcon({ direction }: { direction: 'up' | 'down' }) {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden="true">
+      <path d={direction === 'up' ? 'm3 7.25 3-3 3 3' : 'm3 4.75 3 3 3-3'} />
     </svg>
   );
 }
@@ -819,21 +828,57 @@ export function ShaderTimelineEditor({
           ) : (
             <div className="timeline-shared-transition-toolbar">
               {usesSharedSectionDuration ? (
-                <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
+                <div className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
                   <span>Section Time</span>
-                  <input
-                    className="text-field"
-                    type="number"
-                    min={0.5}
-                    step={0.5}
-                    value={sequence.sharedSectionDurationSeconds}
-                    onChange={(event) =>
-                      onSharedTransitionChange({
-                        sharedSectionDurationSeconds: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
+                  <div className="timeline-number-stepper">
+                    <input
+                      className="text-field"
+                      type="number"
+                      aria-label="Section time in seconds"
+                      min={0.5}
+                      max={600}
+                      step={0.5}
+                      value={sequence.sharedSectionDurationSeconds}
+                      onChange={(event) =>
+                        onSharedTransitionChange({
+                          sharedSectionDurationSeconds: Number(event.target.value),
+                        })
+                      }
+                    />
+                    <div className="timeline-number-stepper-controls">
+                      <button
+                        type="button"
+                        aria-label="Increase section time"
+                        title="Increase section time"
+                        disabled={sequence.sharedSectionDurationSeconds >= 600}
+                        onClick={() =>
+                          onSharedTransitionChange({
+                            sharedSectionDurationSeconds: clampTimelineStepDuration(
+                              sequence.sharedSectionDurationSeconds + 0.5,
+                            ),
+                          })
+                        }
+                      >
+                        <StepperChevronIcon direction="up" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Decrease section time"
+                        title="Decrease section time"
+                        disabled={sequence.sharedSectionDurationSeconds <= 0.5}
+                        onClick={() =>
+                          onSharedTransitionChange({
+                            sharedSectionDurationSeconds: clampTimelineStepDuration(
+                              sequence.sharedSectionDurationSeconds - 0.5,
+                            ),
+                          })
+                        }
+                      >
+                        <StepperChevronIcon direction="down" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               ) : null}
 
               {showMixTimeControls ? (
