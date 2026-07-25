@@ -66,6 +66,14 @@
           var whyRoute = '#/why' + (whyLanguage ? '?lang=' + encodeURIComponent(whyLanguage) : '');
           location.replace(path.replace(/\/why\/?$/, '/') + whyRoute);
         }
+
+        if (/\/creatorchallenge\/?$/.test(path) && !location.hash) {
+          var creatorLanguage = new URLSearchParams(location.search).get('lang');
+          var creatorRoute =
+            '#/creatorchallenge' +
+            (creatorLanguage ? '?lang=' + encodeURIComponent(creatorLanguage) : '');
+          location.replace(path.replace(/\/creatorchallenge\/?$/, '/') + creatorRoute);
+        }
       })();
     </script>
     <noscript>

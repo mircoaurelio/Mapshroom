@@ -24,6 +24,11 @@ const TutorialRoute = lazy(() =>
 const WhyRoute = lazy(() =>
   import('./routes/WhyRoute').then((module) => ({ default: module.WhyRoute })),
 );
+const CreatorChallengeRoute = lazy(() =>
+  import('./routes/CreatorChallengeRoute').then((module) => ({
+    default: module.CreatorChallengeRoute,
+  })),
+);
 
 export default function App() {
   useEffect(() => {
@@ -41,6 +46,7 @@ export default function App() {
           <Route path="/privacy" element={<PrivacyRoute />} />
           <Route path="/tutorial" element={<TutorialRoute />} />
           <Route path="/why" element={<WhyRoute />} />
+          <Route path="/creatorchallenge" element={<CreatorChallengeRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
