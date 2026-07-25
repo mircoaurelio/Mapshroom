@@ -6861,12 +6861,20 @@ ${errorSnapshot}`,
       if (!clipboardText) {
         throw new Error('The clipboard is empty.');
       }
+      if (
+        externalChatRequest &&
+        (externalChatRequest.route === 'chatgpt' || externalChatRequest.route === 'perplexity')
+      ) {
+        await handleApplyExternalChatResponse(clipboardText);
+        return true;
+      }
       const nextCode = validateGeneratedShader(extractGlslCode(clipboardText));
       handleActiveShaderCodeChange(nextCode);
       const shaderName = parseShaderName(nextCode);
       setAiFeedbackTone('success');
       setAiFeedbackMessage(`Shader pasted and applied: ${shaderName}.`);
       setStatusMessage(`Shader updated from clipboard: ${shaderName}.`);
+      return true;
     } catch (error) {
       const message =
         error instanceof Error
@@ -6875,6 +6883,7 @@ ${errorSnapshot}`,
       setAiFeedbackTone('error');
       setAiFeedbackMessage(message);
       setStatusMessage(message);
+      return false;
     }
   };
 
@@ -6956,6 +6965,12 @@ ${errorSnapshot}`,
 
   const showDesktopSlidersWindow =
     !isMobile && uiPreferences.chromeVisible && uiPreferences.desktopSlidersWindowEnabled;
+  const externalChatPasteSource =
+    externalChatRequest?.route === 'perplexity'
+      ? 'Perplexity'
+      : externalChatRequest?.route === 'chatgpt'
+        ? 'ChatGPT'
+        : undefined;
 
   const studioPanel = (
     <StudioPanel
@@ -6978,6 +6993,9 @@ ${errorSnapshot}`,
       onFixError={handleFixError}
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
       onReloadShaderCode={reloadShaderCode}
+      onPasteCode={handlePasteShaderFromClipboard}
+      pasteCodeSuggested={Boolean(externalChatPasteSource)}
+      pasteCodeSource={externalChatPasteSource}
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
       showUniformPanel={!showDesktopSlidersWindow}
@@ -7078,6 +7096,9 @@ ${errorSnapshot}`,
       aiLoading={aiLoading}
       onFixError={handleFixError}
       onReloadShaderCode={reloadShaderCode}
+      onPasteCode={handlePasteShaderFromClipboard}
+      pasteCodeSuggested={Boolean(externalChatPasteSource)}
+      pasteCodeSource={externalChatPasteSource}
     />
   );
 
@@ -7767,7 +7788,12 @@ ${errorSnapshot}`,
         onOpenProBeta={() => setProBetaSource('shader_pro_teaser')}
         onClose={() => {
           setIsApiSettingsOpen(false);
-          setExternalChatRequest(null);
+          if (
+            externalChatRequest?.route !== 'chatgpt' &&
+            externalChatRequest?.route !== 'perplexity'
+          ) {
+            setExternalChatRequest(null);
+          }
         }}
         onChange={updateAiSetting}
         onRouteChange={handleAiGenerationRouteChange}
