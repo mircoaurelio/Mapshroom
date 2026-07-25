@@ -28,10 +28,12 @@ interface MappingPadProps {
   getPositionJson?: () => string;
   onRotationChange?: (value: number) => void;
   onToggleGrid?: () => void;
+  onDistortModeChange?: (enabled: boolean) => void;
   onFirstStepDismiss?: () => void;
   precision?: number;
   rotationDegrees?: number;
   showGrid?: boolean;
+  distortMode?: boolean;
   showFirstStep?: boolean;
   disabled?: boolean;
   variant?: 'default' | 'overlay';
@@ -140,10 +142,12 @@ export function MappingPad({
   getPositionJson,
   onRotationChange,
   onToggleGrid,
+  onDistortModeChange,
   onFirstStepDismiss,
   precision = 12,
   rotationDegrees = 0,
   showGrid = false,
+  distortMode = false,
   showFirstStep = false,
   disabled = false,
   variant = 'default',
@@ -269,6 +273,7 @@ export function MappingPad({
     }
 
     setRotationExpanded(false);
+    onDistortModeChange?.(false);
     setPositionPanelMessage(null);
     setPositionPanel('import');
   };
@@ -280,6 +285,7 @@ export function MappingPad({
     }
 
     setRotationExpanded(false);
+    onDistortModeChange?.(false);
     setPositionPanelMessage(null);
     setPositionExportJson(getPositionJson?.() ?? '');
     setPositionPanel('export');
@@ -350,11 +356,35 @@ export function MappingPad({
     }
   };
 
+  if (distortMode) {
+    return (
+      <div
+        className={`mapping-control-shell mapping-control-shell-${variant} mapping-control-shell-distort-compact`}
+      >
+        <button
+          type="button"
+          className="mapping-distort-return"
+          title="Return to Move controls"
+          aria-label="Return to Move controls and close distortion editor"
+          onClick={() => onDistortModeChange?.(false)}
+          disabled={disabled || !onDistortModeChange}
+        >
+          <span className="mapping-distort-return-icon" aria-hidden="true">
+            ↔
+          </span>
+          <span>Move</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`mapping-control-shell mapping-control-shell-${variant} ${
         rotationExpanded ? 'mapping-control-shell-rotation-open' : ''
-      } ${positionPanel ? 'mapping-control-shell-position-open' : ''}`}
+      } ${positionPanel ? 'mapping-control-shell-position-open' : ''} ${
+        distortMode ? 'mapping-control-shell-distort-open' : ''
+      }`}
       onKeyDown={(event) => {
         if (event.key === 'Escape' && positionPanel) {
           event.stopPropagation();
@@ -393,9 +423,9 @@ export function MappingPad({
             <span>Size</span>
           </div>
           <p className="mapping-first-step-note">
-            Import and export preserve this framing as JSON. Rotate gives you a −20° to +20°
-            fine control; select its slider and use ← / → for 0.1° steps. Distort is reserved
-            for a future update.
+            Import and export preserve the framing and corner distortion as JSON. Rotate gives
+            you a −20° to +20° fine control; Distort opens the orange four-corner grid. Drag a
+            corner or use its arrow controls for precise adjustments.
           </p>
           <button
             type="button"
@@ -437,7 +467,7 @@ export function MappingPad({
               <p className="mapping-position-panel-copy">
                 Load a Mapshroom <strong>.json</strong> position file, or paste JSON
                 copied from the download panel. It changes only movement, size,
-                precision, and rotation—your asset and shaders stay untouched.
+                precision, rotation, and distortion—your asset and shaders stay untouched.
               </p>
               <div className="mapping-position-panel-button-grid">
                 <button
@@ -495,7 +525,7 @@ export function MappingPad({
           ) : (
             <>
               <p className="mapping-position-panel-copy">
-                This JSON stores the current movement, size, precision, and rotation.
+                This JSON stores the current movement, size, precision, rotation, and distortion.
                 Copy it for another Mapshroom session or download it as a reusable file.
               </p>
               <label className="mapping-position-text-field">
@@ -569,10 +599,22 @@ export function MappingPad({
         </button>
         <button
           type="button"
-          className="mapping-tool-button mapping-tool-button-future"
-          title="Distort — coming in a future update"
-          aria-label="Distort, coming in a future update"
-          disabled
+          className={`mapping-tool-button ${
+            distortMode ? 'mapping-tool-button-active' : ''
+          }`}
+          title={distortMode ? 'Close four-corner distortion editor' : 'Distort image corners'}
+          aria-label={
+            distortMode
+              ? 'Close four-corner distortion editor'
+              : 'Open four-corner distortion editor'
+          }
+          aria-pressed={distortMode}
+          onClick={() => {
+            closePositionPanel();
+            setRotationExpanded(false);
+            onDistortModeChange?.(!distortMode);
+          }}
+          disabled={disabled || !onDistortModeChange}
         >
           <DistortIcon />
         </button>
@@ -586,6 +628,7 @@ export function MappingPad({
           aria-expanded={rotationExpanded}
           onClick={() => {
             closePositionPanel();
+            onDistortModeChange?.(false);
             setRotationExpanded((currentValue) => !currentValue);
           }}
           disabled={disabled || !onRotationChange}
@@ -645,7 +688,8 @@ export function MappingPad({
         </div>
       ) : null}
 
-      <div className={`mapping-pad mapping-pad-${variant}`}>
+      {!distortMode ? (
+        <div className={`mapping-pad mapping-pad-${variant}`}>
         {MAPPING_PAD_ACTIONS.map((item) => {
           if (item.kind === 'precision') {
             return (
@@ -719,7 +763,8 @@ export function MappingPad({
             </button>
           );
         })}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

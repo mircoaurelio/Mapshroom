@@ -67,6 +67,20 @@ export interface StageTransform {
   moveMode: boolean;
   rotationLocked: boolean;
   showGrid?: boolean;
+  distortMode?: boolean;
+  distortion?: StageDistortion;
+}
+
+export interface DistortionPoint {
+  x: number;
+  y: number;
+}
+
+export interface StageDistortion {
+  topLeft: DistortionPoint;
+  topRight: DistortionPoint;
+  bottomRight: DistortionPoint;
+  bottomLeft: DistortionPoint;
 }
 
 export interface PlaybackTransport {

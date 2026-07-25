@@ -12,6 +12,7 @@ import {
   DEFAULT_BUNDLED_ASSETS,
   pickStarterBundledAssetId,
 } from './lib/bundledAssets';
+import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
@@ -63,6 +64,8 @@ export const DEFAULT_STAGE_TRANSFORM: StageTransform = {
   moveMode: false,
   rotationLocked: false,
   showGrid: false,
+  distortMode: false,
+  distortion: DEFAULT_STAGE_DISTORTION,
 };
 
 /** Nudge the portrait starter so the subject reads centered on a phone viewport. */

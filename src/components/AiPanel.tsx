@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { AiGenerationRoute } from '../lib/aiRoute';
 import { PanelSection } from './PanelSection';
 
 const SHADER_PROMPT_PLACEHOLDERS = [
@@ -141,27 +142,36 @@ function useShaderPromptPlaceholder(active: boolean) {
 
 interface AiPanelProps {
   prompt: string;
+  selectedRoute: AiGenerationRoute;
   aiLoading: boolean;
   feedbackMessage: string;
   feedbackTone: 'idle' | 'loading' | 'success' | 'error';
   shaderError: string;
   onPromptChange: (value: string) => void;
   onPromptFocus: () => void;
+  onRouteChange: (route: AiGenerationRoute) => void;
+  onPasteShader: () => Promise<void>;
+  onPastePosition: () => Promise<void>;
   onSubmit: () => void;
   onFixError: () => void;
 }
 
 export function AiPanel({
   prompt,
+  selectedRoute,
   aiLoading,
   feedbackMessage,
   feedbackTone,
   shaderError,
   onPromptChange,
   onPromptFocus,
+  onRouteChange,
+  onPasteShader,
+  onPastePosition,
   onSubmit,
   onFixError,
 }: AiPanelProps) {
+  const [pasteMenuOpen, setPasteMenuOpen] = useState(false);
   const showFeedback =
     Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
   const promptPlaceholder = useShaderPromptPlaceholder(!prompt);
@@ -169,22 +179,99 @@ export function AiPanel({
   return (
     <PanelSection>
       <div className="stack gap-md ai-panel-stack">
-        <textarea
-          className="prompt-field prompt-field-hero"
-          aria-label="Shader prompt"
-          placeholder={promptPlaceholder}
-          value={prompt}
-          onFocus={onPromptFocus}
-          onChange={(event) => onPromptChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault();
-              if (!aiLoading) {
-                onSubmit();
+        <div className="ai-prompt-composer">
+          <textarea
+            className="prompt-field prompt-field-hero"
+            aria-label="Shader prompt"
+            placeholder={promptPlaceholder}
+            value={prompt}
+            onFocus={onPromptFocus}
+            onChange={(event) => onPromptChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                if (!aiLoading) {
+                  onSubmit();
+                }
               }
-            }
-          }}
-        />
+            }}
+          />
+          <div className="ai-prompt-composer-footer">
+            <div className="ai-prompt-add-shell">
+              <button
+                type="button"
+                className={`ai-prompt-add-button ${pasteMenuOpen ? 'active' : ''}`}
+                aria-label="Load from clipboard"
+                aria-haspopup="menu"
+                aria-expanded={pasteMenuOpen}
+                title="Load from clipboard"
+                onClick={() => setPasteMenuOpen((current) => !current)}
+              >
+                <span aria-hidden="true">+</span>
+              </button>
+              {pasteMenuOpen ? (
+                <div className="ai-prompt-add-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setPasteMenuOpen(false);
+                      void onPasteShader();
+                    }}
+                  >
+                    <span className="ai-prompt-add-menu-icon" aria-hidden="true">{'{}'}</span>
+                    <span>
+                      <strong>Paste shader</strong>
+                      <small>Clipboard → code</small>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setPasteMenuOpen(false);
+                      void onPastePosition();
+                    }}
+                  >
+                    <span className="ai-prompt-add-menu-icon" aria-hidden="true">⌖</span>
+                    <span>
+                      <strong>Paste position</strong>
+                      <small>Clipboard → mapping</small>
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="ai-prompt-route-actions">
+              <label className="ai-prompt-route-select">
+                <span className="sr-only">Shader AI model</span>
+                <select
+                  value={selectedRoute}
+                  aria-label="Shader AI model"
+                  onChange={(event) =>
+                    onRouteChange(event.target.value as AiGenerationRoute)
+                  }
+                >
+                  <option value="chatgpt">ChatGPT</option>
+                  <option value="perplexity">Perplexity</option>
+                  <option value="local">Local model</option>
+                  <option value="api">API</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="ai-prompt-send-button"
+                disabled={aiLoading}
+                aria-label={aiLoading ? 'Generating shader' : 'Generate shader'}
+                title={aiLoading ? 'Generating…' : 'Generate shader'}
+                onClick={onSubmit}
+              >
+                <span aria-hidden="true">{aiLoading ? '…' : '↑'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
 
         {shaderError ? (
           <div className="error-panel shader-chat-error">
@@ -199,15 +286,6 @@ export function AiPanel({
             </button>
           </div>
         ) : null}
-
-        <button
-          type="button"
-          className="primary-button primary-button-hero"
-          disabled={aiLoading}
-          onClick={onSubmit}
-        >
-          {aiLoading ? 'Generating And Applying...' : 'Generate Shader'}
-        </button>
 
         {showFeedback ? (
           <div className={`ai-feedback ai-feedback-${feedbackTone}`}>{feedbackMessage}</div>

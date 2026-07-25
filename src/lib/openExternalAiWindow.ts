@@ -42,6 +42,18 @@ export function focusExternalAiWindow(): boolean {
   }
 }
 
+export function closeExternalAiWindow(): void {
+  try {
+    if (activeExternalAiWindow && !activeExternalAiWindow.closed) {
+      activeExternalAiWindow.close();
+    }
+  } catch {
+    // Closing a browser-managed cross-origin window is best-effort.
+  } finally {
+    activeExternalAiWindow = null;
+  }
+}
+
 export function openExternalAiWindow(url: string): ExternalAiWindowResult {
   const hasDesktopPointer = window.matchMedia('(pointer: fine)').matches;
   const availableWidth = window.screen.availWidth;
