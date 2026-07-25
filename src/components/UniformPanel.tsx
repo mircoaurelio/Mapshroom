@@ -54,7 +54,6 @@ export function UniformPanel({
           onClick={randomizeUniforms}
         >
           <ShuffleIcon />
-          <span>Randomize</span>
         </button>
       }
     >
@@ -80,9 +79,6 @@ export function UniformPanel({
                   <span>{name}</span>
                   <span className="uniform-field-meta">
                     {isNumeric ? (
-                      <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
-                    ) : null}
-                    {isNumeric ? (
                       <button
                         type="button"
                         className={`uniform-random-lock-button ${
@@ -103,6 +99,9 @@ export function UniformPanel({
                       >
                         <ShuffleIcon blocked={isLocked} />
                       </button>
+                    ) : null}
+                    {isNumeric ? (
+                      <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
                     ) : null}
                   </span>
                 </span>
