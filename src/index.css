@@ -10913,6 +10913,55 @@ a {
   grid-column: span 6;
 }
 
+.ai-settings-dialog-direct-chat .ai-runtime-choice,
+.ai-settings-dialog-direct-chat .ai-runtime-choice.has-selection,
+.ai-settings-dialog-direct-chat .ai-runtime-choice.has-selection.has-pro-teaser {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  width: 100%;
+  gap: 0.38rem;
+  margin: 0;
+  padding: 0.34rem;
+  border: 1px solid rgba(113, 113, 122, 0.22);
+  border-radius: 12px;
+  background: rgba(9, 9, 11, 0.48);
+}
+
+.ai-settings-dialog-direct-chat .ai-path-card,
+.ai-settings-dialog-direct-chat .ai-runtime-choice.has-selection .ai-path-card {
+  grid-column: auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  grid-template-columns: 25px minmax(0, 1fr);
+  gap: 0.42rem;
+  padding: 0.42rem 0.5rem;
+}
+
+.ai-settings-dialog-direct-chat .ai-path-card strong,
+.ai-settings-dialog-direct-chat .ai-path-card-compact strong {
+  overflow: hidden;
+  font-size: 0.58rem;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+}
+
+.ai-settings-dialog-direct-chat .ai-path-icon,
+.ai-settings-dialog-direct-chat .ai-path-card-compact .ai-path-icon,
+.ai-settings-dialog-direct-chat .ai-path-brand-mark,
+.ai-settings-dialog-direct-chat .ai-path-pro-mark {
+  width: 25px;
+  height: 25px;
+  border-radius: 7px;
+}
+
+.ai-settings-dialog-direct-chat .ai-path-brand-mark img,
+.ai-settings-dialog-direct-chat .ai-path-brand-mark-chatgpt img,
+.ai-settings-dialog-direct-chat .ai-path-brand-mark-perplexity img,
+.ai-settings-dialog-direct-chat .ai-path-pro-mark img {
+  width: 17px;
+  height: 17px;
+}
+
 @media (max-width: 680px) {
   .ai-runtime-choice { grid-template-columns: 1fr; }
   .ai-runtime-choice.has-selection.has-pro-teaser { grid-template-columns: 1fr; }
