@@ -80,7 +80,7 @@ export async function queryOutputDisplays(): Promise<OutputDisplayQueryResult> {
       screens: [],
       secondaryScreens: [],
       message:
-        'This browser cannot list secondary displays. You can still open output fullscreen on this screen, then drag it to a projector if needed.',
+        'Automatic display selection is unavailable. Set Windows to Extend, drag this Output window onto the projector, then use the fullscreen button below.',
     };
   }
 
@@ -108,7 +108,7 @@ export async function queryOutputDisplays(): Promise<OutputDisplayQueryResult> {
         screens: [],
         secondaryScreens: [],
         message:
-          'Screen access was blocked. Allow window management / screen details for this site, or open output fullscreen on this display.',
+          'Screen access was blocked. Allow window management for this site, or drag this Output window onto the projector before opening it fullscreen.',
       };
     }
 
@@ -117,7 +117,7 @@ export async function queryOutputDisplays(): Promise<OutputDisplayQueryResult> {
       screens: [],
       secondaryScreens: [],
       message:
-        'Unable to read connected displays. You can still open output fullscreen on this screen.',
+        'Unable to read connected displays. Drag this Output window onto the projector before opening it fullscreen.',
     };
   }
 }

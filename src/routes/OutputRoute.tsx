@@ -227,8 +227,28 @@ export function OutputRoute() {
         <section className="output-screen-picker" aria-labelledby="output-screen-picker-title">
           <div className="output-screen-picker-card">
             <span className="panel-eyebrow">Mapshroom output</span>
-            <h1 id="output-screen-picker-title">Where should the output play?</h1>
-            <p>Choose a display. This window will move there and fill the entire screen.</p>
+            <h1 id="output-screen-picker-title">Send Output to your projector</h1>
+            <p>
+              Keep the Mapshroom workspace on your PC. This separate Output window is the only
+              window affected by Move.
+            </p>
+            <div className="output-setup-guide" role="note" aria-label="Projector setup">
+              <div className="output-setup-guide-heading">
+                <span aria-hidden="true">1</span>
+                <p>
+                  <strong>Extend your PC screen first.</strong>
+                  On Windows, press <kbd>Win</kbd> + <kbd>P</kbd>, then choose{' '}
+                  <strong>Extend</strong> — not Duplicate.
+                </p>
+              </div>
+              <div className="output-setup-guide-heading">
+                <span aria-hidden="true">2</span>
+                <p>
+                  <strong>Choose the projector below.</strong>
+                  Mapshroom will move this Output window there and open it fullscreen.
+                </p>
+              </div>
+            </div>
             {displayQuery === null ? (
               <p className="output-screen-picker-status">Finding connected displays...</p>
             ) : null}
@@ -245,7 +265,9 @@ export function OutputRoute() {
                     <strong>
                       {display.label}{display.isCurrent ? ' (this screen)' : ''}
                     </strong>
-                    <span>{display.width} × {display.height} · Open fullscreen</span>
+                    <span>
+                      {display.width} × {display.height} · Move Output here and open fullscreen
+                    </span>
                   </button>
                 ))}
               </div>
@@ -258,8 +280,8 @@ export function OutputRoute() {
                   className="output-screen-card"
                   onClick={() => enterFullscreenOnDisplay(null)}
                 >
-                  <strong>Use this screen</strong>
-                  <span>Open fullscreen here</span>
+                  <strong>Fullscreen on this display</strong>
+                  <span>First drag this Output window onto the projector, then click here</span>
                 </button>
               </>
             ) : null}
