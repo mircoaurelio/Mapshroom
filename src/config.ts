@@ -62,6 +62,7 @@ export const DEFAULT_STAGE_TRANSFORM: StageTransform = {
   rotationDegrees: 0,
   moveMode: false,
   rotationLocked: false,
+  showGrid: false,
 };
 
 /** Nudge the portrait starter so the subject reads centered on a phone viewport. */

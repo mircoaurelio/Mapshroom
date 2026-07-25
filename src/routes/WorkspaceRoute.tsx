@@ -1343,6 +1343,7 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
         ...normalizedMappingPosition,
         moveMode: Boolean(requestedStageTransform?.moveMode),
         rotationLocked: Boolean(requestedStageTransform?.rotationLocked),
+        showGrid: Boolean(requestedStageTransform?.showGrid),
       },
     },
     timeline: {
@@ -4253,6 +4254,18 @@ export function WorkspaceRoute() {
     setMoveMode(!project?.mapping.stageTransform.moveMode);
   };
 
+  const toggleAlignmentGrid = () => {
+    updateProject((currentProject) => ({
+      ...currentProject,
+      mapping: {
+        stageTransform: {
+          ...currentProject.mapping.stageTransform,
+          showGrid: !currentProject.mapping.stageTransform.showGrid,
+        },
+      },
+    }));
+  };
+
   const updateStagePrecision = (nextPrecision: number) => {
     updateProject((currentProject) => ({
       ...currentProject,
@@ -7049,6 +7062,7 @@ ${errorSnapshot}`,
           progress: midiManualMix.progress,
         }}
         preferActiveShaderCompilePreview={preferLiveShaderCompilePreview}
+        showGrid={Boolean(stageTransform.showGrid)}
         onPinnedIndicatorClick={handlePinnedIndicatorClick}
         onNavigateToTimelineStep={handleStageNavigateToTimelineStep}
         onCompilerError={applyCompilerFeedback}
@@ -7221,6 +7235,7 @@ ${errorSnapshot}`,
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           colorTheme={uiPreferences.colorTheme}
           moveMode={stageTransform.moveMode}
+          showGrid={Boolean(stageTransform.showGrid)}
           onOpenProjects={() => {
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
@@ -7259,6 +7274,10 @@ ${errorSnapshot}`,
           onOpenOutput={() => {
             trackUiClick('open_output');
             handleOutputWindowOpen();
+          }}
+          onToggleGrid={() => {
+            trackUiClick(stageTransform.showGrid ? 'alignment_grid_off' : 'alignment_grid_on');
+            toggleAlignmentGrid();
           }}
           onToggleMoveMode={() => {
             trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');

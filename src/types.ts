@@ -66,6 +66,7 @@ export interface StageTransform {
   rotationDegrees: number;
   moveMode: boolean;
   rotationLocked: boolean;
+  showGrid?: boolean;
 }
 
 export interface PlaybackTransport {

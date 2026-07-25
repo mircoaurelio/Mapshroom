@@ -330,6 +330,7 @@ interface TimelineStageRendererProps {
   };
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
+  showGrid?: boolean;
   onPinnedIndicatorClick?: () => void;
   onNavigateToTimelineStep?: (stepId: string) => void;
   onCanvasReady?: (canvas: HTMLCanvasElement | null) => void;
@@ -361,6 +362,7 @@ export function TimelineStageRenderer({
   midiManualMix,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
+  showGrid = false,
   onPinnedIndicatorClick,
   onNavigateToTimelineStep,
   onCanvasReady,
@@ -2208,6 +2210,7 @@ export function TimelineStageRenderer({
       stageTransform={stageTransform}
       transport={transport}
       isOutputOnly={isOutputOnly}
+      showGrid={showGrid}
       personalPreviewActive={workspacePersonalPreviewActive}
       personalPreviewGuideActive={
         workspacePersonalPreviewActive && focusedPreviewGuideActive

@@ -35,6 +35,7 @@ interface StageRendererProps {
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
+  showGrid?: boolean;
   personalPreviewActive?: boolean;
   personalPreviewGuideActive?: boolean;
   showPinnedIndicator?: boolean;
@@ -849,6 +850,7 @@ export function StageRenderer({
   stageTransform,
   transport,
   isOutputOnly = false,
+  showGrid = false,
   personalPreviewActive = false,
   personalPreviewGuideActive = false,
   showPinnedIndicator = false,
@@ -2022,6 +2024,12 @@ export function StageRenderer({
       >
         <div className="stage-canvas-frame">
           <canvas ref={canvasRef} className="stage-canvas" />
+          {showGrid ? (
+            <div className="stage-alignment-grid" aria-hidden="true">
+              <span className="stage-alignment-grid-center-x" />
+              <span className="stage-alignment-grid-center-y" />
+            </div>
+          ) : null}
           {personalPreviewGuideActive ? (
             <svg
               className="stage-repeat-guide-trace"

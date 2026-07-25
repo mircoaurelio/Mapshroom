@@ -21,6 +21,7 @@ interface WorkspaceToolbarProps {
   desktopSlidersWindowEnabled: boolean;
   colorTheme: 'green' | 'pink';
   moveMode: boolean;
+  showGrid: boolean;
   onOpenProjects: () => void;
   onOpenShare: () => void;
   onOpenExport: () => void;
@@ -31,6 +32,7 @@ interface WorkspaceToolbarProps {
   onOpenPresetBrowser: () => void;
   onPlayToggle: () => void;
   onOpenOutput: () => void;
+  onToggleGrid: () => void;
   onToggleMoveMode: () => void;
   onToggleWorkspaceMode: () => void;
   onToggleSidebarVisibility: () => void;
@@ -90,6 +92,21 @@ function AssetsIcon() {
   );
 }
 
+function GridIcon() {
+  return (
+    <svg
+      viewBox="0 0 18 18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      aria-hidden="true"
+    >
+      <rect x="2.5" y="2.5" width="13" height="13" rx="1.25" />
+      <path d="M6.83 2.5v13M11.17 2.5v13M2.5 6.83h13M2.5 11.17h13" />
+    </svg>
+  );
+}
+
 export function WorkspaceToolbar({
   isPlaying,
   workspaceMode,
@@ -97,6 +114,7 @@ export function WorkspaceToolbar({
   desktopSlidersWindowEnabled,
   colorTheme,
   moveMode,
+  showGrid,
   onOpenProjects,
   onOpenShare,
   onOpenExport,
@@ -107,6 +125,7 @@ export function WorkspaceToolbar({
   onOpenPresetBrowser,
   onPlayToggle,
   onOpenOutput,
+  onToggleGrid,
   onToggleMoveMode,
   onToggleWorkspaceMode,
   onToggleSidebarVisibility,
@@ -587,9 +606,25 @@ export function WorkspaceToolbar({
               </aside>
             ) : null}
           </div>
-          <button type="button" className="primary-button" onClick={onOpenOutput}>
-            Output
-          </button>
+          <div className="toolbar-output-group">
+            <button
+              type="button"
+              className="primary-button toolbar-output-button"
+              onClick={onOpenOutput}
+            >
+              Output
+            </button>
+            <button
+              type="button"
+              className={`toolbar-grid-button ${showGrid ? 'toolbar-grid-button-active' : ''}`}
+              aria-label={`${showGrid ? 'Hide' : 'Show'} alignment grid on canvas and output`}
+              aria-pressed={showGrid}
+              title={`${showGrid ? 'Hide' : 'Show'} grid on canvas and output`}
+              onClick={onToggleGrid}
+            >
+              <GridIcon />
+            </button>
+          </div>
           <button
             type="button"
             className="icon-button toolbar-transport-button"
