@@ -32,7 +32,7 @@ export function MappingPanel({
               className={`toggle-chip ${stageTransform.moveMode ? 'toggle-chip-active' : ''}`}
               onClick={onToggleMoveMode}
             >
-              {stageTransform.moveMode ? 'Move Mode On' : 'Move Mode Off'}
+              {stageTransform.moveMode ? 'Move Off' : 'Move'}
             </button>
             <button type="button" className="secondary-button" onClick={onReset}>
               Reset Framing

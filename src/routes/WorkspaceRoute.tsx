@@ -336,8 +336,8 @@ const ONBOARDING_COPY = {
         placement: 'mapping',
         points: [
           'Use the highlighted Move switch in the top bar.',
-          'Move On opens the direction, size, and precision controls over the canvas.',
-          'Turn Move off again when the projection is aligned.',
+          'Move opens the direction, size, and precision controls over the canvas.',
+          'Click Move Off when the projection is aligned.',
         ],
       },
       {
@@ -469,8 +469,8 @@ const ONBOARDING_COPY = {
         placement: 'mapping',
         points: [
           'Usa il pulsante Move evidenziato nella barra superiore.',
-          'Move On mostra sul canvas i controlli di direzione, dimensione e precisione.',
-          'Disattiva Move quando la proiezione è allineata.',
+          'Move mostra sul canvas i controlli di direzione, dimensione e precisione.',
+          'Clicca Move Off quando la proiezione è allineata.',
         ],
       },
       {

@@ -118,7 +118,7 @@ export function MobileChrome({
             'Hide'
           ) : (
             <>
-              Move <small>{moveControlsVisible ? 'On' : 'Off'}</small>
+              Move {moveControlsVisible ? <small>Off</small> : null}
             </>
           )}
         </button>

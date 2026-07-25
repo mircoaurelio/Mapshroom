@@ -494,7 +494,7 @@ export function WorkspaceToolbar({
           >
             <span className="toolbar-move-indicator" aria-hidden="true" />
             <span>Move</span>
-            <small>{moveMode ? 'On' : 'Off'}</small>
+            {moveMode ? <small>Off</small> : null}
           </button>
 
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
