@@ -4292,14 +4292,28 @@ export function WorkspaceRoute() {
     setShowMappingFirstStep(false);
   };
 
-  const handleMappingPositionExport = () => {
+  const createCurrentMappingPositionJson = () => {
+    if (!project) {
+      return '';
+    }
+
+    return `${JSON.stringify(
+      createMappingPositionFile(project.mapping.stageTransform),
+      null,
+      2,
+    )}\n`;
+  };
+
+  const handleMappingPositionExport = (source?: string) => {
     if (!project) {
       return;
     }
 
     const fileName = createMappingPositionFileName(project.name);
-    const payload = createMappingPositionFile(project.mapping.stageTransform);
-    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], {
+    const serializedPosition = source?.trim()
+      ? `${source.trimEnd()}\n`
+      : createCurrentMappingPositionJson();
+    const blob = new Blob([serializedPosition], {
       type: 'application/json',
     });
     const downloadUrl = URL.createObjectURL(blob);
@@ -4309,6 +4323,31 @@ export function WorkspaceRoute() {
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
     setStatusMessage(`Downloaded ${fileName}.`);
+  };
+
+  const applyMappingPositionSource = (
+    source: string,
+    sourceLabel: string,
+  ): string | null => {
+    try {
+      const position = parseMappingPositionFile(source);
+      updateProject((currentProject) => ({
+        ...currentProject,
+        mapping: {
+          stageTransform: {
+            ...currentProject.mapping.stageTransform,
+            ...position,
+          },
+        },
+      }));
+      setStatusMessage(`Imported mapping position from ${sourceLabel}.`);
+      return null;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to import this position JSON.';
+      setStatusMessage(message);
+      return message;
+    }
   };
 
   const handleMappingPositionImport = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -4323,17 +4362,7 @@ export function WorkspaceRoute() {
         throw new Error('This position file is too large.');
       }
 
-      const position = parseMappingPositionFile(await file.text());
-      updateProject((currentProject) => ({
-        ...currentProject,
-        mapping: {
-          stageTransform: {
-            ...currentProject.mapping.stageTransform,
-            ...position,
-          },
-        },
-      }));
-      setStatusMessage(`Imported mapping position from ${file.name}.`);
+      applyMappingPositionSource(await file.text(), file.name);
     } catch (error) {
       setStatusMessage(
         error instanceof Error ? error.message : 'Unable to import this position file.',
@@ -7054,7 +7083,11 @@ ${errorSnapshot}`,
               onAction={handleMappingAction}
               onPrecisionChange={updateStagePrecision}
               onImportPosition={() => mappingPositionInputRef.current?.click()}
+              onImportPositionText={(source) =>
+                applyMappingPositionSource(source, 'pasted JSON')
+              }
               onExportPosition={handleMappingPositionExport}
+              getPositionJson={createCurrentMappingPositionJson}
               onRotationChange={updateStageRotation}
               onFirstStepDismiss={dismissMappingFirstStep}
               precision={stageTransform.precision}
