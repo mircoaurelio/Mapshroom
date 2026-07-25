@@ -29,6 +29,7 @@ interface MappingPadProps {
   onRotationChange?: (value: number) => void;
   onToggleGrid?: () => void;
   onDistortModeChange?: (enabled: boolean) => void;
+  onCloseMove?: () => void;
   onFirstStepDismiss?: () => void;
   precision?: number;
   rotationDegrees?: number;
@@ -133,6 +134,14 @@ function GridIcon() {
   );
 }
 
+function CloseMoveIcon() {
+  return (
+    <svg viewBox="0 0 18 18" aria-hidden="true">
+      <path d="m4 4 10 10M14 4 4 14" />
+    </svg>
+  );
+}
+
 export function MappingPad({
   onAction,
   onPrecisionChange,
@@ -143,6 +152,7 @@ export function MappingPad({
   onRotationChange,
   onToggleGrid,
   onDistortModeChange,
+  onCloseMove,
   onFirstStepDismiss,
   precision = 12,
   rotationDegrees = 0,
@@ -374,6 +384,18 @@ export function MappingPad({
           </span>
           <span>Move</span>
         </button>
+        {onCloseMove ? (
+          <button
+            type="button"
+            className="mapping-tool-button mapping-tool-button-close"
+            title="Close Move controls"
+            aria-label="Close Move controls"
+            onClick={onCloseMove}
+            disabled={disabled}
+          >
+            <CloseMoveIcon />
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -570,7 +592,10 @@ export function MappingPad({
         </section>
       ) : null}
 
-      <div className="mapping-tool-row" aria-label="Mapping position tools">
+      <div
+        className={`mapping-tool-row ${onCloseMove ? 'mapping-tool-row-with-close' : ''}`}
+        aria-label="Mapping position tools"
+      >
         <button
           type="button"
           className={`mapping-tool-button ${
@@ -648,6 +673,22 @@ export function MappingPad({
         >
           <GridIcon />
         </button>
+        {onCloseMove ? (
+          <button
+            type="button"
+            className="mapping-tool-button mapping-tool-button-close"
+            title="Close Move controls"
+            aria-label="Close Move controls"
+            onClick={() => {
+              closePositionPanel();
+              setRotationExpanded(false);
+              onCloseMove();
+            }}
+            disabled={disabled}
+          >
+            <CloseMoveIcon />
+          </button>
+        ) : null}
       </div>
 
       {rotationExpanded ? (

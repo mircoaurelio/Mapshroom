@@ -7362,6 +7362,10 @@ ${errorSnapshot}`,
                 trackUiClick(enabled ? 'distortion_editor_on' : 'distortion_editor_off');
                 setDistortMode(enabled);
               }}
+              onCloseMove={() => {
+                trackUiClick('move_mode_off');
+                setMoveMode(false);
+              }}
               onToggleGrid={() => {
                 trackUiClick(stageTransform.showGrid ? 'alignment_grid_off' : 'alignment_grid_on');
                 toggleAlignmentGrid();

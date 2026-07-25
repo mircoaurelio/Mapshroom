@@ -5469,9 +5469,9 @@ a {
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field-section {
-  width: 156px;
+  width: 184px;
   min-width: 0;
-  flex: 0 0 156px;
+  flex: 0 0 184px;
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field-fx {
@@ -5834,8 +5834,8 @@ a {
 }
 
 .timeline-shared-transition-field-section {
-  --timeline-field-label-space: 6.4rem;
-  min-width: 156px;
+  --timeline-field-label-space: 5.8rem;
+  min-width: 184px;
 }
 
 .timeline-shared-transition-field-fx {
@@ -6562,7 +6562,10 @@ a {
 }
 
 .mapping-control-shell-distort-compact {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.58rem;
   animation: mapping-control-distort-collapse 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -6623,6 +6626,10 @@ a {
   min-height: 2.1rem;
 }
 
+.mapping-tool-row-with-close {
+  grid-template-columns: repeat(6, 2rem);
+}
+
 .mapping-tool-button {
   width: 2rem;
   height: 2rem;
@@ -6662,6 +6669,18 @@ a {
 
 .mapping-tool-button:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+.mapping-tool-button-close {
+  border-color: rgba(248, 113, 113, 0.48);
+  color: #fecaca;
+}
+
+.mapping-tool-button-close:hover:not(:disabled),
+.mapping-tool-button-close:focus-visible {
+  border-color: rgba(248, 113, 113, 0.9);
+  background: rgba(127, 29, 29, 0.42);
+  color: #fff1f2;
 }
 
 .mapping-tool-button:disabled {
