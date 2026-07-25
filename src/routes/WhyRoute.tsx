@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   resolveWhyLocale,
-  type AudienceIconName,
   type WhyLocale,
   WHY_COPY,
 } from '../lib/whyCopy';
@@ -14,50 +13,7 @@ function isWhyLocale(value: string | null): value is WhyLocale {
   return value === 'en' || value === 'it';
 }
 
-function AudienceIcon({ name }: { name: AudienceIconName }) {
-  const content = {
-    events: (
-      <>
-        <rect x="4" y="6" width="16" height="14" rx="2" />
-        <path d="M8 3v6M16 3v6M4 11h16M8 15h3" />
-      </>
-    ),
-    shops: (
-      <>
-        <path d="M4 10h16l-2-6H6l-2 6Z" />
-        <path d="M5 10v10h14V10M9 20v-6h6v6M4 10c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0" />
-      </>
-    ),
-    artists: (
-      <>
-        <path d="m5 19 3.5-1 9-9-2.5-2.5-9 9L5 19Z" />
-        <path d="m13.5 8 2.5 2.5M14 5l2-2 5 5-2 2" />
-      </>
-    ),
-    culture: (
-      <>
-        <path d="m3 9 9-5 9 5H3ZM5 20h14M7 9v8M12 9v8M17 9v8M4 17h16" />
-      </>
-    ),
-    creators: (
-      <>
-        <rect x="3" y="5" width="18" height="14" rx="3" />
-        <path d="m10 9 5 3-5 3V9Z" />
-      </>
-    ),
-    coders: (
-      <>
-        <path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />
-      </>
-    ),
-  }[name];
-
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      {content}
-    </svg>
-  );
-}
+const MARKET_GROWTH_VALUES = ['5', '6', '7', '8', '9', '10', '12', '?????'];
 
 export function WhyRoute() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -259,19 +215,18 @@ export function WhyRoute() {
               <div className="why-story-sticky">
                 <div className="why-story-stage" role="img" aria-label={copy.audience.mapAria}>
                   <div className="why-story-professional-circle" aria-hidden="true">
-                    <div className="why-story-professional-people">
-                      {copy.audience.cards.map((card) => (
-                        <span key={card.icon}>
-                          <AudienceIcon name={card.icon} />
-                        </span>
-                      ))}
-                    </div>
+                    <strong>{copy.audience.expertLabel}</strong>
                   </div>
 
                   <div className="why-story-potential-circle" aria-hidden="true">
+                    <span className="why-story-mapshroom-label">Mapshroom</span>
                     <div className="why-story-growth-value">
-                      <b><span>{copy.audience.nicheValue.replace('%', '')}</span><i>%</i></b>
-                      <b><span>?</span><i>%</i></b>
+                      {MARKET_GROWTH_VALUES.map((value) => (
+                        <b key={value}><span>{value}</span><i>%</i></b>
+                      ))}
+                    </div>
+                    <div className="why-story-growth-words">
+                      {copy.audience.marketWords.map((word) => <span key={word}>{word}</span>)}
                     </div>
                   </div>
                 </div>

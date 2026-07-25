@@ -913,14 +913,12 @@ body.why-page-active {
 }
 
 .why-audience-story {
+  --market-expansion: 0;
   --market-professional-scale: 1;
   --market-professional-x: 0px;
   --market-professional-y: 0px;
-  --market-professional-people-opacity: 1;
   --market-potential-scale: .18;
   --market-potential-opacity: 1;
-  --market-known-value-opacity: 1;
-  --market-unknown-value-opacity: 0;
   position: relative;
   display: grid;
   grid-template-columns: minmax(340px, .82fr) minmax(500px, 1.18fr);
@@ -1003,8 +1001,7 @@ body.why-page-active {
   color: #145a43;
 }
 
-.why-story-icon svg,
-.why-story-professional-people svg {
+.why-story-icon svg {
   width: 20px;
   height: 20px;
   fill: none;
@@ -1104,51 +1101,48 @@ body.why-page-active {
     scale(var(--market-professional-scale));
 }
 
-.why-story-professional-people {
-  opacity: var(--market-professional-people-opacity);
-  transition: opacity .12s linear;
-}
-
-.why-story-professional-people span {
+.why-story-professional-circle > strong {
   position: absolute;
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(23, 23, 20, .16);
-  border-radius: 50%;
-  background: rgba(255, 253, 248, .94);
-  box-shadow: 0 8px 24px rgba(23, 23, 20, .08);
-}
-
-.why-story-professional-people span:nth-child(1) { top: 8%; left: -4%; }
-.why-story-professional-people span:nth-child(2) { top: 8%; right: -4%; }
-.why-story-professional-people span:nth-child(3) { top: 50%; right: -8%; }
-.why-story-professional-people span:nth-child(4) { right: 12%; bottom: -4%; }
-.why-story-professional-people span:nth-child(5) { bottom: -4%; left: 12%; }
-.why-story-professional-people span:nth-child(6) { top: 50%; left: -8%; }
-
-.why-story-professional-people svg {
-  width: 15px;
-  height: 15px;
+  top: 18%;
+  left: 50%;
   color: var(--why-green-dark);
+  font: 700 12px/1 'IBM Plex Mono', monospace;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  transform: translate(-50%, -50%);
 }
 
 .why-story-potential-circle {
   z-index: 5;
   width: min(92%, 700px);
-  border: 2px solid #d1d52a;
+  overflow: hidden;
+  border: 2px solid #2d8c67;
   background:
-    radial-gradient(circle at 34% 28%, rgba(255, 253, 208, .96), rgba(239, 241, 127, .72) 42%, rgba(220, 224, 43, .28) 68%, rgba(121, 239, 189, .14) 100%);
+    radial-gradient(circle at 34% 28%, #d9fbe9 0, #9af3cf 38%, #79efbd 68%, #54d89f 100%);
   box-shadow:
-    0 28px 80px rgba(154, 158, 24, .12),
-    inset 0 1px 0 rgba(255, 255, 255, .6);
+    0 28px 80px rgba(27, 128, 91, .16),
+    inset 0 1px 0 rgba(255, 255, 255, .72);
   opacity: var(--market-potential-opacity);
   transform: translate(-50%, -50%) scale(var(--market-potential-scale));
 }
 
+.why-story-mapshroom-label {
+  position: absolute;
+  z-index: 3;
+  top: 32%;
+  left: 50%;
+  color: #145a43;
+  font: 700 44px/1 'IBM Plex Mono', monospace;
+  letter-spacing: .14em;
+  opacity: clamp(0, calc((.48 - var(--market-expansion)) * 5), 1);
+  text-transform: uppercase;
+  transform: translate(-50%, -50%);
+  transition: opacity .18s linear;
+}
+
 .why-story-growth-value {
   position: absolute;
+  z-index: 2;
   inset: 0;
   display: grid;
   place-items: center;
@@ -1162,7 +1156,9 @@ body.why-page-active {
   align-items: flex-start;
   justify-content: center;
   font: 800 230px/.8 'IBM Plex Mono', monospace;
+  opacity: 0;
   white-space: nowrap;
+  transition: opacity .24s ease;
   will-change: opacity;
 }
 
@@ -1178,12 +1174,74 @@ body.why-page-active {
   line-height: 1;
 }
 
-.why-story-growth-value b:first-child {
-  opacity: var(--market-known-value-opacity);
+.why-audience-story[data-market-step='0'] .why-story-growth-value b:nth-child(1),
+.why-audience-story[data-market-step='1'] .why-story-growth-value b:nth-child(2),
+.why-audience-story[data-market-step='2'] .why-story-growth-value b:nth-child(3),
+.why-audience-story[data-market-step='3'] .why-story-growth-value b:nth-child(4),
+.why-audience-story[data-market-step='4'] .why-story-growth-value b:nth-child(5),
+.why-audience-story[data-market-step='5'] .why-story-growth-value b:nth-child(6),
+.why-audience-story[data-market-step='6'] .why-story-growth-value b:nth-child(7),
+.why-audience-story[data-market-step='7'] .why-story-growth-value b:nth-child(8) {
+  opacity: 1;
 }
 
 .why-story-growth-value b:last-child {
-  opacity: var(--market-unknown-value-opacity);
+  font-size: 132px;
+}
+
+.why-story-growth-words {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+}
+
+.why-story-growth-words span {
+  --word-reveal: 0;
+  position: absolute;
+  color: rgba(16, 70, 51, .78);
+  font: 700 18px/1 'IBM Plex Mono', monospace;
+  letter-spacing: .08em;
+  opacity: var(--word-reveal);
+  text-transform: uppercase;
+  transform: translateY(calc((1 - var(--word-reveal)) * 14px));
+  transition: opacity .3s ease, transform .3s ease;
+  white-space: nowrap;
+}
+
+.why-story-growth-words span:nth-child(1) {
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .2) * 8), 1);
+  top: 18%;
+  left: 14%;
+}
+
+.why-story-growth-words span:nth-child(2) {
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .32) * 8), 1);
+  top: 20%;
+  right: 14%;
+}
+
+.why-story-growth-words span:nth-child(3) {
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .44) * 8), 1);
+  top: 58%;
+  right: 9%;
+}
+
+.why-story-growth-words span:nth-child(4) {
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .56) * 8), 1);
+  right: 22%;
+  bottom: 17%;
+}
+
+.why-story-growth-words span:nth-child(5) {
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .68) * 8), 1);
+  bottom: 16%;
+  left: 14%;
+}
+
+.why-story-growth-words span:nth-child(6) {
+  --word-reveal: clamp(0, calc((var(--market-expansion) - .8) * 8), 1);
+  top: 64%;
+  left: 8%;
 }
 
 @media (max-width: 960px) {
@@ -1306,26 +1364,28 @@ body.why-page-active {
     width: 245px;
   }
 
-  .why-story-professional-people span {
-    width: 30px;
-    height: 30px;
-    justify-content: center;
-    padding: 0;
-    border-radius: 50%;
-    font-size: 0;
-  }
-
-  .why-story-professional-people svg {
-    width: 16px;
-    height: 16px;
-  }
-
   .why-story-potential-circle {
     width: 94%;
   }
 
   .why-story-growth-value b {
     font-size: 140px;
+  }
+
+  .why-story-growth-value b:last-child {
+    font-size: 74px;
+  }
+
+  .why-story-mapshroom-label {
+    font-size: 28px;
+  }
+
+  .why-story-growth-words span {
+    font-size: 11px;
+  }
+
+  .why-story-growth-words span:nth-child(1) {
+    top: 27%;
   }
 }
 
