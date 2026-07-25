@@ -319,7 +319,7 @@ export function ApiSettingsDialog({
           ? 'Use any AI chat'
           : 'Choose your generator';
   const guideNote = usingDirectChat
-    ? 'Three quick moves, then your shader is live.'
+    ? 'Send. Copy. Paste.'
     : selectedPath === 'api'
       ? 'Your key stays in this browser.'
       : selectedPath === 'local'
@@ -407,9 +407,9 @@ export function ApiSettingsDialog({
       >
         <header className="dialog-header">
           <div>
-            <span className="panel-eyebrow">{isSetup ? 'First shader spark' : 'AI settings'}</span>
+            <span className="panel-eyebrow">{isSetup ? 'Shader assistant' : 'AI settings'}</span>
             <h2 id="api-settings-title" className="dialog-title">
-              {isSetup ? 'Pick your pixel brain' : 'Choose how shaders are generated'}
+              {isSetup ? 'Finish your shader' : 'Choose how shaders are generated'}
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>Close</button>
@@ -534,7 +534,7 @@ export function ApiSettingsDialog({
                 ) : null}
               </button>
             ) : null}
-            {!selectedPath || usingDirectChat ? (
+            {!isSetup && (!selectedPath || usingDirectChat) ? (
               <button
                 type="button"
                 className="ai-path-card ai-path-card-supporting ai-path-card-pro"
