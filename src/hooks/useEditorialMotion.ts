@@ -29,11 +29,18 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       const professionalShiftX = compactMarket ? -68 : -132;
       const professionalShiftY = compactMarket ? -64 : -118;
       const initialPotentialScale = compactMarket ? 0.32 : 0.18;
-      const growthThresholds = [0, 0.12, 0.23, 0.34, 0.45, 0.56, 0.68, 0.86];
+      const initialPotentialX = compactMarket ? 70 : 104;
+      const initialPotentialY = compactMarket ? 68 : 98;
+      const potentialScale =
+        initialPotentialScale + easedExpansion * (1 - initialPotentialScale);
+      const visibleValueSize = compactMarket
+        ? 34 + easedExpansion * 14
+        : 42 + easedExpansion * 26;
+      const growthThresholds = [0, 0.08, 0.16, 0.24, 0.32, 0.4, 0.48, 0.6];
       let growthStep = 0;
 
       growthThresholds.forEach((threshold, index) => {
-        if (expansion >= threshold) growthStep = index;
+        if (easedExpansion >= threshold) growthStep = index;
       });
 
       marketStory.style.setProperty('--market-expansion', `${expansion}`);
@@ -51,7 +58,27 @@ export function useEditorialMotion<T extends EditorialRoot>() {
       );
       marketStory.style.setProperty(
         '--market-potential-scale',
-        `${initialPotentialScale + easedExpansion * (1 - initialPotentialScale)}`,
+        `${potentialScale}`,
+      );
+      marketStory.style.setProperty(
+        '--market-potential-x',
+        `${(1 - easedExpansion) * initialPotentialX}px`,
+      );
+      marketStory.style.setProperty(
+        '--market-potential-y',
+        `${(1 - easedExpansion) * initialPotentialY}px`,
+      );
+      marketStory.style.setProperty(
+        '--market-value-x',
+        `${50 + easedExpansion * 10}%`,
+      );
+      marketStory.style.setProperty(
+        '--market-value-y',
+        `${50 - easedExpansion * 21}%`,
+      );
+      marketStory.style.setProperty(
+        '--market-value-size',
+        `${visibleValueSize / potentialScale}px`,
       );
       marketStory.style.setProperty('--market-potential-opacity', '1');
       marketStory.dataset.marketStep = `${growthStep}`;
