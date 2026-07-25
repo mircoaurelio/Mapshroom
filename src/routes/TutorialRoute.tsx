@@ -1,7 +1,9 @@
 ﻿import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapshroomShaderFooter } from '../components/MapshroomShaderFooter';
+import { MapshroomShaderBackdrop } from '../components/OnboardingWelcomeShader';
 import { useEditorialMotion } from '../hooks/useEditorialMotion';
+import { useShaderVisibility } from '../hooks/useShaderVisibility';
 import { resolveTutorialLocale, TUTORIAL_COPY } from '../lib/tutorialCopy';
 import '../styles/EditorialMotion.css';
 import './TutorialRoute.css';
@@ -49,6 +51,7 @@ function Step({
 export function TutorialRoute() {
   const [locale] = useState(() => resolveTutorialLocale());
   const motionRef = useEditorialMotion<HTMLElement>();
+  const [ctaRef, ctaShaderActive] = useShaderVisibility<HTMLElement>();
   const copy = TUTORIAL_COPY[locale];
 
   useEffect(() => {
@@ -265,12 +268,22 @@ export function TutorialRoute() {
         </div>
       </section>
 
-      <section className="tutorial-cta" data-reveal-group>
-        <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
-        <p>{copy.ctaReady}</p>
-        <h2>{copy.ctaTitle}</h2>
-        <p className="tutorial-cta-lead">{copy.ctaLead}</p>
-        <Link to="/" className="tutorial-primary-button">{copy.ctaButton}</Link>
+      <section ref={ctaRef} className="tutorial-cta">
+        <div className="tutorial-cta-content" data-reveal-group>
+          <div className="tutorial-cta-brand" aria-label="Mapshroom">
+            <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
+            <span><strong>Map</strong>shroom</span>
+          </div>
+          <p>{copy.ctaReady}</p>
+          <h2>{copy.ctaTitle}</h2>
+          <p className="tutorial-cta-lead">{copy.ctaLead}</p>
+          <Link to="/" className="tutorial-primary-button">{copy.ctaButton}</Link>
+        </div>
+        <MapshroomShaderBackdrop
+          active={ctaShaderActive}
+          continuous
+          className="tutorial-cta-shader"
+        />
       </section>
       <MapshroomShaderFooter className="tutorial-footer">
         <span>Mapshroom</span>

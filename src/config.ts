@@ -90,7 +90,9 @@ export function createDefaultProject(
 ): ProjectDocument {
   const activeAssetId = pickStarterBundledAssetId(options.isMobile);
   const preferredTemplate = activeAssetId === BUNDLED_STATUE_ASSET_ID ? 'sculpture' : 'stage';
-  const preferredPool = shaderPresetList.filter((preset) => preset.template === preferredTemplate);
+  const preferredPool = shaderPresetList.filter((preset) =>
+    (preset.templates ?? [preset.template]).includes(preferredTemplate),
+  );
   const starterPresets = pickRandomShaderPresets(
     STARTER_TIMELINE_SHADER_COUNT,
     preferredPool.length >= STARTER_TIMELINE_SHADER_COUNT ? preferredPool : shaderPresetList,

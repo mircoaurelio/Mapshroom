@@ -110,6 +110,11 @@ function getPresetTemplate(preset: SavedShader): ShaderTemplate {
   return preset.template ?? 'sculpture';
 }
 
+function getPresetTemplates(preset: SavedShader): ShaderTemplate[] {
+  const templates = preset.templates?.filter((template) => TEMPLATE_ORDER.includes(template));
+  return templates?.length ? templates : [getPresetTemplate(preset)];
+}
+
 function sortGroups(template: ShaderTemplate, left: string, right: string): number {
   const order = GROUP_ORDER[template];
   const leftIndex = order.indexOf(left);
@@ -693,7 +698,7 @@ export function PresetBrowserDialog({
   const sortMostRecentFirst = (left: SavedShader, right: SavedShader) =>
     (presetOrder.get(right.id) ?? -1) - (presetOrder.get(left.id) ?? -1);
   const filteredPresets = presets.filter((preset) => {
-    if (getPresetTemplate(preset) !== selectedTemplate) {
+    if (!getPresetTemplates(preset).includes(selectedTemplate)) {
       return false;
     }
 
@@ -705,7 +710,7 @@ export function PresetBrowserDialog({
       preset.name,
       preset.description,
       preset.group,
-      TEMPLATE_LABELS[getPresetTemplate(preset)],
+      ...getPresetTemplates(preset).map((template) => TEMPLATE_LABELS[template]),
       preset.id,
     ]
       .filter(Boolean)
