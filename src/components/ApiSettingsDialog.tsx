@@ -120,6 +120,15 @@ function ChatModelIcon() {
   );
 }
 
+function CopyResponseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="8" y="8" width="11" height="11" rx="2" />
+      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+    </svg>
+  );
+}
+
 export function ApiSettingsDialog({
   open,
   settings,
@@ -385,8 +394,10 @@ export function ApiSettingsDialog({
               note: `Give ${directProviderName} a moment to finish the GLSL code.`,
             }
           : {
-              title: 'Copy the shader code',
-              note: `Use the Copy button on ${directProviderName}, then paste it below.`,
+              title: usingChatGpt ? 'Find “Copy response” in ChatGPT' : 'Copy the shader response',
+              note: usingChatGpt
+                ? 'In ChatGPT, click the two overlapping squares below the finished answer.'
+                : 'Use the Copy response control in Perplexity, then paste it below.',
             };
   const externalSurfaceLabel =
     externalWindowMode === 'popup'
@@ -415,7 +426,7 @@ export function ApiSettingsDialog({
   const guideSteps = usingDirectChat
     ? [
         ['↑', 'Send'],
-        ['{}', 'Copy code'],
+        [usingChatGpt ? 'copy-response' : '{}', usingChatGpt ? 'ChatGPT: Copy' : 'Copy response'],
         ['⌘V', 'Paste here'],
       ]
     : selectedPath === 'api'
@@ -539,7 +550,9 @@ export function ApiSettingsDialog({
               <ol className="ai-quick-guide-steps">
                 {guideSteps.map(([symbol, label]) => (
                   <li key={label}>
-                    <span aria-hidden="true">{symbol}</span>
+                    <span aria-hidden="true">
+                      {symbol === 'copy-response' ? <CopyResponseIcon /> : symbol}
+                    </span>
                     <strong>{label}</strong>
                   </li>
                 ))}
@@ -745,18 +758,46 @@ export function ApiSettingsDialog({
                         <li>
                           <span className="ai-chat-step-number">2</span>
                           <div>
-                            <strong>Wait for the shader code</strong>
-                            <small>{directProviderName} will return one GLSL code block with a Copy button.</small>
+                            <strong>
+                              {usingChatGpt ? 'Use Copy response in ChatGPT' : 'Copy the finished response'}
+                            </strong>
+                            <small>
+                              {usingChatGpt
+                                ? 'When the answer is finished, click the two overlapping squares below it. Copy the whole response—Mapshroom will extract the GLSL code.'
+                                : `${directProviderName} will return a response containing the GLSL shader code.`}
+                            </small>
                           </div>
+                          {usingChatGpt ? (
+                            <span className="ai-chat-copy-response-cue" aria-hidden="true">
+                              <CopyResponseIcon />
+                            </span>
+                          ) : null}
                         </li>
                         <li>
                           <span className="ai-chat-step-number">3</span>
                           <div>
-                            <strong>Copy, paste, and apply</strong>
-                            <small>Copy that code, paste it below, then click Apply shader.</small>
+                            <strong>Return to Mapshroom, paste, and apply</strong>
+                            <small>Paste the copied response below, then click Apply shader.</small>
                           </div>
                         </li>
                       </ol>
+                      {usingChatGpt ? (
+                        <figure className="ai-chat-copy-reference">
+                          <img
+                            src={`${import.meta.env.BASE_URL}assets/guides/chatgpt-copy-response.png`}
+                            alt="ChatGPT Copy response control below an answer, shown as two overlapping squares."
+                          />
+                          <figcaption>
+                            <span>Look in ChatGPT</span>
+                            <div>
+                              <strong>The two overlapping squares are below the finished answer.</strong>
+                              <small>
+                                ChatGPT labels this “Copy response” or “Copia risposta.” This image is a guide, not a button.
+                              </small>
+                            </div>
+                          </figcaption>
+                        </figure>
+                      ) : null}
                     </div>
                     )
                   ) : (
@@ -808,10 +849,13 @@ export function ApiSettingsDialog({
                           ) : directHandoffPhase === 'send' ? (
                             <span className="ai-chat-guide-send-icon">↑</span>
                           ) : (
-                            <svg viewBox="0 0 24 24">
-                              <rect x="8" y="8" width="11" height="11" rx="2" />
-                              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-                            </svg>
+                            <img
+                              className="ai-chat-guide-provider-icon"
+                              src={`${import.meta.env.BASE_URL}assets/icons/${
+                                usingPerplexity ? 'perplexity.svg' : 'chatgpt.svg'
+                              }`}
+                              alt=""
+                            />
                           )}
                         </span>
                         <span className="ai-chat-guide-copy">
@@ -819,7 +863,11 @@ export function ApiSettingsDialog({
                           <small>{directHandoffCue.note}</small>
                         </span>
                         <span className="ai-chat-guide-action" aria-hidden="true">
-                          {directHandoffPhase === 'send' ? 'Open ↗' : directHandoffPhase === 'copy' ? 'Copy ↗' : ''}
+                          {directHandoffPhase === 'send'
+                            ? 'Open ↗'
+                            : directHandoffPhase === 'copy'
+                              ? `Show ${directProviderName} ↗`
+                              : ''}
                         </span>
                       </button>
                     </div>
