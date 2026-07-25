@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - rmcod/v3-react-foundation
   workflow_dispatch:
 
 permissions:
