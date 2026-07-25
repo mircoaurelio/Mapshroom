@@ -11,23 +11,26 @@ const INSTAGRAM_URL = 'https://www.instagram.com/mirco.aurelio/';
 
 const COPY = {
   en: {
-    documentTitle: 'Free $50 Mapshroom Credits | Creator Challenge',
+    documentTitle: 'Up to $50 in Mapshroom Credits | Creator Challenge',
     description:
-      'Post your Mapshroom process as a YouTube Short or Instagram Reel with #mapshroom. Reach 4,000 public views and get $50 in Mapshroom credits—free.',
+      'Post your Mapshroom process as a YouTube Short or Instagram Reel with #mapshroom. Reach more than 4,000 public views to qualify for up to $50 in Mapshroom credits.',
     navHow: 'How it works',
     navTutorial: 'Tutorial',
     navOpen: 'Open Mapshroom',
     languageLabel: 'Choose language',
     eyebrow: 'Mapshroom Creator Challenge',
     titleBefore: 'Go viral.',
-    titleAccent: 'Get $50 in free credits.',
+    titleAccent: 'Earn up to $50 in credits.',
     lead:
-      'Show your full Mapshroom process in a YouTube Short or Instagram Reel with #mapshroom. Reach 4,000 public views and we’ll add $50 in credits to your Mapshroom account.',
+      'Show your full Mapshroom process with #mapshroom. Reach more than 4,000 public views to qualify for up to $50 in credits for your Mapshroom account.',
+    platformsLabel: 'Publish on',
+    youtubeFormat: 'YouTube Shorts',
+    instagramFormat: 'Instagram Reels',
     heroCta: 'See what to film',
     instagramCta: 'Send me your video',
     metricViews: 'public views',
-    metricReward: '$50 IN MAPSHROOM CREDITS — FREE',
-    heroCaption: 'YouTube Short or Instagram Reel / Add #mapshroom / Show the process',
+    metricReward: 'UP TO $50 IN MAPSHROOM CREDITS',
+    heroCaption: 'YouTube Shorts + Instagram Reels / Add #mapshroom / Show the process',
     missionKicker: 'The point of the challenge',
     missionTitle: 'Don’t post only the final reveal.',
     missionBody:
@@ -52,8 +55,8 @@ const COPY = {
       },
       {
         title: 'Publish and send the link',
-        body: 'Publish it publicly as a YouTube Short or Instagram Reel and add #mapshroom. When that video reaches 4,000 views, send its link to @mirco.aurelio on Instagram.',
-        label: 'Claim $50',
+        body: 'Publish it publicly as a YouTube Short or Instagram Reel and add #mapshroom. When that video has more than 4,000 views, send its link to @mirco.aurelio on Instagram to claim your credits.',
+        label: 'Claim your credits',
       },
     ],
     processNoteStrong: 'The process is the story.',
@@ -68,7 +71,7 @@ const COPY = {
     ],
     tutorialLink: 'Use the full tutorial as your filming checklist',
     benefitsKicker: 'Every valid creator joins the community',
-    benefitsTitle: 'You get $50 in credits. Free.',
+    benefitsTitle: 'Earn up to $50 in credits.',
     benefits: [
       {
         title: 'Mushroom Creator badge',
@@ -86,7 +89,7 @@ const COPY = {
     submitKicker: 'Ready to participate?',
     submitTitle: 'Map it. Film it. Share it.',
     submitBody:
-      'Publish your process video as a YouTube Short or Instagram Reel, add #mapshroom and send me its link on Instagram. Once that Short or Reel passes 4,000 public views, we’ll add $50 in credits to your Mapshroom account.',
+      'Publish your process video as a YouTube Short or Instagram Reel, add #mapshroom and send me its link on Instagram. Once that Short or Reel has more than 4,000 public views, it can qualify for up to $50 in credits for your Mapshroom account.',
     submitCta: 'Open @mirco.aurelio',
     submitHandle: 'Send the link by DM',
     checklistTitle: 'Quick checklist',
@@ -95,30 +98,33 @@ const COPY = {
       'The mapping process is visible—not only the result',
       'It is a public YouTube Short or Instagram Reel',
       'The post includes #mapshroom',
-      'The 4,000 views are on that Short or Reel and can be verified',
+      'The Short or Reel has more than 4,000 verifiable public views',
       'You send the video link to @mirco.aurelio',
     ],
     footerTagline: 'Projection mapping for more people.',
     footerTutorial: 'Read the tutorial',
   },
   it: {
-    documentTitle: 'Crediti Mapshroom gratis per i creator | Creator Challenge',
+    documentTitle: 'Fino a $50 in crediti Mapshroom | Creator Challenge',
     description:
-      'Pubblica il tuo processo Mapshroom come YouTube Short o Instagram Reel con #mapshroom. Raggiungi 4.000 visualizzazioni pubbliche e ricevi $50 in crediti Mapshroom gratis.',
+      'Pubblica il tuo processo Mapshroom come YouTube Short o Instagram Reel con #mapshroom. Supera 4.000 visualizzazioni pubbliche per ricevere fino a $50 in crediti Mapshroom.',
     navHow: 'Come funziona',
     navTutorial: 'Tutorial',
     navOpen: 'Apri Mapshroom',
     languageLabel: 'Scegli la lingua',
     eyebrow: 'Mapshroom Creator Challenge',
     titleBefore: 'Vai virale.',
-    titleAccent: 'Ricevi $50 in crediti gratis.',
+    titleAccent: 'Ricevi fino a $50 in crediti.',
     lead:
-      'Mostra tutto il tuo processo Mapshroom in uno YouTube Short o Instagram Reel con #mapshroom. Raggiungi 4.000 visualizzazioni pubbliche e aggiungeremo $50 in crediti al tuo account Mapshroom.',
+      'Mostra tutto il tuo processo Mapshroom con #mapshroom. Supera 4.000 visualizzazioni pubbliche per ricevere fino a $50 in crediti sul tuo account Mapshroom.',
+    platformsLabel: 'Pubblica su',
+    youtubeFormat: 'YouTube Shorts',
+    instagramFormat: 'Instagram Reels',
     heroCta: 'Scopri cosa filmare',
     instagramCta: 'Mandami il tuo video',
     metricViews: 'visualizzazioni pubbliche',
-    metricReward: '$50 IN CREDITI MAPSHROOM — GRATIS',
-    heroCaption: 'YouTube Short o Instagram Reel / Aggiungi #mapshroom / Mostra il processo',
+    metricReward: 'FINO A $50 IN CREDITI MAPSHROOM',
+    heroCaption: 'YouTube Shorts + Instagram Reels / Aggiungi #mapshroom / Mostra il processo',
     missionKicker: 'Lo scopo della challenge',
     missionTitle: 'Non pubblicare soltanto il risultato.',
     missionBody:
@@ -143,8 +149,8 @@ const COPY = {
       },
       {
         title: 'Pubblica e manda il link',
-        body: 'Pubblicalo come YouTube Short o Instagram Reel e aggiungi #mapshroom. Quando quel video raggiunge 4.000 views, invia il link a @mirco.aurelio su Instagram.',
-        label: 'Ricevi $50',
+        body: 'Pubblicalo come YouTube Short o Instagram Reel e aggiungi #mapshroom. Quando supera 4.000 visualizzazioni, invia il link a @mirco.aurelio su Instagram per richiedere i crediti.',
+        label: 'Richiedi i crediti',
       },
     ],
     processNoteStrong: 'Il processo è la storia.',
@@ -159,7 +165,7 @@ const COPY = {
     ],
     tutorialLink: 'Usa il tutorial completo come checklist per le riprese',
     benefitsKicker: 'Ogni creator valido entra nella community',
-    benefitsTitle: 'Ricevi $50 in crediti. Gratis.',
+    benefitsTitle: 'Ricevi fino a $50 in crediti.',
     benefits: [
       {
         title: 'Badge Mushroom Creator',
@@ -177,7 +183,7 @@ const COPY = {
     submitKicker: 'Vuoi partecipare?',
     submitTitle: 'Mappa. Filma. Condividi.',
     submitBody:
-      'Pubblica il video del tuo processo come YouTube Short o Instagram Reel, aggiungi #mapshroom e mandami il link su Instagram. Quando quello Short o Reel supera 4.000 visualizzazioni pubbliche, aggiungeremo $50 in crediti al tuo account Mapshroom.',
+      'Pubblica il video del tuo processo come YouTube Short o Instagram Reel, aggiungi #mapshroom e mandami il link su Instagram. Quando quello Short o Reel supera 4.000 visualizzazioni pubbliche, può ricevere fino a $50 in crediti sul tuo account Mapshroom.',
     submitCta: 'Apri @mirco.aurelio',
     submitHandle: 'Invia il link in DM',
     checklistTitle: 'Checklist veloce',
@@ -186,7 +192,7 @@ const COPY = {
       'Si vede il processo di mapping, non solo il risultato',
       'È uno YouTube Short o Instagram Reel pubblico',
       'Il post include #mapshroom',
-      'Le 4.000 views sono su quello Short o Reel e sono verificabili',
+      'Lo Short o Reel supera 4.000 visualizzazioni pubbliche verificabili',
       'Invii il link del video a @mirco.aurelio',
     ],
     footerTagline: 'Il projection mapping per più persone.',
@@ -285,6 +291,11 @@ export function CreatorChallengeRoute() {
           <p className="creator-eyebrow">{copy.eyebrow}</p>
           <h1>{copy.titleBefore}<br /><em>{copy.titleAccent}</em></h1>
           <p className="creator-hero-lead">{copy.lead}</p>
+          <div className="creator-platforms" aria-label={copy.platformsLabel}>
+            <span>{copy.platformsLabel}</span>
+            <strong className="creator-platform-youtube">{copy.youtubeFormat}</strong>
+            <strong className="creator-platform-instagram">{copy.instagramFormat}</strong>
+          </div>
           <div className="creator-hero-actions">
             <button type="button" className="creator-primary-button" onClick={scrollToProcess}>
               {copy.heroCta}
@@ -309,7 +320,7 @@ export function CreatorChallengeRoute() {
             </figure>
           </div>
           <div className="creator-view-counter">
-            <strong>4,000</strong>
+            <strong>&gt;4,000</strong>
             <span>{copy.metricViews}</span>
             <i aria-hidden="true">→</i>
             <b>{copy.metricReward}</b>
@@ -410,10 +421,10 @@ export function CreatorChallengeRoute() {
             ))}
           </ul>
           <div>
-            <strong>4,000</strong>
+            <strong>&gt;4,000</strong>
             <span>VIEWS</span>
-            <i aria-hidden="true">=</i>
-            <b>{locale === 'it' ? '$50 IN CREDITI' : '$50 IN CREDITS'}</b>
+            <i aria-hidden="true">→</i>
+            <b>{locale === 'it' ? 'FINO A $50 IN CREDITI' : 'UP TO $50 IN CREDITS'}</b>
           </div>
         </div>
       </section>

@@ -176,11 +176,51 @@ body.creator-page-active {
   line-height: 1.5;
 }
 
+.creator-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.creator-platforms > span {
+  margin-right: 3px;
+  color: rgba(255, 255, 255, .55);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.creator-platforms > strong {
+  display: inline-flex;
+  min-height: 35px;
+  align-items: center;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, .25);
+  border-radius: 999px;
+  box-shadow: 0 9px 26px rgba(0, 0, 0, .2);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .01em;
+}
+
+.creator-platform-youtube {
+  background: #f00;
+}
+
+.creator-platform-instagram {
+  background: linear-gradient(105deg, #833ab4 0%, #c13584 42%, #e1306c 68%, #f77737 100%);
+}
+
 .creator-hero-actions {
   display: flex;
   align-items: center;
   gap: 24px;
-  margin-top: 34px;
+  margin-top: 28px;
 }
 
 .creator-text-link {
@@ -828,6 +868,14 @@ body.creator-page-active {
   .creator-hero-actions {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .creator-platforms {
+    align-items: flex-start;
+  }
+
+  .creator-platforms > span {
+    flex-basis: 100%;
   }
 
   .creator-hero-visual {
