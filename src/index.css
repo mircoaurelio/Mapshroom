@@ -2769,6 +2769,7 @@ a {
 }
 
 .ai-prompt-composer:focus-within {
+  z-index: 24;
   border-color: var(--accent-strong);
   box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.14);
 }
@@ -2938,6 +2939,12 @@ a {
   font: 800 0.52rem/1 'IBM Plex Mono', monospace;
 }
 
+.ai-prompt-route-mark img {
+  width: 13px;
+  height: 13px;
+  object-fit: contain;
+}
+
 .ai-prompt-route-chevron {
   color: #71717a;
   font-size: 0.62rem;
@@ -2950,9 +2957,9 @@ a {
 
 .ai-prompt-route-menu {
   position: absolute;
-  z-index: 20;
+  z-index: 60;
+  top: calc(100% + 0.5rem);
   right: 0;
-  bottom: calc(100% + 0.5rem);
   display: grid;
   width: 218px;
   gap: 0.18rem;
@@ -2986,6 +2993,11 @@ a {
 .ai-prompt-route-menu .ai-prompt-route-mark {
   width: 24px;
   height: 24px;
+}
+
+.ai-prompt-route-menu .ai-prompt-route-mark img {
+  width: 16px;
+  height: 16px;
 }
 
 .ai-prompt-route-menu-copy {
@@ -9628,6 +9640,8 @@ a {
 
   .ai-direct-chat-layout .ai-settings-dialog-direct-chat {
     width: min(760px, calc(90vw - 584px));
+    height: min(680px, calc(100dvh - 48px));
+    max-height: min(680px, calc(100dvh - 48px));
   }
 }
 .ai-settings-dialog-setup {
@@ -10659,6 +10673,176 @@ a {
   background: rgba(99, 102, 241, .08);
 }
 
+.ai-settings-dialog-setup .ai-route-picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.08rem;
+}
+
+.ai-settings-dialog-setup .ai-route-picker-heading span {
+  color: var(--text-bright);
+  font: 700 0.56rem/1 'IBM Plex Mono', monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ai-settings-dialog-setup .ai-route-picker-heading small {
+  color: var(--text-muted);
+  font: 0.5rem/1 'IBM Plex Mono', monospace;
+}
+
+.ai-settings-dialog-setup .ai-runtime-choice,
+.ai-settings-dialog-setup .ai-runtime-choice.has-selection,
+.ai-settings-dialog-setup .ai-runtime-choice.has-selection.has-pro-teaser {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.34rem;
+}
+
+.ai-settings-dialog-setup .ai-path-card,
+.ai-settings-dialog-setup .ai-runtime-choice.has-selection .ai-path-card {
+  min-height: 44px;
+  padding: 0.42rem 0.5rem;
+  border: 1px solid rgba(113, 113, 122, 0.24);
+  border-radius: 9px;
+  background: rgba(17, 17, 20, 0.72);
+  box-shadow: none;
+  color: #a1a1aa;
+  transform: none;
+}
+
+.ai-settings-dialog-setup .ai-path-card:hover,
+.ai-settings-dialog-setup .ai-path-card:focus-visible {
+  border-color: rgba(161, 161, 170, 0.42);
+  background: rgba(39, 39, 42, 0.76);
+  outline: none;
+  transform: none;
+}
+
+.ai-settings-dialog-setup .ai-path-card.active,
+.ai-settings-dialog-setup .ai-runtime-choice.has-selection .ai-path-card.active {
+  border-color: rgba(var(--accent-rgb), 0.52);
+  background: rgba(var(--accent-rgb), 0.1);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.08);
+  color: var(--accent-pale);
+}
+
+.ai-settings-dialog-setup .ai-path-card-chat,
+.ai-settings-dialog-setup .ai-path-card-perplexity {
+  grid-column: span 3;
+  min-height: 50px;
+}
+
+.ai-settings-dialog-setup .ai-path-card-generic,
+.ai-settings-dialog-setup .ai-path-card-local,
+.ai-settings-dialog-setup .ai-path-card-cloud {
+  grid-column: span 2;
+  min-height: 42px;
+}
+
+.ai-settings-dialog-setup .ai-path-card-generic {
+  order: 3;
+}
+
+.ai-settings-dialog-setup .ai-path-card-local {
+  order: 4;
+}
+
+.ai-settings-dialog-setup .ai-path-card-cloud {
+  order: 5;
+}
+
+.ai-settings-dialog-setup .ai-path-card-tag,
+.ai-settings-dialog-setup .ai-path-card-description,
+.ai-settings-dialog-setup .ai-path-card-cta {
+  display: none;
+}
+
+.ai-settings-dialog-setup .ai-path-card strong,
+.ai-settings-dialog-setup .ai-path-card-compact strong {
+  color: var(--text-bright);
+  font-size: 0.64rem;
+  line-height: 1.15;
+}
+
+.ai-settings-dialog-setup .ai-path-icon,
+.ai-settings-dialog-setup .ai-path-card-compact .ai-path-icon,
+.ai-settings-dialog-setup .ai-path-brand-mark {
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+}
+
+.ai-settings-dialog-setup .ai-path-brand-mark img,
+.ai-settings-dialog-setup .ai-path-brand-mark-chatgpt img,
+.ai-settings-dialog-setup .ai-path-brand-mark-perplexity img {
+  width: 18px;
+  height: 18px;
+}
+
+.ai-settings-dialog-direct-chat.ai-settings-dialog-setup .dialog-body {
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.ai-settings-dialog-direct-chat .ai-quick-guide {
+  grid-template-columns: minmax(0, 1fr) minmax(230px, 0.9fr);
+  align-items: center;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-section,
+.ai-settings-dialog-direct-chat .ai-chat-workflow {
+  min-height: 0;
+  height: 100%;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-workflow {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-paste-zone {
+  grid-template-rows: auto minmax(88px, 1fr) auto;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-response {
+  min-height: 88px;
+  max-height: none;
+  resize: none;
+}
+
+.ai-settings-dialog-setup.ai-settings-dialog-config {
+  width: min(100%, 980px);
+  max-height: min(88dvh, 680px);
+}
+
+.ai-settings-dialog-config .dialog-body {
+  flex: 1;
+  grid-template-columns: minmax(420px, 1.35fr) minmax(270px, 0.65fr);
+  align-items: stretch;
+  gap: 0.72rem;
+}
+
+.ai-settings-dialog-config .ai-model-section {
+  order: 1;
+  height: 100%;
+  border: 1px solid rgba(113, 113, 122, 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(9, 9, 11, 0.52);
+}
+
+.ai-settings-dialog-config .ai-route-sidebar {
+  position: static;
+  order: 2;
+  align-content: start;
+  padding: 0.58rem;
+  border: 1px solid rgba(113, 113, 122, 0.24);
+  border-radius: var(--radius-md);
+  background: rgba(9, 9, 11, 0.52);
+}
+
 @media (max-width: 680px) {
   .ai-runtime-choice { grid-template-columns: 1fr; }
   .ai-runtime-choice.has-selection.has-pro-teaser { grid-template-columns: 1fr; }
@@ -10781,25 +10965,35 @@ a {
   .ai-settings-dialog-setup .ai-runtime-choice,
   .ai-settings-dialog-setup .ai-runtime-choice.has-selection,
   .ai-settings-dialog-setup .ai-runtime-choice.has-selection.has-pro-teaser {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.22rem;
   }
 
   .ai-settings-dialog-setup .ai-path-card,
   .ai-settings-dialog-setup .ai-runtime-choice.has-selection .ai-path-card {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    min-height: 34px;
-    place-items: center;
-    padding: 0.28rem 0.22rem;
-    text-align: center;
+    grid-template-columns: 22px minmax(0, 1fr);
+    min-height: 40px;
+    place-items: center start;
+    gap: 0.3rem;
+    padding: 0.32rem 0.38rem;
+    text-align: left;
   }
 
   .ai-settings-dialog-setup .ai-path-icon,
   .ai-settings-dialog-setup .ai-path-card-compact .ai-path-icon,
-  .ai-settings-dialog-setup .ai-path-brand-mark,
-  .ai-settings-dialog-setup .ai-path-pro-mark {
-    display: none;
+  .ai-settings-dialog-setup .ai-path-brand-mark {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+  }
+
+  .ai-settings-dialog-setup .ai-path-brand-mark img,
+  .ai-settings-dialog-setup .ai-path-brand-mark-chatgpt img,
+  .ai-settings-dialog-setup .ai-path-brand-mark-perplexity img {
+    width: 15px;
+    height: 15px;
   }
 
   .ai-settings-dialog-setup .ai-path-card-tag {
@@ -10810,7 +11004,7 @@ a {
   .ai-settings-dialog-setup .ai-path-card-compact strong {
     display: block;
     overflow: hidden;
-    font-size: 0.48rem;
+    font-size: 0.5rem;
     line-height: 1.15;
     text-overflow: ellipsis;
   }

@@ -64,11 +64,18 @@ const AI_ROUTE_OPTIONS: Array<{
   label: string;
   note: string;
   mark: string;
+  icon?: string;
 }> = [
-  { value: 'chatgpt', label: 'ChatGPT', note: 'Free handoff', mark: 'G' },
-  { value: 'perplexity', label: 'Perplexity', note: 'Free handoff', mark: 'P' },
-  { value: 'local', label: 'Local model', note: 'Private & offline', mark: '◎' },
-  { value: 'api', label: 'API', note: 'Connected provider', mark: '⌁' },
+  { value: 'chatgpt', label: 'ChatGPT', note: 'Free handoff', mark: 'G', icon: 'chatgpt.svg' },
+  {
+    value: 'perplexity',
+    label: 'Perplexity',
+    note: 'Free handoff',
+    mark: 'P',
+    icon: 'perplexity.svg',
+  },
+  { value: 'local', label: 'Local model', note: 'Runs on device', mark: 'L' },
+  { value: 'api', label: 'API', note: 'Use your key', mark: 'API' },
 ];
 
 interface PlaceholderAnimation {
@@ -282,7 +289,14 @@ export function AiPanel({
                   onClick={() => setRouteMenuOpen((current) => !current)}
                 >
                   <span className="ai-prompt-route-mark" aria-hidden="true">
-                    {selectedRouteOption.mark}
+                    {selectedRouteOption.icon ? (
+                      <img
+                        src={`${import.meta.env.BASE_URL}assets/icons/${selectedRouteOption.icon}`}
+                        alt=""
+                      />
+                    ) : (
+                      selectedRouteOption.mark
+                    )}
                   </span>
                   <span>{selectedRouteOption.label}</span>
                   <span className="ai-prompt-route-chevron" aria-hidden="true">⌄</span>
@@ -302,7 +316,14 @@ export function AiPanel({
                         }}
                       >
                         <span className="ai-prompt-route-mark" aria-hidden="true">
-                          {option.mark}
+                          {option.icon ? (
+                            <img
+                              src={`${import.meta.env.BASE_URL}assets/icons/${option.icon}`}
+                              alt=""
+                            />
+                          ) : (
+                            option.mark
+                          )}
                         </span>
                         <span className="ai-prompt-route-menu-copy">
                           <strong>{option.label}</strong>

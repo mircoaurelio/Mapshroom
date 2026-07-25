@@ -58,18 +58,29 @@ export function openExternalAiWindow(url: string): ExternalAiWindowResult {
   const hasDesktopPointer = window.matchMedia('(pointer: fine)').matches;
   const availableWidth = window.screen.availWidth;
   const availableHeight = window.screen.availHeight;
+  const hostWindowWidth = Math.min(availableWidth, window.outerWidth || availableWidth);
 
-  if (!hasDesktopPointer || availableWidth < DESKTOP_MIN_SCREEN_WIDTH) {
+  if (
+    !hasDesktopPointer ||
+    hostWindowWidth < DESKTOP_MIN_SCREEN_WIDTH ||
+    window.innerWidth < DESKTOP_MIN_SCREEN_WIDTH
+  ) {
     return openRegularTab(url);
   }
 
-  const width = Math.min(POPUP_MAX_WIDTH, Math.max(520, availableWidth - POPUP_MARGIN * 2));
+  const width = Math.min(POPUP_MAX_WIDTH, Math.max(520, hostWindowWidth - POPUP_MARGIN * 2));
   const height = Math.min(POPUP_MAX_HEIGHT, Math.max(600, availableHeight - POPUP_MARGIN * 2));
   const availableLeft = window.screen.availLeft ?? window.screenX;
   const availableTop = window.screen.availTop ?? window.screenY;
-  const edgeInset = Math.max(POPUP_MARGIN, Math.round(availableWidth * POPUP_EDGE_INSET_RATIO));
-  const desiredLeft = availableLeft + availableWidth - width - edgeInset;
-  const desiredTop = availableTop + Math.round((availableHeight - height) / 2);
+  const hostWindowLeft = Math.min(
+    Math.max(window.screenX, availableLeft),
+    availableLeft + availableWidth - hostWindowWidth,
+  );
+  const edgeInset = Math.max(POPUP_MARGIN, Math.round(hostWindowWidth * POPUP_EDGE_INSET_RATIO));
+  const desiredLeft = hostWindowLeft + hostWindowWidth - width - edgeInset;
+  const browserChromeHeight = Math.max(0, window.outerHeight - window.innerHeight);
+  const browserViewportTop = window.screenY + browserChromeHeight;
+  const desiredTop = browserViewportTop + Math.round((window.innerHeight - height) / 2);
   const left = Math.min(
     Math.max(desiredLeft, availableLeft),
     availableLeft + availableWidth - width,
