@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   DEFAULT_ANTHROPIC_MODEL_OPTIONS,
   DEFAULT_GOOGLE_MODEL_OPTIONS,
@@ -6,6 +6,7 @@ import {
 } from '../config';
 import { isLocalModelReady, LOCAL_SHADER_MODELS, LOCAL_VISION_MODEL, prepareLocalModel } from '../lib/localAi';
 import {
+  alignExternalAiWindowToElement,
   closeExternalAiWindow,
   focusExternalAiWindow,
   openExternalAiWindow,
@@ -144,6 +145,7 @@ export function ApiSettingsDialog({
   const [promptCopied, setPromptCopied] = useState(false);
   const [showCopyTooltip, setShowCopyTooltip] = useState(false);
   const [isApplyingChatResponse, setIsApplyingChatResponse] = useState(false);
+  const dialogRef = useRef<HTMLElement>(null);
   const isSetup = variant === 'setup';
 
   useEffect(() => {
@@ -169,6 +171,31 @@ export function ApiSettingsDialog({
     const timeoutId = window.setTimeout(() => setShowCopyTooltip(false), 2800);
     return () => window.clearTimeout(timeoutId);
   }, [showCopyTooltip]);
+
+  useEffect(() => {
+    const usingPopup =
+      open &&
+      externalWindowMode === 'popup' &&
+      (selectedPath === 'chatgpt' || selectedPath === 'perplexity');
+    const dialog = dialogRef.current;
+    if (!usingPopup || !dialog) {
+      return;
+    }
+
+    const alignPopup = () => {
+      alignExternalAiWindowToElement(dialog);
+    };
+    const frameId = window.requestAnimationFrame(alignPopup);
+    const resizeObserver = new ResizeObserver(alignPopup);
+    resizeObserver.observe(dialog);
+    window.addEventListener('resize', alignPopup);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', alignPopup);
+    };
+  }, [externalWindowMode, open, selectedPath]);
 
   if (!open) return null;
 
@@ -400,6 +427,7 @@ export function ApiSettingsDialog({
       onClick={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
+        ref={dialogRef}
         className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''}`}
         role="dialog"
         aria-modal="true"
@@ -544,29 +572,6 @@ export function ApiSettingsDialog({
                 ) : null}
               </button>
             ) : null}
-            {!isSetup && (!selectedPath || usingDirectChat) ? (
-              <button
-                type="button"
-                className="ai-path-card ai-path-card-supporting ai-path-card-pro"
-                onClick={onOpenProBeta}
-              >
-                <span className="ai-path-pro-mark" aria-hidden="true">
-                  <img
-                    src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
-                    alt=""
-                  />
-                  <small>Pro</small>
-                </span>
-                <div className="ai-path-card-copy">
-                  <span className="ai-path-card-tag">Built in · Closed beta</span>
-                  <strong>Mapshroom Pro</strong>
-                  <span className="ai-path-card-description">
-                    Generate and edit directly in the app, without copying shader code.
-                  </span>
-                  <span className="ai-path-card-cta">View closed beta <span aria-hidden="true">→</span></span>
-                </div>
-              </button>
-            ) : null}
             {showRuntimeChoice('local') ? (
               <button
                 type="button"
@@ -598,6 +603,29 @@ export function ApiSettingsDialog({
                   <span className="ai-path-card-description">
                     Bring your own OpenAI, Anthropic, or Google API key.
                   </span>
+                </div>
+              </button>
+            ) : null}
+            {isSetup || !selectedPath || usingDirectChat ? (
+              <button
+                type="button"
+                className="ai-path-card ai-path-card-supporting ai-path-card-pro"
+                onClick={onOpenProBeta}
+              >
+                <span className="ai-path-pro-mark" aria-hidden="true">
+                  <img
+                    src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
+                    alt=""
+                  />
+                  <small>Pro</small>
+                </span>
+                <div className="ai-path-card-copy">
+                  <span className="ai-path-card-tag">Built in · Closed beta</span>
+                  <strong>Mapshroom Pro</strong>
+                  <span className="ai-path-card-description">
+                    Generate and edit directly in the app, without copying shader code.
+                  </span>
+                  <span className="ai-path-card-cta">View closed beta <span aria-hidden="true">→</span></span>
                 </div>
               </button>
             ) : null}

@@ -5469,9 +5469,9 @@ a {
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field-section {
-  width: 156px;
+  width: 184px;
   min-width: 0;
-  flex: 0 0 156px;
+  flex: 0 0 184px;
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field-fx {
@@ -5489,6 +5489,42 @@ a {
 .timeline-bar-desktop .timeline-shared-transition-field .text-field,
 .timeline-bar-desktop .timeline-shared-transition-field .select-field {
   min-width: 0;
+}
+
+@container timelinePane (max-width: 960px) {
+  .timeline-bar-desktop .timeline-sequence-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .timeline-bar-desktop .timeline-sequence-copy {
+    width: 100%;
+  }
+
+  .timeline-bar-desktop .timeline-sequence-title-row,
+  .timeline-bar-desktop .timeline-sequence-toolbar-actions,
+  .timeline-bar-desktop .timeline-shared-transition-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .timeline-bar-desktop .timeline-sequence-toolbar-actions {
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .timeline-bar-desktop .timeline-shared-transition-toolbar {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .timeline-bar-desktop .timeline-mode-switch {
+    max-width: 100%;
+    flex: 0 1 auto;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
 }
 
 .timeline-sequence-toolbar-actions > .icon-button,
@@ -5834,8 +5870,8 @@ a {
 }
 
 .timeline-shared-transition-field-section {
-  --timeline-field-label-space: 6.4rem;
-  min-width: 156px;
+  --timeline-field-label-space: 5.8rem;
+  min-width: 184px;
 }
 
 .timeline-shared-transition-field-fx {
@@ -6562,7 +6598,10 @@ a {
 }
 
 .mapping-control-shell-distort-compact {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.58rem;
   animation: mapping-control-distort-collapse 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -6623,6 +6662,10 @@ a {
   min-height: 2.1rem;
 }
 
+.mapping-tool-row-with-close {
+  grid-template-columns: repeat(6, 2rem);
+}
+
 .mapping-tool-button {
   width: 2rem;
   height: 2rem;
@@ -6662,6 +6705,18 @@ a {
 
 .mapping-tool-button:hover:not(:disabled) {
   transform: translateY(-1px);
+}
+
+.mapping-tool-button-close {
+  border-color: rgba(248, 113, 113, 0.48);
+  color: #fecaca;
+}
+
+.mapping-tool-button-close:hover:not(:disabled),
+.mapping-tool-button-close:focus-visible {
+  border-color: rgba(248, 113, 113, 0.9);
+  background: rgba(127, 29, 29, 0.42);
+  color: #fff1f2;
 }
 
 .mapping-tool-button:disabled {
@@ -9639,9 +9694,9 @@ a {
   }
 
   .ai-direct-chat-layout .ai-settings-dialog-direct-chat {
-    width: min(760px, calc(90vw - 584px));
-    height: min(680px, calc(100dvh - 48px));
-    max-height: min(680px, calc(100dvh - 48px));
+    width: 50vw;
+    height: clamp(540px, 60dvh, 680px);
+    max-height: calc(100dvh - 48px);
   }
 }
 .ai-settings-dialog-setup {
@@ -10696,7 +10751,7 @@ a {
 .ai-settings-dialog-setup .ai-runtime-choice,
 .ai-settings-dialog-setup .ai-runtime-choice.has-selection,
 .ai-settings-dialog-setup .ai-runtime-choice.has-selection.has-pro-teaser {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 0.34rem;
 }
 
@@ -10730,14 +10785,15 @@ a {
 
 .ai-settings-dialog-setup .ai-path-card-chat,
 .ai-settings-dialog-setup .ai-path-card-perplexity {
-  grid-column: span 3;
+  grid-column: span 6;
   min-height: 50px;
 }
 
 .ai-settings-dialog-setup .ai-path-card-generic,
 .ai-settings-dialog-setup .ai-path-card-local,
-.ai-settings-dialog-setup .ai-path-card-cloud {
-  grid-column: span 2;
+.ai-settings-dialog-setup .ai-path-card-cloud,
+.ai-settings-dialog-setup .ai-path-card-pro {
+  grid-column: span 3;
   min-height: 42px;
 }
 
@@ -10751,6 +10807,10 @@ a {
 
 .ai-settings-dialog-setup .ai-path-card-cloud {
   order: 5;
+}
+
+.ai-settings-dialog-setup .ai-path-card-pro {
+  order: 6;
 }
 
 .ai-settings-dialog-setup .ai-path-card-tag,
@@ -10768,7 +10828,8 @@ a {
 
 .ai-settings-dialog-setup .ai-path-icon,
 .ai-settings-dialog-setup .ai-path-card-compact .ai-path-icon,
-.ai-settings-dialog-setup .ai-path-brand-mark {
+.ai-settings-dialog-setup .ai-path-brand-mark,
+.ai-settings-dialog-setup .ai-path-pro-mark {
   width: 27px;
   height: 27px;
   border-radius: 8px;
@@ -10776,7 +10837,8 @@ a {
 
 .ai-settings-dialog-setup .ai-path-brand-mark img,
 .ai-settings-dialog-setup .ai-path-brand-mark-chatgpt img,
-.ai-settings-dialog-setup .ai-path-brand-mark-perplexity img {
+.ai-settings-dialog-setup .ai-path-brand-mark-perplexity img,
+.ai-settings-dialog-setup .ai-path-pro-mark img {
   width: 18px;
   height: 18px;
 }
@@ -10784,8 +10846,9 @@ a {
 .ai-settings-dialog-direct-chat.ai-settings-dialog-setup .dialog-body {
   flex: 1;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  align-items: stretch;
+  grid-template-rows: auto auto;
+  align-content: start;
+  align-items: start;
 }
 
 .ai-settings-dialog-direct-chat .ai-quick-guide {
@@ -10796,20 +10859,20 @@ a {
 .ai-settings-dialog-direct-chat .ai-chat-section,
 .ai-settings-dialog-direct-chat .ai-chat-workflow {
   min-height: 0;
-  height: 100%;
+  height: auto;
 }
 
 .ai-settings-dialog-direct-chat .ai-chat-workflow {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto;
 }
 
 .ai-settings-dialog-direct-chat .ai-chat-paste-zone {
-  grid-template-rows: auto minmax(88px, 1fr) auto;
+  grid-template-rows: auto 88px auto;
 }
 
 .ai-settings-dialog-direct-chat .ai-chat-response {
   min-height: 88px;
-  max-height: none;
+  max-height: 88px;
   resize: none;
 }
 
@@ -10841,6 +10904,13 @@ a {
   border: 1px solid rgba(113, 113, 122, 0.24);
   border-radius: var(--radius-md);
   background: rgba(9, 9, 11, 0.52);
+}
+
+.ai-settings-dialog-config .ai-path-card-generic,
+.ai-settings-dialog-config .ai-path-card-local,
+.ai-settings-dialog-config .ai-path-card-cloud,
+.ai-settings-dialog-config .ai-path-card-pro {
+  grid-column: span 6;
 }
 
 @media (max-width: 680px) {
@@ -10965,7 +11035,7 @@ a {
   .ai-settings-dialog-setup .ai-runtime-choice,
   .ai-settings-dialog-setup .ai-runtime-choice.has-selection,
   .ai-settings-dialog-setup .ai-runtime-choice.has-selection.has-pro-teaser {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 0.22rem;
   }
 
@@ -10982,7 +11052,8 @@ a {
 
   .ai-settings-dialog-setup .ai-path-icon,
   .ai-settings-dialog-setup .ai-path-card-compact .ai-path-icon,
-  .ai-settings-dialog-setup .ai-path-brand-mark {
+  .ai-settings-dialog-setup .ai-path-brand-mark,
+  .ai-settings-dialog-setup .ai-path-pro-mark {
     display: grid;
     width: 22px;
     height: 22px;
@@ -10991,9 +11062,17 @@ a {
 
   .ai-settings-dialog-setup .ai-path-brand-mark img,
   .ai-settings-dialog-setup .ai-path-brand-mark-chatgpt img,
-  .ai-settings-dialog-setup .ai-path-brand-mark-perplexity img {
+  .ai-settings-dialog-setup .ai-path-brand-mark-perplexity img,
+  .ai-settings-dialog-setup .ai-path-pro-mark img {
     width: 15px;
     height: 15px;
+  }
+
+  .ai-settings-dialog-setup .ai-path-card-generic,
+  .ai-settings-dialog-setup .ai-path-card-local,
+  .ai-settings-dialog-setup .ai-path-card-cloud,
+  .ai-settings-dialog-setup .ai-path-card-pro {
+    grid-column: span 6;
   }
 
   .ai-settings-dialog-setup .ai-path-card-tag {

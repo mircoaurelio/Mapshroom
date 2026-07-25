@@ -1,12 +1,17 @@
 export type ExternalAiWindowResult = 'popup' | 'tab' | 'blocked';
 
 const DESKTOP_MIN_SCREEN_WIDTH = 1280;
-const POPUP_MAX_WIDTH = 560;
+const POPUP_MIN_WIDTH = 480;
+const POPUP_MAX_WIDTH = 620;
+const POPUP_WIDTH_RATIO = 0.37;
+const POPUP_MIN_HEIGHT = 540;
 const POPUP_MAX_HEIGHT = 680;
+const POPUP_HEIGHT_RATIO = 0.6;
 const POPUP_MARGIN = 24;
 const POPUP_EDGE_INSET_RATIO = 0.05;
 const AI_POPUP_NAME = 'mapshroom-ai-chat';
 let activeExternalAiWindow: Window | null = null;
+let activePopupGeometry: { width: number; left: number } | null = null;
 
 function detachOpener(openedWindow: Window): void {
   try {
@@ -24,6 +29,7 @@ function openRegularTab(url: string): ExternalAiWindowResult {
 
   detachOpener(openedTab);
   activeExternalAiWindow = openedTab;
+  activePopupGeometry = null;
   return 'tab';
 }
 
@@ -31,6 +37,7 @@ export function focusExternalAiWindow(): boolean {
   try {
     if (!activeExternalAiWindow || activeExternalAiWindow.closed) {
       activeExternalAiWindow = null;
+      activePopupGeometry = null;
       return false;
     }
 
@@ -38,6 +45,7 @@ export function focusExternalAiWindow(): boolean {
     return true;
   } catch {
     activeExternalAiWindow = null;
+    activePopupGeometry = null;
     return false;
   }
 }
@@ -51,6 +59,40 @@ export function closeExternalAiWindow(): void {
     // Closing a browser-managed cross-origin window is best-effort.
   } finally {
     activeExternalAiWindow = null;
+    activePopupGeometry = null;
+  }
+}
+
+export function alignExternalAiWindowToElement(element: HTMLElement): boolean {
+  try {
+    if (
+      !activeExternalAiWindow ||
+      activeExternalAiWindow.closed ||
+      !activePopupGeometry
+    ) {
+      return false;
+    }
+
+    const panelRect = element.getBoundingClientRect();
+    const availableTop = window.screen.availTop ?? window.screenY;
+    const availableHeight = window.screen.availHeight;
+    const browserChromeHeight = Math.max(0, window.outerHeight - window.innerHeight);
+    const browserViewportTop = window.screenY + browserChromeHeight;
+    const height = Math.min(
+      Math.round(panelRect.height),
+      Math.max(320, availableHeight - POPUP_MARGIN * 2),
+    );
+    const desiredTop = browserViewportTop + Math.round(panelRect.top);
+    const top = Math.min(
+      Math.max(desiredTop, availableTop),
+      availableTop + availableHeight - height,
+    );
+
+    activeExternalAiWindow.resizeTo(activePopupGeometry.width, height);
+    activeExternalAiWindow.moveTo(activePopupGeometry.left, top);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -68,8 +110,16 @@ export function openExternalAiWindow(url: string): ExternalAiWindowResult {
     return openRegularTab(url);
   }
 
-  const width = Math.min(POPUP_MAX_WIDTH, Math.max(520, hostWindowWidth - POPUP_MARGIN * 2));
-  const height = Math.min(POPUP_MAX_HEIGHT, Math.max(600, availableHeight - POPUP_MARGIN * 2));
+  const width = Math.min(
+    POPUP_MAX_WIDTH,
+    Math.max(POPUP_MIN_WIDTH, Math.round(hostWindowWidth * POPUP_WIDTH_RATIO)),
+  );
+  const height = Math.min(
+    POPUP_MAX_HEIGHT,
+    Math.max(POPUP_MIN_HEIGHT, Math.round(window.innerHeight * POPUP_HEIGHT_RATIO)),
+    Math.max(320, window.innerHeight - POPUP_MARGIN * 2),
+    Math.max(320, availableHeight - POPUP_MARGIN * 2),
+  );
   const availableLeft = window.screen.availLeft ?? window.screenX;
   const availableTop = window.screen.availTop ?? window.screenY;
   const hostWindowLeft = Math.min(
@@ -104,6 +154,13 @@ export function openExternalAiWindow(url: string): ExternalAiWindowResult {
     return openRegularTab(url);
   }
 
+  activePopupGeometry = { width: Math.round(width), left: Math.round(left) };
+  try {
+    popup.resizeTo(Math.round(width), Math.round(height));
+    popup.moveTo(Math.round(left), Math.round(top));
+  } catch {
+    // Browser window geometry is best-effort when popup controls are restricted.
+  }
   detachOpener(popup);
   activeExternalAiWindow = popup;
   popup.focus();
