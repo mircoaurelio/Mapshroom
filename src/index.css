@@ -11209,7 +11209,7 @@ a {
 }
 
 .ai-settings-dialog-setup.ai-settings-dialog-config {
-  width: min(100%, 980px);
+  width: min(100%, 760px);
   height: min(88dvh, 720px);
   max-height: calc(100dvh - 1.5rem);
 }
@@ -11217,17 +11217,17 @@ a {
 .ai-settings-dialog-config .dialog-body {
   flex: 1;
   min-height: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
-  gap: 0.72rem;
+  gap: 0;
   overflow: hidden;
 }
 
 .ai-settings-dialog-config .ai-model-section {
-  order: 1;
   height: 100%;
   min-height: 0;
   align-content: start;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -11236,19 +11236,23 @@ a {
   background: rgba(9, 9, 11, 0.52);
 }
 
-.ai-settings-dialog-config .ai-route-sidebar {
-  position: static;
-  order: 2;
-  height: 100%;
-  min-height: 0;
-  align-content: start;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding: 0.58rem;
-  border: 1px solid rgba(113, 113, 122, 0.24);
-  border-radius: var(--radius-md);
-  background: rgba(9, 9, 11, 0.52);
+.ai-config-panel-header {
+  display: grid;
+  gap: 0.52rem;
+  margin-bottom: 0.1rem;
+}
+
+.ai-config-back-button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-self: start;
+  gap: 0.38rem;
+}
+
+.ai-config-panel-header .ai-quick-guide {
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.8fr);
+  align-items: center;
 }
 
 .ai-settings-dialog-config .ai-section-heading .helper-copy,
@@ -11281,6 +11285,26 @@ a {
 .ai-settings-dialog-config .ai-path-card-cloud,
 .ai-settings-dialog-config .ai-path-card-pro {
   grid-column: span 6;
+}
+
+.ai-settings-dialog-api-config .ai-provider-choice {
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.ai-settings-dialog-api-config .ai-provider-choice .ai-runtime-card {
+  min-width: 0;
+  align-items: center;
+  padding-inline: 0.7rem;
+  text-align: center;
+}
+
+.ai-settings-dialog-api-config .ai-provider-choice .ai-runtime-card strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-settings-dialog-chat {
@@ -11538,6 +11562,25 @@ a {
   .ai-settings-dialog-setup .ai-runtime-choice.has-selection.has-pro-teaser {
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 0.22rem;
+  }
+
+  .ai-settings-dialog-setup .ai-config-panel-header .ai-quick-guide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ai-settings-dialog-setup .ai-config-panel-header .ai-quick-guide-steps {
+    width: 100%;
+  }
+
+  .ai-settings-dialog-api-config .ai-provider-choice {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.32rem;
+  }
+
+  .ai-settings-dialog-api-config .ai-provider-choice .ai-runtime-card {
+    display: flex;
+    min-height: 38px;
+    padding: 0.38rem 0.3rem;
   }
 
   .ai-settings-dialog-setup .ai-path-card,

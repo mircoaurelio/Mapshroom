@@ -452,6 +452,58 @@ export function ApiSettingsDialog({
               ['↑', 'Generate'],
               ['✓', 'Apply'],
             ];
+  const quickGuide = isSetup ? (
+    <section className="ai-quick-guide" aria-label="Quick guide">
+      <div className="ai-quick-guide-heading">
+        <span
+          className={`ai-quick-guide-mark ${
+            usingPerplexity
+              ? 'ai-quick-guide-mark-perplexity'
+              : usingChatGpt
+                ? 'ai-quick-guide-mark-chatgpt'
+                : ''
+          }`}
+          aria-hidden="true"
+        >
+          {usingDirectChat ? (
+            <img
+              src={`${import.meta.env.BASE_URL}assets/icons/${
+                usingPerplexity ? 'perplexity.svg' : 'chatgpt.svg'
+              }`}
+              alt=""
+            />
+          ) : selectedPath === 'api' ? (
+            'API'
+          ) : selectedPath === 'local' ? (
+            '◎'
+          ) : (
+            '✦'
+          )}
+        </span>
+        <div>
+          <span className="panel-eyebrow">Quick guide</span>
+          <h3>{guideTitle}</h3>
+          <p>{guideNote}</p>
+        </div>
+      </div>
+      <ol className="ai-quick-guide-steps">
+        {guideSteps.map(([symbol, label]) => (
+          <li key={label}>
+            <span aria-hidden="true">
+              {symbol === 'copy-response' ? <CopyResponseIcon /> : symbol}
+            </span>
+            <strong>{label}</strong>
+          </li>
+        ))}
+      </ol>
+    </section>
+  ) : null;
+  const setupTitle =
+    selectedPath === 'local'
+      ? 'Set up a local model'
+      : selectedPath === 'api'
+        ? 'Connect a cloud API'
+        : 'Finish your shader';
   const pasteReplyControls = (
     <div className="ai-chat-paste-zone">
       <div className="ai-chat-paste-heading">
@@ -497,7 +549,7 @@ export function ApiSettingsDialog({
     >
       <section
         ref={dialogRef}
-        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && selectedPath === 'chat' ? 'ai-settings-dialog-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''}`}
+        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && selectedPath === 'chat' ? 'ai-settings-dialog-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''} ${isSetup && selectedPath === 'local' ? 'ai-settings-dialog-local-config' : ''} ${isSetup && selectedPath === 'api' ? 'ai-settings-dialog-api-config' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="api-settings-title"
@@ -506,59 +558,15 @@ export function ApiSettingsDialog({
           <div>
             <span className="panel-eyebrow">{isSetup ? 'Shader assistant' : 'AI settings'}</span>
             <h2 id="api-settings-title" className="dialog-title">
-              {isSetup ? 'Finish your shader' : 'Choose how shaders are generated'}
+              {isSetup ? setupTitle : 'Choose how shaders are generated'}
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>Close</button>
         </header>
         <div className="dialog-body">
+          {!(isSetup && usingEmbeddedSettings) ? (
           <div className="ai-route-sidebar">
-          {isSetup ? (
-            <section className="ai-quick-guide" aria-label="Quick guide">
-              <div className="ai-quick-guide-heading">
-                <span
-                  className={`ai-quick-guide-mark ${
-                    usingPerplexity
-                      ? 'ai-quick-guide-mark-perplexity'
-                      : usingChatGpt
-                        ? 'ai-quick-guide-mark-chatgpt'
-                        : ''
-                  }`}
-                  aria-hidden="true"
-                >
-                  {usingDirectChat ? (
-                    <img
-                      src={`${import.meta.env.BASE_URL}assets/icons/${
-                        usingPerplexity ? 'perplexity.svg' : 'chatgpt.svg'
-                      }`}
-                      alt=""
-                    />
-                  ) : selectedPath === 'api' ? (
-                    'API'
-                  ) : selectedPath === 'local' ? (
-                    '◎'
-                  ) : (
-                    '✦'
-                  )}
-                </span>
-                <div>
-                  <span className="panel-eyebrow">Quick guide</span>
-                  <h3>{guideTitle}</h3>
-                  <p>{guideNote}</p>
-                </div>
-              </div>
-              <ol className="ai-quick-guide-steps">
-                {guideSteps.map(([symbol, label]) => (
-                  <li key={label}>
-                    <span aria-hidden="true">
-                      {symbol === 'copy-response' ? <CopyResponseIcon /> : symbol}
-                    </span>
-                    <strong>{label}</strong>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
+          {quickGuide}
           {!selectedPath ? (
             <p className="dialog-note">
               {isSetup
@@ -702,6 +710,7 @@ export function ApiSettingsDialog({
             ) : null}
           </div>
           </div>
+          ) : null}
 
           {selectedPath === 'chat' || usingDirectChat ? (
             <section className="dialog-section ai-model-section ai-chat-section">
@@ -878,7 +887,20 @@ export function ApiSettingsDialog({
           ) : null}
 
           {selectedPath === 'local' ? (
-            <section className="dialog-section ai-model-section">
+            <section className="dialog-section ai-model-section ai-local-settings-panel">
+              {isSetup ? (
+                <div className="ai-config-panel-header">
+                  <button
+                    type="button"
+                    className="ghost-button ai-config-back-button"
+                    onClick={() => setSelectedPath('')}
+                  >
+                    <span aria-hidden="true">←</span>
+                    All AI models
+                  </button>
+                  {quickGuide}
+                </div>
+              ) : null}
               <div className="ai-section-heading">
                 <div>
                   <span className="panel-eyebrow">Local shader model</span>
@@ -973,7 +995,20 @@ export function ApiSettingsDialog({
           ) : null}
 
           {selectedPath === 'api' ? (
-            <section className="dialog-section ai-model-section">
+            <section className="dialog-section ai-model-section ai-api-settings-panel">
+              {isSetup ? (
+                <div className="ai-config-panel-header">
+                  <button
+                    type="button"
+                    className="ghost-button ai-config-back-button"
+                    onClick={() => setSelectedPath('')}
+                  >
+                    <span aria-hidden="true">←</span>
+                    All AI models
+                  </button>
+                  {quickGuide}
+                </div>
+              ) : null}
               <span className="panel-eyebrow">Cloud provider</span>
               <div className="stack gap-md">
                 <div className="ai-runtime-choice ai-provider-choice" role="radiogroup" aria-label="Cloud AI provider">
