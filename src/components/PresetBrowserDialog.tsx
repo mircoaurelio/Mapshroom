@@ -23,6 +23,21 @@ const TEMPLATE_LABELS: Record<ShaderTemplate, string> = {
   drawing: 'Drawing',
   sculpture: 'Sculpture',
 };
+const TEMPLATE_SEARCH_ALIASES: Record<ShaderTemplate, string[]> = {
+  stage: ['stage', 'stages', 'projection', 'projections', 'mapping', 'palco', 'proiezione'],
+  drawing: ['drawing', 'drawings', 'illustration', 'sketch', 'disegno', 'disegni'],
+  sculpture: [
+    'sculpture',
+    'sculptures',
+    'statue',
+    'statues',
+    'statua',
+    'scultura',
+    'sculture',
+    'object',
+    'objects',
+  ],
+};
 const GROUP_ORDER: Record<ShaderTemplate, string[]> = {
   stage: [
     'Halos',
@@ -78,17 +93,18 @@ interface PreviewRenderer {
   vertexShader: WebGLShader;
 }
 
+export type PresetSelectionAction = 'replace-current' | 'create-new';
+
 interface PresetBrowserDialogProps {
   open: boolean;
   presets: SavedShader[];
   activeShaderId: string;
   assetUrl: string | null;
-  addSelectionToTimeline: boolean;
-  timelineAddRequired?: boolean;
-  onAddSelectionToTimelineChange: (enabled: boolean) => void;
+  currentShaderName: string;
+  canReplaceCurrent: boolean;
   onPreviewStart?: (shaderId: string) => void;
   onPreviewEnd?: (shaderId: string) => void;
-  onSelect: (shaderId: string, options?: { addToTimeline?: boolean }) => void;
+  onSelect: (shaderId: string, action: PresetSelectionAction) => void;
   onClose: () => void;
 }
 
@@ -113,6 +129,13 @@ function getPresetTemplate(preset: SavedShader): ShaderTemplate {
 function getPresetTemplates(preset: SavedShader): ShaderTemplate[] {
   const templates = preset.templates?.filter((template) => TEMPLATE_ORDER.includes(template));
   return templates?.length ? templates : [getPresetTemplate(preset)];
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 function sortGroups(template: ShaderTemplate, left: string, right: string): number {
@@ -547,14 +570,14 @@ export function PresetBrowserDialog({
   presets,
   activeShaderId,
   assetUrl,
-  addSelectionToTimeline,
-  timelineAddRequired = false,
-  onAddSelectionToTimelineChange,
+  currentShaderName,
+  canReplaceCurrent,
   onPreviewStart,
   onPreviewEnd,
   onSelect,
   onClose,
 }: PresetBrowserDialogProps) {
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [activeTemplate, setActiveTemplate] = useState<ShaderTemplate>('sculpture');
   const [loadedPreview, setLoadedPreview] = useState<{
@@ -617,8 +640,8 @@ export function PresetBrowserDialog({
       return;
     }
 
-    const currentTemplate =
-      presets.find((preset) => preset.id === activeShaderId)?.template ?? 'sculpture';
+    const currentPreset = presets.find((preset) => preset.id === activeShaderId);
+    const currentTemplate = currentPreset ? getPresetTemplates(currentPreset)[0] : 'sculpture';
     setActiveTemplate(currentTemplate);
   }, [open, presets, activeShaderId]);
 
@@ -627,6 +650,7 @@ export function PresetBrowserDialog({
   const image = assetUrl && loadedPreview?.assetUrl === assetUrl ? loadedPreview.image : null;
   const previewNamespace = assetUrl ?? '__no_asset__';
   const handleClose = () => {
+    setPendingId(null);
     onPreviewEnd?.(activeShaderId);
     onClose();
   };
@@ -693,12 +717,14 @@ export function PresetBrowserDialog({
     });
   };
   const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'sculpture';
-  const normalizedQuery = deferredQuery.trim().toLowerCase();
+  const normalizedQuery = normalizeSearchText(deferredQuery.trim());
+  const searchTokens = normalizedQuery.split(/\s+/).filter(Boolean);
   const presetOrder = new Map(presets.map((preset, index) => [preset.id, index]));
   const sortMostRecentFirst = (left: SavedShader, right: SavedShader) =>
     (presetOrder.get(right.id) ?? -1) - (presetOrder.get(left.id) ?? -1);
   const filteredPresets = presets.filter((preset) => {
-    if (!getPresetTemplates(preset).includes(selectedTemplate)) {
+    const presetTemplates = getPresetTemplates(preset);
+    if (!normalizedQuery && !presetTemplates.includes(selectedTemplate)) {
       return false;
     }
 
@@ -706,18 +732,22 @@ export function PresetBrowserDialog({
       return true;
     }
 
-    const haystack = [
-      preset.name,
-      preset.description,
-      preset.group,
-      ...getPresetTemplates(preset).map((template) => TEMPLATE_LABELS[template]),
-      preset.id,
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
+    const haystack = normalizeSearchText(
+      [
+        preset.name,
+        preset.description,
+        preset.group,
+        ...presetTemplates.flatMap((template) => [
+          TEMPLATE_LABELS[template],
+          ...TEMPLATE_SEARCH_ALIASES[template],
+        ]),
+        preset.id,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    );
 
-    return haystack.includes(normalizedQuery);
+    return searchTokens.every((token) => haystack.includes(token));
   });
   const favoritePresets = filteredPresets
     .filter((preset) => favoritePresetIds.has(preset.id))
@@ -760,14 +790,12 @@ export function PresetBrowserDialog({
       onToggleFavorite={() => toggleFavoritePreset(preset.id)}
       onPreviewStart={() => onPreviewStart?.(preset.id)}
       onPreviewEnd={() => onPreviewEnd?.(preset.id)}
-      onSelect={() => {
-        onSelect(preset.id, {
-          addToTimeline: timelineAddRequired || addSelectionToTimeline,
-        });
-        handleClose();
-      }}
+      onSelect={() => setPendingId(preset.id)}
     />
   );
+  const pendingPreset = pendingId
+    ? presets.find((preset) => preset.id === pendingId) ?? null
+    : null;
 
   return (
     <div
@@ -794,7 +822,10 @@ export function PresetBrowserDialog({
           <div className="preset-browser-toolbar">
             <div className="field-inline-label">
               <span>Preset Browser</span>
-              <small>{filteredPresets.length} results</small>
+              <small>
+                {filteredPresets.length} results
+                {normalizedQuery ? ' across all categories' : ` in ${TEMPLATE_LABELS[selectedTemplate]}`}
+              </small>
             </div>
             <div className="preset-browser-search-shell">
               <input
@@ -815,30 +846,6 @@ export function PresetBrowserDialog({
                 </button>
               ) : null}
             </div>
-            <button
-              type="button"
-              className={`preset-timeline-toggle ${
-                timelineAddRequired || addSelectionToTimeline
-                  ? 'preset-timeline-toggle-active'
-                  : ''
-              }`}
-              aria-pressed={timelineAddRequired || addSelectionToTimeline}
-              disabled={timelineAddRequired}
-              onClick={() => {
-                if (!timelineAddRequired) {
-                  onAddSelectionToTimelineChange(!addSelectionToTimeline);
-                }
-              }}
-            >
-              <span className="preset-timeline-toggle-dot" aria-hidden="true" />
-              <span>
-                {timelineAddRequired
-                  ? 'Choose a shader to add'
-                  : addSelectionToTimeline
-                    ? 'Timeline write on'
-                    : 'Console preview only'}
-              </span>
-            </button>
             <div className="preset-category-row" role="tablist" aria-label="Preset templates">
               {TEMPLATE_ORDER.map((template) => (
                 <button
@@ -885,6 +892,73 @@ export function PresetBrowserDialog({
             </div>
           )}
         </div>
+
+        {pendingPreset ? (
+          <div
+            className="preset-confirm-backdrop"
+            role="presentation"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setPendingId(null);
+              }
+            }}
+          >
+            <section
+              className="preset-confirm"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="preset-confirm-title"
+              aria-describedby="preset-confirm-copy"
+            >
+              <span className="panel-eyebrow">Use preset</span>
+              <h3 id="preset-confirm-title">{pendingPreset.name}</h3>
+              <p id="preset-confirm-copy">
+                Would you like to replace the current shader{' '}
+                <strong>&ldquo;{currentShaderName}&rdquo;</strong> with this preset, or create a
+                new shader in the timeline?
+              </p>
+              <p className="preset-confirm-note">
+                Replacing keeps the current timeline position and timing. Creating new adds an
+                editable shader at the end of the timeline.
+              </p>
+              <div className="preset-confirm-actions">
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={!canReplaceCurrent}
+                  title={
+                    canReplaceCurrent
+                      ? 'Replace the current timeline shader'
+                      : 'There is no current timeline shader to replace'
+                  }
+                  onClick={() => {
+                    onSelect(pendingPreset.id, 'replace-current');
+                    handleClose();
+                  }}
+                >
+                  Replace Current Shader
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    onSelect(pendingPreset.id, 'create-new');
+                    handleClose();
+                  }}
+                >
+                  Create New Shader
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => setPendingId(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </section>
     </div>
   );

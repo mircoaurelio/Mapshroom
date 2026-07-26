@@ -4224,8 +4224,10 @@ a {
 }
 
 .preset-browser-panel {
+  position: relative;
   width: min(100%, 1040px);
   max-height: min(88vh, 820px);
+  overflow: hidden;
 }
 
 .preset-browser-body {
@@ -4577,21 +4579,57 @@ a {
   text-transform: uppercase;
 }
 
+.preset-confirm-backdrop {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.76);
+  backdrop-filter: blur(9px);
+}
+
 .preset-confirm {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 1rem 0;
+  width: min(540px, 100%);
+  padding: 1.35rem;
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
+  border-radius: var(--radius-md);
+  background: #111114;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
+}
+
+.preset-confirm h3 {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: 1.05rem;
+  line-height: 1.35;
 }
 
 .preset-confirm p {
+  margin: 0;
   color: var(--text-bright);
   font-size: 0.85rem;
+  line-height: 1.55;
 }
 
 .preset-confirm-note {
   color: var(--text-muted) !important;
   font-size: 0.72rem !important;
+}
+
+.preset-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+.preset-confirm-actions .ghost-button {
+  margin-left: auto;
 }
 
 .asset-row,

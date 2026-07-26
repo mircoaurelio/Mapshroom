@@ -19,7 +19,10 @@ import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PlaybackControls } from '../components/PlaybackControls';
-import { PresetBrowserDialog } from '../components/PresetBrowserDialog';
+import {
+  PresetBrowserDialog,
+  type PresetSelectionAction,
+} from '../components/PresetBrowserDialog';
 import { ProBetaDialog, type ProBetaSource } from '../components/ProBetaDialog';
 import { ProjectLibraryDialog } from '../components/ProjectLibraryDialog';
 import { ShareProjectDialog } from '../components/ShareProjectDialog';
@@ -2063,6 +2066,7 @@ function createSavedShaderRecord(
       | 'compileError'
       | 'description'
       | 'template'
+      | 'templates'
       | 'group'
       | 'inputAssetId'
       | 'isTemporary'
@@ -2097,6 +2101,7 @@ function createSavedShaderRecord(
     ),
     description: options.description ?? 'Saved from the current workspace state.',
     template: options.template ?? 'stage',
+    templates: options.templates,
     group: options.group ?? 'Saved',
     inputAssetId: options.inputAssetId ?? null,
     uniformValues: syncedUniformValues,
@@ -2321,6 +2326,20 @@ function getPreferredTimelineStepId(
   return steps[0]?.id ?? null;
 }
 
+function getCurrentPresetReplacementStep(
+  project: ProjectDocument,
+  editingTimelineStepId: string | null,
+) {
+  const steps = project.timeline.stub.shaderSequence.steps;
+  return (
+    steps.find((step) => step.id === editingTimelineStepId) ??
+    steps.find((step) => step.id === project.timeline.stub.shaderSequence.focusedStepId) ??
+    steps.find((step) => step.shaderId === project.studio.activeShaderId) ??
+    steps[0] ??
+    null
+  );
+}
+
 export function WorkspaceRoute() {
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -2384,8 +2403,6 @@ export function WorkspaceRoute() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
-  const [presetSelectionAddsToTimeline, setPresetSelectionAddsToTimeline] = useState(false);
-  const [mobilePresetAddFlow, setMobilePresetAddFlow] = useState(false);
   const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
   const [studioPreviewOverride, setStudioPreviewOverride] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
@@ -5058,6 +5075,122 @@ export function WorkspaceRoute() {
     closeMobileShaderDialog();
   };
 
+  const applyPresetSelection = (
+    shaderId: string,
+    action: PresetSelectionAction,
+  ) => {
+    if (!project) {
+      return;
+    }
+
+    const preset = project.studio.savedShaders.find((shader) => shader.id === shaderId);
+    if (!preset) {
+      return;
+    }
+
+    const replacementStep = getCurrentPresetReplacementStep(project, editingTimelineStepId);
+    if (action === 'replace-current' && !replacementStep) {
+      setStatusMessage('There is no current timeline shader to replace.');
+      return;
+    }
+
+    const targetStep =
+      action === 'replace-current'
+        ? replacementStep!
+        : createTimelineShaderStep(preset.id);
+    const replacedShader =
+      action === 'replace-current'
+        ? project.studio.savedShaders.find((shader) => shader.id === targetStep.shaderId) ?? null
+        : null;
+    const editableShader = createSavedShaderRecord(
+      preset.name,
+      preset.code,
+      preset.uniformValues,
+      {
+        description: preset.description ?? 'Linked timeline shader from a preset.',
+        template: preset.template ?? 'stage',
+        templates: preset.templates ? [...preset.templates] : undefined,
+        group: 'Timeline',
+        inputAssetId: replacedShader?.inputAssetId ?? preset.inputAssetId ?? null,
+        isTemporary: true,
+        isDirty: false,
+        sourceShaderId: preset.sourceShaderId ?? preset.id,
+        ownerTimelineStepId: targetStep.id,
+        versions: cloneShaderVersionsWithName(preset.versions, preset.name),
+        lastValidCode: preset.lastValidCode,
+        lastValidUniformValues: preset.lastValidUniformValues,
+        compileError: preset.compileError,
+      },
+    );
+
+    updateProject((currentProject) => {
+      const nextSteps =
+        action === 'replace-current'
+          ? currentProject.timeline.stub.shaderSequence.steps.map((step) =>
+              step.id === targetStep.id
+                ? {
+                    ...step,
+                    shaderId: editableShader.id,
+                  }
+                : step,
+            )
+          : [
+              ...currentProject.timeline.stub.shaderSequence.steps,
+              {
+                ...targetStep,
+                shaderId: editableShader.id,
+              },
+            ];
+
+      return pruneTemporaryTimelineShaders(
+        {
+          ...currentProject,
+          studio: {
+            ...currentProject.studio,
+            activeShaderId: editableShader.id,
+            activeShaderName: editableShader.name,
+            activeShaderCode: editableShader.code,
+            shaderChatHistory: [],
+            shaderVersions: getShaderVersionTrail(editableShader),
+            uniformValues: getSyncedShaderUniformValues(
+              editableShader.code,
+              editableShader.uniformValues,
+            ),
+            savedShaders: [...currentProject.studio.savedShaders, editableShader],
+          },
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              shaderSequence: {
+                ...currentProject.timeline.stub.shaderSequence,
+                enabled: true,
+                stagePreviewMode: 'focused',
+                focusedStepId: targetStep.id,
+                singleStepLoopEnabled: true,
+                steps: nextSteps,
+              },
+            },
+          },
+        },
+        [editableShader.id],
+      );
+    });
+
+    setEditingTimelineStepId(targetStep.id);
+    setPreviewShaderId(null);
+    setStudioPreviewOverride(false);
+    setPendingTimelineRepeatExit(null);
+    clearGeneratedShaderRetry();
+    setPreferLiveShaderCompilePreview(false);
+    setCompilerError(editableShader.compileError ?? '');
+    setStatusMessage(
+      action === 'replace-current'
+        ? `Replaced the current timeline shader with "${preset.name}".`
+        : `Created "${preset.name}" as a new shader in the timeline.`,
+    );
+    closeMobileShaderDialog();
+  };
+
   const hasDesktopDialogOpen =
     !isMobile &&
     (isApiSettingsOpen ||
@@ -6127,8 +6260,6 @@ ${errorSnapshot}`,
 
   const handleMobileAddShader = () => {
     setPreviewShaderId(null);
-    setPresetSelectionAddsToTimeline(true);
-    setMobilePresetAddFlow(true);
     setMobilePanel(null);
     setIsMobileTimelineOpen(false);
     setIsPresetBrowserOpen(true);
@@ -6879,6 +7010,14 @@ ${errorSnapshot}`,
   };
   const activeShaderRecord =
     project.studio.savedShaders.find((shader) => shader.id === project.studio.activeShaderId) ?? null;
+  const presetReplacementStep = getCurrentPresetReplacementStep(project, editingTimelineStepId);
+  const presetReplacementShader = presetReplacementStep
+    ? project.studio.savedShaders.find(
+        (shader) => shader.id === presetReplacementStep.shaderId,
+      ) ?? null
+    : null;
+  const presetReplacementShaderName =
+    presetReplacementShader?.name ?? project.studio.activeShaderName;
   const aiLoading = getPendingAiJobCount(activeShaderRecord) > 0;
   const activeTimelineDraftSource =
     activeTimelineDraft?.sourceShaderId
@@ -7979,23 +8118,18 @@ ${errorSnapshot}`,
         presets={timelineSelectableShaders}
         activeShaderId={project.studio.activeShaderId}
         assetUrl={activeAssetUrl}
-        addSelectionToTimeline={presetSelectionAddsToTimeline}
-        timelineAddRequired={mobilePresetAddFlow}
-        onAddSelectionToTimelineChange={setPresetSelectionAddsToTimeline}
+        currentShaderName={presetReplacementShaderName}
+        canReplaceCurrent={Boolean(presetReplacementStep)}
         onPreviewStart={(shaderId) => setPreviewShaderId(shaderId)}
         onPreviewEnd={(shaderId) =>
           setPreviewShaderId((currentShaderId) =>
             !shaderId || currentShaderId === shaderId ? null : currentShaderId,
           )
         }
-        onSelect={selectShader}
+        onSelect={applyPresetSelection}
         onClose={() => {
           setPreviewShaderId(null);
           setIsPresetBrowserOpen(false);
-          if (isMobile) {
-            setPresetSelectionAddsToTimeline(false);
-            setMobilePresetAddFlow(false);
-          }
         }}
       />
 
