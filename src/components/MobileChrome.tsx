@@ -63,8 +63,13 @@ export function MobileChrome({
           <button type="button" className="secondary-button" onClick={onOpenShare}>
             Share
           </button>
-          <button type="button" className="secondary-button mobile-assets-button" onClick={onOpenAssets}>
-            Assets
+          <button
+            type="button"
+            className="secondary-button mobile-assets-button"
+            data-mobile-onboarding-target="load"
+            onClick={onOpenAssets}
+          >
+            Load
           </button>
           <button type="button" className="secondary-button" onClick={onOpenSettings}>
             Settings
@@ -76,6 +81,7 @@ export function MobileChrome({
         <button
           type="button"
           className={activePanel === 'studio' ? 'mobile-dock-button-active' : ''}
+          data-mobile-onboarding-target="shader"
           onClick={() => onPanelChange('studio')}
         >
           Shader
@@ -83,6 +89,7 @@ export function MobileChrome({
         <button
           type="button"
           className={activePanel === 'sliders' ? 'mobile-dock-button-active' : ''}
+          data-mobile-onboarding-target="sliders"
           onClick={() => onPanelChange(activePanel === 'sliders' ? null : 'sliders')}
         >
           Sliders

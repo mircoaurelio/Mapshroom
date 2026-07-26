@@ -3457,6 +3457,171 @@ a {
   pointer-events: none;
 }
 
+.mobile-onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+}
+
+.mobile-onboarding-highlight {
+  position: fixed;
+  z-index: 1;
+  border: 2px solid rgba(var(--accent-rgb), 0.9);
+  border-radius: calc(var(--radius-sm) + 5px);
+  background: rgba(var(--accent-rgb), 0.06);
+  box-shadow:
+    0 0 0 3px rgba(var(--accent-rgb), 0.16),
+    0 0 28px rgba(var(--accent-rgb), 0.42);
+  animation: mobile-onboarding-highlight-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes mobile-onboarding-highlight-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(var(--accent-rgb), 0.13),
+      0 0 22px rgba(var(--accent-rgb), 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(var(--accent-rgb), 0.2),
+      0 0 34px rgba(var(--accent-rgb), 0.48);
+  }
+}
+
+.mobile-onboarding-callout {
+  position: fixed;
+  z-index: 2;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(var(--accent-rgb), 0.42);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(145deg, rgba(var(--accent-rgb), 0.1), transparent 58%),
+    rgba(9, 13, 12, 0.68);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(7px);
+  pointer-events: auto;
+}
+
+.mobile-onboarding-callout::after {
+  content: '';
+  position: absolute;
+  left: var(--mobile-onboarding-arrow-left);
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-style: solid;
+}
+
+.mobile-onboarding-callout-above::after {
+  top: 100%;
+  border-width: 11px 9px 0;
+  border-color: rgba(var(--accent-rgb), 0.72) transparent transparent;
+}
+
+.mobile-onboarding-callout-below::after {
+  bottom: 100%;
+  border-width: 0 9px 11px;
+  border-color: transparent transparent rgba(var(--accent-rgb), 0.72);
+}
+
+.mobile-onboarding-callout-header,
+.mobile-onboarding-callout-header > div,
+.mobile-onboarding-callout-footer,
+.mobile-onboarding-callout-footer > div {
+  display: flex;
+  align-items: center;
+}
+
+.mobile-onboarding-callout-header,
+.mobile-onboarding-callout-footer {
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mobile-onboarding-callout-header > div {
+  gap: 0.45rem;
+}
+
+.mobile-onboarding-callout-header span,
+.mobile-onboarding-callout-header small {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.mobile-onboarding-callout-header span {
+  color: var(--accent-pale);
+}
+
+.mobile-onboarding-callout-header small {
+  color: var(--text-dim);
+}
+
+.mobile-onboarding-close {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(63, 63, 70, 0.5);
+  border-radius: 999px;
+  background: rgba(9, 9, 11, 0.3);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.mobile-onboarding-callout h2,
+.mobile-onboarding-callout p {
+  margin: 0;
+}
+
+.mobile-onboarding-callout h2 {
+  color: var(--text-bright);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.mobile-onboarding-callout p {
+  color: rgba(244, 244, 245, 0.74);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.mobile-onboarding-callout-footer {
+  align-items: flex-end;
+  margin-top: 0.15rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(63, 63, 70, 0.48);
+}
+
+.mobile-onboarding-callout-footer > div {
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.mobile-onboarding-callout-footer a {
+  max-width: 128px;
+  color: var(--accent-pale);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.mobile-onboarding-callout-footer button {
+  min-height: 32px;
+  padding: 0.4rem 0.58rem;
+  font-size: 0.56rem;
+}
+
 .onboarding-panel {
   position: relative;
   z-index: 2;
@@ -4195,6 +4360,10 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .mobile-onboarding-highlight {
+    animation: none;
+  }
+
   .mapshroom-shader-backdrop {
     transition: none;
   }

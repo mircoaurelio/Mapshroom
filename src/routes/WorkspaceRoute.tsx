@@ -263,6 +263,64 @@ const ONBOARDING_AUTO_OPEN_LIMIT = 3;
 const ONBOARDING_SETUP_STEP_COUNT = 2;
 const ONBOARDING_CALLOUT_GAP_PX = 16;
 const ONBOARDING_CALLOUT_MARGIN_PX = 16;
+const MOBILE_ONBOARDING_COPY = {
+  en: {
+    guideLabel: 'Mobile workspace guide',
+    closeGuide: 'Close mobile guide',
+    fullTutorial: 'Open the full tutorial',
+    back: 'Back',
+    next: 'Next',
+    finish: 'Start',
+    steps: [
+      {
+        target: 'shader',
+        eyebrow: 'Shader',
+        title: 'Choose the visual effect',
+        copy: 'Tap Shader to explore effects while the image stays in view.',
+      },
+      {
+        target: 'sliders',
+        eyebrow: 'Sliders',
+        title: 'Shape the effect',
+        copy: 'Tap Sliders to adjust the current shader directly over the image.',
+      },
+      {
+        target: 'load',
+        eyebrow: 'Load',
+        title: 'Load your media',
+        copy: 'Tap Load to choose the image or video you want to map.',
+      },
+    ],
+  },
+  it: {
+    guideLabel: 'Guida dell’area di lavoro mobile',
+    closeGuide: 'Chiudi la guida mobile',
+    fullTutorial: 'Apri il tutorial completo',
+    back: 'Indietro',
+    next: 'Avanti',
+    finish: 'Inizia',
+    steps: [
+      {
+        target: 'shader',
+        eyebrow: 'Shader',
+        title: 'Scegli l’effetto visivo',
+        copy: 'Tocca Shader per esplorare gli effetti lasciando l’immagine sempre visibile.',
+      },
+      {
+        target: 'sliders',
+        eyebrow: 'Slider',
+        title: 'Modella l’effetto',
+        copy: 'Tocca Sliders per regolare lo shader direttamente sopra l’immagine.',
+      },
+      {
+        target: 'load',
+        eyebrow: 'Load',
+        title: 'Carica il tuo media',
+        copy: 'Tocca Load per scegliere l’immagine o il video da mappare.',
+      },
+    ],
+  },
+} as const;
 const ONBOARDING_COPY = {
   en: {
     welcomeEyebrow: 'Welcome to Mapshroom',
@@ -737,6 +795,175 @@ function MappingOutputDisclaimer() {
 interface OnboardingGuideProps {
   onClose: () => void;
   onDismissPermanently: () => void;
+}
+
+interface MobileOnboardingGuideProps extends OnboardingGuideProps {
+  onStepChange: () => void;
+}
+
+function MobileOnboardingGuide({
+  onClose,
+  onDismissPermanently,
+  onStepChange,
+}: MobileOnboardingGuideProps) {
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
+  const [targetRect, setTargetRect] = useState<{
+    top: number;
+    left: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const copy = MOBILE_ONBOARDING_COPY[locale];
+  const activeStep = copy.steps[activeStepIndex];
+  const isLastStep = activeStepIndex === copy.steps.length - 1;
+
+  useLayoutEffect(() => {
+    let animationFrameId = 0;
+    const targetSelector = `[data-mobile-onboarding-target="${activeStep.target}"]`;
+    const updateTargetRect = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = window.requestAnimationFrame(() => {
+        const targetElement = document.querySelector<HTMLElement>(targetSelector);
+
+        if (!targetElement) {
+          setTargetRect(null);
+          return;
+        }
+
+        const rect = targetElement.getBoundingClientRect();
+        setTargetRect({
+          top: rect.top,
+          left: rect.left,
+          right: rect.right,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height,
+        });
+      });
+    };
+
+    updateTargetRect();
+    window.addEventListener('resize', updateTargetRect);
+    window.addEventListener('scroll', updateTargetRect, true);
+
+    const targetElement = document.querySelector<HTMLElement>(targetSelector);
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateTargetRect) : null;
+    if (targetElement) {
+      resizeObserver?.observe(targetElement);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', updateTargetRect);
+      window.removeEventListener('scroll', updateTargetRect, true);
+      resizeObserver?.disconnect();
+    };
+  }, [activeStep.target]);
+
+  const goToStep = (nextStepIndex: number) => {
+    onStepChange();
+    setTargetRect(null);
+    setActiveStepIndex(nextStepIndex);
+  };
+
+  const goToPreviousStep = () => {
+    goToStep(Math.max(0, activeStepIndex - 1));
+  };
+
+  const goToNextStep = () => {
+    if (isLastStep) {
+      onClose();
+      return;
+    }
+
+    goToStep(activeStepIndex + 1);
+  };
+
+  const popupWidth = Math.min(312, Math.max(240, window.innerWidth - 24));
+  const targetCenterX = targetRect ? targetRect.left + targetRect.width / 2 : window.innerWidth / 2;
+  const popupLeft = Math.max(
+    12,
+    Math.min(window.innerWidth - popupWidth - 12, targetCenterX - popupWidth / 2),
+  );
+  const calloutAboveTarget = Boolean(targetRect && targetCenterX >= 0 && targetRect.top > window.innerHeight / 2);
+  const arrowLeft = Math.max(18, Math.min(popupWidth - 36, targetCenterX - popupLeft));
+  const calloutStyle: (CSSProperties & {
+    '--mobile-onboarding-arrow-left': string;
+  }) | undefined = targetRect
+    ? {
+        left: `${popupLeft}px`,
+        width: `${popupWidth}px`,
+        ...(calloutAboveTarget
+          ? { bottom: `${window.innerHeight - targetRect.top + 18}px` }
+          : { top: `${targetRect.bottom + 18}px` }),
+        '--mobile-onboarding-arrow-left': `${arrowLeft}px`,
+      }
+    : undefined;
+  const highlightStyle = targetRect
+    ? {
+        top: `${targetRect.top - 5}px`,
+        left: `${targetRect.left - 5}px`,
+        width: `${targetRect.width + 10}px`,
+        height: `${targetRect.height + 10}px`,
+      }
+    : undefined;
+
+  return (
+    <div className="mobile-onboarding-overlay" role="presentation">
+      {targetRect ? (
+        <span className="mobile-onboarding-highlight" style={highlightStyle} aria-hidden="true" />
+      ) : null}
+      <section
+        className={`mobile-onboarding-callout ${
+          calloutAboveTarget
+            ? 'mobile-onboarding-callout-above'
+            : 'mobile-onboarding-callout-below'
+        }`}
+        style={calloutStyle}
+        role="dialog"
+        aria-modal="false"
+        aria-label={copy.guideLabel}
+      >
+        <header className="mobile-onboarding-callout-header">
+          <div>
+            <span>{activeStep.eyebrow}</span>
+            <small>
+              {activeStepIndex + 1}/{copy.steps.length}
+            </small>
+          </div>
+          <button
+            type="button"
+            className="mobile-onboarding-close"
+            onClick={onDismissPermanently}
+            aria-label={copy.closeGuide}
+          >
+            ×
+          </button>
+        </header>
+        <h2>{activeStep.title}</h2>
+        <p>{activeStep.copy}</p>
+        <footer className="mobile-onboarding-callout-footer">
+          <Link to="/tutorial" onClick={onClose}>
+            {copy.fullTutorial} ↗
+          </Link>
+          <div>
+            {activeStepIndex > 0 ? (
+              <button type="button" className="secondary-button" onClick={goToPreviousStep}>
+                {copy.back}
+              </button>
+            ) : null}
+            <button type="button" className="primary-button" onClick={goToNextStep}>
+              {isLastStep ? copy.finish : copy.next}
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
@@ -6201,6 +6428,18 @@ ${errorSnapshot}`,
     }));
   };
 
+  useEffect(() => {
+    if (!isMobile || !showOnboardingGuide) {
+      return;
+    }
+
+    setMobilePanel(null);
+    setIsMobileTimelineOpen(false);
+    if (uiPreferences.mobileUiMode !== 'full') {
+      updateMobileUiMode('full');
+    }
+  }, [isMobile, showOnboardingGuide, uiPreferences.mobileUiMode]);
+
   const toggleSidebarVisibility = () => {
     setUiPreferences((currentValue) => ({
       ...currentValue,
@@ -8134,7 +8373,27 @@ ${errorSnapshot}`,
       />
 
       {showOnboardingGuide ? (
-        <OnboardingGuide
+        isMobile ? (
+          <MobileOnboardingGuide
+            onStepChange={() => {
+              setMobilePanel(null);
+              setIsMobileTimelineOpen(false);
+            }}
+            onClose={() => {
+              track('onboarding_complete');
+              dismissOnboardingPermanently();
+              setShowOnboardingGuide(false);
+              signalOnboardingComplete();
+            }}
+            onDismissPermanently={() => {
+              track('onboarding_dismiss');
+              dismissOnboardingPermanently();
+              setShowOnboardingGuide(false);
+              signalOnboardingComplete();
+            }}
+          />
+        ) : (
+          <OnboardingGuide
           onClose={() => {
             track('onboarding_complete');
             dismissOnboardingPermanently();
@@ -8147,7 +8406,8 @@ ${errorSnapshot}`,
             setShowOnboardingGuide(false);
             signalOnboardingComplete();
           }}
-        />
+          />
+        )
       ) : null}
     </div>
   );
