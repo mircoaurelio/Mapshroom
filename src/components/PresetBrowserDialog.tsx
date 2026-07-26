@@ -1,5 +1,4 @@
 import {
-  useDeferredValue,
   useEffect,
   useRef,
   useState,
@@ -135,7 +134,108 @@ function normalizeSearchText(value: string): string {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getEditDistance(left: string, right: string): number {
+  if (left === right) {
+    return 0;
+  }
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = new Array<number>(right.length + 1);
+
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    current[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + substitutionCost,
+      );
+    }
+
+    for (let index = 0; index < current.length; index += 1) {
+      previous[index] = current[index];
+    }
+  }
+
+  return previous[right.length];
+}
+
+function scoreSearchToken(token: string, value: string): number {
+  const normalizedValue = normalizeSearchText(value);
+  if (!normalizedValue) {
+    return -1;
+  }
+  if (normalizedValue === token) {
+    return 100;
+  }
+  if (normalizedValue.startsWith(token)) {
+    return 82;
+  }
+
+  const words = normalizedValue.split(' ').filter(Boolean);
+  if (words.some((word) => word === token)) {
+    return 76;
+  }
+  if (words.some((word) => word.startsWith(token))) {
+    return 68;
+  }
+  if (normalizedValue.includes(token)) {
+    return 58;
+  }
+  if (token.length < 3) {
+    return -1;
+  }
+
+  const maximumDistance = token.length >= 7 ? 2 : 1;
+  const closestDistance = words.reduce(
+    (distance, word) =>
+      Math.abs(word.length - token.length) <= maximumDistance
+        ? Math.min(distance, getEditDistance(token, word))
+        : distance,
+    Number.POSITIVE_INFINITY,
+  );
+
+  return closestDistance <= maximumDistance ? 40 - closestDistance * 8 : -1;
+}
+
+function getPresetSearchScore(preset: SavedShader, searchTokens: string[]): number | null {
+  const presetTemplates = getPresetTemplates(preset);
+  const fields = [
+    { value: preset.name, weight: 35 },
+    { value: preset.group ?? '', weight: 18 },
+    {
+      value: presetTemplates
+        .flatMap((template) => [
+          TEMPLATE_LABELS[template],
+          ...TEMPLATE_SEARCH_ALIASES[template],
+        ])
+        .join(' '),
+      weight: 15,
+    },
+    { value: preset.description ?? '', weight: 6 },
+    { value: preset.id, weight: 2 },
+  ];
+
+  let totalScore = 0;
+  for (const token of searchTokens) {
+    const bestFieldScore = fields.reduce((bestScore, field) => {
+      const tokenScore = scoreSearchToken(token, field.value);
+      return tokenScore < 0 ? bestScore : Math.max(bestScore, tokenScore + field.weight);
+    }, -1);
+
+    if (bestFieldScore < 0) {
+      return null;
+    }
+    totalScore += bestFieldScore;
+  }
+
+  return totalScore;
 }
 
 function sortGroups(template: ShaderTemplate, left: string, right: string): number {
@@ -588,7 +688,6 @@ export function PresetBrowserDialog({
   const [favoritePresetIds, setFavoritePresetIds] = useState<Set<string>>(() =>
     loadFavoritePresetIds(),
   );
-  const deferredQuery = useDeferredValue(query);
   const previewRendererRef = useRef<PreviewRenderer | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
   const previewRequestsRef = useRef(new Set<string>());
@@ -717,11 +816,12 @@ export function PresetBrowserDialog({
     });
   };
   const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'sculpture';
-  const normalizedQuery = normalizeSearchText(deferredQuery.trim());
+  const normalizedQuery = normalizeSearchText(query);
   const searchTokens = normalizedQuery.split(/\s+/).filter(Boolean);
   const presetOrder = new Map(presets.map((preset, index) => [preset.id, index]));
   const sortMostRecentFirst = (left: SavedShader, right: SavedShader) =>
     (presetOrder.get(right.id) ?? -1) - (presetOrder.get(left.id) ?? -1);
+  const searchScores = new Map<string, number>();
   const filteredPresets = presets.filter((preset) => {
     const presetTemplates = getPresetTemplates(preset);
     if (!normalizedQuery && !presetTemplates.includes(selectedTemplate)) {
@@ -732,29 +832,24 @@ export function PresetBrowserDialog({
       return true;
     }
 
-    const haystack = normalizeSearchText(
-      [
-        preset.name,
-        preset.description,
-        preset.group,
-        ...presetTemplates.flatMap((template) => [
-          TEMPLATE_LABELS[template],
-          ...TEMPLATE_SEARCH_ALIASES[template],
-        ]),
-        preset.id,
-      ]
-        .filter(Boolean)
-        .join(' '),
-    );
-
-    return searchTokens.every((token) => haystack.includes(token));
+    const score = getPresetSearchScore(preset, searchTokens);
+    if (score === null) {
+      return false;
+    }
+    searchScores.set(preset.id, score);
+    return true;
   });
+  const sortSearchResults = (left: SavedShader, right: SavedShader) =>
+    normalizedQuery
+      ? (searchScores.get(right.id) ?? 0) - (searchScores.get(left.id) ?? 0) ||
+        sortMostRecentFirst(left, right)
+      : sortMostRecentFirst(left, right);
   const favoritePresets = filteredPresets
     .filter((preset) => favoritePresetIds.has(preset.id))
-    .sort(sortMostRecentFirst);
+    .sort(sortSearchResults);
   const groupedPresets = Array.from(
     [...filteredPresets]
-      .sort(sortMostRecentFirst)
+      .sort(sortSearchResults)
       .filter((preset) => !favoritePresetIds.has(preset.id))
       .reduce((groups, preset) => {
         const group = getPresetGroup(preset);
@@ -765,11 +860,13 @@ export function PresetBrowserDialog({
       }, new Map<string, SavedShader[]>()),
   )
     .sort(([left], [right]) =>
-      selectedTemplate === 'sculpture' ? 0 : sortGroups(selectedTemplate, left, right),
+      normalizedQuery || selectedTemplate === 'sculpture'
+        ? 0
+        : sortGroups(selectedTemplate, left, right),
     )
     .map(([group, items]) => ({
       group,
-      items: [...items].sort(sortMostRecentFirst),
+      items: [...items].sort(sortSearchResults),
     }));
   const renderPresetCard = (preset: SavedShader) => (
     <PreviewCard
@@ -824,15 +921,21 @@ export function PresetBrowserDialog({
               <span>Preset Browser</span>
               <small>
                 {filteredPresets.length} results
-                {normalizedQuery ? ' across all categories' : ` in ${TEMPLATE_LABELS[selectedTemplate]}`}
+                {normalizedQuery
+                  ? ' across all categories · updates automatically'
+                  : ` in ${TEMPLATE_LABELS[selectedTemplate]}`}
               </small>
             </div>
             <div className="preset-browser-search-shell">
               <input
+                type="search"
                 className="text-field preset-browser-search"
-                placeholder="Search presets..."
+                placeholder="Type to search all presets..."
+                aria-label="Search shader presets automatically"
+                autoComplete="off"
+                autoFocus
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onInput={(event) => setQuery(event.currentTarget.value)}
               />
               {query ? (
                 <button
