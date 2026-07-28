@@ -326,16 +326,31 @@ async function runReview() {
   }
 
   const isDrawing = preset.template === 'drawing';
+  const isStatueDepthMorph =
+    preset.id === 'atelier_mercury_reliquary' ||
+    preset.id === 'atelier_kintsugi_singularity';
   const sources = isDrawing
     ? [
         { label: 'Line drawing', canvas: createLineDrawing() },
         { label: 'Painting', canvas: createPainting() },
       ]
     : await Promise.all(
-        [
-          { label: 'Base statue', url: '/assets/defaults-basestatue.png' },
-          { label: 'Ornate stage', url: '/assets/defaults-palco.png' },
-        ].map(async (item) => {
+        (isStatueDepthMorph
+          ? [
+              {
+                label: 'Statue depth map',
+                url: '/assets/defaults-basestatue-depth.png',
+              },
+              {
+                label: 'Statue surface',
+                url: '/assets/defaults-basestatue.png',
+              },
+            ]
+          : [
+              { label: 'Base statue', url: '/assets/defaults-basestatue.png' },
+              { label: 'Ornate stage', url: '/assets/defaults-palco.png' },
+            ]
+        ).map(async (item) => {
           const image = await loadImage(item.url);
           return {
             label: item.label,
@@ -354,7 +369,13 @@ async function runReview() {
   `;
   const meta = document.createElement('div');
   meta.className = 'meta';
-  meta.textContent = `${isDrawing ? 'Drawing / painting' : 'Statue + stage'} · 3 fixed times · RGB review`;
+  meta.textContent = `${
+    isDrawing
+      ? 'Drawing / painting'
+      : isStatueDepthMorph
+        ? 'Statue surface + depth'
+        : 'Statue + stage'
+  } · 3 fixed times · RGB review`;
   header.append(copy, meta);
   const main = document.createElement('main');
 

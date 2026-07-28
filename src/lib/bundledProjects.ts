@@ -4,9 +4,7 @@ import type { ShaderPresetDefinition } from '../shaders/presets/types';
 import type { ProjectDocument, ProjectLibraryEntry } from '../types';
 import {
   BUNDLED_STATUE_ASSET_ID,
-  BUNDLED_STAGE_1B_ASSET_ID,
-  BUNDLED_STAGE_2A_ASSET_ID,
-  BUNDLED_STAGE_ASSET_ID,
+  BUNDLED_STATUE_DEPTH_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
 } from './bundledAssets';
 import { createTimelineShaderStep, getShaderTimelineDuration } from './timeline';
@@ -76,7 +74,7 @@ function buildStarterShaderSequence(presets: ShaderPresetDefinition[]) {
 export const BUNDLED_PROJECT_LIBRARY_ENTRIES: ProjectLibraryEntry[] = [
   {
     sessionId: BUNDLED_PROJECTION_ATELIER_PROJECT_SESSION_ID,
-    name: 'Projection Atelier · Complete Collection',
+    name: 'Projection Atelier · Statue Depth Morphs',
     createdAt: BUNDLED_PROJECTION_ATELIER_PROJECT_CREATED_AT,
     updatedAt: BUNDLED_PROJECTION_ATELIER_PROJECT_CREATED_AT,
     bundled: true,
@@ -97,32 +95,27 @@ export function isBundledProjectSessionId(sessionId: string): boolean {
   );
 }
 
-function getAtelierInputAssetId(preset: ShaderPresetDefinition, index: number): string {
-  if (preset.template === 'drawing') {
-    return index % 2 === 0 ? BUNDLED_STAGE_2A_ASSET_ID : BUNDLED_STAGE_1B_ASSET_ID;
-  }
-
-  return preset.template === 'stage' ? BUNDLED_STAGE_ASSET_ID : BUNDLED_STATUE_ASSET_ID;
-}
-
 function createProjectionAtelierProjectDocument(): ProjectDocument {
-  const reviewedPresets = projectionAtelierPresetList;
+  const statueDepthShaderIds = new Set([
+    'atelier_mercury_reliquary',
+    'atelier_kintsugi_singularity',
+  ]);
+  const reviewedPresets = projectionAtelierPresetList.filter((preset) =>
+    statueDepthShaderIds.has(preset.id),
+  );
   const activeShader = reviewedPresets.find(
     (preset) => preset.id === 'atelier_mercury_reliquary',
   ) ?? reviewedPresets[0];
 
-  if (!activeShader || reviewedPresets.length < 20) {
-    throw new Error('Projection Atelier requires 20 reviewed shader presets.');
+  if (!activeShader || reviewedPresets.length !== 2) {
+    throw new Error('Projection Atelier statue project requires two reviewed shader presets.');
   }
 
-  const assignedAssetIds = new Map(
-    reviewedPresets.map((preset, index) => [preset.id, getAtelierInputAssetId(preset, index)]),
-  );
   const steps = reviewedPresets.map((preset) => ({
     ...createTimelineShaderStep(preset.id),
-    durationSeconds: 10,
-    transitionDurationSeconds: 1.25,
-    transitionEffect: 'random' as const,
+    durationSeconds: 16,
+    transitionDurationSeconds: 1.4,
+    transitionEffect: 'mix' as const,
     assetSettings: normalizeTimelineStepAssetSettings({
       fitMode: 'contain',
       opacity: 1,
@@ -143,10 +136,14 @@ function createProjectionAtelierProjectDocument(): ProjectDocument {
   return {
     version: 3,
     sessionId: BUNDLED_PROJECTION_ATELIER_PROJECT_SESSION_ID,
-    name: 'Projection Atelier · Complete Collection',
+    name: 'Projection Atelier · Statue Depth Morphs',
     library: {
-      assets: DEFAULT_BUNDLED_ASSETS,
-      activeAssetId: assignedAssetIds.get(activeShader.id) ?? BUNDLED_STAGE_ASSET_ID,
+      assets: DEFAULT_BUNDLED_ASSETS.filter(
+        (asset) =>
+          asset.id === BUNDLED_STATUE_ASSET_ID ||
+          asset.id === BUNDLED_STATUE_DEPTH_ASSET_ID,
+      ),
+      activeAssetId: BUNDLED_STATUE_ASSET_ID,
     },
     studio: {
       activeShaderId: activeShader.id,
@@ -155,7 +152,7 @@ function createProjectionAtelierProjectDocument(): ProjectDocument {
       shaderVersions: [activeShaderVersion],
       savedShaders: reviewedPresets.map((preset) => ({
         ...preset,
-        inputAssetId: assignedAssetIds.get(preset.id) ?? null,
+        inputAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
         versions: [
           shaderVersions.find((version) => version.name === preset.name) ?? activeShaderVersion,
         ],
@@ -180,7 +177,7 @@ function createProjectionAtelierProjectDocument(): ProjectDocument {
       },
     },
     playback: {
-      activeAssetId: assignedAssetIds.get(activeShader.id) ?? BUNDLED_STAGE_ASSET_ID,
+      activeAssetId: BUNDLED_STATUE_ASSET_ID,
       transport: {
         isPlaying: true,
         currentTimeSeconds: 0,
@@ -211,10 +208,10 @@ function createProjectionAtelierProjectDocument(): ProjectDocument {
       stub: {
         enabled: true,
         durationSeconds: getShaderTimelineDuration(steps),
-        markers: ['sculpture', 'architecture', 'drawing'],
+        markers: ['mercury', 'kintsugi'],
         tracks: [
-          { id: 'timeline-track-assets', label: 'Projection surfaces', type: 'media' },
-          { id: 'timeline-track-effects', label: 'Reviewed shaders', type: 'automation' },
+          { id: 'timeline-track-assets', label: 'Statue depth map', type: 'media' },
+          { id: 'timeline-track-effects', label: 'Depth morphs', type: 'automation' },
         ],
         shaderSequence: {
           enabled: true,
@@ -223,13 +220,13 @@ function createProjectionAtelierProjectDocument(): ProjectDocument {
           stagePreviewMode: 'timeline',
           focusedStepId: steps[0]?.id ?? null,
           pinnedStepId: null,
-          randomSeedToken: 'projection-atelier-reviewed-sequence',
+          randomSeedToken: 'projection-atelier-statue-depth-sequence',
           singleStepLoopEnabled: false,
           randomChoiceEnabled: false,
           sharedTransitionEnabled: true,
-          sharedTransitionEffect: 'random',
-          sharedTransitionDurationSeconds: 1.25,
-          sharedSectionDurationSeconds: 10,
+          sharedTransitionEffect: 'mix',
+          sharedTransitionDurationSeconds: 1.4,
+          sharedSectionDurationSeconds: 16,
           steps,
         },
       },

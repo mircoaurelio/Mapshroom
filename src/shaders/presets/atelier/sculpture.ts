@@ -9,13 +9,15 @@ const sculptureSpecs: MaskedAtelierSpec[] = [
     templates: ['sculpture', 'stage'],
     group: 'Atelier · Liquid Metals',
     description:
-      'A circulating mercury skin with relief-driven rivulets, liquid beads, and moving gallery reflections; pure black remains projector black.',
+      'A continuous circulating mercury skin with relief-driven currents and moving gallery reflections; pure black remains projector black.',
     speed: 0.58,
     intensity: 1.28,
     scale: 1.08,
     reliefDepth: 12.5,
     blackCut: 0.025,
     detail: 1.18,
+    normalSampleRadius: 14,
+    edgeGlow: 0,
     accentA: [0.03, 0.045, 0.065],
     accentB: [0.72, 0.84, 0.96],
     accentC: [0.45, 0.94, 0.88],
@@ -30,58 +32,85 @@ vec3 atelier_material(
     vec3 normal,
     vec3 sourceColor
 ) {
-    vec2 flowPoint = point * (1.38 + detail * 0.18);
-    float lowFlow = atelier_fbm(flowPoint * 1.1 + vec2(time * 0.32, -time * 0.18));
+    vec2 depthWarp = normal.xy * (0.2 + luma * 0.13);
+    depthWarp += vec2(curvature, -broadRelief) * 0.075;
+    vec2 surfacePoint = point + depthWarp;
+    vec2 flowPoint = surfacePoint * (1.16 + detail * 0.14);
+    float lowFlow = atelier_fbm(
+        flowPoint * 1.08 + vec2(time * 0.28, -time * 0.19)
+    );
     float crossFlow = atelier_fbm(
-        atelier_rot(1.17) * flowPoint * 1.4 + vec2(-time * 0.21, time * 0.26) + 7.4
+        atelier_rot(1.13) * flowPoint * 1.34 +
+        vec2(-time * 0.18, time * 0.24) + 7.4
     );
-    float riverCenterA = -0.48 + sin(point.y * 2.2 + time * 1.18) * 0.24;
-    riverCenterA += (lowFlow - 0.5) * 0.46;
-    float riverCenterB = 0.44 + cos(point.y * 2.8 - time * 0.83) * 0.19;
-    riverCenterB += (crossFlow - 0.5) * 0.38;
-    float riverA = 1.0 - smoothstep(0.055, 0.19, abs(point.x - riverCenterA));
-    float riverB = 1.0 - smoothstep(0.045, 0.15, abs(point.x - riverCenterB));
-    float merger = 1.0 - smoothstep(
-        0.07,
-        0.24,
-        abs(point.x - sin(point.y * 1.2 - time * 0.72) * 0.12)
+    float depthPool = atelier_sat(
+        0.5 - normal.y * 0.28 - curvature * 0.2 + broadRelief * 0.17
     );
-    merger *= smoothstep(0.64, 0.9, lowFlow + crossFlow * 0.4);
-    float rivulet = atelier_sat(riverA + riverB * 0.82 + merger * 0.64);
+    float riverCoordinateA = surfacePoint.x * 0.92 +
+        sin(surfacePoint.y * 2.15 + time * 0.9 + lowFlow * 2.3) * 0.22 +
+        (crossFlow - 0.5) * 0.46 + normal.x * 0.12;
+    float riverCoordinateB = surfacePoint.x * 0.76 -
+        cos(surfacePoint.y * 2.65 - time * 0.72 + crossFlow * 2.0) * 0.28 -
+        (lowFlow - 0.5) * 0.38 + normal.y * 0.1;
+    float riverA = atelier_line(riverCoordinateA + 0.34, 0.19);
+    float riverB = atelier_line(riverCoordinateB - 0.38, 0.16);
+    float centralFlow = atelier_line(
+        surfacePoint.x * 0.72 +
+        sin(surfacePoint.y * 1.35 - time * 0.54) * 0.13 +
+        (lowFlow - crossFlow) * 0.32,
+        0.13
+    );
+    centralFlow *= smoothstep(0.46, 0.72, lowFlow + depthPool * 0.24);
+    float rivulet = atelier_sat(riverA + riverB * 0.84 + centralFlow * 0.68);
 
-    vec2 beadPoint = point * vec2(3.8, 3.1) + vec2(0.0, -time * 0.74);
-    vec2 beadCell = floor(beadPoint);
-    vec2 beadLocal = fract(beadPoint) - 0.5;
-    vec2 beadCenter = (atelier_hash22(beadCell) - 0.5) * 0.54;
-    float beadRadius = 0.08 + atelier_hash21(beadCell + 3.7) * 0.15;
-    float beads = 1.0 - smoothstep(
-        beadRadius,
-        beadRadius + 0.055,
-        length(beadLocal - beadCenter)
+    float filmField = lowFlow * 0.57 + crossFlow * 0.43 + depthPool * 0.2;
+    float film = smoothstep(0.48, 0.69, filmField);
+    float reflectionBand = pow(0.5 + 0.5 * sin(
+        surfacePoint.y * 3.15 + normal.x * 4.2 -
+        time * 1.08 + lowFlow * 1.3
+    ), 3.0);
+    float liquidHeight = atelier_sat(
+        0.62 + film * 0.08 + rivulet * 0.22 +
+        depthPool * 0.08 + reflectionBand * 0.06
     );
-    beads *= step(0.64, atelier_hash21(beadCell));
-    beads *= smoothstep(0.24, 0.66, lowFlow);
 
     vec3 movingLight = normalize(vec3(
-        sin(time * 0.92) * 0.72,
-        cos(time * 0.67) * 0.48,
-        0.72
+        sin(time * 0.78) * 0.74,
+        cos(time * 0.61) * 0.52,
+        0.76
+    ));
+    vec2 liquidSlope = vec2(
+        cos(surfacePoint.y * 3.2 + time + lowFlow * 2.0),
+        sin(surfacePoint.x * 2.7 - time * 0.72 + crossFlow * 2.4)
+    );
+    vec3 liquidNormal = normalize(vec3(
+        normal.xy - liquidSlope * (0.08 + rivulet * 0.16),
+        max(normal.z, 0.08) + liquidHeight * 0.42
     ));
     float specular = pow(
-        max(dot(reflect(-movingLight, normal), vec3(0.0, 0.0, 1.0)), 0.0),
-        38.0
+        max(dot(reflect(-movingLight, liquidNormal), vec3(0.0, 0.0, 1.0)), 0.0),
+        34.0
     );
     float gallerySweep = pow(0.5 + 0.5 * sin(
-        normal.x * 7.0 + point.y * 2.3 - time * 1.62 + lowFlow * 2.2
-    ), 5.0);
-    float liquidBody = atelier_sat(rivulet + beads * 0.82);
-    vec3 dryStone = accent_a + sourceColor * 0.022;
-    vec3 silver = mix(vec3(0.11, 0.14, 0.18), accent_b, gallerySweep);
-    silver = mix(silver, accent_c, beads * 0.38 + max(curvature, 0.0) * 0.12);
-    vec3 result = dryStone * (0.72 + luma * 0.18);
-    result += silver * liquidBody * (0.46 + gallerySweep * 0.72);
-    result += vec3(0.95, 1.0, 1.0) * specular * liquidBody * 1.15;
-    result += accent_c * edge * liquidBody * 0.09;
+        liquidNormal.x * 6.8 + surfacePoint.y * 2.1 -
+        time * 1.42 + lowFlow * 2.4
+    ), 4.0);
+    float grazing = pow(1.0 - max(liquidNormal.z, 0.0), 2.4);
+    vec3 silver = mix(
+        vec3(0.18, 0.22, 0.28),
+        accent_b,
+        0.22 + gallerySweep * 0.68
+    );
+    silver = mix(
+        silver,
+        accent_c,
+        film * 0.1 + max(curvature, 0.0) * 0.08 + depthPool * 0.08
+    );
+    vec3 result = silver * liquidHeight *
+        (0.62 + gallerySweep * 0.38 + reflectionBand * 0.24);
+    result += vec3(0.96, 1.0, 1.0) * specular * liquidHeight * 1.18;
+    result += accent_b * grazing * (0.1 + film * 0.16);
+    result += accent_c * edge * liquidHeight * 0.075;
     return result;
 }`,
   },
@@ -92,13 +121,15 @@ vec3 atelier_material(
     templates: ['sculpture', 'stage'],
     group: 'Atelier · Fracture Rituals',
     description:
-      'A porcelain void repaired by propagating gold fracture fronts, granular lacquer, and relief-locked glints.',
+      'A porcelain void repaired by a connected gold fracture network with relief-locked propagation and glints.',
     speed: 0.46,
     intensity: 1.22,
     scale: 1.02,
     reliefDepth: 13.8,
     blackCut: 0.023,
     detail: 1.3,
+    normalSampleRadius: 14,
+    edgeGlow: 0,
     accentA: [0.018, 0.015, 0.025],
     accentB: [1.0, 0.58, 0.08],
     accentC: [1.0, 0.9, 0.45],
@@ -113,33 +144,113 @@ vec3 atelier_material(
     vec3 normal,
     vec3 sourceColor
 ) {
-    vec2 crackedPoint = point * (4.2 + detail * 1.1);
-    crackedPoint += vec2(
-        atelier_fbm(point * 2.1 + time * 0.07),
-        atelier_fbm(point * 2.3 - time * 0.06 + 8.0)
-    ) * 0.55;
-    vec2 cells = atelier_voronoi(crackedPoint);
-    float fractureDistance = cells.y - cells.x;
-    float hairline = 1.0 - smoothstep(0.018, 0.095, fractureDistance);
-    float secondary = 1.0 - smoothstep(0.02, 0.085, abs(fract(
-        crackedPoint.x * 0.36 + crackedPoint.y * 0.21 + atelier_fbm(crackedPoint * 0.31)
-    ) - 0.5));
-    secondary *= smoothstep(0.38, 0.72, atelier_ridged(crackedPoint * 0.45));
-    float propagation = fract(time * 0.115);
-    float cellPhase = fract(atelier_hash21(floor(crackedPoint)) * 0.72 + length(point) * 0.21);
-    float arrival = smoothstep(propagation - 0.12, propagation + 0.04, cellPhase);
-    arrival = max(arrival, smoothstep(0.88, 0.98, propagation) * smoothstep(0.12, 0.0, cellPhase));
-    float cracks = atelier_sat((hairline + secondary * 0.38) * arrival);
+    vec2 depthWarp = normal.xy * (0.24 + luma * 0.12);
+    depthWarp += vec2(curvature, -broadRelief) * 0.09;
+    vec2 surfacePoint = point + depthWarp;
+    vec2 fracturePoint = surfacePoint * (0.92 + detail * 0.1);
+    float warpA = atelier_fbm(
+        fracturePoint * 0.62 + vec2(time * 0.045, -time * 0.035)
+    );
+    float warpB = atelier_fbm(
+        atelier_rot(1.21) * fracturePoint * 0.68 +
+        vec2(-time * 0.038, time * 0.052) + 8.0
+    );
+    vec2 continuousWarp = vec2(warpA - 0.5, warpB - 0.5);
+    float mainPath = surfacePoint.x +
+        sin(surfacePoint.y * 2.05 + warpA * 2.6 - time * 0.16) * 0.23 +
+        normal.x * 0.15;
+    float crossPath = surfacePoint.y + 0.34 +
+        sin(surfacePoint.x * 2.45 - warpB * 2.2 + time * 0.12) * 0.28 +
+        normal.y * 0.12;
+    float diagonalPath = surfacePoint.x + surfacePoint.y * 0.48 - 0.31 +
+        sin(surfacePoint.y * 3.1 + warpA * 2.0) * 0.1;
+    float branchPath = surfacePoint.x - surfacePoint.y * 0.58 + 0.36 +
+        cos(surfacePoint.y * 2.7 - warpB * 2.4) * 0.09;
+    float branchPathB = surfacePoint.x + surfacePoint.y * 0.65 + 0.42 +
+        sin(surfacePoint.y * 2.3 + warpA * 2.1) * 0.08;
+    float lateral = abs(surfacePoint.x);
+    float handRegion = smoothstep(0.68, 0.92, lateral);
+    float handSpinePath = lateral - 1.12 +
+        sin(surfacePoint.y * 2.8 + warpB * 2.5 - time * 0.12) * 0.13 +
+        normal.x * sign(surfacePoint.x) * 0.09;
+    float handCrossPath = surfacePoint.y + 0.18 +
+        sin(lateral * 3.4 - warpA * 2.1 + time * 0.1) * 0.17 +
+        normal.y * 0.1;
+    float handBranchPath = lateral + surfacePoint.y * 0.5 - 1.18 +
+        cos(surfacePoint.y * 2.4 + warpA * 2.2) * 0.08;
+    float primary = atelier_line(mainPath, 0.055);
+    float crossCrack = atelier_line(crossPath, 0.045);
+    float diagonalCrack = atelier_line(diagonalPath, 0.034) *
+        smoothstep(-0.72, 0.18, surfacePoint.y);
+    float branchCrack = atelier_line(branchPath, 0.03) *
+        smoothstep(-0.24, 0.72, surfacePoint.y);
+    float branchCrackB = atelier_line(branchPathB, 0.029) *
+        smoothstep(-0.46, 0.68, surfacePoint.y);
+    float handSpineCrack = atelier_line(handSpinePath, 0.062) * handRegion;
+    float handCrossCrack = atelier_line(handCrossPath, 0.049) * handRegion;
+    float handBranchCrack = atelier_line(handBranchPath, 0.038) * handRegion;
+    float primaryDistance = min(
+        min(min(abs(mainPath), abs(crossPath)), abs(handSpinePath)),
+        min(
+            min(abs(diagonalPath), abs(branchPath)),
+            min(abs(branchPathB), min(abs(handCrossPath), abs(handBranchPath)))
+        )
+    );
+    float depthLock = smoothstep(
+        0.13,
+        0.82,
+        luma * 0.62 + max(curvature, 0.0) * 0.2 +
+        abs(normal.x) * 0.12 + abs(normal.y) * 0.1
+    );
+    float pathPhase = fract(
+        warpA * 0.64 + warpB * 0.36 +
+        length(surfacePoint) * 0.14 - time * 0.09
+    );
+    float travelingRepair = smoothstep(0.02, 0.24, pathPhase) *
+        (1.0 - smoothstep(0.68, 0.96, pathPhase));
+    float cracks = atelier_sat(
+        primary + crossCrack * 0.82 +
+        diagonalCrack * 0.72 + branchCrack * 0.68 + branchCrackB * 0.66 +
+        handSpineCrack * 0.9 + handCrossCrack * 0.78 + handBranchCrack * 0.72
+    );
+    cracks *= 0.72 + travelingRepair * 0.28;
+    cracks *= 0.85 + depthLock * 0.15;
+    float crackHalo = (1.0 - smoothstep(0.025, 0.082, primaryDistance)) *
+        (1.0 - cracks * 0.42);
 
-    float goldDust = pow(atelier_hash21(floor(crackedPoint * 7.0 + time)), 18.0) * cracks;
-    vec3 porcelain = mix(vec3(0.018, 0.02, 0.032), vec3(0.22, 0.24, 0.29), luma * 0.7);
-    porcelain *= 0.7 + 0.3 * max(normal.z, 0.0);
-    porcelain += vec3(0.07, 0.08, 0.11) * atelier_sat(-curvature);
-    vec3 gold = mix(accent_b, accent_c, 0.35 + 0.65 * sin(time * 1.4 + cells.x * 11.0) * 0.5);
-    gold *= 0.65 + 1.6 * pow(max(dot(normalize(vec3(-0.4, 0.5, 0.8)), normal), 0.0), 12.0);
+    float goldGrain = pow(
+        0.5 + 0.5 * sin(
+            surfacePoint.y * 8.0 + surfacePoint.x * 3.0 -
+            time * 1.8 + warpA * 3.0
+        ),
+        14.0
+    ) * cracks;
+    vec3 porcelain = mix(
+        vec3(0.014, 0.016, 0.028),
+        vec3(0.27, 0.29, 0.35),
+        luma * 0.78
+    );
+    porcelain *= 0.58 + 0.42 * max(normal.z, 0.0);
+    porcelain += vec3(0.065, 0.075, 0.11) * atelier_sat(-curvature);
+    porcelain *= 1.0 - crackHalo * 0.64;
+    vec3 goldLight = normalize(vec3(
+        -0.46 + sin(time * 0.42) * 0.28,
+        0.48 + cos(time * 0.37) * 0.22,
+        0.82
+    ));
+    float goldSpecular = pow(
+        max(dot(reflect(-goldLight, normal), vec3(0.0, 0.0, 1.0)), 0.0),
+        18.0
+    );
+    vec3 gold = mix(
+        accent_b,
+        accent_c,
+        0.3 + 0.7 * (0.5 + 0.5 * sin(time * 1.2 + warpA * 8.0))
+    );
+    gold *= 0.72 + goldSpecular * 1.5 + travelingRepair * 0.35;
     vec3 result = mix(porcelain, gold, cracks);
-    result += accent_c * goldDust * 1.7;
-    result += accent_b * edge * 0.09 * (1.0 - cracks);
+    result += accent_c * goldGrain * 0.32;
+    result += accent_b * edge * 0.018 * (1.0 - cracks);
     return result;
 }`,
   },

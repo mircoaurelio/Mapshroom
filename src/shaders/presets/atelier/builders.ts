@@ -14,6 +14,8 @@ export interface MaskedAtelierSpec {
   reliefDepth: number;
   blackCut: number;
   detail: number;
+  normalSampleRadius?: number;
+  edgeGlow?: number;
   accentA: [number, number, number];
   accentB: [number, number, number];
   accentC: [number, number, number];
@@ -183,15 +185,40 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     }
 
     vec2 pixel = 1.0 / max(resolution, vec2(1.0));
+    float normalSampleRadius = ${(spec.normalSampleRadius ?? 1).toFixed(1)};
     float centerLuma = atelier_luma(source.rgb);
-    float leftLuma = atelier_luma(texture2D(tex, uv - vec2(pixel.x, 0.0)).rgb);
-    float rightLuma = atelier_luma(texture2D(tex, uv + vec2(pixel.x, 0.0)).rgb);
-    float downLuma = atelier_luma(texture2D(tex, uv - vec2(0.0, pixel.y)).rgb);
-    float upLuma = atelier_luma(texture2D(tex, uv + vec2(0.0, pixel.y)).rgb);
-    float farLeft = atelier_luma(texture2D(tex, uv - vec2(pixel.x * 2.0, 0.0)).rgb);
-    float farRight = atelier_luma(texture2D(tex, uv + vec2(pixel.x * 2.0, 0.0)).rgb);
-    float farDown = atelier_luma(texture2D(tex, uv - vec2(0.0, pixel.y * 2.0)).rgb);
-    float farUp = atelier_luma(texture2D(tex, uv + vec2(0.0, pixel.y * 2.0)).rgb);
+    float leftLuma = atelier_luma(texture2D(
+        tex,
+        uv - vec2(pixel.x * normalSampleRadius, 0.0)
+    ).rgb);
+    float rightLuma = atelier_luma(texture2D(
+        tex,
+        uv + vec2(pixel.x * normalSampleRadius, 0.0)
+    ).rgb);
+    float downLuma = atelier_luma(texture2D(
+        tex,
+        uv - vec2(0.0, pixel.y * normalSampleRadius)
+    ).rgb);
+    float upLuma = atelier_luma(texture2D(
+        tex,
+        uv + vec2(0.0, pixel.y * normalSampleRadius)
+    ).rgb);
+    float farLeft = atelier_luma(texture2D(
+        tex,
+        uv - vec2(pixel.x * normalSampleRadius * 2.0, 0.0)
+    ).rgb);
+    float farRight = atelier_luma(texture2D(
+        tex,
+        uv + vec2(pixel.x * normalSampleRadius * 2.0, 0.0)
+    ).rgb);
+    float farDown = atelier_luma(texture2D(
+        tex,
+        uv - vec2(0.0, pixel.y * normalSampleRadius * 2.0)
+    ).rgb);
+    float farUp = atelier_luma(texture2D(
+        tex,
+        uv + vec2(0.0, pixel.y * normalSampleRadius * 2.0)
+    ).rgb);
 
     vec2 gradient = vec2(rightLuma - leftLuma, upLuma - downLuma);
     vec3 normal = normalize(vec3(-gradient * relief_depth, 0.16 + 1.0 / relief_depth));
@@ -225,7 +252,8 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     float fineRelief = abs(centerLuma - (leftLuma + rightLuma + downLuma + upLuma) * 0.25);
     float silhouette = smoothstep(0.04, 0.7, edge + fineRelief * 9.0);
     vec3 grazingColor = mix(accent_b, accent_c, 0.5 + 0.5 * normal.x);
-    material += grazingColor * silhouette * (0.06 + 0.13 * detail);
+    material += grazingColor * silhouette * (0.06 + 0.13 * detail) *
+        ${(spec.edgeGlow ?? 1).toFixed(2)};
     material *= 0.86 + 0.22 * pow(atelier_sat(centerLuma), 0.65);
     material = max(material, vec3(0.0));
     material = vec3(1.0) - exp(-material * intensity);
