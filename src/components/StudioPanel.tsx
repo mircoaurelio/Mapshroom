@@ -47,6 +47,7 @@ interface StudioPanelProps
   audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  onUniformInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   newUniformName: string;
   onNewUniformNameChange: (value: string) => void;
@@ -662,6 +663,7 @@ export function StudioPanel({
   audioReactivity,
   uniformDefinitions,
   uniformValues,
+  onUniformInteractionStart,
   onUniformChange,
   newUniformName,
   onNewUniformNameChange,
@@ -701,6 +703,7 @@ export function StudioPanel({
           audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={uniformValues}
+          onInteractionStart={onUniformInteractionStart}
           onUniformChange={onUniformChange}
           newUniformName={newUniformName}
           onNewUniformNameChange={onNewUniformNameChange}

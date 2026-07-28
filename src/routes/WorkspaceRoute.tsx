@@ -7592,6 +7592,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
+      onUniformInteractionStart={handlePromptFocus}
       onUniformChange={handleUniformChange}
       newUniformName={newUniformName}
       onNewUniformNameChange={setNewUniformName}
@@ -7630,6 +7631,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
+      onInteractionStart={handlePromptFocus}
       onUniformChange={handleUniformChange}
       newUniformName={newUniformName}
       onNewUniformNameChange={setNewUniformName}
@@ -8027,6 +8029,7 @@ ${errorSnapshot}`,
           audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={project.studio.uniformValues}
+          onInteractionStart={handlePromptFocus}
           onUniformChange={handleUniformChange}
           onClose={() => handleMobilePanelChange(null)}
         />

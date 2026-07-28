@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 import { useUniformRandomization } from '../hooks/useUniformRandomization';
@@ -21,6 +22,7 @@ interface UniformPanelProps {
   audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  onInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   newUniformName: string;
   onNewUniformNameChange: (value: string) => void;
@@ -35,11 +37,13 @@ export function UniformPanel({
   audioReactivity,
   uniformDefinitions,
   uniformValues,
+  onInteractionStart,
   onUniformChange,
   newUniformName,
   onNewUniformNameChange,
   onQuickAddUniform,
 }: UniformPanelProps) {
+  const pointerActivationRef = useRef(false);
   const audioModeEnabled = Boolean(audioReactivity?.preferences.modeEnabled);
   const {
     isUniformLocked,
@@ -51,6 +55,18 @@ export function UniformPanel({
     uniformDefinitions,
     onUniformChange,
   });
+  const handlePointerDown = () => {
+    pointerActivationRef.current = true;
+    onInteractionStart();
+    window.queueMicrotask(() => {
+      pointerActivationRef.current = false;
+    });
+  };
+  const handleFocus = () => {
+    if (!pointerActivationRef.current) {
+      onInteractionStart();
+    }
+  };
 
   return (
     <PanelSection
@@ -66,13 +82,20 @@ export function UniformPanel({
               ? `Randomize ${randomizableCount} unlocked slider${randomizableCount === 1 ? '' : 's'}`
               : 'All sliders are excluded from randomization'
           }
+          onPointerDown={handlePointerDown}
+          onFocus={handleFocus}
           onClick={randomizeUniforms}
         >
           <ShuffleIcon />
         </button>
       }
     >
-      <div className="stack gap-md" data-slider-key-scope="true">
+      <div
+        className="stack gap-md"
+        data-slider-key-scope="true"
+        onPointerDownCapture={handlePointerDown}
+        onFocusCapture={handleFocus}
+      >
         {audioReactivity && audioShaderId && audioModeEnabled ? (
           <AudioReactivePanelControls
             controller={audioReactivity}

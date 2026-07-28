@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
 import { useUniformRandomization } from '../hooks/useUniformRandomization';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
@@ -19,6 +20,7 @@ interface MobileUniformOverlayProps {
   audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  onInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   onClose: () => void;
 }
@@ -31,9 +33,11 @@ export function MobileUniformOverlay({
   audioReactivity,
   uniformDefinitions,
   uniformValues,
+  onInteractionStart,
   onUniformChange,
   onClose,
 }: MobileUniformOverlayProps) {
+  const pointerActivationRef = useRef(false);
   const entries = Object.entries(uniformDefinitions);
   const audioModeEnabled = Boolean(audioReactivity?.preferences.modeEnabled);
   const {
@@ -46,6 +50,18 @@ export function MobileUniformOverlay({
     uniformDefinitions,
     onUniformChange,
   });
+  const handlePointerDown = () => {
+    pointerActivationRef.current = true;
+    onInteractionStart();
+    window.queueMicrotask(() => {
+      pointerActivationRef.current = false;
+    });
+  };
+  const handleFocus = () => {
+    if (!pointerActivationRef.current) {
+      onInteractionStart();
+    }
+  };
 
   return (
     <div
@@ -96,6 +112,8 @@ export function MobileUniformOverlay({
               disabled={randomizableCount === 0}
               aria-label="Randomize unlocked sliders"
               title="Randomize unlocked sliders"
+              onPointerDown={handlePointerDown}
+              onFocus={handleFocus}
               onClick={randomizeUniforms}
             >
               <ShuffleIcon />
@@ -114,7 +132,12 @@ export function MobileUniformOverlay({
         {entries.length === 0 ? (
           <p className="empty-copy">No sliders declared for {shaderName}.</p>
         ) : (
-          <div className="mobile-uniform-overlay-controls" data-slider-key-scope="true">
+          <div
+            className="mobile-uniform-overlay-controls"
+            data-slider-key-scope="true"
+            onPointerDownCapture={handlePointerDown}
+            onFocusCapture={handleFocus}
+          >
             {audioReactivity && audioShaderId && audioModeEnabled ? (
               <AudioReactivePanelControls
                 controller={audioReactivity}
