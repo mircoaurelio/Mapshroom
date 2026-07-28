@@ -5,6 +5,9 @@ import { drawingPresetList } from './drawing';
 import { importedShaderBundlePresetList } from './importedShaderBundle';
 import { sculpturePresetList } from './sculpture';
 import { stagePresetList } from './stage';
+import { createStageReworkPresetList } from './stageReworks';
+
+const stageReworkPresetList = createStageReworkPresetList(stagePresetList);
 
 export type { ShaderPresetDefinition } from './types';
 export {
@@ -13,10 +16,12 @@ export {
   projectionAtelierPresetList,
   sculpturePresetList,
   stagePresetList,
+  stageReworkPresetList,
 };
 
 export const shaderPresetList: ShaderPresetDefinition[] = [
   ...projectionAtelierPresetList,
+  ...stageReworkPresetList,
   ...sculpturePresetList,
   ...stagePresetList,
   ...drawingPresetList,

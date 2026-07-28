@@ -75,6 +75,7 @@ import {
   OPENAI_API_KEY_STORAGE_KEY,
   createEmptyProject,
   createDefaultProject,
+  upgradeLegacyEmptyProject,
 } from '../config';
 import {
   getTransportTimeSeconds,
@@ -1445,6 +1446,10 @@ function withNewTimelineRandomSeed(project: ProjectDocument): ProjectDocument {
 }
 
 function normalizeProject(project: ProjectDocument): ProjectDocument {
+  return normalizeProjectDocument(upgradeLegacyEmptyProject(project));
+}
+
+function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
   const uniformDefinitions = parseUniforms(project.studio.activeShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
   const mergedLibraryAssets = mergeBundledAssets(project.library?.assets ?? []);

@@ -15,6 +15,10 @@ import {
 } from './lib/bundledAssets';
 import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
 import { blankShaderTemplate } from './shaders/templates/blankShader';
+import {
+  fullCanvasShaderTemplate,
+  fullCanvasShaderUniformValues,
+} from './shaders/templates/fullCanvasShader';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
@@ -220,8 +224,8 @@ export function createEmptyProject(
 ): ProjectDocument {
   const project = createDefaultProject(sessionId, options);
   const shaderId = `empty-project-${crypto.randomUUID()}`;
-  const shaderName = 'Blank Shader';
-  const shaderCode = blankShaderTemplate.replace('// NAME: New Shader', `// NAME: ${shaderName}`);
+  const shaderName = 'Full Canvas Flow';
+  const shaderCode = fullCanvasShaderTemplate;
   const shaderVersion = {
     id: crypto.randomUUID(),
     prompt: 'Empty project base shader',
@@ -233,13 +237,14 @@ export function createEmptyProject(
     id: shaderId,
     name: shaderName,
     code: shaderCode,
-    description: 'Neutral pass-through shader for an empty project.',
+    description:
+      'A full-frame procedural shader for an empty project that renders across every pixel.',
     template: 'stage' as const,
     group: 'Project',
     versions: [shaderVersion],
-    uniformValues: {},
+    uniformValues: fullCanvasShaderUniformValues,
     lastValidCode: shaderCode,
-    lastValidUniformValues: {},
+    lastValidUniformValues: fullCanvasShaderUniformValues,
   };
   const timelineStep = createTimelineShaderStep(shaderId);
 
@@ -258,7 +263,7 @@ export function createEmptyProject(
       shaderVersions: [shaderVersion],
       savedShaders: [...project.studio.savedShaders, emptyShader],
       shaderChatHistory: [],
-      uniformValues: {},
+      uniformValues: fullCanvasShaderUniformValues,
     },
     playback: {
       ...project.playback,
@@ -280,6 +285,63 @@ export function createEmptyProject(
           randomChoiceEnabled: false,
           sharedTransitionEnabled: false,
           steps: [timelineStep],
+        },
+      },
+    },
+  };
+}
+
+/** Upgrade untouched empty projects created before the full-frame canvas shader existed. */
+export function upgradeLegacyEmptyProject(project: ProjectDocument): ProjectDocument {
+  const legacyShaderCode = blankShaderTemplate.replace(
+    '// NAME: New Shader',
+    '// NAME: Blank Shader',
+  );
+  const usesWhiteCanvas =
+    project.playback?.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID ||
+    project.library?.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID;
+  const isUntouchedLegacyShader =
+    project.studio.activeShaderName === 'Blank Shader' &&
+    project.studio.activeShaderCode.trim() === legacyShaderCode.trim();
+
+  if (!usesWhiteCanvas || !isUntouchedLegacyShader) {
+    return project;
+  }
+
+  const replacement = createEmptyProject(project.sessionId);
+  const replacementShader = replacement.studio.savedShaders.find(
+    (shader) => shader.id === replacement.studio.activeShaderId,
+  );
+  if (!replacementShader) {
+    return project;
+  }
+
+  const legacyShaderId = project.studio.activeShaderId;
+  return {
+    ...project,
+    studio: {
+      ...project.studio,
+      activeShaderId: replacement.studio.activeShaderId,
+      activeShaderName: replacement.studio.activeShaderName,
+      activeShaderCode: replacement.studio.activeShaderCode,
+      shaderVersions: replacement.studio.shaderVersions,
+      savedShaders: [
+        ...project.studio.savedShaders.filter((shader) => shader.id !== legacyShaderId),
+        replacementShader,
+      ],
+      shaderChatHistory: [],
+      uniformValues: replacement.studio.uniformValues,
+    },
+    timeline: {
+      stub: {
+        ...project.timeline.stub,
+        shaderSequence: {
+          ...project.timeline.stub.shaderSequence,
+          steps: project.timeline.stub.shaderSequence.steps.map((step) =>
+            step.shaderId === legacyShaderId
+              ? { ...step, shaderId: replacement.studio.activeShaderId }
+              : step,
+          ),
         },
       },
     },
