@@ -24,6 +24,9 @@ const TutorialRoute = lazy(() =>
 const WhyRoute = lazy(() =>
   import('./routes/WhyRoute').then((module) => ({ default: module.WhyRoute })),
 );
+const ShaderRoute = lazy(() =>
+  import('./routes/ShaderRoute').then((module) => ({ default: module.ShaderRoute })),
+);
 const CreatorChallengeRoute = lazy(() =>
   import('./routes/CreatorChallengeRoute').then((module) => ({
     default: module.CreatorChallengeRoute,
@@ -33,6 +36,7 @@ const CreatorChallengeRoute = lazy(() =>
 const PUBLIC_ROUTE_PATHS: Record<string, string> = {
   '/tutorial': '/tutorial/',
   '/why': '/why/',
+  '/shader': '/shader/',
   '/creatorchallenge': '/creatorchallenge/',
 };
 
@@ -73,6 +77,7 @@ export default function App() {
           <Route path="/privacy" element={<PrivacyRoute />} />
           <Route path="/tutorial" element={<TutorialRoute />} />
           <Route path="/why" element={<WhyRoute />} />
+          <Route path="/shader" element={<ShaderRoute />} />
           <Route path="/creatorchallenge" element={<CreatorChallengeRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

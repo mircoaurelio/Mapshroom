@@ -1,0 +1,1180 @@
+body.shader-page-active {
+  overflow: auto;
+  overscroll-behavior-y: auto;
+}
+
+.shader-guide-page {
+  --paper: #f2efe8;
+  --ink: #171714;
+  --night: #0d0d0c;
+  --mint: #79efbd;
+  --mint-dark: #1c7254;
+  --coral: #ff6168;
+  min-height: 100vh;
+  overflow-x: clip;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 16px;
+}
+
+.shader-guide-page * {
+  box-sizing: border-box;
+}
+
+.shader-guide-page a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.shader-guide-nav {
+  position: sticky;
+  z-index: 30;
+  top: 0;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 5vw, 72px);
+  border-bottom: 1px solid rgba(255, 255, 255, .1);
+  background: rgba(13, 13, 12, .92);
+  color: #f2efe8;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, .14);
+  backdrop-filter: blur(18px) saturate(135%);
+}
+
+.shader-guide-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+
+.shader-guide-brand img {
+  width: 34px;
+  height: 34px;
+}
+
+.shader-guide-nav > div {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shader-guide-nav > div > a:not(.shader-guide-open),
+.shader-guide-nav > div > button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(242, 239, 232, .74);
+  font: inherit;
+  cursor: pointer;
+}
+
+.shader-guide-nav > div > a:hover,
+.shader-guide-nav > div > button:hover {
+  color: #fff;
+}
+
+.shader-guide-open,
+.shader-guide-hero-actions button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--mint);
+  color: #0d0d0c;
+  font: 600 11px 'IBM Plex Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.shader-guide-hero {
+  min-height: calc(100svh - 72px);
+  display: grid;
+  grid-template-columns: minmax(470px, .94fr) minmax(500px, 1.06fr);
+  overflow: hidden;
+  background: var(--night);
+}
+
+.shader-guide-hero-copy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(70px, 9vh, 118px) clamp(32px, 5.4vw, 86px);
+  color: var(--paper);
+}
+
+.shader-guide-eyebrow {
+  margin: 0 0 22px;
+  color: var(--mint-dark);
+  font: 700 11px 'IBM Plex Mono', monospace;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.shader-guide-hero .shader-guide-eyebrow {
+  color: var(--mint);
+}
+
+.shader-guide-hero h1 {
+  max-width: 780px;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(56px, 6vw, 96px);
+  font-weight: 600;
+  letter-spacing: -.075em;
+  line-height: .9;
+}
+
+.shader-guide-hero h1 em,
+.shader-guide-recipe h2 em {
+  color: var(--mint);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+}
+
+.shader-guide-hero-lead {
+  max-width: 610px;
+  margin: 32px 0 0;
+  color: rgba(242, 239, 232, .7);
+  font-size: clamp(18px, 1.35vw, 22px);
+  line-height: 1.5;
+}
+
+.shader-guide-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 34px;
+}
+
+.shader-guide-hero-actions button {
+  min-height: 50px;
+  padding-inline: 24px;
+  cursor: pointer;
+}
+
+.shader-guide-hero-actions span {
+  color: rgba(242, 239, 232, .52);
+  font-size: 13px;
+}
+
+.shader-guide-hero-visual {
+  position: relative;
+  min-height: 640px;
+  overflow: hidden;
+  background:
+    linear-gradient(rgba(121, 239, 189, .07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(121, 239, 189, .07) 1px, transparent 1px),
+    radial-gradient(circle at 70% 30%, #1e4235 0, #111713 44%, #090909 75%);
+  background-size: 54px 54px, 54px 54px, auto;
+}
+
+.shader-guide-hero-visual::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #0d0d0c 0, transparent 20%);
+  content: '';
+}
+
+.shader-guide-orb {
+  position: absolute;
+  border-radius: 44% 56% 62% 38%;
+  filter: blur(2px);
+  mix-blend-mode: screen;
+  animation: shader-orb-float 10s ease-in-out infinite alternate;
+}
+
+.shader-guide-orb-a {
+  top: 8%;
+  right: -12%;
+  width: 76%;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle at 30% 32%, rgba(255, 255, 255, .9), transparent 6%),
+    repeating-radial-gradient(ellipse at 42% 46%, var(--mint) 0 5%, #176848 6% 10%, var(--coral) 11% 13%, transparent 14% 18%);
+  box-shadow: 0 0 90px rgba(121, 239, 189, .32);
+  transform: rotate(-14deg);
+}
+
+.shader-guide-orb-b {
+  right: 26%;
+  bottom: 2%;
+  width: 38%;
+  aspect-ratio: 1.25;
+  background: radial-gradient(ellipse, rgba(255, 97, 104, .82), rgba(121, 239, 189, .2) 45%, transparent 70%);
+  animation-delay: -3s;
+}
+
+@keyframes shader-orb-float {
+  to { transform: translate3d(-4%, 5%, 0) rotate(8deg) scale(1.08); }
+}
+
+.shader-guide-code-window {
+  position: absolute;
+  z-index: 3;
+  right: clamp(24px, 7vw, 110px);
+  bottom: clamp(32px, 8vh, 96px);
+  width: min(520px, calc(100% - 48px));
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 10px;
+  background: rgba(7, 9, 8, .86);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, .52);
+  color: #e8e7e0;
+  backdrop-filter: blur(22px);
+}
+
+.shader-guide-code-window > div,
+.shader-guide-code-window footer {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+}
+
+.shader-guide-code-window > div i {
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #555;
+}
+
+.shader-guide-code-window > div i:nth-child(1) { background: var(--coral); }
+.shader-guide-code-window > div i:nth-child(2) { background: #e6c84d; }
+.shader-guide-code-window > div i:nth-child(3) { background: var(--mint); }
+
+.shader-guide-code-window > div span {
+  margin-left: auto;
+  color: rgba(255, 255, 255, .52);
+  font: 600 9px 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+}
+
+.shader-guide-code-window > code {
+  display: block;
+  padding: 28px;
+  color: rgba(255, 255, 255, .78);
+  font: 12px/1.72 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-code-window .mint { color: var(--mint); }
+.shader-guide-code-window .coral { color: var(--coral); }
+.shader-guide-code-window .muted { color: #777b78; }
+
+.shader-guide-code-window footer {
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  border-bottom: 0;
+  color: #777b78;
+  font: 600 9px 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+}
+
+.shader-guide-code-window footer strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--mint);
+}
+
+.shader-guide-code-window footer i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mint);
+  box-shadow: 0 0 10px var(--mint);
+}
+
+.shader-guide-facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 0 clamp(20px, 5vw, 72px);
+  border-bottom: 1px solid rgba(23, 23, 20, .18);
+}
+
+.shader-guide-facts > div {
+  min-height: 138px;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-content: center;
+  padding: 24px;
+  border-left: 1px solid rgba(23, 23, 20, .15);
+}
+
+.shader-guide-facts > div:last-child {
+  border-right: 1px solid rgba(23, 23, 20, .15);
+}
+
+.shader-guide-facts span {
+  grid-row: span 2;
+  color: var(--mint-dark);
+  font: 700 11px 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-facts strong {
+  font-size: 18px;
+}
+
+.shader-guide-facts small {
+  color: #77766d;
+}
+
+.shader-guide-intro,
+.shader-guide-workflow,
+.shader-guide-errors,
+.shader-guide-anywhere {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: clamp(90px, 11vw, 165px) clamp(20px, 6vw, 88px);
+}
+
+.shader-guide-section-heading {
+  max-width: 920px;
+}
+
+.shader-guide-section-heading h2,
+.shader-guide-errors-heading h2,
+.shader-guide-anywhere h2 {
+  margin: 0 0 30px;
+  font-size: clamp(48px, 6vw, 84px);
+  font-weight: 600;
+  letter-spacing: -.065em;
+  line-height: .96;
+}
+
+.shader-guide-section-heading > p:not(.shader-guide-eyebrow),
+.shader-guide-errors-heading > p:not(.shader-guide-eyebrow) {
+  max-width: 780px;
+  margin: 0 0 18px;
+  color: #56564f;
+  font-size: clamp(18px, 1.45vw, 21px);
+  line-height: 1.62;
+}
+
+.shader-guide-pipeline {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  margin-top: 72px;
+}
+
+.shader-guide-pipeline > article {
+  min-height: 390px;
+  padding: 22px;
+  border: 1px solid #c8c5bb;
+  background: #e7e4dc;
+}
+
+.shader-guide-pipeline > article > span,
+.shader-guide-troubleshooting article > span,
+.shader-guide-anywhere-grid article > span {
+  color: var(--mint-dark);
+  font: 700 10px 'IBM Plex Mono', monospace;
+  letter-spacing: .13em;
+}
+
+.shader-guide-pipeline > b {
+  color: var(--mint-dark);
+  font: 400 24px 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-pipeline h3 {
+  margin: 22px 0 8px;
+  font-size: 23px;
+}
+
+.shader-guide-pipeline p {
+  margin: 0;
+  color: #66655e;
+  line-height: 1.5;
+}
+
+.shader-guide-input-tile,
+.shader-guide-instruction-tile,
+.shader-guide-output-tile {
+  height: 210px;
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(23, 23, 20, .18);
+  background: #171714;
+}
+
+.shader-guide-input-tile {
+  background:
+    radial-gradient(circle at 48% 42%, #eee0c7 0 8%, transparent 9%),
+    radial-gradient(ellipse at 50% 65%, #825547 0 22%, transparent 23%),
+    linear-gradient(135deg, #315244, #121b17);
+}
+
+.shader-guide-instruction-tile {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  padding: 28px;
+  background: #0d0d0c;
+}
+
+.shader-guide-instruction-tile i {
+  background: repeating-linear-gradient(0deg, transparent 0 8px, rgba(121, 239, 189, .66) 9px 10px);
+}
+
+.shader-guide-instruction-tile i:nth-child(2),
+.shader-guide-instruction-tile i:nth-child(4) {
+  background: repeating-linear-gradient(0deg, transparent 0 12px, rgba(255, 97, 104, .7) 13px 14px);
+}
+
+.shader-guide-output-tile {
+  background:
+    repeating-radial-gradient(ellipse at 48% 48%, var(--mint) 0 3%, #183d31 4% 7%, var(--coral) 8% 9%, transparent 10% 13%),
+    #0d0d0c;
+}
+
+.shader-guide-pipeline-active {
+  border-color: var(--mint-dark) !important;
+  background: #dff3e7 !important;
+}
+
+.shader-guide-terms {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin-top: 72px;
+  background: #c8c5bb;
+}
+
+.shader-guide-terms article {
+  min-height: 230px;
+  padding: 28px;
+  background: var(--paper);
+}
+
+.shader-guide-terms code {
+  display: inline-flex;
+  padding: 7px 9px;
+  background: var(--night);
+  color: var(--mint);
+  font: 600 12px 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-terms h3 {
+  margin: 30px 0 10px;
+  font-size: 20px;
+}
+
+.shader-guide-terms p {
+  margin: 0;
+  color: #66655e;
+  line-height: 1.5;
+}
+
+.shader-guide-reassurance {
+  margin-top: 24px;
+  padding: 22px 26px;
+  border-left: 3px solid var(--mint-dark);
+  background: #e5e3db;
+  color: #56564f;
+  line-height: 1.55;
+}
+
+.shader-guide-reassurance strong {
+  margin-right: 8px;
+  color: var(--mint-dark);
+}
+
+.shader-guide-recipe {
+  display: grid;
+  grid-template-columns: minmax(360px, .72fr) minmax(600px, 1.28fr);
+  gap: clamp(50px, 8vw, 130px);
+  padding: clamp(90px, 11vw, 165px) clamp(20px, 7vw, 110px);
+  background: var(--night);
+  color: var(--paper);
+}
+
+.shader-guide-recipe-heading {
+  align-self: start;
+  position: sticky;
+  top: 126px;
+}
+
+.shader-guide-recipe .shader-guide-eyebrow {
+  color: var(--mint);
+}
+
+.shader-guide-recipe h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(48px, 6vw, 82px);
+  font-weight: 600;
+  letter-spacing: -.065em;
+  line-height: .96;
+}
+
+.shader-guide-recipe-heading > p:last-child {
+  max-width: 570px;
+  margin: 30px 0 0;
+  color: rgba(242, 239, 232, .68);
+  font-size: 19px;
+  line-height: 1.58;
+}
+
+.shader-guide-prompt-grid {
+  min-width: 0;
+}
+
+.shader-guide-prompt-steps {
+  display: grid;
+  gap: 1px;
+  background: rgba(255, 255, 255, .16);
+}
+
+.shader-prompt-step {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 18px;
+  padding: 30px;
+  background: #151514;
+}
+
+.shader-prompt-step-number {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--mint);
+  border-radius: 50%;
+  color: var(--mint);
+  font: 700 11px 'IBM Plex Mono', monospace;
+}
+
+.shader-prompt-step h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 22px;
+}
+
+.shader-prompt-step p {
+  margin: 0;
+  color: rgba(242, 239, 232, .64);
+  line-height: 1.5;
+}
+
+.shader-prompt-step small {
+  display: block;
+  margin-top: 14px;
+  color: var(--mint);
+  font: 500 12px/1.5 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-perfect-prompt {
+  margin-top: 24px;
+  padding: 28px;
+  border: 1px solid rgba(121, 239, 189, .5);
+  background: #112d24;
+}
+
+.shader-guide-formula {
+  display: block;
+  margin-bottom: 18px;
+  color: var(--mint);
+  font: 700 10px 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+}
+
+.shader-guide-perfect-prompt > p {
+  margin: 20px 0 0;
+  color: rgba(242, 239, 232, .68);
+  line-height: 1.55;
+}
+
+.shader-copy-card {
+  min-width: 0;
+  border: 1px solid #c5c2b8;
+  background: #e8e5dd;
+  color: var(--ink);
+}
+
+.shader-copy-card-dark {
+  border-color: rgba(255, 255, 255, .2);
+  background: #0c1713;
+  color: #e9eee9;
+}
+
+.shader-copy-card-header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid currentColor;
+  border-bottom-color: rgba(127, 127, 127, .28);
+}
+
+.shader-copy-card-header > span {
+  font: 700 10px 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.shader-copy-card-header button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--mint-dark);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--mint-dark);
+  font: 600 9px 'IBM Plex Mono', monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.shader-copy-card-dark .shader-copy-card-header button {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+.shader-copy-card pre {
+  margin: 0;
+  padding: 22px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.shader-copy-card code {
+  font: 12px/1.72 'IBM Plex Mono', monospace;
+}
+
+.shader-copy-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.shader-guide-workflow {
+  border-bottom: 1px solid rgba(23, 23, 20, .18);
+}
+
+.shader-guide-workflow-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin: 70px 0 0;
+  padding: 1px;
+  background: #c8c5bb;
+  list-style: none;
+}
+
+.shader-guide-workflow-list li {
+  min-height: 210px;
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 14px;
+  padding: 28px;
+  background: var(--paper);
+}
+
+.shader-guide-workflow-list li > span {
+  color: var(--mint-dark);
+  font: 700 11px 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-workflow-list strong {
+  font-size: 20px;
+}
+
+.shader-guide-workflow-list p {
+  margin: 13px 0 0;
+  color: #66655e;
+  line-height: 1.52;
+}
+
+.shader-guide-refine-example {
+  display: grid;
+  grid-template-columns: 1fr auto 1.35fr;
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 30px;
+}
+
+.shader-guide-refine-example div {
+  min-height: 132px;
+  padding: 22px;
+  border: 1px solid #c8c5bb;
+}
+
+.shader-guide-refine-example div:last-child {
+  border-color: var(--mint-dark);
+  background: #dff3e7;
+}
+
+.shader-guide-refine-example span {
+  color: var(--mint-dark);
+  font: 700 10px 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+}
+
+.shader-guide-refine-example p {
+  margin: 20px 0 0;
+  font: 500 15px/1.5 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-refine-example b {
+  align-self: center;
+  color: var(--mint-dark);
+}
+
+.shader-guide-mix {
+  display: grid;
+  grid-template-columns: minmax(360px, .85fr) minmax(500px, 1.15fr);
+  align-items: center;
+  gap: clamp(45px, 8vw, 120px);
+  padding: clamp(90px, 11vw, 155px) clamp(20px, 7vw, 110px);
+  background: var(--mint);
+}
+
+.shader-guide-mix h2 {
+  margin: 0 0 28px;
+  font-size: clamp(48px, 6vw, 82px);
+  letter-spacing: -.065em;
+  line-height: .96;
+}
+
+.shader-guide-mix-copy > p:not(.shader-guide-eyebrow) {
+  max-width: 680px;
+  color: #245a48;
+  font-size: 18px;
+  line-height: 1.58;
+}
+
+.shader-guide-mix ul {
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shader-guide-mix li {
+  position: relative;
+  padding: 11px 0 11px 26px;
+  border-top: 1px solid rgba(13, 13, 12, .18);
+  color: #174a38;
+}
+
+.shader-guide-mix li::before {
+  position: absolute;
+  left: 0;
+  color: #0d0d0c;
+  content: '→';
+}
+
+.shader-guide-errors {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  background: var(--night);
+  color: var(--paper);
+}
+
+.shader-guide-errors-heading {
+  width: min(1260px, 100%);
+  margin: 0 auto;
+}
+
+.shader-guide-errors .shader-guide-eyebrow {
+  color: var(--coral);
+}
+
+.shader-guide-errors-heading h2 {
+  color: #fff;
+}
+
+.shader-guide-errors-heading > p:not(.shader-guide-eyebrow) {
+  color: rgba(242, 239, 232, .65);
+}
+
+.shader-guide-error-loop {
+  width: min(1260px, 100%);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 12px;
+  margin: 70px auto 24px;
+}
+
+.shader-guide-error-loop article {
+  min-height: 190px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: #151514;
+}
+
+.shader-guide-error-loop article span {
+  color: var(--coral);
+  font: 700 10px 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-error-loop article strong {
+  display: block;
+  margin-top: 30px;
+  color: #fff;
+  font-size: 17px;
+}
+
+.shader-guide-error-loop article p {
+  margin: 10px 0 0;
+  color: rgba(242, 239, 232, .52);
+  line-height: 1.48;
+}
+
+.shader-guide-error-loop > i {
+  align-self: center;
+  color: var(--coral);
+  font: normal 20px 'IBM Plex Mono', monospace;
+}
+
+.shader-guide-errors > .shader-copy-card {
+  width: min(1260px, 100%);
+  margin: 0 auto;
+}
+
+.shader-guide-troubleshooting {
+  width: min(1260px, 100%);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin: 70px auto 0;
+  background: rgba(255, 255, 255, .16);
+}
+
+.shader-guide-troubleshooting article {
+  min-height: 240px;
+  padding: 26px;
+  background: #151514;
+}
+
+.shader-guide-troubleshooting article > span {
+  color: var(--coral);
+}
+
+.shader-guide-troubleshooting h3 {
+  margin: 45px 0 12px;
+  color: #fff;
+  font-size: 20px;
+}
+
+.shader-guide-troubleshooting p {
+  margin: 0;
+  color: rgba(242, 239, 232, .58);
+  line-height: 1.52;
+}
+
+.shader-guide-anywhere h2 {
+  max-width: 990px;
+}
+
+.shader-guide-anywhere-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 68px;
+}
+
+.shader-guide-anywhere-grid article {
+  min-height: 290px;
+  padding: 28px;
+  border: 1px solid #c8c5bb;
+  background: #e8e5dd;
+}
+
+.shader-guide-anywhere-grid h3 {
+  margin: 70px 0 14px;
+  font-size: 23px;
+}
+
+.shader-guide-anywhere-grid p {
+  margin: 0;
+  color: #5c5b54;
+  line-height: 1.58;
+}
+
+.shader-guide-anywhere > aside {
+  margin-top: 24px;
+  padding: 24px;
+  border-left: 3px solid var(--mint-dark);
+  background: #dff3e7;
+  color: #275b49;
+  line-height: 1.55;
+}
+
+.shader-guide-anywhere > aside strong {
+  margin-right: 15px;
+  color: #113f31;
+  font: 700 11px 'IBM Plex Mono', monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.shader-guide-cta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(80px, 10vw, 138px) 24px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(121, 239, 189, .24), transparent 25%),
+    radial-gradient(circle at 82% 90%, rgba(255, 97, 104, .18), transparent 28%),
+    #113f31;
+  color: #fff;
+  text-align: center;
+}
+
+.shader-guide-cta img {
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, .35));
+}
+
+.shader-guide-cta > p {
+  margin: 25px 0 16px;
+  color: var(--mint);
+  font: 700 11px 'IBM Plex Mono', monospace;
+  letter-spacing: .14em;
+}
+
+.shader-guide-cta h2 {
+  max-width: 860px;
+  margin: 0;
+  font: italic 400 clamp(44px, 7vw, 88px)/1 Georgia, 'Times New Roman', serif;
+  letter-spacing: -.045em;
+}
+
+.shader-guide-cta > span {
+  margin-top: 20px;
+  color: rgba(242, 239, 232, .72);
+  font-size: 19px;
+}
+
+.shader-guide-cta > div {
+  display: flex;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+.shader-guide-cta a {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 22px;
+  border: 1px solid rgba(255, 255, 255, .34);
+  border-radius: 4px;
+  font: 600 11px 'IBM Plex Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.shader-guide-cta a:first-child {
+  border-color: var(--mint);
+  background: var(--mint);
+  color: #113f31;
+}
+
+.shader-guide-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px clamp(20px, 5vw, 72px);
+  background: var(--night);
+  color: #a7a69d;
+  font-size: 12px;
+}
+
+.shader-guide-footer span:first-child {
+  color: #fff;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shader-guide-orb { animation: none; }
+}
+
+@media (max-width: 1100px) {
+  .shader-guide-hero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .shader-guide-hero-visual {
+    min-height: 70vw;
+  }
+
+  .shader-guide-recipe,
+  .shader-guide-mix {
+    grid-template-columns: 1fr;
+  }
+
+  .shader-guide-recipe-heading {
+    position: static;
+  }
+
+  .shader-guide-terms,
+  .shader-guide-troubleshooting {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .shader-guide-workflow-list {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .shader-guide-error-loop {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .shader-guide-error-loop > i {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .shader-guide-nav {
+    height: 62px;
+  }
+
+  .shader-guide-brand span,
+  .shader-guide-nav > div > a:not(.shader-guide-open),
+  .shader-guide-nav > div > button {
+    display: none;
+  }
+
+  .shader-guide-open {
+    min-height: 38px;
+    padding-inline: 12px;
+    font-size: 9px;
+  }
+
+  .shader-guide-hero-copy {
+    padding: 70px 22px;
+  }
+
+  .shader-guide-hero h1 {
+    font-size: 53px;
+  }
+
+  .shader-guide-hero-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .shader-guide-hero-visual {
+    min-height: 600px;
+  }
+
+  .shader-guide-code-window {
+    right: 16px;
+    bottom: 42px;
+    width: calc(100% - 32px);
+  }
+
+  .shader-guide-code-window > code {
+    padding: 20px;
+    font-size: 10px;
+  }
+
+  .shader-guide-facts {
+    grid-template-columns: 1fr 1fr;
+    padding: 0;
+  }
+
+  .shader-guide-facts > div {
+    min-height: 115px;
+    padding: 18px 14px;
+  }
+
+  .shader-guide-section-heading h2,
+  .shader-guide-errors-heading h2,
+  .shader-guide-anywhere h2,
+  .shader-guide-recipe h2,
+  .shader-guide-mix h2 {
+    font-size: 44px;
+  }
+
+  .shader-guide-pipeline {
+    grid-template-columns: 1fr;
+  }
+
+  .shader-guide-pipeline > b {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .shader-guide-terms,
+  .shader-guide-troubleshooting,
+  .shader-guide-workflow-list,
+  .shader-guide-error-loop,
+  .shader-guide-anywhere-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shader-guide-recipe {
+    padding-inline: 16px;
+  }
+
+  .shader-prompt-step {
+    grid-template-columns: 1fr;
+    padding: 24px 20px;
+  }
+
+  .shader-guide-perfect-prompt {
+    padding: 18px;
+  }
+
+  .shader-guide-refine-example {
+    grid-template-columns: 1fr;
+  }
+
+  .shader-guide-refine-example b {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .shader-guide-mix {
+    padding-inline: 20px;
+  }
+
+  .shader-copy-card pre {
+    padding: 17px;
+  }
+
+  .shader-copy-card code {
+    font-size: 10px;
+  }
+
+  .shader-guide-cta > div {
+    width: min(360px, 100%);
+    flex-direction: column;
+  }
+
+  .shader-guide-cta a {
+    justify-content: center;
+  }
+
+  .shader-guide-footer span:nth-child(2) {
+    display: none;
+  }
+}

@@ -21,6 +21,7 @@ export default defineConfig(({ command }) => {
           depthmap: resolve(__dirname, 'depthmap/index.html'),
           tutorial: resolve(__dirname, 'tutorial/index.html'),
           why: resolve(__dirname, 'why/index.html'),
+          shader: resolve(__dirname, 'shader/index.html'),
           creatorchallenge: resolve(__dirname, 'creatorchallenge/index.html'),
         },
       },
