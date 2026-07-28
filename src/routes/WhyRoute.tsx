@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { MapshroomShaderFooter } from '../components/MapshroomShaderFooter';
 import {
   resolveWhyLocale,
@@ -52,15 +52,15 @@ export function WhyRoute() {
   return (
     <main ref={motionRef} className="why-page" lang={locale}>
       <nav className="why-nav">
-        <Link to="/" className="why-brand" aria-label="Mapshroom">
+        <a href="/" className="why-brand" aria-label="Mapshroom">
           <img src="assets/icons/mapshroom-icon-transparent-512.png" alt="" />
           <span>Mapshroom</span>
-        </Link>
+        </a>
         <div className="why-nav-links">
           <button type="button" className="why-nav-anchor" onClick={scrollToManifesto}>
             {copy.navManifesto}
           </button>
-          <Link to="/tutorial">{copy.navTutorial}</Link>
+          <a href="/tutorial/">{copy.navTutorial}</a>
           <div className="why-language-switch" aria-label={copy.languageLabel}>
             {(['it', 'en'] as const).map((option) => (
               <button
@@ -74,7 +74,7 @@ export function WhyRoute() {
               </button>
             ))}
           </div>
-          <Link to="/" className="why-open-button">{copy.navOpenWorkspace}</Link>
+          <a href="/" className="why-open-button">{copy.navOpenWorkspace}</a>
         </div>
       </nav>
 
@@ -305,15 +305,15 @@ export function WhyRoute() {
         <h2>{copy.closing.title}</h2>
         <p className="why-closing-lead">{copy.closing.lead}</p>
         <div className="why-closing-actions">
-          <Link to="/" className="why-primary-button">{copy.closing.openWorkspace}</Link>
-          <Link to="/tutorial" className="why-secondary-button">{copy.closing.readTutorial}</Link>
+          <a href="/" className="why-primary-button">{copy.closing.openWorkspace}</a>
+          <a href="/tutorial/" className="why-secondary-button">{copy.closing.readTutorial}</a>
         </div>
       </section>
 
       <MapshroomShaderFooter className="why-footer">
         <span>Mapshroom</span>
         <span>{copy.footerTagline}</span>
-        <Link to="/">{copy.footerWorkspace}</Link>
+        <a href="/">{copy.footerWorkspace}</a>
       </MapshroomShaderFooter>
     </main>
   );

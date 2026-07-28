@@ -45,6 +45,18 @@ function CanonicalRouteUrl() {
 
   useEffect(() => {
     const pathname = PUBLIC_ROUTE_PATHS[location.pathname] ?? '/';
+    if (location.pathname === '/shader') {
+      const cleanUrl = `${pathname}${location.search}`;
+      if (
+        window.location.pathname !== pathname ||
+        window.location.search !== location.search ||
+        window.location.hash
+      ) {
+        window.history.replaceState(window.history.state, '', cleanUrl);
+      }
+      return;
+    }
+
     const hash = `#${location.pathname}${location.search}`;
     if (window.location.pathname === pathname && window.location.hash === hash) {
       return;

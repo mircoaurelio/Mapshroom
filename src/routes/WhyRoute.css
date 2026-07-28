@@ -120,6 +120,14 @@ body.why-page-active {
   color: #0d0d0c;
 }
 
+.why-nav .why-open-button:hover,
+.why-hero .why-primary-button,
+.why-hero .why-primary-button:hover,
+.why-closing .why-primary-button,
+.why-closing .why-primary-button:hover {
+  color: #0d0d0c;
+}
+
 .why-hero {
   min-height: calc(100svh - 72px);
   display: grid;
@@ -1858,7 +1866,7 @@ body.why-page-active {
 
 .why-closing .why-primary-button {
   background: var(--why-green);
-  color: #113f31;
+  color: #0d0d0c;
 }
 
 .why-secondary-button {

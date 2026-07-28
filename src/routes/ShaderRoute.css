@@ -96,6 +96,15 @@ body.shader-page-active {
   text-transform: uppercase;
 }
 
+.shader-guide-nav > div > a.shader-guide-open,
+.shader-guide-nav > div > a.shader-guide-open:hover,
+.shader-guide-hero-actions button,
+.shader-guide-hero-actions button:hover,
+.shader-guide-cta a:first-child,
+.shader-guide-cta a:first-child:hover {
+  color: #0d0d0c;
+}
+
 .shader-guide-hero {
   min-height: calc(100svh - 72px);
   display: grid;
@@ -182,23 +191,39 @@ body.shader-page-active {
 
 .shader-guide-hero-visual::after {
   position: absolute;
+  z-index: 2;
   inset: 0;
-  background: linear-gradient(90deg, #0d0d0c 0, transparent 20%);
+  background:
+    linear-gradient(90deg, #0d0d0c 0, rgba(13, 13, 12, .38) 17%, transparent 42%),
+    linear-gradient(0deg, rgba(6, 7, 6, .34), transparent 46%);
   content: '';
+  pointer-events: none;
+}
+
+.shader-guide-live-canvas {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #07100c;
 }
 
 .shader-guide-orb {
   position: absolute;
+  z-index: 1;
   border-radius: 44% 56% 62% 38%;
   filter: blur(2px);
   mix-blend-mode: screen;
+  opacity: .28;
   animation: shader-orb-float 10s ease-in-out infinite alternate;
 }
 
 .shader-guide-orb-a {
   top: 8%;
   right: -12%;
-  width: 76%;
+  width: 62%;
   aspect-ratio: 1;
   background:
     radial-gradient(circle at 30% 32%, rgba(255, 255, 255, .9), transparent 6%),
@@ -210,7 +235,7 @@ body.shader-page-active {
 .shader-guide-orb-b {
   right: 26%;
   bottom: 2%;
-  width: 38%;
+  width: 30%;
   aspect-ratio: 1.25;
   background: radial-gradient(ellipse, rgba(255, 97, 104, .82), rgba(121, 239, 189, .2) 45%, transparent 70%);
   animation-delay: -3s;
@@ -372,14 +397,19 @@ body.shader-page-active {
   margin-top: 72px;
 }
 
-.shader-guide-pipeline > article {
+.shader-guide-pipeline-item,
+.shader-guide-error-loop-item {
+  display: contents;
+}
+
+.shader-guide-pipeline article {
   min-height: 390px;
   padding: 22px;
   border: 1px solid #c8c5bb;
   background: #e7e4dc;
 }
 
-.shader-guide-pipeline > article > span,
+.shader-guide-pipeline article > span,
 .shader-guide-troubleshooting article > span,
 .shader-guide-anywhere-grid article > span {
   color: var(--mint-dark);
@@ -387,7 +417,7 @@ body.shader-page-active {
   letter-spacing: .13em;
 }
 
-.shader-guide-pipeline > b {
+.shader-guide-pipeline-item > b {
   color: var(--mint-dark);
   font: 400 24px 'IBM Plex Mono', monospace;
 }
@@ -817,7 +847,7 @@ body.shader-page-active {
   margin: 70px auto 24px;
 }
 
-.shader-guide-error-loop article {
+.shader-guide-error-loop-item article {
   min-height: 190px;
   padding: 24px;
   border: 1px solid rgba(255, 255, 255, .16);
@@ -842,7 +872,7 @@ body.shader-page-active {
   line-height: 1.48;
 }
 
-.shader-guide-error-loop > i {
+.shader-guide-error-loop-item > i {
   align-self: center;
   color: var(--coral);
   font: normal 20px 'IBM Plex Mono', monospace;
@@ -992,7 +1022,7 @@ body.shader-page-active {
 .shader-guide-cta a:first-child {
   border-color: var(--mint);
   background: var(--mint);
-  color: #113f31;
+  color: #0d0d0c;
 }
 
 .shader-guide-footer {
@@ -1047,6 +1077,10 @@ body.shader-page-active {
   }
 
   .shader-guide-error-loop > i {
+    display: none;
+  }
+
+  .shader-guide-error-loop-item > i {
     display: none;
   }
 }
@@ -1118,7 +1152,7 @@ body.shader-page-active {
     grid-template-columns: 1fr;
   }
 
-  .shader-guide-pipeline > b {
+  .shader-guide-pipeline-item > b {
     justify-self: center;
     transform: rotate(90deg);
   }
