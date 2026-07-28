@@ -1,5 +1,6 @@
 import type { ShaderPresetDefinition } from './types';
 import { audioReactivePresetList } from './audioReactive';
+import { projectionAtelierPresetList } from './atelier';
 import { drawingPresetList } from './drawing';
 import { importedShaderBundlePresetList } from './importedShaderBundle';
 import { sculpturePresetList } from './sculpture';
@@ -9,11 +10,13 @@ export type { ShaderPresetDefinition } from './types';
 export {
   audioReactivePresetList,
   drawingPresetList,
+  projectionAtelierPresetList,
   sculpturePresetList,
   stagePresetList,
 };
 
 export const shaderPresetList: ShaderPresetDefinition[] = [
+  ...projectionAtelierPresetList,
   ...sculpturePresetList,
   ...stagePresetList,
   ...drawingPresetList,
