@@ -10,6 +10,7 @@ interface ProjectLibraryDialogProps {
   onSaveProject: (name: string) => void;
   onSaveAsNewProject: (name: string) => void;
   onCreateNewProject: () => void;
+  onCreateEmptyProject: () => void;
   onOpenProject: (sessionId: string) => void;
 }
 
@@ -34,6 +35,7 @@ export function ProjectLibraryDialog({
   onSaveProject,
   onSaveAsNewProject,
   onCreateNewProject,
+  onCreateEmptyProject,
   onOpenProject,
 }: ProjectLibraryDialogProps) {
   const [projectNameDraft, setProjectNameDraft] = useState(currentProjectName);
@@ -92,6 +94,13 @@ export function ProjectLibraryDialog({
                   onClick={onCreateNewProject}
                 >
                   New Project
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={onCreateEmptyProject}
+                >
+                  New Empty Project
                 </button>
                 <button
                   type="button"

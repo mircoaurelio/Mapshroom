@@ -73,6 +73,7 @@ import {
   DEFAULT_UI_PREFERENCES,
   GOOGLE_API_KEY_STORAGE_KEY,
   OPENAI_API_KEY_STORAGE_KEY,
+  createEmptyProject,
   createDefaultProject,
 } from '../config';
 import {
@@ -3282,6 +3283,29 @@ export function WorkspaceRoute() {
     setCompilerError('');
     setStatusMessage('Created a new project.');
     trackUiClick('create_project');
+  }, [isMobile]);
+
+  const handleCreateEmptyProject = useCallback(() => {
+    const confirmed = window.confirm(
+      'Create a new empty project? Unsaved changes in the current workspace will be lost unless you save first.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const nextSessionId = crypto.randomUUID();
+    const nextProject = normalizeProject(createEmptyProject(nextSessionId, { isMobile }));
+
+    setProject(nextProject);
+    persistActiveSessionId(nextSessionId);
+    setIsProjectDialogOpen(false);
+    setEditingTimelineStepId(null);
+    setPreviewShaderId(null);
+    setStudioPreviewOverride(false);
+    clearGeneratedShaderRetry();
+    setCompilerError('');
+    setStatusMessage('Created a new empty project with a white canvas.');
+    trackUiClick('create_empty_project');
   }, [isMobile]);
 
   const handleOpenSavedProject = useCallback((sessionId: string) => {
@@ -8497,6 +8521,7 @@ ${errorSnapshot}`,
         onSaveProject={handleSaveProject}
         onSaveAsNewProject={handleSaveAsNewProject}
         onCreateNewProject={handleCreateNewProject}
+        onCreateEmptyProject={handleCreateEmptyProject}
         onOpenProject={handleOpenSavedProject}
       />
 

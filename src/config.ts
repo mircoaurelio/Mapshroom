@@ -5,14 +5,16 @@ import {
   createStarterTimelineSteps,
   STARTER_TIMELINE_SHADER_COUNT,
 } from './lib/bundledProjects';
-import { getShaderTimelineDuration } from './lib/timeline';
+import { createTimelineShaderStep, getShaderTimelineDuration } from './lib/timeline';
 import {
   BUNDLED_STATUE_ASSET_ID,
   BUNDLED_VERTICAL_STAGE_ASSET_ID,
+  BUNDLED_WHITE_CANVAS_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
   pickStarterBundledAssetId,
 } from './lib/bundledAssets';
 import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
+import { blankShaderTemplate } from './shaders/templates/blankShader';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
@@ -207,6 +209,78 @@ export function createDefaultProject(
         enabled: false,
         deterministicRenderReady: true,
         lastRequestedAt: null,
+      },
+    },
+  };
+}
+
+export function createEmptyProject(
+  sessionId: string,
+  options: { isMobile?: boolean } = {},
+): ProjectDocument {
+  const project = createDefaultProject(sessionId, options);
+  const shaderId = `empty-project-${crypto.randomUUID()}`;
+  const shaderName = 'Blank Shader';
+  const shaderCode = blankShaderTemplate.replace('// NAME: New Shader', `// NAME: ${shaderName}`);
+  const shaderVersion = {
+    id: crypto.randomUUID(),
+    prompt: 'Empty project base shader',
+    name: shaderName,
+    code: shaderCode,
+    createdAt: new Date().toISOString(),
+  };
+  const emptyShader = {
+    id: shaderId,
+    name: shaderName,
+    code: shaderCode,
+    description: 'Neutral pass-through shader for an empty project.',
+    template: 'stage' as const,
+    group: 'Project',
+    versions: [shaderVersion],
+    uniformValues: {},
+    lastValidCode: shaderCode,
+    lastValidUniformValues: {},
+  };
+  const timelineStep = createTimelineShaderStep(shaderId);
+
+  return {
+    ...project,
+    name: 'Untitled Empty Project',
+    library: {
+      assets: DEFAULT_BUNDLED_ASSETS,
+      activeAssetId: BUNDLED_WHITE_CANVAS_ASSET_ID,
+    },
+    studio: {
+      ...project.studio,
+      activeShaderId: shaderId,
+      activeShaderName: shaderName,
+      activeShaderCode: shaderCode,
+      shaderVersions: [shaderVersion],
+      savedShaders: [...project.studio.savedShaders, emptyShader],
+      shaderChatHistory: [],
+      uniformValues: {},
+    },
+    playback: {
+      ...project.playback,
+      activeAssetId: BUNDLED_WHITE_CANVAS_ASSET_ID,
+    },
+    timeline: {
+      stub: {
+        ...project.timeline.stub,
+        durationSeconds: timelineStep.durationSeconds,
+        markers: [],
+        tracks: [],
+        shaderSequence: {
+          ...project.timeline.stub.shaderSequence,
+          mode: 'sequence',
+          stagePreviewMode: 'timeline',
+          focusedStepId: timelineStep.id,
+          randomSeedToken: crypto.randomUUID(),
+          singleStepLoopEnabled: false,
+          randomChoiceEnabled: false,
+          sharedTransitionEnabled: false,
+          steps: [timelineStep],
+        },
       },
     },
   };
