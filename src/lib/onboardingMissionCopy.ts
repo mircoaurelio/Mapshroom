@@ -15,7 +15,7 @@ export type OnboardingMissionLocale =
   | 'ar';
 
 export const ONBOARDING_MISSION_COPY: Record<OnboardingMissionLocale, string> = {
-  en: 'Mapshroom’s goal is to bring setup time as close to zero as possible.',
+  en: 'Free forever, open-source, shader-based projection mapping with an automatic machine-learning workflow to map any 3D surface, painting, or structure.',
   it: 'L’obiettivo di Mapshroom è portare il tempo di configurazione il più vicino possibile allo zero.',
   es: 'El objetivo de Mapshroom es acercar el tiempo de configuración lo máximo posible a cero.',
   fr: 'L’objectif de Mapshroom est de réduire le temps de configuration au plus près de zéro.',

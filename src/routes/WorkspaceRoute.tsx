@@ -325,7 +325,7 @@ const MOBILE_ONBOARDING_COPY = {
 } as const;
 const ONBOARDING_COPY = {
   en: {
-    welcomeEyebrow: 'Welcome to Mapshroom',
+    welcomeEyebrow: 'Mapshroom Vibe Projection Mapping',
     welcomeTitle: 'How would you like to begin?',
     welcomeStartMapping: 'Open the workspace',
     welcomeLearnApp: 'Take the guided tour',
