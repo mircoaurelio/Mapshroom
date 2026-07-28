@@ -7,12 +7,16 @@ import {
 } from './lib/bundledProjects';
 import { createTimelineShaderStep, getShaderTimelineDuration } from './lib/timeline';
 import {
+  BUNDLED_EMPTY_CANVAS_ASSET,
+  BUNDLED_EMPTY_CANVAS_ASSET_ID,
   BUNDLED_STATUE_ASSET_ID,
   BUNDLED_VERTICAL_STAGE_ASSET_ID,
   BUNDLED_WHITE_CANVAS_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
+  isInternalCanvasAssetId,
   pickStarterBundledAssetId,
 } from './lib/bundledAssets';
+import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
 import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
 import { blankShaderTemplate } from './shaders/templates/blankShader';
 import {
@@ -246,14 +250,22 @@ export function createEmptyProject(
     lastValidCode: shaderCode,
     lastValidUniformValues: fullCanvasShaderUniformValues,
   };
-  const timelineStep = createTimelineShaderStep(shaderId);
+  const timelineStep = {
+    ...createTimelineShaderStep(shaderId),
+    assetSettings: normalizeTimelineStepAssetSettings({
+      fitMode: 'stretch',
+      opacity: 1,
+      quality: 'high',
+      useStepAssetAsShaderBase: true,
+    }),
+  };
 
   return {
     ...project,
     name: 'Untitled Empty Project',
     library: {
-      assets: DEFAULT_BUNDLED_ASSETS,
-      activeAssetId: BUNDLED_WHITE_CANVAS_ASSET_ID,
+      assets: [...DEFAULT_BUNDLED_ASSETS, BUNDLED_EMPTY_CANVAS_ASSET],
+      activeAssetId: BUNDLED_EMPTY_CANVAS_ASSET_ID,
     },
     studio: {
       ...project.studio,
@@ -267,7 +279,7 @@ export function createEmptyProject(
     },
     playback: {
       ...project.playback,
-      activeAssetId: BUNDLED_WHITE_CANVAS_ASSET_ID,
+      activeAssetId: BUNDLED_EMPTY_CANVAS_ASSET_ID,
     },
     timeline: {
       stub: {
@@ -291,21 +303,55 @@ export function createEmptyProject(
   };
 }
 
-/** Upgrade untouched empty projects created before the full-frame canvas shader existed. */
+/** Upgrade empty projects from the visible white source and untouched blank shader. */
 export function upgradeLegacyEmptyProject(project: ProjectDocument): ProjectDocument {
   const legacyShaderCode = blankShaderTemplate.replace(
     '// NAME: New Shader',
     '// NAME: Blank Shader',
   );
-  const usesWhiteCanvas =
+  const usesLegacyWhiteCanvas =
     project.playback?.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID ||
     project.library?.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID;
+  const usesInternalCanvas =
+    usesLegacyWhiteCanvas ||
+    project.playback?.activeAssetId === BUNDLED_EMPTY_CANVAS_ASSET_ID ||
+    project.library?.activeAssetId === BUNDLED_EMPTY_CANVAS_ASSET_ID;
   const isUntouchedLegacyShader =
     project.studio.activeShaderName === 'Blank Shader' &&
     project.studio.activeShaderCode.trim() === legacyShaderCode.trim();
 
-  if (!usesWhiteCanvas || !isUntouchedLegacyShader) {
+  if (!usesInternalCanvas) {
     return project;
+  }
+
+  const upgradedProject = usesLegacyWhiteCanvas
+    ? {
+        ...project,
+        library: {
+          ...project.library,
+          assets: [
+            ...project.library.assets.filter(
+              (asset) => !isInternalCanvasAssetId(asset.id),
+            ),
+            BUNDLED_EMPTY_CANVAS_ASSET,
+          ],
+          activeAssetId:
+            project.library.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID
+              ? BUNDLED_EMPTY_CANVAS_ASSET_ID
+              : project.library.activeAssetId,
+        },
+        playback: {
+          ...project.playback,
+          activeAssetId:
+            project.playback.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID
+              ? BUNDLED_EMPTY_CANVAS_ASSET_ID
+              : project.playback.activeAssetId,
+        },
+      }
+    : project;
+
+  if (!isUntouchedLegacyShader) {
+    return upgradedProject;
   }
 
   const replacement = createEmptyProject(project.sessionId);
@@ -313,20 +359,22 @@ export function upgradeLegacyEmptyProject(project: ProjectDocument): ProjectDocu
     (shader) => shader.id === replacement.studio.activeShaderId,
   );
   if (!replacementShader) {
-    return project;
+    return upgradedProject;
   }
 
   const legacyShaderId = project.studio.activeShaderId;
   return {
-    ...project,
+    ...upgradedProject,
     studio: {
-      ...project.studio,
+      ...upgradedProject.studio,
       activeShaderId: replacement.studio.activeShaderId,
       activeShaderName: replacement.studio.activeShaderName,
       activeShaderCode: replacement.studio.activeShaderCode,
       shaderVersions: replacement.studio.shaderVersions,
       savedShaders: [
-        ...project.studio.savedShaders.filter((shader) => shader.id !== legacyShaderId),
+        ...upgradedProject.studio.savedShaders.filter(
+          (shader) => shader.id !== legacyShaderId,
+        ),
         replacementShader,
       ],
       shaderChatHistory: [],
@@ -334,10 +382,10 @@ export function upgradeLegacyEmptyProject(project: ProjectDocument): ProjectDocu
     },
     timeline: {
       stub: {
-        ...project.timeline.stub,
+        ...upgradedProject.timeline.stub,
         shaderSequence: {
-          ...project.timeline.stub.shaderSequence,
-          steps: project.timeline.stub.shaderSequence.steps.map((step) =>
+          ...upgradedProject.timeline.stub.shaderSequence,
+          steps: upgradedProject.timeline.stub.shaderSequence.steps.map((step) =>
             step.shaderId === legacyShaderId
               ? { ...step, shaderId: replacement.studio.activeShaderId }
               : step,

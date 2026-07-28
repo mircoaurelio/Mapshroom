@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isInternalCanvasAssetId } from '../lib/bundledAssets';
 import { useAssetPreviewUrls } from '../lib/useAssetPreviewUrls';
 import type { AssetRecord } from '../types';
 import { MaskToolIcon } from './MaskToolIcon';
@@ -82,8 +83,17 @@ export function AssetLibraryDialog({
   highlightStartMapping,
   onImportFirstStepDismiss,
 }: AssetLibraryDialogProps) {
-  const previewUrls = useAssetPreviewUrls(assets, open, activeAssetId, assetUrl);
-  const orderedAssets = [...assets].reverse();
+  const visibleAssets = assets.filter((asset) => !isInternalCanvasAssetId(asset.id));
+  const visibleActiveAsset =
+    activeAsset && !isInternalCanvasAssetId(activeAsset.id) ? activeAsset : null;
+  const visibleAssetUrl = visibleActiveAsset ? assetUrl : null;
+  const previewUrls = useAssetPreviewUrls(
+    visibleAssets,
+    open,
+    visibleActiveAsset?.id ?? null,
+    visibleAssetUrl,
+  );
+  const orderedAssets = [...visibleAssets].reverse();
   const [pendingDeleteAsset, setPendingDeleteAsset] = useState<AssetRecord | null>(null);
 
   if (!open) {
@@ -196,10 +206,10 @@ export function AssetLibraryDialog({
           <div className="asset-browser-gallery-shell">
               <div className="field-inline-label">
                 <span>All Uploads</span>
-                <small>{assets.length} items</small>
+                <small>{visibleAssets.length} items</small>
               </div>
 
-              {assets.length === 0 ? (
+              {visibleAssets.length === 0 ? (
                 <div className="asset-browser-preview-placeholder asset-browser-gallery-empty">
                   Import images or videos to build your library.
                 </div>
@@ -274,7 +284,7 @@ export function AssetLibraryDialog({
           </div>
           <div className="asset-browser-preview-column">
             <div className="asset-browser-preview-shell">
-              {activeAsset?.kind === 'image' && assetUrl ? (
+              {visibleActiveAsset?.kind === 'image' && visibleAssetUrl ? (
                 <div className="asset-browser-preview-actions">
                   <button
                     type="button"
@@ -289,7 +299,7 @@ export function AssetLibraryDialog({
                     <button
                       type="button"
                       className="asset-browser-remove-background asset-browser-shine"
-                      onClick={() => onEditMask(activeAsset.id, 'refine')}
+                      onClick={() => onEditMask(visibleActiveAsset.id, 'refine')}
                     >
                       <MaskToolIcon />
                       <span>Remove background</span>
@@ -297,23 +307,23 @@ export function AssetLibraryDialog({
                     <button
                       type="button"
                       className="asset-browser-depth-map asset-browser-shine asset-browser-shine-reverse"
-                      onClick={() => onEditMask(activeAsset.id, 'depth')}
+                      onClick={() => onEditMask(visibleActiveAsset.id, 'depth')}
                       title="Create depth map"
                     >
                       <DepthMapIcon />
                       <span>Depth map</span>
                     </button>
-                    <a className="asset-browser-preview-action" href={assetUrl} download={activeAsset.name} aria-label={`Download ${activeAsset.name}`} title="Download image">
+                    <a className="asset-browser-preview-action" href={visibleAssetUrl} download={visibleActiveAsset.name} aria-label={`Download ${visibleActiveAsset.name}`} title="Download image">
                       <DownloadIcon />
                     </a>
                   </div>
                 </div>
               ) : null}
-              {activeAsset && assetUrl ? (
-                activeAsset.kind === 'video' ? (
-                  <video className="asset-browser-preview-media" src={assetUrl} controls playsInline />
+              {visibleActiveAsset && visibleAssetUrl ? (
+                visibleActiveAsset.kind === 'video' ? (
+                  <video className="asset-browser-preview-media" src={visibleAssetUrl} controls playsInline />
                 ) : (
-                  <img className="asset-browser-preview-media" src={assetUrl} alt={activeAsset.name} />
+                  <img className="asset-browser-preview-media" src={visibleAssetUrl} alt={visibleActiveAsset.name} />
                 )
               ) : (
                 <div className="asset-browser-preview-placeholder">Open an asset to preview it here.</div>

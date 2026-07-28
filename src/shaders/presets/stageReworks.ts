@@ -1,9 +1,5 @@
 import type { ShaderPresetDefinition } from './types';
 import type { ShaderUniformValueMap } from '../../types';
-import {
-  fullCanvasShaderTemplate,
-  fullCanvasShaderUniformValues,
-} from '../templates/fullCanvasShader';
 
 interface StageReworkSpec {
   id: string;
@@ -21,29 +17,6 @@ interface StageReworkSpec {
 }
 
 const stageReworkSpecs: StageReworkSpec[] = [
-  {
-    id: 'stage_rework_chromatic_aura_monument',
-    name: 'Chromatic Aura Monument',
-    sourceName: 'High Contrast Aura',
-    description:
-      'High Contrast Aura rebuilt with continuous relief normals, broad architectural color travel, and a clean projector-black cutoff.',
-    shadow: [0.035, 0.055, 0.12],
-    highlight: [0.2, 0.92, 1],
-    mix: 0.88,
-    relief: 8.4,
-    edge: 0.78,
-    canvasFill: 0.34,
-    speed: 0.62,
-    sourceUniforms: {
-      speed: 0.72,
-      softness: 5.2,
-      sensitivity: 3.4,
-      depth_mult: 0.82,
-      shadow_threshold: 0.22,
-      shadow_contrast: 1.4,
-      glimmer: 0.38,
-    },
-  },
   {
     id: 'stage_rework_velvet_mirror_scanner',
     name: 'Velvet Mirror Scanner',
@@ -91,165 +64,6 @@ const stageReworkSpecs: StageReworkSpec[] = [
       detail: 6.4,
       lightColor1: [0.2, 0.7, 1],
       lightColor2: [1, 0.52, 0.16],
-    },
-  },
-  {
-    id: 'stage_rework_architectural_light_quarry',
-    name: 'Architectural Light Quarry',
-    sourceName: 'Random 3D Wide Light',
-    description:
-      'Random Wide Light refined into slow monumental beams, depth-cut shadow shelves, and continuous facade-scale gradients.',
-    shadow: [0.015, 0.035, 0.08],
-    highlight: [0.46, 0.86, 1],
-    mix: 0.9,
-    relief: 11.8,
-    edge: 0.88,
-    canvasFill: 0.19,
-    speed: 0.43,
-    sourceUniforms: {
-      speed: 0.38,
-      range: 0.56,
-      brightness: 2.15,
-      depth_scale: 1.28,
-    },
-  },
-  {
-    id: 'stage_rework_diffused_spiral_atmosphere',
-    name: 'Diffused Spiral Atmosphere',
-    sourceName: 'HD Diffused Reactive Swirl',
-    description:
-      'The diffused reactive swirl enlarged into a seamless atmospheric vortex with depth-aware haze and rolling highlights.',
-    shadow: [0.03, 0.02, 0.13],
-    highlight: [0.36, 1, 0.78],
-    mix: 0.87,
-    relief: 6.8,
-    edge: 0.56,
-    canvasFill: 0.32,
-    speed: 0.48,
-    sourceUniforms: {
-      colorShift: 0.18,
-      intensity: 0.82,
-      blur: 0.2,
-      spread: 0.68,
-    },
-  },
-  {
-    id: 'stage_rework_serpentine_chromatic_current',
-    name: 'Serpentine Chromatic Current',
-    sourceName: 'Distorted LSD Snake',
-    description:
-      'Distorted LSD Snake rebuilt as long continuous chromatic currents with softened interference and relief-locked motion.',
-    shadow: [0.06, 0.015, 0.1],
-    highlight: [0.94, 0.3, 1],
-    mix: 0.86,
-    relief: 7.6,
-    edge: 0.62,
-    canvasFill: 0.3,
-    speed: 0.57,
-    sourceUniforms: {
-      scale: 14,
-      speed: 0.34,
-      dash_freq: 3.8,
-      thickness: 0.24,
-      blur: 0.08,
-      distortion: 0.62,
-    },
-  },
-  {
-    id: 'stage_rework_liquid_chrome_halo',
-    name: 'Liquid Chrome Halo',
-    sourceName: 'Speed-Looping Chrome Halo',
-    description:
-      'The chrome halo slowed and widened into a continuous liquid-metal aura with polished relief reflections.',
-    shadow: [0.025, 0.045, 0.075],
-    highlight: [0.72, 0.91, 1],
-    mix: 0.92,
-    relief: 12,
-    edge: 0.92,
-    canvasFill: 0.2,
-    speed: 0.38,
-    sourceUniforms: {
-      speed: 0.36,
-      speed_loop: 0.55,
-      range_width: 0.16,
-      halo_strength: 1.85,
-      halo_spread: 8.2,
-      halo_color: [0.38, 0.82, 1],
-      zoom: 3.6,
-      psy_blend: 0.68,
-      contrast: 1.08,
-      saturation: 0.92,
-    },
-  },
-  {
-    id: 'stage_rework_fractured_psyche_border',
-    name: 'Fractured Psyche Border',
-    sourceName: 'Psych Sections Inverted Border Black Distorted',
-    description:
-      'The inverted border composition refined into broad fracture fields, controlled chroma, and stable black negative space.',
-    shadow: [0.04, 0.012, 0.07],
-    highlight: [1, 0.45, 0.16],
-    mix: 0.84,
-    relief: 8.8,
-    edge: 0.76,
-    canvasFill: 0.28,
-    speed: 0.51,
-    sourceUniforms: {
-      dark_distance: 0.12,
-      colorrangeeffect: 0.54,
-      speed: 0.36,
-      border_width: 0.18,
-      distortion_amount: 0.012,
-    },
-  },
-  {
-    id: 'stage_rework_radial_edge_memory',
-    name: 'Radial Edge Memory',
-    sourceName: 'Radial Delayed Soft Edge Blur',
-    description:
-      'The radial edge delay turned into persistent expanding memories that bend around stage relief and dissolve without seams.',
-    shadow: [0.02, 0.045, 0.09],
-    highlight: [0.28, 0.84, 1],
-    mix: 0.9,
-    relief: 9.6,
-    edge: 0.86,
-    canvasFill: 0.24,
-    speed: 0.45,
-    sourceUniforms: {
-      speed: 1.2,
-      lineLength: 3.4,
-      delay: 1.6,
-      distOffset: 11,
-    },
-  },
-  {
-    id: 'stage_rework_dual_solar_spiral',
-    name: 'Dual Solar Spiral',
-    sourceName: 'Dual Light Spiral Eye',
-    description:
-      'Dual Light Spiral Eye opened into a pair of solar currents with warm/cool light exchange and continuous stage-scale flow.',
-    shadow: [0.055, 0.025, 0.085],
-    highlight: [1, 0.78, 0.28],
-    mix: 0.88,
-    relief: 7.9,
-    edge: 0.66,
-    canvasFill: 0.31,
-    speed: 0.52,
-    sourceUniforms: {
-      speed: 0.52,
-      speed2: -0.36,
-      lineLength: 2.8,
-      distOffset: 5.2,
-      waveColor1: [1, 0.34, 0.08],
-      waveColor2: [0.1, 0.68, 1],
-      waveColor3: [0.92, 0.12, 0.72],
-      waveFreq: 18,
-      spiralScale: 14,
-      spiralSpeed: 1.2,
-      spiralSize: 0.48,
-      eyeRange: 0.52,
-      eyeSize: 0.12,
-      secondLightColor: [0.1, 0.42, 1],
     },
   },
 ];
@@ -395,18 +209,5 @@ export function createStageReworkPresetList(
     };
   });
 
-  return [
-    ...derivedPresets,
-    {
-      id: 'stage_rework_full_canvas_flow',
-      name: 'Full Canvas Flow',
-      template: 'stage',
-      templates: ['stage'],
-      group: 'Stage Reworks',
-      description:
-        'A full-frame domain-warped current that ignores source imagery and renders continuously across every output pixel.',
-      code: fullCanvasShaderTemplate,
-      uniformValues: fullCanvasShaderUniformValues,
-    },
-  ];
+  return derivedPresets;
 }

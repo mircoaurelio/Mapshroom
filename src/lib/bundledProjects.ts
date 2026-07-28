@@ -82,7 +82,7 @@ function buildStarterShaderSequence(presets: ShaderPresetDefinition[]) {
 export const BUNDLED_PROJECT_LIBRARY_ENTRIES: ProjectLibraryEntry[] = [
   {
     sessionId: BUNDLED_STAGE_REWORKS_PROJECT_SESSION_ID,
-    name: 'Stage Reworks · Complete Set',
+    name: 'Stage Reworks · Selected Pair',
     createdAt: BUNDLED_STAGE_REWORKS_PROJECT_CREATED_AT,
     updatedAt: BUNDLED_STAGE_REWORKS_PROJECT_CREATED_AT,
     bundled: true,
@@ -115,8 +115,8 @@ function createStageReworksProjectDocument(): ProjectDocument {
   const reworks = stageReworkPresetList;
   const activeShader = reworks[0];
 
-  if (!activeShader || reworks.length !== 11) {
-    throw new Error('Stage Reworks project requires all eleven new stage shaders.');
+  if (!activeShader || reworks.length !== 2) {
+    throw new Error('Stage Reworks project requires both selected stage shaders.');
   }
 
   const steps = reworks.map((preset) => ({
@@ -143,7 +143,7 @@ function createStageReworksProjectDocument(): ProjectDocument {
   return {
     version: 3,
     sessionId: BUNDLED_STAGE_REWORKS_PROJECT_SESSION_ID,
-    name: 'Stage Reworks · Complete Set',
+    name: 'Stage Reworks · Selected Pair',
     library: {
       assets: DEFAULT_BUNDLED_ASSETS,
       activeAssetId: BUNDLED_STAGE_ASSET_ID,
@@ -209,7 +209,7 @@ function createStageReworksProjectDocument(): ProjectDocument {
       stub: {
         enabled: true,
         durationSeconds: getShaderTimelineDuration(steps),
-        markers: ['aura', 'scanner', 'relight', 'spiral', 'chrome'],
+        markers: ['scanner', 'relight'],
         tracks: [
           { id: 'timeline-track-assets', label: 'Stage surface', type: 'media' },
           { id: 'timeline-track-effects', label: 'Stage reworks', type: 'automation' },
@@ -221,7 +221,7 @@ function createStageReworksProjectDocument(): ProjectDocument {
           stagePreviewMode: 'timeline',
           focusedStepId: steps[0]?.id ?? null,
           pinnedStepId: null,
-          randomSeedToken: 'stage-reworks-complete-sequence',
+          randomSeedToken: 'stage-reworks-selected-pair-sequence',
           singleStepLoopEnabled: false,
           randomChoiceEnabled: false,
           sharedTransitionEnabled: true,
