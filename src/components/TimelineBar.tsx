@@ -530,6 +530,8 @@ export function TimelineBar({
         nowEpochMs,
         transitionEffect: sequence.sharedTransitionEffect,
         transitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
+        focusedStepId: sequence.focusedStepId,
+        singleStepLoopEnabled: sequence.singleStepLoopEnabled,
       });
     }
 

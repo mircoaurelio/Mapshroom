@@ -7252,6 +7252,9 @@ ${errorSnapshot}`,
           transitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
           transitionDurationSeconds:
             timelineStub.shaderSequence.sharedTransitionDurationSeconds,
+          focusedStepId: timelineStub.shaderSequence.focusedStepId,
+          singleStepLoopEnabled:
+            timelineStub.shaderSequence.singleStepLoopEnabled,
         })
       : resolveShaderTimelineState({
           shaders: timelineSelectableShaders,
@@ -7271,6 +7274,19 @@ ${errorSnapshot}`,
           randomSeedSalt: timelineStub.shaderSequence.randomSeedToken || project.sessionId,
         })
     : null;
+  const resolveCurrentAudioTimelineState = () =>
+    resolveAudioReactiveTimelineState({
+      shaders: timelineSelectableShaders,
+      steps: timelinePlaybackSteps,
+      section: audioReactivity.uiFrame.section,
+      nowEpochMs: Date.now(),
+      transitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
+      transitionDurationSeconds:
+        timelineStub.shaderSequence.sharedTransitionDurationSeconds,
+      focusedStepId: timelineStub.shaderSequence.focusedStepId,
+      singleStepLoopEnabled:
+        timelineStub.shaderSequence.singleStepLoopEnabled,
+    });
   const resolveCurrentPlaybackStepId = () => {
     if (editingTimelineStepId) {
       return editingTimelineStepId;
@@ -7281,6 +7297,10 @@ ${errorSnapshot}`,
       timelineStub.shaderSequence.focusedStepId
     ) {
       return timelineStub.shaderSequence.focusedStepId;
+    }
+
+    if (timelineStub.shaderSequence.mode === 'audioReactive') {
+      return resolveCurrentAudioTimelineState()?.currentStep.id ?? null;
     }
 
     return resolveShaderTimelineState({
@@ -7311,6 +7331,28 @@ ${errorSnapshot}`,
       timelineStub.shaderSequence.singleStepLoopEnabled ||
       timelineStub.shaderSequence.stagePreviewMode === 'focused'
     ) {
+      if (timelineStub.shaderSequence.mode === 'audioReactive') {
+        setEditingTimelineStepId(null);
+        setStudioPreviewOverride(false);
+        updateProject((currentProject) => ({
+          ...currentProject,
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              shaderSequence: {
+                ...currentProject.timeline.stub.shaderSequence,
+                stagePreviewMode: 'timeline',
+                singleStepLoopEnabled: false,
+              },
+            },
+          },
+        }));
+        setStatusMessage(
+          'Audio Reactive resumed from the latest detected music section.',
+        );
+        return;
+      }
+
       const exitPlan = getTimelineRepeatExitPlan(project);
       if (!exitPlan) {
         return;
@@ -7325,7 +7367,10 @@ ${errorSnapshot}`,
       return;
     }
 
-    const currentTimelineState = resolveProjectTimelineState(project, false);
+    const currentTimelineState =
+      timelineStub.shaderSequence.mode === 'audioReactive'
+        ? resolveCurrentAudioTimelineState()
+        : resolveProjectTimelineState(project, false);
     if (!currentTimelineState) {
       return;
     }
@@ -7338,10 +7383,17 @@ ${errorSnapshot}`,
     void selectTimelineStepForEditing(currentTimelineState.currentStep.id, {
       focusStudioOnMobile: false,
       stagePreviewMode: 'focused',
-      seekTimeSeconds: repeatTimeSeconds,
+      seekTimeSeconds:
+        timelineStub.shaderSequence.mode === 'audioReactive'
+          ? null
+          : repeatTimeSeconds,
       preserveRenderTimeOnSeek: true,
     });
-    setStatusMessage('Repeating the highlighted shader while its animation keeps running.');
+    setStatusMessage(
+      timelineStub.shaderSequence.mode === 'audioReactive'
+        ? 'Holding the selected shader. Disable repeat to resume music-driven changes.'
+        : 'Repeating the highlighted shader while its animation keeps running.',
+    );
   };
   const handlePlaybackStepOffset = (offset: -1 | 1) => {
     if (isMobile && editingTimelineStepId) {
@@ -7375,16 +7427,22 @@ ${errorSnapshot}`,
 
     if (
       timelineStub.shaderSequence.singleStepLoopEnabled ||
-      timelineStub.shaderSequence.stagePreviewMode === 'focused'
+      timelineStub.shaderSequence.stagePreviewMode === 'focused' ||
+      timelineStub.shaderSequence.mode === 'audioReactive'
     ) {
       void selectTimelineStepForEditing(nextStep.id, {
         focusStudioOnMobile: false,
         stagePreviewMode: 'focused',
-        seekTimeSeconds: nextTimeSeconds,
+        seekTimeSeconds:
+          timelineStub.shaderSequence.mode === 'audioReactive'
+            ? null
+            : nextTimeSeconds,
         preserveRenderTimeOnSeek: true,
       });
       setStatusMessage(
-        `${offset > 0 ? 'Next' : 'Previous'} repeated shader: ${nextIndex + 1} of ${playableTimelineSteps.length}.`,
+        timelineStub.shaderSequence.mode === 'audioReactive'
+          ? `${offset > 0 ? 'Next' : 'Previous'} audio shader held: ${nextIndex + 1} of ${playableTimelineSteps.length}.`
+          : `${offset > 0 ? 'Next' : 'Previous'} repeated shader: ${nextIndex + 1} of ${playableTimelineSteps.length}.`,
       );
       return;
     }
@@ -7551,7 +7609,10 @@ ${errorSnapshot}`,
       setPendingTimelineRepeatExit(null);
     }
 
-    const currentTimelineState = resolveProjectTimelineState(project, false);
+    const currentTimelineState =
+      sequence.mode === 'audioReactive'
+        ? resolveCurrentAudioTimelineState()
+        : resolveProjectTimelineState(project, false);
     if (!currentTimelineState) {
       return;
     }
@@ -7563,7 +7624,8 @@ ${errorSnapshot}`,
     );
     void selectTimelineStepForEditing(currentTimelineState.currentStep.id, {
       stagePreviewMode: 'focused',
-      seekTimeSeconds: repeatTimeSeconds,
+      seekTimeSeconds:
+        sequence.mode === 'audioReactive' ? null : repeatTimeSeconds,
       preserveRenderTimeOnSeek: true,
     });
     setStatusMessage(

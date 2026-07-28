@@ -10,6 +10,7 @@ export interface AudioSectionDetectorState {
   snapshot: AudioSectionSnapshot;
   sectionStartedAtMs: number;
   candidateStartedAtMs: number | null;
+  changeArmed: boolean;
   samples: Array<{
     atMs: number;
     features: number[];
@@ -43,8 +44,8 @@ const BASELINE_WINDOW_MS = 5_000;
 const NOVELTY_HISTORY_MS = 18_000;
 const MIN_RECENT_SAMPLES = 5;
 const MIN_BASELINE_SAMPLES = 12;
-const CANDIDATE_SUSTAIN_MS = 350;
-const CANDIDATE_BEAT_WAIT_MS = 900;
+const CANDIDATE_SUSTAIN_MS = 250;
+const CANDIDATE_BEAT_WAIT_MS = 700;
 const SILENCE_LEVEL = 0.035;
 
 function clamp(value: number, min: number, max: number): number {
@@ -105,8 +106,14 @@ function getAdaptiveThreshold(
   const center = median(values);
   const deviation = median(values.map((value) => Math.abs(value - center)));
   const boundedSensitivity = clamp(sensitivity, 0, 1);
-  const fixedFloor = 0.19 - boundedSensitivity * 0.07;
-  return Math.max(fixedFloor, center + Math.max(0.025, deviation * 2.8));
+  // Byte-frequency spectra from real songs typically move by only a few
+  // hundredths between verse/chorus/drop sections. The previous 0.15 floor
+  // was reachable by synthetic tests but rejected normal music.
+  const fixedFloor = 0.055 - boundedSensitivity * 0.035;
+  return Math.max(
+    fixedFloor,
+    center + Math.max(0.008, deviation * 2.6),
+  );
 }
 
 export function createAudioSectionDetector(
@@ -124,6 +131,7 @@ export function createAudioSectionDetector(
     },
     sectionStartedAtMs: startedAtMs,
     candidateStartedAtMs: null,
+    changeArmed: true,
     samples: [],
     noveltyHistory: [],
   };
@@ -190,7 +198,10 @@ export function updateAudioSectionDetector(
   const minimumSectionElapsed =
     sample.atMs - currentState.sectionStartedAtMs >=
     Math.max(1_000, options.minSectionMs);
+  const changeArmed =
+    currentState.changeArmed || novelty < threshold * 0.72;
   const isCandidate =
+    changeArmed &&
     minimumSectionElapsed &&
     sample.level >= SILENCE_LEVEL &&
     novelty >= threshold;
@@ -214,6 +225,7 @@ export function updateAudioSectionDetector(
         samples,
         noveltyHistory,
         candidateStartedAtMs,
+        changeArmed,
         snapshot: {
           ...currentState.snapshot,
           confidence,
@@ -231,6 +243,7 @@ export function updateAudioSectionDetector(
       noveltyHistory,
       sectionStartedAtMs: sample.atMs,
       candidateStartedAtMs: null,
+      changeArmed: false,
       snapshot: {
         ...currentState.snapshot,
         revision: currentState.snapshot.revision + 1,
