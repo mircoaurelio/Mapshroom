@@ -9,6 +9,7 @@ import type {
 import { PanelSection } from './PanelSection';
 import type { TimelineSelectionInfo } from './TimelineSelectionBanner';
 import { UniformPanel } from './UniformPanel';
+import type { AudioReactivityController } from '../hooks/useAudioReactivity';
 
 interface ShaderStudioControlsSectionProps {
   savedShaders: SavedShader[];
@@ -41,6 +42,9 @@ interface StudioPanelProps
     ShaderVersionTrailSectionProps,
     ShaderCodeSectionProps {
   randomizationKey: string;
+  audioShaderId?: string;
+  audioShaderCode?: string;
+  audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
@@ -653,6 +657,9 @@ export function StudioPanel({
   activeShaderId,
   onSaveShader,
   randomizationKey,
+  audioShaderId,
+  audioShaderCode,
+  audioReactivity,
   uniformDefinitions,
   uniformValues,
   onUniformChange,
@@ -689,6 +696,9 @@ export function StudioPanel({
         <UniformPanel
           title={uniformPanelTitle}
           randomizationKey={randomizationKey}
+          audioShaderId={audioShaderId}
+          audioShaderCode={audioShaderCode}
+          audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={uniformValues}
           onUniformChange={onUniformChange}

@@ -55,9 +55,7 @@ const SHADER_PROMPT_PLACEHOLDERS = [
   'Create a lightweight projection shader that keeps circles aspect-correct, animates a color-selective radial wave, preserves alpha, and exposes target color, tolerance, center X/Y, scale, speed, glow, and output limit',
 ] as const;
 
-const TYPE_INTERVAL_MS = 18;
-const DOT_INTERVAL_MS = 150;
-const PHRASE_HOLD_MS = 1400;
+const PROMPT_ROTATION_INTERVAL_MS = 8_000;
 
 const AI_ROUTE_OPTIONS: Array<{
   value: AiGenerationRoute;
@@ -78,25 +76,13 @@ const AI_ROUTE_OPTIONS: Array<{
   { value: 'api', label: 'API', note: 'Use your key', mark: 'API' },
 ];
 
-interface PlaceholderAnimation {
-  phraseIndex: number;
-  characterCount: number;
-  dotCount: number;
-  phase: 'typing' | 'dots';
-}
-
 function useShaderPromptPlaceholder(active: boolean) {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(
     () =>
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
-  const [animation, setAnimation] = useState<PlaceholderAnimation>({
-    phraseIndex: 0,
-    characterCount: 0,
-    dotCount: 0,
-    phase: 'typing',
-  });
+  const [phraseIndex, setPhraseIndex] = useState(0);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -113,50 +99,20 @@ function useShaderPromptPlaceholder(active: boolean) {
       return;
     }
 
-    const phrase = SHADER_PROMPT_PLACEHOLDERS[animation.phraseIndex];
-    const delay =
-      animation.phase === 'typing'
-        ? animation.characterCount < phrase.length
-          ? TYPE_INTERVAL_MS
-          : DOT_INTERVAL_MS
-        : animation.dotCount < 3
-          ? DOT_INTERVAL_MS
-          : PHRASE_HOLD_MS;
+    const intervalId = window.setInterval(() => {
+      setPhraseIndex(
+        (current) => (current + 1) % SHADER_PROMPT_PLACEHOLDERS.length,
+      );
+    }, PROMPT_ROTATION_INTERVAL_MS);
 
-    const timeoutId = window.setTimeout(() => {
-      setAnimation((current) => {
-        const currentPhrase = SHADER_PROMPT_PLACEHOLDERS[current.phraseIndex];
-
-        if (current.phase === 'typing') {
-          if (current.characterCount < currentPhrase.length) {
-            return { ...current, characterCount: current.characterCount + 1 };
-          }
-
-          return { ...current, dotCount: 1, phase: 'dots' };
-        }
-
-        if (current.dotCount < 3) {
-          return { ...current, dotCount: current.dotCount + 1 };
-        }
-
-        return {
-          phraseIndex: (current.phraseIndex + 1) % SHADER_PROMPT_PLACEHOLDERS.length,
-          characterCount: 0,
-          dotCount: 0,
-          phase: 'typing',
-        };
-      });
-    }, delay);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [active, animation, prefersReducedMotion]);
+    return () => window.clearInterval(intervalId);
+  }, [active, prefersReducedMotion]);
 
   if (prefersReducedMotion) {
     return SHADER_PROMPT_PLACEHOLDERS[0];
   }
 
-  const phrase = SHADER_PROMPT_PLACEHOLDERS[animation.phraseIndex];
-  return `${phrase.slice(0, animation.characterCount)}${'.'.repeat(animation.dotCount)}`;
+  return SHADER_PROMPT_PLACEHOLDERS[phraseIndex];
 }
 
 interface AiPanelProps {

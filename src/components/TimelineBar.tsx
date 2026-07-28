@@ -20,6 +20,8 @@ import {
   shouldUseSharedTransition,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
+import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
+import type { AudioReactiveRuntime } from '../lib/audioReactivity';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 import type {
   AssetRecord,
@@ -47,6 +49,9 @@ interface TimelineBarProps {
   durationSeconds: number;
   midiTimelineControlActive?: boolean;
   midiManualMixArmed?: boolean;
+  audioReactiveAvailable?: boolean;
+  audioReactiveListening?: boolean;
+  audioRuntime?: AudioReactiveRuntime;
   markers: string[];
   tracks: TimelineStub['tracks'];
   transportControls?: ReactNode;
@@ -80,6 +85,7 @@ interface TimelineBarProps {
   onRemoveSequenceStep: (stepId: string) => void;
   onEditSequenceStep: (stepId: string) => void;
   onAddSequenceStep?: () => void;
+  onAddRandomSequenceStep?: () => void;
   scrollToStepRequest?: { stepId: string; token: number } | null;
   onResizeSequenceBoundary: (
     leftStepId: string,
@@ -260,7 +266,9 @@ function getTimelineTransitionSegments({
   }
 
   const usesSharedTransition =
-    sequence.mode === 'randomMix' || sequence.sharedTransitionEnabled;
+    sequence.mode === 'randomMix' ||
+    sequence.mode === 'audioReactive' ||
+    sequence.sharedTransitionEnabled;
 
   return stepSegments.flatMap((segment, index) => {
     const baseDurationSeconds = clampTimelineStepDuration(segment.step.durationSeconds);
@@ -309,6 +317,9 @@ export function TimelineBar({
   durationSeconds,
   midiTimelineControlActive = false,
   midiManualMixArmed = false,
+  audioReactiveAvailable = false,
+  audioReactiveListening = false,
+  audioRuntime,
   markers,
   tracks,
   transportControls,
@@ -333,6 +344,7 @@ export function TimelineBar({
   onRemoveSequenceStep,
   onEditSequenceStep,
   onAddSequenceStep,
+  onAddRandomSequenceStep,
   scrollToStepRequest = null,
   onResizeSequenceBoundary,
   variant = 'desktop',
@@ -357,7 +369,7 @@ export function TimelineBar({
   );
 
   useEffect(() => {
-    if (!transport.isPlaying) {
+    if (!transport.isPlaying && sequence.mode !== 'audioReactive') {
       setNowMs(performance.now());
       return;
     }
@@ -370,7 +382,12 @@ export function TimelineBar({
 
     frameId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frameId);
-  }, [transport.anchorTimestampMs, transport.isPlaying, transport.playbackRate]);
+  }, [
+    sequence.mode,
+    transport.anchorTimestampMs,
+    transport.isPlaying,
+    transport.playbackRate,
+  ]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -478,6 +495,7 @@ export function TimelineBar({
   }, [onResizeSequenceBoundary, onSequenceSharedTransitionChange, onSequenceStepChange, usesSharedTransition]);
 
   const transportTimeSeconds = getTransportTimeSeconds(transport, nowMs);
+  const nowEpochMs = performance.timeOrigin + nowMs;
   const playbackDisplaySteps = useMemo(
     () =>
       getEffectiveTimelinePlaybackSteps({
@@ -504,6 +522,17 @@ export function TimelineBar({
       return null;
     }
 
+    if (sequence.mode === 'audioReactive' && audioRuntime) {
+      return resolveAudioReactiveTimelineState({
+        shaders: savedShaders,
+        steps: playbackDisplaySteps,
+        section: audioRuntime.current.section,
+        nowEpochMs,
+        transitionEffect: sequence.sharedTransitionEffect,
+        transitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
+      });
+    }
+
     return resolveShaderTimelineState({
       shaders: savedShaders,
       mode: sequence.mode,
@@ -520,6 +549,8 @@ export function TimelineBar({
     });
   }, [
     playbackDisplaySteps,
+    audioRuntime,
+    nowEpochMs,
     savedShaders,
     sequence.focusedStepId,
     sequence.mode,
@@ -1140,6 +1171,8 @@ export function TimelineBar({
         totalDurationSeconds={durationSeconds}
         midiTimelineControlActive={midiTimelineControlActive}
         midiManualMixArmed={midiManualMixArmed}
+        audioReactiveAvailable={audioReactiveAvailable}
+        audioReactiveListening={audioReactiveListening}
         onModeChange={onSequenceModeChange}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onMixDurationChange={onSequenceMixDurationChange}
@@ -1158,6 +1191,7 @@ export function TimelineBar({
         onRemoveStep={onRemoveSequenceStep}
         onEditStep={onEditSequenceStep}
         onAddStep={onAddSequenceStep}
+        onAddRandomStep={onAddRandomSequenceStep}
         scrollToStepRequest={scrollToStepRequest}
       />
     </div>
@@ -1175,9 +1209,12 @@ export function TimelineDialog({
   }
 
   const enabledStepCount = timelineProps.sequence.steps.filter(isTimelineStepEnabled).length;
-  const equalDurationSeconds = timelineProps.sequence.steps.find(isTimelineStepEnabled)?.durationSeconds ?? 8;
   const randomEnabled =
     timelineProps.sequence.mode === 'random' || timelineProps.sequence.randomChoiceEnabled;
+  const audioEnabled = timelineProps.sequence.mode === 'audioReactive';
+  const equalDurationSeconds = audioEnabled
+    ? timelineProps.sequence.sharedSectionDurationSeconds
+    : timelineProps.sequence.steps.find(isTimelineStepEnabled)?.durationSeconds ?? 8;
 
   return (
     <div
@@ -1202,20 +1239,44 @@ export function TimelineDialog({
           <div className="mobile-timeline-settings-grid">
             <button
               type="button"
-              className={`mobile-timeline-setting-card ${randomEnabled ? 'mobile-timeline-setting-card-active' : ''}`}
-              aria-pressed={randomEnabled}
+              className={`mobile-timeline-setting-card ${
+                !audioEnabled ? 'mobile-timeline-setting-card-active' : ''
+              }`}
+              aria-pressed={!audioEnabled}
               onClick={() => timelineProps.onSequenceModeChange(randomEnabled ? 'sequence' : 'random')}
             >
               <span>Order</span>
               <strong>{randomEnabled ? 'Random' : 'In order'}</strong>
               <small>{randomEnabled ? 'Picks a different card before repeating.' : 'Plays cards from first to last.'}</small>
             </button>
+            {timelineProps.audioReactiveAvailable || audioEnabled ? (
+              <button
+                type="button"
+                className={`mobile-timeline-setting-card ${
+                  audioEnabled ? 'mobile-timeline-setting-card-active' : ''
+                }`}
+                aria-pressed={audioEnabled}
+                onClick={() =>
+                  timelineProps.onSequenceModeChange(
+                    audioEnabled ? 'sequence' : 'audioReactive',
+                  )
+                }
+              >
+                <span>Music</span>
+                <strong>Audio Sync</strong>
+                <small>
+                  {timelineProps.audioReactiveListening
+                    ? 'Advances when the song changes section.'
+                    : 'Waiting for Audio Reactive capture.'}
+                </small>
+              </button>
+            ) : null}
             <label className="mobile-timeline-setting-card mobile-timeline-duration-card">
-              <span>Time per shader</span>
+              <span>{audioEnabled ? 'Minimum hold' : 'Time per shader'}</span>
               <span className="mobile-timeline-duration-input">
                 <input
                   type="number"
-                  min={0.5}
+                  min={audioEnabled ? 1 : 0.5}
                   max={36000}
                   step={0.5}
                   value={roundTimelineSeconds(equalDurationSeconds)}
@@ -1223,17 +1284,31 @@ export function TimelineDialog({
                 />
                 <b>sec</b>
               </span>
-              <small>{enabledStepCount} shaders · {formatTimelineTime(equalDurationSeconds * enabledStepCount)} total</small>
+              <small>
+                {audioEnabled
+                  ? `Wait at least ${roundTimelineSeconds(equalDurationSeconds)}s between changes`
+                  : `${enabledStepCount} shaders · ${formatTimelineTime(equalDurationSeconds * enabledStepCount)} total`}
+              </small>
             </label>
           </div>
           <div className="mobile-timeline-transport-card">
             <div>
-              <span>Playback</span>
-              <strong>{timelineProps.transport.isPlaying ? 'Timeline running' : 'Timeline paused'}</strong>
+              <span>{audioEnabled ? 'Audio input' : 'Playback'}</span>
+              <strong>
+                {audioEnabled
+                  ? timelineProps.audioReactiveListening
+                    ? 'Listening for song changes'
+                    : 'Capture is not running'
+                  : timelineProps.transport.isPlaying
+                    ? 'Timeline running'
+                    : 'Timeline paused'}
+              </strong>
             </div>
-            <button type="button" className="primary-button" onClick={timelineProps.onPlayToggle}>
-              {timelineProps.transport.isPlaying ? 'Pause' : 'Play'}
-            </button>
+            {!audioEnabled ? (
+              <button type="button" className="primary-button" onClick={timelineProps.onPlayToggle}>
+                {timelineProps.transport.isPlaying ? 'Pause' : 'Play'}
+              </button>
+            ) : null}
           </div>
         </div>
       </section>

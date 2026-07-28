@@ -11,6 +11,7 @@
     "build": "tsc -b && vite build",
     "build:sites": "npm run build && node ./scripts/prepare-sites-build.mjs",
     "lint": "eslint .",
+    "test:audio": "node --experimental-strip-types --test tests/audioReactivity.test.ts tests/audioTimeline.test.ts",
     "preview": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
   },

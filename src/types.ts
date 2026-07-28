@@ -8,7 +8,12 @@ export type ShaderRuntime = '' | 'local' | 'api' | 'chat';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
 export type ShaderTemplate = 'stage' | 'drawing' | 'sculpture';
 export type TimelineTransitionEffect = 'mix' | 'wipe' | 'radial' | 'random' | 'noise';
-export type TimelineSequenceMode = 'sequence' | 'random' | 'randomMix' | 'double';
+export type TimelineSequenceMode =
+  | 'sequence'
+  | 'random'
+  | 'randomMix'
+  | 'double'
+  | 'audioReactive';
 export type TimelineEditorViewMode = 'simple' | 'advanced';
 export type TimelineStagePreviewMode = 'timeline' | 'focused';
 export type TimelineAssetBlendMode = 'mix' | 'screen' | 'add' | 'multiply' | 'maskedReveal';
@@ -36,6 +41,26 @@ export interface ShaderVersion {
   createdAt: string;
 }
 
+export type ShaderAudioReactiveSignal =
+  | 'level'
+  | 'bass'
+  | 'mid'
+  | 'high'
+  | 'beat'
+  | 'tempo';
+
+export interface ShaderAudioReactiveBinding {
+  enabled: boolean;
+  signal: ShaderAudioReactiveSignal;
+  min: number;
+  max: number;
+}
+
+export type ShaderAudioReactiveBindingMap = Record<
+  string,
+  ShaderAudioReactiveBinding
+>;
+
 export interface SavedShader {
   id: string;
   name: string;
@@ -48,6 +73,7 @@ export interface SavedShader {
   templates?: ShaderTemplate[];
   group?: string;
   uniformValues?: ShaderUniformValueMap;
+  audioReactiveBindings?: ShaderAudioReactiveBindingMap;
   lastValidUniformValues?: ShaderUniformValueMap;
   isTemporary?: boolean;
   isDirty?: boolean;
@@ -179,6 +205,7 @@ export interface ShaderDefinition {
   template: ShaderTemplate;
   templates?: ShaderTemplate[];
   group: string;
+  audioReactiveBindings?: ShaderAudioReactiveBindingMap;
 }
 
 export interface ShaderUniformDefinition {

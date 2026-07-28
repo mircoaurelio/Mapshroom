@@ -4,10 +4,21 @@ import { useUniformRandomization } from '../hooks/useUniformRandomization';
 import { PanelSection } from './PanelSection';
 import { ShaderColorInput } from './ShaderColorInput';
 import { ShuffleIcon } from './ShuffleIcon';
+import {
+  AudioReactivePanelControls,
+  AudioReactiveUniformLiveValue,
+  AudioReactiveUniformSignalPicker,
+  AudioReactiveUniformSlider,
+  AudioReactiveUniformToggle,
+} from './AudioReactiveControls';
+import type { AudioReactivityController } from '../hooks/useAudioReactivity';
 
 interface UniformPanelProps {
   title?: string;
   randomizationKey: string;
+  audioShaderId?: string;
+  audioShaderCode?: string;
+  audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
@@ -19,6 +30,9 @@ interface UniformPanelProps {
 export function UniformPanel({
   title = 'Uniform Map',
   randomizationKey,
+  audioShaderId,
+  audioShaderCode,
+  audioReactivity,
   uniformDefinitions,
   uniformValues,
   onUniformChange,
@@ -26,6 +40,7 @@ export function UniformPanel({
   onNewUniformNameChange,
   onQuickAddUniform,
 }: UniformPanelProps) {
+  const audioModeEnabled = Boolean(audioReactivity?.preferences.modeEnabled);
   const {
     isUniformLocked,
     randomizableCount,
@@ -58,6 +73,15 @@ export function UniformPanel({
       }
     >
       <div className="stack gap-md" data-slider-key-scope="true">
+        {audioReactivity && audioShaderId && audioModeEnabled ? (
+          <AudioReactivePanelControls
+            controller={audioReactivity}
+            shaderId={audioShaderId}
+            shaderCode={audioShaderCode}
+            uniformDefinitions={uniformDefinitions}
+            uniformValues={uniformValues}
+          />
+        ) : null}
         {Object.keys(uniformDefinitions).length > 0 ? (
           Object.entries(uniformDefinitions).map(([name, definition]) => {
             const value = uniformValues[name];
@@ -72,52 +96,95 @@ export function UniformPanel({
               <div
                 className={`field ${isNumeric ? 'uniform-random-field' : ''} ${
                   isLocked ? 'uniform-random-field-locked' : ''
-                }`}
+                } ${isNumeric && audioModeEnabled ? 'audio-reactive-field' : ''}`}
                 key={name}
               >
                 <span className="field-inline-label">
                   <span>{name}</span>
                   <span className="uniform-field-meta">
                     {isNumeric ? (
-                      <button
-                        type="button"
-                        className={`uniform-random-lock-button ${
-                          isLocked ? 'uniform-random-lock-button-active' : ''
-                        }`}
-                        aria-label={
-                          isLocked
-                            ? `Include ${name} in randomization`
-                            : `Exclude ${name} from randomization`
-                        }
-                        aria-pressed={isLocked}
-                        title={
-                          isLocked
-                            ? 'Include this slider in randomization'
-                            : 'Exclude this slider from randomization'
-                        }
-                        onClick={() => toggleUniformLock(name)}
-                      >
-                        <ShuffleIcon blocked={isLocked} />
-                      </button>
+                      <span className="uniform-field-actions">
+                        <button
+                          type="button"
+                          className={`uniform-random-lock-button ${
+                            isLocked ? 'uniform-random-lock-button-active' : ''
+                          }`}
+                          aria-label={
+                            isLocked
+                              ? `Include ${name} in randomization`
+                              : `Exclude ${name} from randomization`
+                          }
+                          aria-pressed={isLocked}
+                          title={
+                            isLocked
+                              ? 'Include this slider in randomization'
+                              : 'Exclude this slider from randomization'
+                          }
+                          onClick={() => toggleUniformLock(name)}
+                        >
+                          <ShuffleIcon blocked={isLocked} />
+                        </button>
+                        {audioReactivity && audioShaderId && audioModeEnabled ? (
+                          <AudioReactiveUniformToggle
+                            controller={audioReactivity}
+                            shaderId={audioShaderId}
+                            name={name}
+                            definition={definition}
+                            baseValue={Number(value)}
+                          />
+                        ) : null}
+                      </span>
                     ) : null}
                     {isNumeric ? (
-                      <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
+                      <span className="uniform-field-values">
+                        <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
+                        {audioReactivity && audioShaderId && audioModeEnabled ? (
+                          <AudioReactiveUniformLiveValue
+                            controller={audioReactivity}
+                            shaderId={audioShaderId}
+                            name={name}
+                            definition={definition}
+                            baseValue={Number(value)}
+                          />
+                        ) : null}
+                      </span>
+                    ) : null}
+                    {isNumeric && audioReactivity && audioShaderId && audioModeEnabled ? (
+                      <AudioReactiveUniformSignalPicker
+                        controller={audioReactivity}
+                        shaderId={audioShaderId}
+                        name={name}
+                        definition={definition}
+                        baseValue={Number(value)}
+                      />
                     ) : null}
                   </span>
                 </span>
                 {isNumeric ? (
-                  <input
-                    type="range"
-                    aria-label={name}
-                    min={definition.min}
-                    max={definition.max}
-                    step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
-                    value={Number(value)}
-                    onChange={(event) => onUniformChange(name, Number(event.target.value))}
-                    onKeyDown={(event) =>
-                      handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
-                    }
-                  />
+                  audioReactivity && audioShaderId && audioModeEnabled ? (
+                    <AudioReactiveUniformSlider
+                      controller={audioReactivity}
+                      shaderId={audioShaderId}
+                      name={name}
+                      definition={definition}
+                      baseValue={Number(value)}
+                      onBaseValueChange={(nextValue) => onUniformChange(name, nextValue)}
+                      showSignalPicker={false}
+                    />
+                  ) : (
+                    <input
+                      type="range"
+                      aria-label={name}
+                      min={definition.min}
+                      max={definition.max}
+                      step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
+                      value={Number(value)}
+                      onChange={(event) => onUniformChange(name, Number(event.target.value))}
+                      onKeyDown={(event) =>
+                        handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
+                      }
+                    />
+                  )
                 ) : null}
                 {definition.type === 'bool' ? (
                   <button

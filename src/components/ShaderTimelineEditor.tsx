@@ -57,6 +57,8 @@ interface ShaderTimelineEditorProps {
   totalDurationSeconds: number;
   midiTimelineControlActive?: boolean;
   midiManualMixArmed?: boolean;
+  audioReactiveAvailable?: boolean;
+  audioReactiveListening?: boolean;
   onModeChange: (mode: TimelineSequenceMode) => void;
   onSharedTransitionChange: (patch: {
     sharedTransitionEnabled?: boolean;
@@ -83,6 +85,7 @@ interface ShaderTimelineEditorProps {
   onRemoveStep: (stepId: string) => void;
   onEditStep: (stepId: string) => void;
   onAddStep?: () => void;
+  onAddRandomStep?: () => void;
   scrollToStepRequest?: { stepId: string; token: number } | null;
   mobileCardsOnly?: boolean;
 }
@@ -188,6 +191,8 @@ export function ShaderTimelineEditor({
   totalDurationSeconds,
   midiTimelineControlActive = false,
   midiManualMixArmed = false,
+  audioReactiveAvailable = false,
+  audioReactiveListening = false,
   onModeChange,
   onSharedTransitionChange,
   onMixDurationChange,
@@ -206,12 +211,15 @@ export function ShaderTimelineEditor({
   onRemoveStep,
   onEditStep,
   onAddStep,
+  onAddRandomStep,
   scrollToStepRequest = null,
   mobileCardsOnly = false,
 }: ShaderTimelineEditorProps) {
   const flowStripRef = useRef<HTMLDivElement>(null);
   const title =
-    sequence.mode === 'randomMix'
+    sequence.mode === 'audioReactive'
+      ? 'Audio Sync'
+      : sequence.mode === 'randomMix'
       ? 'Random Mix'
       : sequence.mode === 'double'
         ? 'Double Mix'
@@ -282,6 +290,7 @@ export function ShaderTimelineEditor({
     sequence.mode === 'random' ||
     sequence.mode === 'randomMix' ||
     sequence.mode === 'double' ||
+    sequence.mode === 'audioReactive' ||
     sequence.randomChoiceEnabled;
   const showMixTimeControls =
     !sequence.singleStepLoopEnabled &&
@@ -818,13 +827,21 @@ export function ShaderTimelineEditor({
             <div className="timeline-shared-transition-toolbar">
               {usesSharedSectionDuration ? (
                 <div className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
-                  <span>Section Time</span>
+                  <span>
+                    {sequence.mode === 'audioReactive'
+                      ? 'Minimum Hold'
+                      : 'Section Time'}
+                  </span>
                   <div className="timeline-number-stepper">
                     <input
                       className="text-field"
                       type="number"
-                      aria-label="Section time in seconds"
-                      min={0.5}
+                      aria-label={
+                        sequence.mode === 'audioReactive'
+                          ? 'Minimum audio section hold in seconds'
+                          : 'Section time in seconds'
+                      }
+                      min={sequence.mode === 'audioReactive' ? 1 : 0.5}
                       max={600}
                       step={0.5}
                       value={sequence.sharedSectionDurationSeconds}
@@ -854,11 +871,17 @@ export function ShaderTimelineEditor({
                         type="button"
                         aria-label="Decrease section time"
                         title="Decrease section time"
-                        disabled={sequence.sharedSectionDurationSeconds <= 0.5}
+                        disabled={
+                          sequence.sharedSectionDurationSeconds <=
+                          (sequence.mode === 'audioReactive' ? 1 : 0.5)
+                        }
                         onClick={() =>
                           onSharedTransitionChange({
                             sharedSectionDurationSeconds: clampTimelineStepDuration(
-                              sequence.sharedSectionDurationSeconds - 0.5,
+                              Math.max(
+                                sequence.mode === 'audioReactive' ? 1 : 0.5,
+                                sequence.sharedSectionDurationSeconds - 0.5,
+                              ),
                             ),
                           })
                         }
@@ -921,7 +944,12 @@ export function ShaderTimelineEditor({
           )}
 
           <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
-            {TIMELINE_SEQUENCE_MODE_OPTIONS.map((option) => (
+            {TIMELINE_SEQUENCE_MODE_OPTIONS.filter(
+              (option) =>
+                option.value !== 'audioReactive' ||
+                audioReactiveAvailable ||
+                sequence.mode === 'audioReactive',
+            ).map((option) => (
               <button
                 key={option.value}
                 type="button"
@@ -930,6 +958,13 @@ export function ShaderTimelineEditor({
                 className={`timeline-mode-button ${
                   sequence.mode === option.value ? 'timeline-mode-button-active' : ''
                 }`}
+                title={
+                  option.value === 'audioReactive'
+                    ? audioReactiveListening
+                      ? 'Advance shaders when the music changes section'
+                      : 'Waiting for Audio Reactive capture'
+                    : undefined
+                }
                 onClick={() => onModeChange(option.value)}
               >
                 {option.label}
@@ -1206,20 +1241,42 @@ export function ShaderTimelineEditor({
 
         {onAddStep ? (
           <div className="timeline-flow-node" role="listitem">
-            <button
-              type="button"
+            <div
               className={`timeline-step-card timeline-step-card-add ${
                 !isAdvancedView ? 'timeline-step-card-simple' : ''
               }`}
-              aria-label="Add a new shader"
-              title="Add a new shader"
-              onClick={onAddStep}
+              role="group"
+              aria-label="Add shader"
             >
-              <span className="timeline-step-add-plus" aria-hidden="true">
-                +
-              </span>
-              <span className="timeline-step-add-label">Add shader</span>
-            </button>
+              <button
+                type="button"
+                className="timeline-step-add-action timeline-step-add-action-new"
+                aria-label="Add a new empty shader"
+                title="Create a new empty shader"
+                onClick={onAddStep}
+              >
+                <span className="timeline-step-add-icon timeline-step-add-plus" aria-hidden="true">
+                  +
+                </span>
+                <span className="timeline-step-add-label">New shader</span>
+                <small>Empty</small>
+              </button>
+              {onAddRandomStep ? (
+                <button
+                  type="button"
+                  className="timeline-step-add-action timeline-step-add-action-random"
+                  aria-label="Add a random shader from presets"
+                  title="Choose a random preset and add it to the timeline"
+                  onClick={onAddRandomStep}
+                >
+                  <span className="timeline-step-add-icon" aria-hidden="true">
+                    <ShuffleIcon />
+                  </span>
+                  <span className="timeline-step-add-label">Random preset</span>
+                  <small>From library</small>
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>

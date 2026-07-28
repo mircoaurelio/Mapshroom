@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import { parseUniforms, syncUniformValues } from '../lib/shader';
 import {
@@ -48,6 +48,12 @@ import {
   type StageRenderLayer,
 } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
+import {
+  prefixAudioReactiveBindingKeys,
+  type AudioReactiveBindingMap,
+  type AudioReactiveRuntime,
+} from '../lib/audioReactivity';
+import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
 
 const DOUBLE_SECONDARY_SPEED = 1.35;
 const PRELOAD_TRANSITION_PROGRESS = 0.001;
@@ -64,6 +70,7 @@ const MODE_LAYER_FADE_DURATION_MS = 1_000;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
 const timelineDecodedAssetAspectRatios = new Map<string, number>();
+const EMPTY_AUDIO_BINDINGS_BY_SHADER_ID: Record<string, AudioReactiveBindingMap> = {};
 
 function getStageRenderLayerWarmupKey(
   layer: Pick<
@@ -127,6 +134,7 @@ interface TimelineRenderLayer {
   kind: TimelineRenderLayerKind;
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
+  audioBindings: AudioReactiveBindingMap;
   usedFallback: boolean;
   inputSource?: StageRenderInputSource | null;
   overlaySource?: StageRenderInputSource | null;
@@ -145,6 +153,7 @@ interface TimelineRenderLayer {
 interface ResolvedShaderLayer {
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
+  audioBindings: AudioReactiveBindingMap;
   usedFallback: boolean;
   inputSource: StageRenderInputSource | null;
   overlaySource: StageRenderInputSource | null;
@@ -311,6 +320,8 @@ interface TimelineStageRendererProps {
   activeShaderName: string;
   activeShaderCode: string;
   activeUniformValues: ShaderUniformValueMap;
+  audioBindingsByShaderId?: Record<string, AudioReactiveBindingMap>;
+  audioRuntime?: AudioReactiveRuntime;
   savedShaders: SavedShader[];
   timeline: TimelineStub;
   pinnedStepId?: string | null;
@@ -350,6 +361,8 @@ export function TimelineStageRenderer({
   activeShaderName,
   activeShaderCode,
   activeUniformValues,
+  audioBindingsByShaderId = EMPTY_AUDIO_BINDINGS_BY_SHADER_ID,
+  audioRuntime,
   savedShaders,
   timeline,
   pinnedStepId = null,
@@ -450,6 +463,7 @@ export function TimelineStageRenderer({
     sharedTransitionEnabled: false,
     sharedTransitionEffect: 'mix',
     sharedTransitionDurationSeconds: 0.75,
+    sharedSectionDurationSeconds: 8,
     steps: [],
   };
   const timelineRandomSeedToken = shaderSequence.randomSeedToken || 'fallback-random-seed';
@@ -711,18 +725,24 @@ export function TimelineStageRenderer({
   }, [availableShaders, pinnedSequenceStep]);
 
   useEffect(() => {
-    if (!shouldResolveLiveTimelineState || !transport.isPlaying) {
+    if (
+      !shouldResolveLiveTimelineState ||
+      (!transport.isPlaying && shaderSequence.mode !== 'audioReactive')
+    ) {
       setTimelineNowMs(performance.now());
       return;
     }
 
-    // Must update every frame: timeline state, preload layers, and transition
-    // progress all depend on transportTimeSeconds. Throttling re-renders here
-    // delays transition-shader compilation until the boundary and brings back
-    // live playback lag.
+    // Keep React's timeline state responsive without forcing a synchronous
+    // component render for every display refresh. Shader animation continues
+    // in WebGL; 30 Hz is sufficient for layer selection, preload, and fades.
     let frameId = 0;
+    let lastStateUpdateAt = 0;
     const tick = (timestamp: number) => {
-      setTimelineNowMs(timestamp);
+      if (timestamp - lastStateUpdateAt >= 1000 / 30) {
+        lastStateUpdateAt = timestamp;
+        startTransition(() => setTimelineNowMs(timestamp));
+      }
       frameId = requestAnimationFrame(tick);
     };
 
@@ -730,6 +750,7 @@ export function TimelineStageRenderer({
     return () => cancelAnimationFrame(frameId);
   }, [
     shouldResolveLiveTimelineState,
+    shaderSequence.mode,
     transport.anchorTimestampMs,
     transport.currentTimeSeconds,
     transport.isPlaying,
@@ -741,6 +762,7 @@ export function TimelineStageRenderer({
     () => getTransportTimeSeconds(transport, timelineNowMs),
     [timelineNowMs, transport],
   );
+  const timelineNowEpochMs = performance.timeOrigin + timelineNowMs;
   const secondaryTimelineTimeSeconds = transportTimeSeconds * DOUBLE_SECONDARY_SPEED;
 
   useEffect(() => {
@@ -841,6 +863,18 @@ export function TimelineStageRenderer({
       );
     }
 
+    if (shaderSequence.mode === 'audioReactive' && audioRuntime) {
+      return resolveAudioReactiveTimelineState({
+        shaders: availableShaders,
+        steps: playbackTimelineSteps,
+        section: audioRuntime.current.section,
+        nowEpochMs: timelineNowEpochMs,
+        transitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+        transitionDurationSeconds:
+          shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+      });
+    }
+
     return resolveShaderTimelineState({
       shaders: availableShaders,
       mode: shaderSequence.mode ?? 'sequence',
@@ -858,6 +892,7 @@ export function TimelineStageRenderer({
     });
   }, [
     availableShaders,
+    audioRuntime,
     createMidiManualTimelineState,
     doublePrimaryRandomSeedSalt,
     primaryRandomSeedSalt,
@@ -874,6 +909,7 @@ export function TimelineStageRenderer({
     shaderSequence.singleStepLoopEnabled,
     transport.loop,
     transportTimeSeconds,
+    timelineNowEpochMs,
   ]);
   const focusExitTimelineState = useMemo(() => {
     if (
@@ -1087,12 +1123,15 @@ export function TimelineStageRenderer({
     );
     const overlaySource = useAssignedAssetAsBase ? null : assignedSource;
     const inputSource = useAssignedAssetAsBase ? assignedSource : null;
+    const targetAudioBindings =
+      audioBindingsByShaderId[targetShader?.id ?? activeShaderId] ?? {};
     const mapAssignedInput = (
       shaderCode: string,
       uniformValues: ShaderUniformValueMap,
-    ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues'> => {
+      audioBindings: AudioReactiveBindingMap,
+    ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues' | 'audioBindings'> => {
       if (!useAssignedAssetAsBase || !assignedSource) {
-        return { shaderCode, uniformValues };
+        return { shaderCode, uniformValues, audioBindings };
       }
 
       return {
@@ -1107,6 +1146,10 @@ export function TimelineStageRenderer({
             namespace: 'timeline_input',
           }),
         },
+        audioBindings: prefixAudioReactiveBindingKeys({
+          bindings: audioBindings,
+          namespace: 'timeline_input',
+        }),
       };
     };
 
@@ -1114,6 +1157,7 @@ export function TimelineStageRenderer({
       const mappedInput = mapAssignedInput(
         previewActiveShaderCode,
         previewActiveUniformValues,
+        targetAudioBindings,
       );
       return {
         ...mappedInput,
@@ -1129,6 +1173,8 @@ export function TimelineStageRenderer({
       return {
         shaderCode: previewActiveShaderCode,
         uniformValues: previewActiveUniformValues,
+        audioBindings:
+          audioBindingsByShaderId[activeShaderId] ?? {},
         usedFallback: false,
         inputSource: null,
         overlaySource: null,
@@ -1139,6 +1185,7 @@ export function TimelineStageRenderer({
     const mappedInput = mapAssignedInput(
       getRenderableShaderCode(targetShader),
       getRenderableShaderUniformValues(targetShader),
+      targetAudioBindings,
     );
     return {
       ...mappedInput,
@@ -1150,6 +1197,7 @@ export function TimelineStageRenderer({
   }, [
     activeSavedShader,
     activeShaderId,
+    audioBindingsByShaderId,
     preferActiveShaderCompilePreview,
     previewActiveShaderCode,
     previewActiveUniformValues,
@@ -1164,6 +1212,7 @@ export function TimelineStageRenderer({
         kind: 'single',
         shaderCode: layer.shaderCode,
         uniformValues: layer.uniformValues,
+        audioBindings: layer.audioBindings,
         usedFallback: layer.usedFallback,
         inputSource: layer.inputSource,
         overlaySource: null,
@@ -1175,6 +1224,7 @@ export function TimelineStageRenderer({
         kind: 'single',
         shaderCode: layer.shaderCode,
         uniformValues: layer.uniformValues,
+        audioBindings: layer.audioBindings,
         usedFallback: layer.usedFallback,
         inputSource: null,
         overlaySource: null,
@@ -1194,6 +1244,10 @@ export function TimelineStageRenderer({
           namespace: 'timeline_base',
         }),
       },
+      audioBindings: prefixAudioReactiveBindingKeys({
+        bindings: layer.audioBindings,
+        namespace: 'timeline_base',
+      }),
       usedFallback: layer.usedFallback,
       inputSource: null,
       overlaySource: layer.overlaySource,
@@ -1216,6 +1270,10 @@ export function TimelineStageRenderer({
       sourceValues: baseLayer.uniformValues,
       namespace: 'timeline_pin',
     });
+    const prefixedBaseAudioBindings = prefixAudioReactiveBindingKeys({
+      bindings: baseLayer.audioBindings,
+      namespace: 'timeline_pin',
+    });
 
     if (usesTransparentOverlay) {
       return {
@@ -1225,6 +1283,7 @@ export function TimelineStageRenderer({
           ...prefixedBaseUniformValues,
           u_timeline_overlay_opacity: resolvedLayer.assetSettings.opacity,
         },
+        audioBindings: prefixedBaseAudioBindings,
         ...pinCompositeSettings,
       };
     }
@@ -1236,6 +1295,7 @@ export function TimelineStageRenderer({
         ...prefixedBaseUniformValues,
         ...buildPinnedCompositeUniformValues(resolvedLayer.assetSettings, applyKeyBlack),
       },
+      audioBindings: prefixedBaseAudioBindings,
       ...pinCompositeSettings,
     };
   }, [buildSingleShaderLayer]);
@@ -1355,6 +1415,18 @@ export function TimelineStageRenderer({
                 namespace: 'timeline_to',
               })),
         },
+        audioBindings: {
+          ...prefixAudioReactiveBindingKeys({
+            bindings: currentLayer.audioBindings,
+            namespace: 'timeline_from',
+          }),
+          ...prefixAudioReactiveBindingKeys({
+            bindings: nextMediaReady
+              ? nextLayer.audioBindings
+              : currentLayer.audioBindings,
+            namespace: 'timeline_to',
+          }),
+        },
         usedFallback: currentLayer.usedFallback || nextLayer.usedFallback,
         transitionInputSources: {
           from: currentLayer.inputSource ?? null,
@@ -1416,6 +1488,16 @@ export function TimelineStageRenderer({
         }),
         ...prefixUniformValueKeys({
           sourceValues: secondaryLayer.uniformValues,
+          namespace: 'timeline_to',
+        }),
+      },
+      audioBindings: {
+        ...prefixAudioReactiveBindingKeys({
+          bindings: primaryLayer.audioBindings,
+          namespace: 'timeline_from',
+        }),
+        ...prefixAudioReactiveBindingKeys({
+          bindings: secondaryLayer.audioBindings,
           namespace: 'timeline_to',
         }),
       },
@@ -1491,6 +1573,16 @@ export function TimelineStageRenderer({
           namespace: 'timeline_to',
         }),
       },
+      audioBindings: {
+        ...prefixAudioReactiveBindingKeys({
+          bindings: currentLayer.audioBindings,
+          namespace: 'timeline_from',
+        }),
+        ...prefixAudioReactiveBindingKeys({
+          bindings: nextLayer.audioBindings,
+          namespace: 'timeline_to',
+        }),
+      },
       opacity: 1,
       transitionInputSources: {
         from: currentLayer.inputSource ?? null,
@@ -1510,6 +1602,7 @@ export function TimelineStageRenderer({
     shaderCode: layer.shaderCode,
     uniformDefinitions: parseUniforms(layer.shaderCode),
     uniformValues: layer.uniformValues,
+    audioBindings: layer.audioBindings,
     opacity,
     inputSource: layer.inputSource ?? null,
     overlaySource: layer.overlaySource ?? null,
@@ -1954,35 +2047,55 @@ export function TimelineStageRenderer({
     opacity: 1,
   };
 
-  const primaryLookaheadTimelineStates = useMemo(
-    () =>
-      collectTimelineLookaheadStates({
-        currentState: timelineState,
-        currentTimeSeconds: transportTimeSeconds,
-        resolveStateAt: (timeSeconds) =>
-          resolveShaderTimelineState({
-            shaders: availableShaders,
-            mode: shaderSequence.mode ?? 'sequence',
-            focusedStepId: shaderSequence.focusedStepId ?? null,
-            singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
-            randomChoiceEnabled: shaderSequence.randomChoiceEnabled ?? false,
-            sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled ?? false,
-            sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
-            sharedTransitionDurationSeconds:
-              shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
-            sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
-            steps: playbackTimelineSteps,
-            timeSeconds,
-            loop: transport.loop,
-            randomSeedSalt: primaryRandomSeedSalt,
-          }),
-        depth:
-          shaderSequence.mode === 'double'
-            ? DOUBLE_PRELOAD_LOOKAHEAD_DEPTH
-            : STANDARD_PRELOAD_LOOKAHEAD_DEPTH,
-      }),
+  const primaryLookaheadTimelineStates = useMemo(() => {
+    if (shaderSequence.mode === 'audioReactive' && audioRuntime) {
+      const currentSection = audioRuntime.current.section;
+      const followingState = resolveAudioReactiveTimelineState({
+        shaders: availableShaders,
+        steps: playbackTimelineSteps,
+        section: {
+          ...currentSection,
+          revision: currentSection.revision + 1,
+          changedAtEpochMs: 0,
+        },
+        nowEpochMs: timelineNowEpochMs,
+        transitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+        transitionDurationSeconds:
+          shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+      });
+
+      return followingState ? [followingState] : [];
+    }
+
+    return collectTimelineLookaheadStates({
+      currentState: timelineState,
+      currentTimeSeconds: transportTimeSeconds,
+      resolveStateAt: (timeSeconds) =>
+        resolveShaderTimelineState({
+          shaders: availableShaders,
+          mode: shaderSequence.mode ?? 'sequence',
+          focusedStepId: shaderSequence.focusedStepId ?? null,
+          singleStepLoopEnabled: shaderSequence.singleStepLoopEnabled ?? false,
+          randomChoiceEnabled: shaderSequence.randomChoiceEnabled ?? false,
+          sharedTransitionEnabled: shaderSequence.sharedTransitionEnabled ?? false,
+          sharedTransitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
+          sharedTransitionDurationSeconds:
+            shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+          sharedSectionDurationSeconds: shaderSequence.sharedSectionDurationSeconds ?? 8,
+          steps: playbackTimelineSteps,
+          timeSeconds,
+          loop: transport.loop,
+          randomSeedSalt: primaryRandomSeedSalt,
+        }),
+      depth:
+        shaderSequence.mode === 'double'
+          ? DOUBLE_PRELOAD_LOOKAHEAD_DEPTH
+          : STANDARD_PRELOAD_LOOKAHEAD_DEPTH,
+    });
+  },
     [
       availableShaders,
+      audioRuntime,
       doublePrimaryRandomSeedSalt,
       primaryRandomSeedSalt,
       playbackTimelineSteps,
@@ -1997,6 +2110,7 @@ export function TimelineStageRenderer({
       timelineState,
       transport.loop,
       transportTimeSeconds,
+      timelineNowEpochMs,
     ],
   );
 
@@ -2206,6 +2320,7 @@ export function TimelineStageRenderer({
       renderLayers={stageRenderLayers}
       preloadLayers={preloadStageLayers}
       warmupSources={timelineWarmupSources}
+      audioRuntime={audioRuntime}
       shaderCode={renderDescriptor.shaderCode}
       shaderCompileNonce={shaderCompileNonce}
       uniformDefinitions={renderDescriptor.uniformDefinitions}

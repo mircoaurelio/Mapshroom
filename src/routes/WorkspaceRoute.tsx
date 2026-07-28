@@ -138,6 +138,7 @@ import {
   shouldUseSharedTransition,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
+import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
 import { normalizeTimelineStepAssetSettings } from '../lib/timelineAssetSettings';
 import {
   buildExternalChatShaderPrompt,
@@ -145,6 +146,7 @@ import {
 } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
 import { useMidiController } from '../hooks/useMidiController';
+import { useAudioReactivity } from '../hooks/useAudioReactivity';
 import type {
   MidiControllerMode,
   MidiTimelineTransportAction,
@@ -1479,6 +1481,8 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
       template: defaultPreset?.template ?? shader.template ?? 'stage',
       templates: defaultPreset?.templates ?? shader.templates,
       group: defaultPreset?.group ?? shader.group,
+      audioReactiveBindings:
+        defaultPreset?.audioReactiveBindings ?? shader.audioReactiveBindings,
       code: normalizedCode,
       versions: getShaderVersionTrail(
         {
@@ -1707,8 +1711,18 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
               defaultProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds,
           ),
           sharedSectionDurationSeconds: clampTimelineStepDuration(
-            project.timeline?.stub?.shaderSequence?.sharedSectionDurationSeconds ??
-              defaultProject.timeline.stub.shaderSequence.sharedSectionDurationSeconds,
+            project.timeline?.stub?.shaderSequence?.mode === 'audioReactive'
+              ? Math.max(
+                  1,
+                  project.timeline?.stub?.shaderSequence
+                    ?.sharedSectionDurationSeconds ??
+                    defaultProject.timeline.stub.shaderSequence
+                      .sharedSectionDurationSeconds,
+                )
+              : project.timeline?.stub?.shaderSequence
+                  ?.sharedSectionDurationSeconds ??
+                  defaultProject.timeline.stub.shaderSequence
+                    .sharedSectionDurationSeconds,
           ),
           steps: normalizedTimelineSteps,
         },
@@ -2295,6 +2309,7 @@ function createSavedShaderRecord(
       | 'template'
       | 'templates'
       | 'group'
+      | 'audioReactiveBindings'
       | 'inputAssetId'
       | 'isTemporary'
       | 'isDirty'
@@ -2330,6 +2345,7 @@ function createSavedShaderRecord(
     template: options.template ?? 'stage',
     templates: options.templates,
     group: options.group ?? 'Saved',
+    audioReactiveBindings: options.audioReactiveBindings,
     inputAssetId: options.inputAssetId ?? null,
     uniformValues: syncedUniformValues,
     lastValidCode,
@@ -2582,6 +2598,15 @@ export function WorkspaceRoute() {
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
+  const audioReactivity = useAudioReactivity(project?.sessionId ?? null, {
+    sectionDetectionEnabled:
+      project?.timeline.stub.shaderSequence.mode === 'audioReactive',
+    minimumSectionSeconds:
+      project?.timeline.stub.shaderSequence.sharedSectionDurationSeconds ?? 8,
+  });
+  const configureAudioShaderBindings = audioReactivity.configureShaderBindings;
+  const seedAudioShaderBindings = audioReactivity.seedShaderBindings;
+  const audioReactiveModeEnabled = audioReactivity.preferences.modeEnabled;
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(() =>
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
   );
@@ -3418,9 +3443,51 @@ export function WorkspaceRoute() {
   }, [aiFeedbackMessage, aiFeedbackTone]);
 
   const uniformDefinitions = useMemo(
-    () => (project ? parseUniforms(project.studio.activeShaderCode) : {}),
-    [project],
+    () => parseUniforms(project?.studio.activeShaderCode ?? ''),
+    [project?.studio.activeShaderCode],
   );
+  const activeAudioShaderId = project?.studio.activeShaderId ?? null;
+  const activeAudioShaderCode = project?.studio.activeShaderCode ?? '';
+  const activeAudioUniformValues = project?.studio.uniformValues ?? null;
+  const activeAudioPresetBindings =
+    project?.studio.savedShaders.find(
+      (shader) => shader.id === activeAudioShaderId,
+    )?.audioReactiveBindings ?? null;
+
+  useEffect(() => {
+    if (!activeAudioShaderId || !activeAudioPresetBindings) {
+      return;
+    }
+
+    seedAudioShaderBindings(
+      activeAudioShaderId,
+      activeAudioPresetBindings,
+    );
+  }, [
+    activeAudioPresetBindings,
+    activeAudioShaderId,
+    seedAudioShaderBindings,
+  ]);
+
+  useEffect(() => {
+    if (!activeAudioShaderId || !activeAudioUniformValues || !audioReactiveModeEnabled) {
+      return;
+    }
+
+    configureAudioShaderBindings(
+      activeAudioShaderId,
+      uniformDefinitions,
+      activeAudioUniformValues,
+      activeAudioShaderCode,
+    );
+  }, [
+    activeAudioShaderCode,
+    activeAudioShaderId,
+    activeAudioUniformValues,
+    audioReactiveModeEnabled,
+    configureAudioShaderBindings,
+    uniformDefinitions,
+  ]);
 
   useEffect(() => {
     if (!project) {
@@ -4032,6 +4099,15 @@ export function WorkspaceRoute() {
           shaderSequence: {
             ...currentProject.timeline.stub.shaderSequence,
             mode,
+            sharedSectionDurationSeconds:
+              mode === 'audioReactive'
+                ? Math.max(
+                    1,
+                    currentProject.timeline.stub.shaderSequence
+                      .sharedSectionDurationSeconds,
+                  )
+                : currentProject.timeline.stub.shaderSequence
+                    .sharedSectionDurationSeconds,
           },
         },
       },
@@ -4077,8 +4153,14 @@ export function WorkspaceRoute() {
                 ? nextSharedTransitionDurationSeconds
                 : shaderSequence.sharedTransitionDurationSeconds,
               sharedSectionDurationSeconds: clampTimelineStepDuration(
-                patch.sharedSectionDurationSeconds ??
-                  shaderSequence.sharedSectionDurationSeconds,
+                shaderSequence.mode === 'audioReactive'
+                  ? Math.max(
+                      1,
+                      patch.sharedSectionDurationSeconds ??
+                        shaderSequence.sharedSectionDurationSeconds,
+                    )
+                  : patch.sharedSectionDurationSeconds ??
+                      shaderSequence.sharedSectionDurationSeconds,
               ),
               steps: nextSteps,
             },
@@ -4604,8 +4686,27 @@ export function WorkspaceRoute() {
     if (!Number.isFinite(durationSeconds)) return;
 
     updateProject((currentProject) => {
-      const equalDurationSeconds = clampTimelineStepDuration(durationSeconds);
       const shaderSequence = currentProject.timeline.stub.shaderSequence;
+      const equalDurationSeconds = clampTimelineStepDuration(
+        shaderSequence.mode === 'audioReactive'
+          ? Math.max(1, durationSeconds)
+          : durationSeconds,
+      );
+      if (shaderSequence.mode === 'audioReactive') {
+        return {
+          ...currentProject,
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              shaderSequence: {
+                ...shaderSequence,
+                sharedSectionDurationSeconds: equalDurationSeconds,
+              },
+            },
+          },
+        };
+      }
+
       const steps = shaderSequence.steps.map((step) => ({
         ...step,
         durationSeconds: equalDurationSeconds,
@@ -5338,6 +5439,7 @@ export function WorkspaceRoute() {
         template: preset.template ?? 'stage',
         templates: preset.templates ? [...preset.templates] : undefined,
         group: 'Timeline',
+        audioReactiveBindings: preset.audioReactiveBindings,
         inputAssetId: replacedShader?.inputAssetId ?? preset.inputAssetId ?? null,
         isTemporary: true,
         isDirty: false,
@@ -5404,6 +5506,12 @@ export function WorkspaceRoute() {
     });
 
     setEditingTimelineStepId(targetStep.id);
+    if (preset.audioReactiveBindings) {
+      seedAudioShaderBindings(
+        editableShader.id,
+        preset.audioReactiveBindings,
+      );
+    }
     setPreviewShaderId(null);
     setStudioPreviewOverride(false);
     setPendingTimelineRepeatExit(null);
@@ -5416,6 +5524,31 @@ export function WorkspaceRoute() {
         : `Created "${preset.name}" as a new shader in the timeline.`,
     );
     closeMobileShaderDialog();
+  };
+
+  const addRandomPresetShader = () => {
+    if (!project) {
+      return;
+    }
+
+    const presetPool = project.studio.savedShaders.filter(
+      (shader) => !shader.isTemporary && Boolean(DEFAULT_SHADERS[shader.id]),
+    );
+    if (presetPool.length === 0) {
+      setStatusMessage('No shader presets are available to add.');
+      return;
+    }
+
+    const differentPresets = presetPool.filter(
+      (shader) => shader.id !== project.studio.activeShaderId,
+    );
+    const candidates = differentPresets.length > 0 ? differentPresets : presetPool;
+    const preset = candidates[Math.floor(Math.random() * candidates.length)];
+    if (!preset) {
+      return;
+    }
+
+    applyPresetSelection(preset.id, 'create-new');
   };
 
   const hasDesktopDialogOpen =
@@ -7066,7 +7199,9 @@ ${errorSnapshot}`,
         {
           id: 'timeline-track-shader-sequence',
           label:
-            timelineStub.shaderSequence.mode === 'random'
+            timelineStub.shaderSequence.mode === 'audioReactive'
+              ? 'Audio Sync'
+              : timelineStub.shaderSequence.mode === 'random'
               ? 'Random Flow'
               : timelineStub.shaderSequence.mode === 'randomMix'
                 ? 'Random Mix'
@@ -7080,25 +7215,37 @@ ${errorSnapshot}`,
     : timelineStub.tracks;
   const timelineDurationSeconds = timelineSequenceEnabled
     ? getShaderTimelineDuration(timelinePlaybackSteps)
-    : activeAsset?.kind === 'video' && activeAssetDurationSeconds
+      : activeAsset?.kind === 'video' && activeAssetDurationSeconds
       ? activeAssetDurationSeconds
       : timelineStub.durationSeconds;
   const mobileTimelineState = isMobile && timelineSequenceEnabled
-    ? resolveShaderTimelineState({
-        shaders: timelineSelectableShaders,
-        mode: timelineStub.shaderSequence.mode,
-        focusedStepId: timelineStub.shaderSequence.focusedStepId,
-        singleStepLoopEnabled: timelineStub.shaderSequence.singleStepLoopEnabled,
-        randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
-        sharedTransitionEnabled: timelineStub.shaderSequence.sharedTransitionEnabled,
-        sharedTransitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
-        sharedTransitionDurationSeconds: timelineStub.shaderSequence.sharedTransitionDurationSeconds,
-        sharedSectionDurationSeconds: timelineStub.shaderSequence.sharedSectionDurationSeconds,
-        steps: timelinePlaybackSteps,
-        timeSeconds: getTransportTimeSeconds(project.playback.transport),
-        loop: project.playback.transport.loop,
-        randomSeedSalt: timelineStub.shaderSequence.randomSeedToken || project.sessionId,
-      })
+    ? timelineStub.shaderSequence.mode === 'audioReactive'
+      ? resolveAudioReactiveTimelineState({
+          shaders: timelineSelectableShaders,
+          steps: timelinePlaybackSteps,
+          section: audioReactivity.uiFrame.section,
+          nowEpochMs: performance.timeOrigin + audioReactivity.uiFrame.updatedAt,
+          transitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
+          transitionDurationSeconds:
+            timelineStub.shaderSequence.sharedTransitionDurationSeconds,
+        })
+      : resolveShaderTimelineState({
+          shaders: timelineSelectableShaders,
+          mode: timelineStub.shaderSequence.mode,
+          focusedStepId: timelineStub.shaderSequence.focusedStepId,
+          singleStepLoopEnabled: timelineStub.shaderSequence.singleStepLoopEnabled,
+          randomChoiceEnabled: timelineStub.shaderSequence.randomChoiceEnabled,
+          sharedTransitionEnabled: timelineStub.shaderSequence.sharedTransitionEnabled,
+          sharedTransitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
+          sharedTransitionDurationSeconds:
+            timelineStub.shaderSequence.sharedTransitionDurationSeconds,
+          sharedSectionDurationSeconds:
+            timelineStub.shaderSequence.sharedSectionDurationSeconds,
+          steps: timelinePlaybackSteps,
+          timeSeconds: getTransportTimeSeconds(project.playback.transport),
+          loop: project.playback.transport.loop,
+          randomSeedSalt: timelineStub.shaderSequence.randomSeedToken || project.sessionId,
+        })
     : null;
   const resolveCurrentPlaybackStepId = () => {
     if (editingTimelineStepId) {
@@ -7440,6 +7587,9 @@ ${errorSnapshot}`,
       activeShaderId={project.studio.activeShaderId}
       onSaveShader={saveCurrentShader}
       randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
+      audioShaderId={project.studio.activeShaderId}
+      audioShaderCode={project.studio.activeShaderCode}
+      audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}
@@ -7475,6 +7625,9 @@ ${errorSnapshot}`,
             : 'Sliders'
       }
       randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
+      audioShaderId={project.studio.activeShaderId}
+      audioShaderCode={project.studio.activeShaderCode}
+      audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
       onUniformChange={handleUniformChange}
@@ -7528,6 +7681,8 @@ ${errorSnapshot}`,
         transitionStepId={mobileTimelineState?.nextStep?.id ?? null}
         pinnedStepId={pinnedTimelineStepId}
         sequence={timelineStub.shaderSequence}
+        audioReactiveAvailable={audioReactivity.preferences.modeEnabled}
+        audioReactiveListening={audioReactivity.status === 'listening'}
         totalDurationSeconds={timelineDurationSeconds}
         onModeChange={handleTimelineSequenceModeChange}
         onSharedTransitionChange={handleTimelineSharedTransitionChange}
@@ -7622,6 +7777,9 @@ ${errorSnapshot}`,
       midiManualMixArmed={midiManualMixArmed}
       markers={timelineMarkers}
       tracks={timelineTracks}
+      audioReactiveAvailable={audioReactivity.preferences.modeEnabled}
+      audioReactiveListening={audioReactivity.status === 'listening'}
+      audioRuntime={audioReactivity.runtime}
       transportControls={
         !isMobile && uiPreferences.chromeVisible ? (
           <PlaybackControls
@@ -7669,6 +7827,7 @@ ${errorSnapshot}`,
       onResizeSequenceBoundary={handleTimelineResizeBoundary}
       onEditSequenceStep={handleTimelineEditStep}
       onAddSequenceStep={createNewShader}
+      onAddRandomSequenceStep={addRandomPresetShader}
       scrollToStepRequest={timelineScrollToStepRequest}
     />
   );
@@ -7715,6 +7874,12 @@ ${errorSnapshot}`,
               )
             : project.studio.uniformValues
         }
+        audioBindingsByShaderId={
+          audioReactivity.preferences.modeEnabled
+            ? audioReactivity.preferences.bindingsByShaderId
+            : undefined
+        }
+        audioRuntime={audioReactivity.runtime}
         savedShaders={project.studio.savedShaders}
         timeline={project.timeline.stub}
         pinnedStepId={pinnedTimelineStepId}
@@ -7857,6 +8022,9 @@ ${errorSnapshot}`,
         <MobileUniformOverlay
           shaderName={project.studio.activeShaderName}
           randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
+          audioShaderId={project.studio.activeShaderId}
+          audioShaderCode={project.studio.activeShaderCode}
+          audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={project.studio.uniformValues}
           onUniformChange={handleUniformChange}
@@ -7941,6 +8109,9 @@ ${errorSnapshot}`,
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           colorTheme={uiPreferences.colorTheme}
           moveMode={stageTransform.moveMode}
+          audioReactiveEnabled={audioReactivity.preferences.modeEnabled}
+          audioReactiveListening={audioReactivity.status === 'listening'}
+          audioReactiveSource={audioReactivity.preferences.source}
           onOpenProjects={() => {
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
@@ -7983,6 +8154,33 @@ ${errorSnapshot}`,
           onToggleMoveMode={() => {
             trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');
             toggleMoveMode();
+          }}
+          onToggleAudioReactive={() => {
+            const nextEnabled = !audioReactivity.preferences.modeEnabled;
+            audioReactivity.setModeEnabled(nextEnabled);
+            if (nextEnabled) {
+              audioReactivity.configureShaderBindings(
+                project.studio.activeShaderId,
+                uniformDefinitions,
+                project.studio.uniformValues,
+                project.studio.activeShaderCode,
+              );
+              void audioReactivity.start();
+            } else {
+              audioReactivity.stop();
+            }
+          }}
+          onStartAudioReactive={(source) => {
+            if (!audioReactivity.preferences.modeEnabled) {
+              audioReactivity.setModeEnabled(true);
+              audioReactivity.configureShaderBindings(
+                project.studio.activeShaderId,
+                uniformDefinitions,
+                project.studio.uniformValues,
+                project.studio.activeShaderCode,
+              );
+            }
+            void audioReactivity.start(source);
           }}
           onToggleSidebarVisibility={toggleSidebarVisibility}
           onToggleDesktopSlidersWindow={toggleDesktopSlidersWindow}
@@ -8199,6 +8397,9 @@ ${errorSnapshot}`,
         midiManualMixArmed={midiManualMixArmed}
         markers={timelineMarkers}
         tracks={timelineTracks}
+        audioReactiveAvailable={audioReactivity.preferences.modeEnabled}
+        audioReactiveListening={audioReactivity.status === 'listening'}
+        audioRuntime={audioReactivity.runtime}
         onSeek={handleTimelineSeek}
         onRepeatSectionSelect={handleTimelineRepeatSectionSelect}
         onPlayToggle={handlePlayToggle}
@@ -8332,6 +8533,7 @@ ${errorSnapshot}`,
         stageTransform={project.mapping.stageTransform}
         durationSeconds={timelineDurationSeconds}
         onClose={() => setIsExportDialogOpen(false)}
+        onOpenProBeta={() => setProBetaSource('export_with_music')}
         onExportRequested={() => {
           updateProject((currentProject) => ({
             ...currentProject,

@@ -11,6 +11,9 @@ export const BUNDLED_STAGE_1B_ASSET_ID = 'bundled-stage-1b';
 export const BUNDLED_STAGE_2A_ASSET_ID = 'bundled-stage-2a';
 export const BUNDLED_STAGE_2B_ASSET_ID = 'bundled-stage-2b';
 export const BUNDLED_VERTICAL_STAGE_ASSET_ID = 'bundled-stage-vertical';
+export const BUNDLED_COLOR_MASK_STAGE_ASSET_ID = 'bundled-stage-color-mask-pro';
+export const BUNDLED_COLOR_MASK_STAGE_DEPTH_ASSET_ID =
+  'bundled-stage-color-mask-pro-depth';
 /** Fallback live stage media when a random starter pick is unavailable. */
 export const DEFAULT_BUNDLED_ASSET_ID = BUNDLED_STAGE_ASSET_ID;
 
@@ -34,6 +37,8 @@ const BUNDLED_ASSET_URLS: Record<string, string> = {
   [BUNDLED_STAGE_2A_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-2a.jpg`,
   [BUNDLED_STAGE_2B_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-2b.png`,
   [BUNDLED_VERTICAL_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-vertical.png`,
+  [BUNDLED_COLOR_MASK_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-color-mask-pro.png`,
+  [BUNDLED_COLOR_MASK_STAGE_DEPTH_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-color-mask-pro-depth.png`,
 };
 
 export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
@@ -145,6 +150,26 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
     size: 6218023,
     lastModified: 1784721600000,
     createdAt: '2026-07-22T12:00:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_COLOR_MASK_STAGE_ASSET_ID,
+    name: 'Goddess Stage Color Map',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 2643279,
+    lastModified: 1785100200000,
+    createdAt: '2026-07-26T21:10:00.000Z',
+    sourceType: 'bundled',
+  },
+  {
+    id: BUNDLED_COLOR_MASK_STAGE_DEPTH_ASSET_ID,
+    name: 'Goddess Stage Exaggerated Depth',
+    kind: 'image',
+    mimeType: 'image/png',
+    size: 1815655,
+    lastModified: 1785100200000,
+    createdAt: '2026-07-26T21:10:00.000Z',
     sourceType: 'bundled',
   },
 ];

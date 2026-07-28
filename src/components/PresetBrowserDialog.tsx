@@ -22,6 +22,29 @@ const TEMPLATE_LABELS: Record<ShaderTemplate, string> = {
   drawing: 'Drawing',
   sculpture: 'Sculpture',
 };
+type PresetBrowserCategory =
+  | ShaderTemplate
+  | 'paintings'
+  | 'audio-reactive';
+const PRESET_CATEGORY_ORDER: PresetBrowserCategory[] = [
+  'sculpture',
+  'stage',
+  'drawing',
+  'paintings',
+  'audio-reactive',
+];
+const PRESET_CATEGORY_LABELS: Record<PresetBrowserCategory, string> = {
+  ...TEMPLATE_LABELS,
+  paintings: 'Paintings',
+  'audio-reactive': 'Audio Reactive',
+};
+const PAINTING_PRESET_GROUPS = new Set([
+  'Ink Halos',
+  'Ink Flow',
+  'Patina Flow',
+  'Organic Motion',
+  'Masks & Contrast',
+]);
 const TEMPLATE_SEARCH_ALIASES: Record<ShaderTemplate, string[]> = {
   stage: ['stage', 'stages', 'projection', 'projections', 'mapping', 'palco', 'proiezione'],
   drawing: ['drawing', 'drawings', 'illustration', 'sketch', 'disegno', 'disegni'],
@@ -51,7 +74,14 @@ const GROUP_ORDER: Record<ShaderTemplate, string[]> = {
     'Masks & Contrast',
     'Experimental',
   ],
-  drawing: ['Base', 'Ink Halos', 'Ink Flow', 'Scanner Bands', 'Op Art', 'Crosshatch Ritual'],
+  drawing: [
+    'Base',
+    'Ink Halos',
+    'Ink Flow',
+    'Scanner Bands',
+    'Op Art',
+    'Crosshatch Ritual',
+  ],
   sculpture: [
     'Base',
     'Relief Halos',
@@ -121,6 +151,29 @@ function getPresetGroup(preset: SavedShader): string {
   return 'Saved';
 }
 
+function isTimelineLinkedPreset(preset: SavedShader): boolean {
+  return Boolean(
+    preset.isTemporary ||
+      preset.ownerTimelineStepId ||
+      getPresetGroup(preset) === 'Timeline',
+  );
+}
+
+function getPresetDisplayGroup(
+  preset: SavedShader,
+  presetById: Map<string, SavedShader>,
+): string {
+  if (!isTimelineLinkedPreset(preset)) {
+    return getPresetGroup(preset);
+  }
+
+  const sourcePreset = preset.sourceShaderId
+    ? presetById.get(preset.sourceShaderId)
+    : null;
+  const sourceGroup = sourcePreset ? getPresetGroup(sourcePreset) : '';
+  return sourceGroup && sourceGroup !== 'Timeline' ? sourceGroup : 'Saved';
+}
+
 function getPresetTemplate(preset: SavedShader): ShaderTemplate {
   return preset.template ?? 'sculpture';
 }
@@ -128,6 +181,37 @@ function getPresetTemplate(preset: SavedShader): ShaderTemplate {
 function getPresetTemplates(preset: SavedShader): ShaderTemplate[] {
   const templates = preset.templates?.filter((template) => TEMPLATE_ORDER.includes(template));
   return templates?.length ? templates : [getPresetTemplate(preset)];
+}
+
+function isAudioReactivePreset(
+  preset: SavedShader,
+  presetById: Map<string, SavedShader>,
+): boolean {
+  return Boolean(
+    preset.audioReactiveBindings ||
+      getPresetDisplayGroup(preset, presetById) === 'Audio Reactive',
+  );
+}
+
+function matchesPresetCategory(
+  preset: SavedShader,
+  category: PresetBrowserCategory,
+  presetById: Map<string, SavedShader>,
+): boolean {
+  const isAudioReactive = isAudioReactivePreset(preset, presetById);
+  if (category === 'audio-reactive') {
+    return isAudioReactive;
+  }
+  if (isAudioReactive) {
+    return false;
+  }
+  if (category === 'paintings') {
+    return PAINTING_PRESET_GROUPS.has(
+      getPresetDisplayGroup(preset, presetById),
+    );
+  }
+
+  return getPresetTemplates(preset).includes(category);
 }
 
 function normalizeSearchText(value: string): string {
@@ -238,8 +322,17 @@ function getPresetSearchScore(preset: SavedShader, searchTokens: string[]): numb
   return totalScore;
 }
 
-function sortGroups(template: ShaderTemplate, left: string, right: string): number {
-  const order = GROUP_ORDER[template];
+function sortGroups(
+  category: PresetBrowserCategory,
+  left: string,
+  right: string,
+): number {
+  const order =
+    category === 'audio-reactive'
+      ? ['Audio Reactive']
+      : category === 'paintings'
+        ? [...PAINTING_PRESET_GROUPS]
+        : GROUP_ORDER[category];
   const leftIndex = order.indexOf(left);
   const rightIndex = order.indexOf(right);
 
@@ -503,6 +596,8 @@ function renderPreviewToCanvas(
 
 function PreviewCard({
   preset,
+  displayGroup,
+  isTimelineLinked,
   isActive,
   image,
   previewSrc,
@@ -515,6 +610,8 @@ function PreviewCard({
   onSelect,
 }: {
   preset: SavedShader;
+  displayGroup: string;
+  isTimelineLinked: boolean;
   isActive: boolean;
   image: HTMLCanvasElement | null;
   previewSrc: string | null;
@@ -560,7 +657,6 @@ function PreviewCard({
 
   useEffect(() => {
     if (!isPreviewing || !image) {
-      setAnimatedPreviewSrc(null);
       return;
     }
 
@@ -582,7 +678,6 @@ function PreviewCard({
     };
   }, [image, isPreviewing, onRenderAnimatedPreview]);
 
-  const presetGroup = getPresetGroup(preset);
   const visiblePreviewSrc = animatedPreviewSrc ?? previewSrc;
   const handlePreviewStart = () => {
     setIsPreviewing(true);
@@ -633,6 +728,30 @@ function PreviewCard({
         <div className="preset-preview-header">
           <span className="preset-preview-name">{preset.name}</span>
           <span className="preset-preview-header-actions">
+            {isTimelineLinked ? (
+              <span
+                className="preset-timeline-symbol"
+                role="img"
+                aria-label="Linked to timeline"
+                title="Linked to timeline"
+              >
+                <i />
+                <i />
+                <i />
+              </span>
+            ) : null}
+            {preset.audioReactiveBindings ? (
+              <span
+                className="preset-audio-symbol"
+                role="img"
+                aria-label="Audio Reactive preset"
+                title="Audio Reactive preset"
+              >
+                <i />
+                <i />
+                <i />
+              </span>
+            ) : null}
             <button
               type="button"
               className={`preset-favorite-button ${
@@ -653,7 +772,7 @@ function PreviewCard({
               ★
             </button>
             <span className="preset-preview-tag">
-              {isActive ? 'Active' : isFavorite ? 'Favorite' : presetGroup}
+              {isActive ? 'Active' : isFavorite ? 'Favorite' : displayGroup}
             </span>
           </span>
         </div>
@@ -679,7 +798,8 @@ export function PresetBrowserDialog({
 }: PresetBrowserDialogProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [activeTemplate, setActiveTemplate] = useState<ShaderTemplate>('sculpture');
+  const [activeCategory, setActiveCategory] =
+    useState<PresetBrowserCategory>('sculpture');
   const [loadedPreview, setLoadedPreview] = useState<{
     assetUrl: string;
     image: HTMLCanvasElement;
@@ -740,8 +860,22 @@ export function PresetBrowserDialog({
     }
 
     const currentPreset = presets.find((preset) => preset.id === activeShaderId);
-    const currentTemplate = currentPreset ? getPresetTemplates(currentPreset)[0] : 'sculpture';
-    setActiveTemplate(currentTemplate);
+    const currentCategory: PresetBrowserCategory =
+      currentPreset?.audioReactiveBindings
+        ? 'audio-reactive'
+        : currentPreset
+          ? getPresetTemplates(currentPreset)[0]
+          : 'sculpture';
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setActiveCategory(currentCategory);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, presets, activeShaderId]);
 
   if (!open) return null;
@@ -815,16 +949,21 @@ export function PresetBrowserDialog({
       return nextIds;
     });
   };
-  const selectedTemplate = TEMPLATE_ORDER.includes(activeTemplate) ? activeTemplate : 'sculpture';
+  const selectedCategory = PRESET_CATEGORY_ORDER.includes(activeCategory)
+    ? activeCategory
+    : 'sculpture';
   const normalizedQuery = normalizeSearchText(query);
   const searchTokens = normalizedQuery.split(/\s+/).filter(Boolean);
   const presetOrder = new Map(presets.map((preset, index) => [preset.id, index]));
+  const presetById = new Map(presets.map((preset) => [preset.id, preset]));
   const sortMostRecentFirst = (left: SavedShader, right: SavedShader) =>
     (presetOrder.get(right.id) ?? -1) - (presetOrder.get(left.id) ?? -1);
   const searchScores = new Map<string, number>();
   const filteredPresets = presets.filter((preset) => {
-    const presetTemplates = getPresetTemplates(preset);
-    if (!normalizedQuery && !presetTemplates.includes(selectedTemplate)) {
+    if (
+      !normalizedQuery &&
+      !matchesPresetCategory(preset, selectedCategory, presetById)
+    ) {
       return false;
     }
 
@@ -852,7 +991,7 @@ export function PresetBrowserDialog({
       .sort(sortSearchResults)
       .filter((preset) => !favoritePresetIds.has(preset.id))
       .reduce((groups, preset) => {
-        const group = getPresetGroup(preset);
+        const group = getPresetDisplayGroup(preset, presetById);
         const items = groups.get(group) ?? [];
         items.push(preset);
         groups.set(group, items);
@@ -860,9 +999,7 @@ export function PresetBrowserDialog({
       }, new Map<string, SavedShader[]>()),
   )
     .sort(([left], [right]) =>
-      normalizedQuery || selectedTemplate === 'sculpture'
-        ? 0
-        : sortGroups(selectedTemplate, left, right),
+      normalizedQuery ? 0 : sortGroups(selectedCategory, left, right),
     )
     .map(([group, items]) => ({
       group,
@@ -872,6 +1009,8 @@ export function PresetBrowserDialog({
     <PreviewCard
       key={preset.id}
       preset={preset}
+      displayGroup={getPresetDisplayGroup(preset, presetById)}
+      isTimelineLinked={isTimelineLinkedPreset(preset)}
       isActive={preset.id === activeShaderId}
       isFavorite={favoritePresetIds.has(preset.id)}
       image={image}
@@ -923,7 +1062,7 @@ export function PresetBrowserDialog({
                 {filteredPresets.length} results
                 {normalizedQuery
                   ? ' across all categories · updates automatically'
-                  : ` in ${TEMPLATE_LABELS[selectedTemplate]}`}
+                  : ` in ${PRESET_CATEGORY_LABELS[selectedCategory]}`}
               </small>
             </div>
             <div className="preset-browser-search-shell">
@@ -949,17 +1088,23 @@ export function PresetBrowserDialog({
                 </button>
               ) : null}
             </div>
-            <div className="preset-category-row" role="tablist" aria-label="Preset templates">
-              {TEMPLATE_ORDER.map((template) => (
+            <div className="preset-category-row" role="tablist" aria-label="Preset collections">
+              {PRESET_CATEGORY_ORDER.map((category) => (
                 <button
-                  key={template}
+                  key={category}
                   type="button"
                   className={`preset-category-chip ${
-                    template === selectedTemplate ? 'preset-category-chip-active' : ''
+                    category === selectedCategory ? 'preset-category-chip-active' : ''
+                  } ${
+                    category === 'audio-reactive'
+                      ? 'preset-category-chip-audio-reactive'
+                      : ''
                   }`}
-                  onClick={() => setActiveTemplate(template)}
+                  role="tab"
+                  aria-selected={category === selectedCategory}
+                  onClick={() => setActiveCategory(category)}
                 >
-                  {TEMPLATE_LABELS[template]}
+                  {PRESET_CATEGORY_LABELS[category]}
                 </button>
               ))}
             </div>
@@ -982,7 +1127,12 @@ export function PresetBrowserDialog({
               ) : null}
 
               {groupedPresets.map(({ group, items }) => (
-                <section className="preset-group" key={group}>
+                <section
+                  className={`preset-group ${
+                    group === 'Audio Reactive' ? 'preset-group-audio-reactive' : ''
+                  }`}
+                  key={group}
+                >
                   <div className="preset-group-header">
                     <strong className="preset-group-title">{group}</strong>
                     <span className="preset-group-count">{items.length}</span>

@@ -4,7 +4,7 @@ import type {
   TimelineSequenceMode,
   TimelineTransitionEffect,
 } from '../types';
-import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings';
+import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings.ts';
 
 export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
   value: TimelineSequenceMode;
@@ -14,6 +14,7 @@ export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
   { value: 'random', label: 'Random' },
   { value: 'randomMix', label: 'Random Mix' },
   { value: 'double', label: 'Double' },
+  { value: 'audioReactive', label: 'Audio Reactive' },
 ];
 
 export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{
@@ -99,7 +100,12 @@ export function shouldUseSharedTransition(
   mode: TimelineSequenceMode,
   sharedTransitionEnabled: boolean,
 ): boolean {
-  return mode === 'randomMix' || mode === 'double' || sharedTransitionEnabled;
+  return (
+    mode === 'randomMix' ||
+    mode === 'double' ||
+    mode === 'audioReactive' ||
+    sharedTransitionEnabled
+  );
 }
 
 export function getEffectiveTransitionDurationSeconds({
@@ -444,7 +450,7 @@ export function getTimelineCycleSteps({
   return nextSteps;
 }
 
-interface TimelineResolution {
+export interface TimelineResolution {
   currentStep: TimelineStub['shaderSequence']['steps'][number];
   currentShader: SavedShader;
   nextStep: TimelineStub['shaderSequence']['steps'][number] | null;

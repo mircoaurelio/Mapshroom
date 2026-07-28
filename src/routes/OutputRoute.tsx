@@ -16,6 +16,7 @@ import {
 import { createSessionSync } from '../lib/sessionSync';
 import { loadProjectDocument } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
+import { useAudioReactivityOutput } from '../hooks/useAudioReactivity';
 import type { ProjectDocument } from '../types';
 
 const FALLBACK_TIMELINE_STUB = {
@@ -58,6 +59,7 @@ export function OutputRoute() {
   const [midiOutputMix, setMidiOutputMix] = useState<MidiOutputLiveState | null>(() =>
     sessionId ? loadMidiOutputMixState(sessionId) : null,
   );
+  const audioReactivity = useAudioReactivityOutput(sessionId || null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -208,6 +210,12 @@ export function OutputRoute() {
         activeShaderName={project.studio.activeShaderName}
         activeShaderCode={project.studio.activeShaderCode}
         activeUniformValues={project.studio.uniformValues}
+        audioBindingsByShaderId={
+          audioReactivity.preferences.modeEnabled
+            ? audioReactivity.preferences.bindingsByShaderId
+            : undefined
+        }
+        audioRuntime={audioReactivity.runtime}
         savedShaders={project.studio.savedShaders}
         timeline={project.timeline?.stub ?? FALLBACK_TIMELINE_STUB}
         pinnedStepId={project.timeline?.stub?.shaderSequence?.pinnedStepId ?? null}

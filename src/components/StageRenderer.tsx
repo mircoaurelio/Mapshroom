@@ -32,6 +32,11 @@ import {
 } from '../lib/shader';
 import { getRenderTimeSeconds, getTransportTimeSeconds } from '../lib/clock';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
+import {
+  resolveAudioReactiveValue,
+  type AudioReactiveBindingMap,
+  type AudioReactiveRuntime,
+} from '../lib/audioReactivity';
 
 interface StageRendererProps {
   asset: AssetRecord | null;
@@ -44,6 +49,7 @@ interface StageRendererProps {
   renderLayers?: StageRenderLayer[];
   preloadLayers?: StageRenderLayer[];
   warmupSources?: StageRenderInputSource[];
+  audioRuntime?: AudioReactiveRuntime;
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
@@ -97,6 +103,7 @@ export interface StageRenderLayer {
   shaderCode: string;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  audioBindings?: AudioReactiveBindingMap;
   opacity?: number;
   inputSource?: StageRenderInputSource | null;
   overlaySource?: StageRenderInputSource | null;
@@ -869,6 +876,7 @@ export function StageRenderer({
   renderLayers,
   preloadLayers,
   warmupSources,
+  audioRuntime,
   stageTransform,
   transport,
   isOutputOnly = false,
@@ -913,6 +921,7 @@ export function StageRenderer({
   const preserveDrawingBufferRef = useRef(Boolean(onCanvasReady));
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
   const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
+  const audioRuntimeRef = useRef(audioRuntime);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
@@ -925,6 +934,7 @@ export function StageRenderer({
   const onRenderStateChangeRef = useRef(onRenderStateChange);
   const onCompiledShaderCodesChangeRef = useRef(onCompiledShaderCodesChange);
   const onFrameRenderedRef = useRef(onFrameRendered);
+  audioRuntimeRef.current = audioRuntime;
   useEffect(
     () => () => {
       distortionDragRef.current?.cleanup();
@@ -1882,7 +1892,18 @@ export function StageRenderer({
             }
 
             if (definition.type === 'float' || definition.type === 'int') {
-              gl.uniform1f(location, Number(value));
+              const baseValue = Number(value);
+              const audioBinding =
+                activeLayer.audioBindings?.[name] ?? layer.audioBindings?.[name];
+              const effectiveValue = audioRuntimeRef.current
+                ? resolveAudioReactiveValue({
+                    baseValue,
+                    binding: audioBinding,
+                    frame: audioRuntimeRef.current.current,
+                    integer: definition.type === 'int',
+                  })
+                : baseValue;
+              gl.uniform1f(location, effectiveValue);
             } else if (definition.type === 'bool') {
               gl.uniform1i(location, value ? 1 : 0);
             } else if (definition.type === 'vec3' && Array.isArray(value)) {

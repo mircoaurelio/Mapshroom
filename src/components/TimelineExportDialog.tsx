@@ -65,6 +65,7 @@ interface TimelineExportDialogProps {
   durationSeconds: number;
   forceActiveShaderPreview?: boolean;
   onClose: () => void;
+  onOpenProBeta: () => void;
   onExportRequested?: () => void;
   onExportCompleted?: (result: { filename: string; bytes: number }) => void;
 }
@@ -192,6 +193,7 @@ export function TimelineExportDialog({
   durationSeconds,
   forceActiveShaderPreview = false,
   onClose,
+  onOpenProBeta,
   onExportRequested,
   onExportCompleted,
 }: TimelineExportDialogProps) {
@@ -257,12 +259,16 @@ export function TimelineExportDialog({
   }, [resolutionPreset]);
 
   const exportCapabilityMessage = useMemo(() => {
+    if (timeline.shaderSequence.mode === 'audioReactive') {
+      return 'Audio Sync is a live performance mode. Switch to Sequence, Random, Mix, or Double before exporting.';
+    }
+
     if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') {
       return 'MP4 export requires WebCodecs support. Use a recent Chrome or Edge build.';
     }
 
     return '';
-  }, []);
+  }, [timeline.shaderSequence.mode]);
 
   const exportableShaders = useMemo(() => {
     const activeShader: SavedShader = {
@@ -735,8 +741,8 @@ export function TimelineExportDialog({
 
         <div className="dialog-body timeline-export-dialog-body">
           <p className="dialog-note">
-            Export creates a high-quality H.264 MP4 of the current timeline selection. The file does
-            not include audio. You can also extract the project's complete shader library as JSON.
+            Standard export creates a high-quality H.264 MP4 of the current timeline selection
+            without audio. Mapshroom Pro adds synchronized video and music export.
           </p>
 
           {exportCapabilityMessage ? (
@@ -918,6 +924,20 @@ export function TimelineExportDialog({
         <footer className="dialog-footer">
           <button type="button" className="secondary-button" onClick={onClose} disabled={isExporting}>
             Cancel
+          </button>
+          <button
+            type="button"
+            className="secondary-button timeline-export-music-button"
+            onClick={onOpenProBeta}
+            disabled={isExporting}
+          >
+            <span className="timeline-export-music-icon" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span>Export with music</span>
+            <small>Pro</small>
           </button>
           <button
             type="button"

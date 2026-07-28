@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
+import type { AudioCaptureSource } from '../lib/audioReactivity';
 import { InstallAppButton } from './InstallAppCallout';
 import {
   advanceAssetsFirstStepToImport,
@@ -12,7 +13,7 @@ import {
   readAssetsFirstStepElapsedMs,
 } from '../lib/assetsFirstStep';
 
-type ToolbarMenuKey = 'file' | 'shader';
+type ToolbarMenuKey = 'file' | 'shader' | 'audio';
 
 interface WorkspaceToolbarProps {
   isPlaying: boolean;
@@ -21,6 +22,9 @@ interface WorkspaceToolbarProps {
   desktopSlidersWindowEnabled: boolean;
   colorTheme: 'green' | 'pink';
   moveMode: boolean;
+  audioReactiveEnabled: boolean;
+  audioReactiveListening: boolean;
+  audioReactiveSource: AudioCaptureSource;
   onOpenProjects: () => void;
   onOpenShare: () => void;
   onOpenExport: () => void;
@@ -32,6 +36,8 @@ interface WorkspaceToolbarProps {
   onPlayToggle: () => void;
   onOpenOutput: () => void;
   onToggleMoveMode: () => void;
+  onToggleAudioReactive: () => void;
+  onStartAudioReactive: (source: AudioCaptureSource) => void;
   onToggleWorkspaceMode: () => void;
   onToggleSidebarVisibility: () => void;
   onToggleDesktopSlidersWindow: () => void;
@@ -97,6 +103,9 @@ export function WorkspaceToolbar({
   desktopSlidersWindowEnabled,
   colorTheme,
   moveMode,
+  audioReactiveEnabled,
+  audioReactiveListening,
+  audioReactiveSource,
   onOpenProjects,
   onOpenShare,
   onOpenExport,
@@ -108,6 +117,8 @@ export function WorkspaceToolbar({
   onPlayToggle,
   onOpenOutput,
   onToggleMoveMode,
+  onToggleAudioReactive,
+  onStartAudioReactive,
   onToggleWorkspaceMode,
   onToggleSidebarVisibility,
   onToggleDesktopSlidersWindow,
@@ -577,6 +588,99 @@ export function WorkspaceToolbar({
                 >
                   Presets
                 </button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="toolbar-menu-shell toolbar-menu-shell-align-right toolbar-audio-reactive-shell">
+            <button
+              type="button"
+              className={`secondary-button toolbar-menu-button toolbar-audio-reactive-button ${
+                audioReactiveEnabled ? 'toolbar-audio-reactive-button-active' : ''
+              } ${openMenu === 'audio' ? 'toolbar-menu-button-active' : ''}`}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'audio'}
+              aria-pressed={audioReactiveEnabled}
+              title="Choose an Audio Reactive input"
+              onClick={() => toggleMenu('audio')}
+            >
+              <span className="audio-wave-icon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+              </span>
+              <span>Audio Reactive</span>
+              {audioReactiveListening ? <small>Live</small> : null}
+            </button>
+
+            {openMenu === 'audio' ? (
+              <div
+                className="toolbar-menu-panel toolbar-audio-source-menu"
+                role="menu"
+                aria-label="Audio input"
+              >
+                <span className="toolbar-menu-section-label">Audio input</span>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={audioReactiveSource === 'system'}
+                  className={`toolbar-menu-item toolbar-audio-source-option ${
+                    audioReactiveSource === 'system'
+                      ? 'toolbar-audio-source-option-selected'
+                      : ''
+                  }`}
+                  onClick={() => {
+                    onStartAudioReactive('system');
+                    closeMenu();
+                  }}
+                >
+                  <span className="toolbar-audio-source-indicator" aria-hidden="true" />
+                  <span className="toolbar-audio-source-copy">
+                    <strong>Computer / browser tab</strong>
+                    <small>Windows, YouTube and desktop audio</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={audioReactiveSource === 'microphone'}
+                  className={`toolbar-menu-item toolbar-audio-source-option ${
+                    audioReactiveSource === 'microphone'
+                      ? 'toolbar-audio-source-option-selected'
+                      : ''
+                  }`}
+                  onClick={() => {
+                    onStartAudioReactive('microphone');
+                    closeMenu();
+                  }}
+                >
+                  <span className="toolbar-audio-source-indicator" aria-hidden="true" />
+                  <span className="toolbar-audio-source-copy">
+                    <strong>Microphone</strong>
+                    <small>Use the active system input</small>
+                  </span>
+                </button>
+                {audioReactiveEnabled ? (
+                  <>
+                    <div className="toolbar-menu-divider" role="separator" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="toolbar-menu-item toolbar-audio-standard-option"
+                      onClick={() => {
+                        onToggleAudioReactive();
+                        closeMenu();
+                      }}
+                    >
+                      <span>Return to standard sliders</span>
+                      <small>OFF</small>
+                    </button>
+                  </>
+                ) : null}
+                <p className="toolbar-audio-source-note">
+                  The browser permission window may take a moment to open.
+                </p>
               </div>
             ) : null}
           </div>
