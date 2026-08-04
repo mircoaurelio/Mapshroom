@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { AiGenerationRoute } from '../lib/aiRoute';
+import { CloudModelIcon } from './CloudModelIcon';
 import { PanelSection } from './PanelSection';
 
 const SHADER_PROMPT_PLACEHOLDERS = [
@@ -73,7 +74,7 @@ const AI_ROUTE_OPTIONS: Array<{
     icon: 'perplexity.svg',
   },
   { value: 'local', label: 'Local model', note: 'Runs on device', mark: 'L' },
-  { value: 'api', label: 'API', note: 'Use your key', mark: 'A', icon: 'ai.svg' },
+  { value: 'api', label: 'API', note: 'Use your key', mark: 'A' },
 ];
 
 type WordChoice = {
@@ -1146,7 +1147,9 @@ export function AiPanel({
                   onClick={() => setRouteMenuOpen((current) => !current)}
                 >
                   <span className="ai-prompt-route-mark" aria-hidden="true">
-                    {selectedRouteOption.icon ? (
+                    {selectedRouteOption.value === 'api' ? (
+                      <CloudModelIcon className="ai-prompt-route-provider-icon" compact />
+                    ) : selectedRouteOption.icon ? (
                       <img
                         src={`${import.meta.env.BASE_URL}assets/icons/${selectedRouteOption.icon}`}
                         alt=""
@@ -1173,7 +1176,9 @@ export function AiPanel({
                         }}
                       >
                         <span className="ai-prompt-route-mark" aria-hidden="true">
-                          {option.icon ? (
+                          {option.value === 'api' ? (
+                            <CloudModelIcon className="ai-prompt-route-provider-icon" compact />
+                          ) : option.icon ? (
                             <img
                               src={`${import.meta.env.BASE_URL}assets/icons/${option.icon}`}
                               alt=""
