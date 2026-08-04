@@ -606,9 +606,6 @@ export function AudioReactivePanelControls({
   const isStarting = status === 'starting';
   const displayedBpm =
     preferences.bpmMode === 'manual' ? preferences.manualBpm : uiFrame.bpm;
-  const activeBindingCount = Object.values(
-    preferences.bindingsByShaderId[shaderId] ?? {},
-  ).filter((binding) => binding.enabled).length;
   const inputHealth =
     status === 'error'
       ? 'Check input'
@@ -729,11 +726,6 @@ export function AudioReactivePanelControls({
           In the browser picker, choose the YouTube tab and enable “Share tab audio”.
         </p>
       ) : null}
-      {controller.captureLabel ? (
-        <p className="audio-reactive-capture-label" title={controller.captureLabel}>
-          {controller.captureLabel}
-        </p>
-      ) : null}
       {controller.errorMessage ? (
         <p className="audio-reactive-error" role="alert">
           {controller.errorMessage}
@@ -741,9 +733,7 @@ export function AudioReactivePanelControls({
       ) : null}
 
       <details className="audio-reactive-tempo">
-        <summary>
-          <span>Monitor</span>
-        </summary>
+        <summary aria-label="Audio timing controls" title="Audio timing controls" />
         <div className="audio-reactive-tempo-grid">
           <label>
             <span>Clock</span>
@@ -824,10 +814,6 @@ export function AudioReactivePanelControls({
         </div>
       </details>
       <div className="audio-reactive-slider-heading">
-        <span className="audio-reactive-slider-title">
-          Reactive sliders
-          <small>{activeBindingCount} active</small>
-        </span>
         <span className="audio-reactive-slider-actions">
           <button
             type="button"
