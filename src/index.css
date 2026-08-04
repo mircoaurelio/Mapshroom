@@ -662,7 +662,9 @@ a {
 }
 
 .shader-studio-action-button {
+  display: inline-flex;
   flex: 1 1 0;
+  align-items: center;
   justify-content: center;
   gap: 0.38rem;
   min-width: 0;
@@ -670,6 +672,7 @@ a {
 }
 
 .shader-studio-action-button svg {
+  display: block;
   width: 13px;
   height: 13px;
   flex: 0 0 auto;
@@ -4779,9 +4782,16 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .ai-prompt-route-mark img {
+  display: block;
   width: 13px;
   height: 13px;
   object-fit: contain;
+}
+
+.ai-prompt-route-provider-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
 .ai-prompt-route-chevron {
