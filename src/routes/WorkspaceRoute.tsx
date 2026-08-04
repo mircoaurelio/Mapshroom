@@ -202,7 +202,10 @@ import {
   normalizeMappingPosition,
   parseMappingPositionFile,
 } from '../lib/mappingPosition';
-import { normalizeStageDistortion } from '../lib/distortion';
+import {
+  DEFAULT_STAGE_DISTORTION,
+  normalizeStageDistortion,
+} from '../lib/distortion';
 import { blankShaderTemplate } from '../shaders/templates/blankShader';
 import {
   ONBOARDING_MISSION_COPY,
@@ -8050,6 +8053,10 @@ ${errorSnapshot}`,
               onDistortModeChange={(enabled) => {
                 trackUiClick(enabled ? 'distortion_editor_on' : 'distortion_editor_off');
                 setDistortMode(enabled);
+              }}
+              onResetDistortion={() => {
+                trackUiClick('distortion_reset');
+                updateStageDistortion(DEFAULT_STAGE_DISTORTION);
               }}
               onCloseMove={() => {
                 trackUiClick('move_mode_off');

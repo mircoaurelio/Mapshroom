@@ -29,6 +29,7 @@ interface MappingPadProps {
   onRotationChange?: (value: number) => void;
   onToggleGrid?: () => void;
   onDistortModeChange?: (enabled: boolean) => void;
+  onResetDistortion?: () => void;
   onCloseMove?: () => void;
   onFirstStepDismiss?: () => void;
   precision?: number;
@@ -152,6 +153,7 @@ export function MappingPad({
   onRotationChange,
   onToggleGrid,
   onDistortModeChange,
+  onResetDistortion,
   onCloseMove,
   onFirstStepDismiss,
   precision = 12,
@@ -383,6 +385,16 @@ export function MappingPad({
             ↔
           </span>
           <span>Move</span>
+        </button>
+        <button
+          type="button"
+          className="mapping-distort-reset"
+          title="Reset corner distortion"
+          aria-label="Reset corner distortion"
+          onClick={onResetDistortion}
+          disabled={disabled || !onResetDistortion}
+        >
+          Reset
         </button>
         {onCloseMove ? (
           <button

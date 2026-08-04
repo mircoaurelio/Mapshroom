@@ -19,6 +19,7 @@ import type {
 } from '../types';
 import {
   createStageDistortionMatrix3d,
+  DEFAULT_STAGE_DISTORTION,
   getStageDistortionPoint,
   normalizeStageDistortion,
   nudgeStageDistortionPoint,
@@ -77,6 +78,13 @@ const DISTORTION_CORNER_LABELS: Record<StageDistortionCorner, string> = {
   bottomRight: 'bottom right',
   bottomLeft: 'bottom left',
 };
+
+const DISTORTION_CONTROL_POINTS = Object.fromEntries(
+  STAGE_DISTORTION_CORNERS.map((corner) => [
+    corner,
+    getStageDistortionPoint(DEFAULT_STAGE_DISTORTION, corner),
+  ]),
+) as Record<StageDistortionCorner, { x: number; y: number }>;
 
 export interface StageFrameInfo {
   /** True when every requested render layer was drawn with its own compiled program. */
@@ -2006,15 +2014,6 @@ export function StageRenderer({
     () => normalizeStageDistortion(stageTransform.distortion),
     [stageTransform.distortion],
   );
-  const distortionPoints = useMemo(
-    () => ({
-      topLeft: getStageDistortionPoint(distortion, 'topLeft'),
-      topRight: getStageDistortionPoint(distortion, 'topRight'),
-      bottomRight: getStageDistortionPoint(distortion, 'bottomRight'),
-      bottomLeft: getStageDistortionPoint(distortion, 'bottomLeft'),
-    }),
-    [distortion],
-  );
   const distortEditing =
     !isOutputOnly &&
     Boolean(stageTransform.distortMode) &&
@@ -2048,6 +2047,15 @@ export function StageRenderer({
     event.preventDefault();
     event.stopPropagation();
     const pointerId = event.pointerId;
+    const screenMatrix = svg.getScreenCTM();
+    if (!screenMatrix) {
+      return;
+    }
+    const startPointer = svg.createSVGPoint();
+    startPointer.x = event.clientX;
+    startPointer.y = event.clientY;
+    const startLocalPoint = startPointer.matrixTransform(screenMatrix.inverse());
+    const startDistortionPoint = getStageDistortionPoint(distortion, corner);
     const updateFromPointer = (pointerEvent: PointerEvent) => {
       if (pointerEvent.pointerId !== pointerId) {
         return;
@@ -2062,8 +2070,8 @@ export function StageRenderer({
       const localPoint = pointer.matrixTransform(screenMatrix.inverse());
       onDistortionChange(
         setStageDistortionPoint(distortion, corner, {
-          x: localPoint.x / 1000,
-          y: localPoint.y / 1000,
+          x: startDistortionPoint.x + (localPoint.x - startLocalPoint.x) / 1000,
+          y: startDistortionPoint.y + (localPoint.y - startLocalPoint.y) / 1000,
         }),
       );
     };
@@ -2274,65 +2282,30 @@ export function StageRenderer({
               >
                 <polygon
                   className="stage-distort-grid-surface"
-                  points={STAGE_DISTORTION_CORNERS.map((corner) => {
-                    const point = distortionPoints[corner];
-                    return `${point.x * 1000},${point.y * 1000}`;
-                  }).join(' ')}
+                  points="0,0 1000,0 1000,1000 0,1000"
                 />
                 {DISTORTION_GRID_STEPS.map((step) => (
                   <line
                     key={`vertical-${step}`}
                     className="stage-distort-grid-line"
-                    x1={
-                      (distortionPoints.topLeft.x +
-                        (distortionPoints.topRight.x - distortionPoints.topLeft.x) * step) *
-                      1000
-                    }
-                    y1={
-                      (distortionPoints.topLeft.y +
-                        (distortionPoints.topRight.y - distortionPoints.topLeft.y) * step) *
-                      1000
-                    }
-                    x2={
-                      (distortionPoints.bottomLeft.x +
-                        (distortionPoints.bottomRight.x - distortionPoints.bottomLeft.x) * step) *
-                      1000
-                    }
-                    y2={
-                      (distortionPoints.bottomLeft.y +
-                        (distortionPoints.bottomRight.y - distortionPoints.bottomLeft.y) * step) *
-                      1000
-                    }
+                    x1={step * 1000}
+                    y1="0"
+                    x2={step * 1000}
+                    y2="1000"
                   />
                 ))}
                 {DISTORTION_GRID_STEPS.map((step) => (
                   <line
                     key={`horizontal-${step}`}
                     className="stage-distort-grid-line"
-                    x1={
-                      (distortionPoints.topLeft.x +
-                        (distortionPoints.bottomLeft.x - distortionPoints.topLeft.x) * step) *
-                      1000
-                    }
-                    y1={
-                      (distortionPoints.topLeft.y +
-                        (distortionPoints.bottomLeft.y - distortionPoints.topLeft.y) * step) *
-                      1000
-                    }
-                    x2={
-                      (distortionPoints.topRight.x +
-                        (distortionPoints.bottomRight.x - distortionPoints.topRight.x) * step) *
-                      1000
-                    }
-                    y2={
-                      (distortionPoints.topRight.y +
-                        (distortionPoints.bottomRight.y - distortionPoints.topRight.y) * step) *
-                      1000
-                    }
+                    x1="0"
+                    y1={step * 1000}
+                    x2="1000"
+                    y2={step * 1000}
                   />
                 ))}
                 {STAGE_DISTORTION_CORNERS.map((corner) => {
-                  const point = distortionPoints[corner];
+                  const point = DISTORTION_CONTROL_POINTS[corner];
                   return (
                     <circle
                       key={corner}
@@ -2351,7 +2324,7 @@ export function StageRenderer({
               </svg>
 
               {STAGE_DISTORTION_CORNERS.map((corner) => {
-                const point = distortionPoints[corner];
+                const point = DISTORTION_CONTROL_POINTS[corner];
                 return (
                   <span
                     key={`${corner}-dot`}
@@ -2366,7 +2339,7 @@ export function StageRenderer({
               })}
 
               {STAGE_DISTORTION_CORNERS.map((corner) => {
-                const point = distortionPoints[corner];
+                const point = DISTORTION_CONTROL_POINTS[corner];
                 const cornerLabel = DISTORTION_CORNER_LABELS[corner];
                 return (
                   <div

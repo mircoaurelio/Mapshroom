@@ -9094,12 +9094,29 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .mapping-distort-return:hover:not(:disabled),
-.mapping-distort-return:focus-visible {
+.mapping-distort-return:focus-visible,
+.mapping-distort-reset:hover:not(:disabled),
+.mapping-distort-reset:focus-visible {
   border-color: #fdba74;
   background: rgba(124, 45, 18, 0.96);
   color: #fff7ed;
   outline: none;
   transform: translateY(-1px);
+}
+
+.mapping-distort-reset {
+  min-height: 2rem;
+  padding: 0.34rem 0.68rem;
+  border: 1px solid rgba(251, 146, 60, 0.5);
+  border-radius: 999px;
+  background: rgba(9, 9, 11, 0.94);
+  color: #fed7aa;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.59rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
 }
 
 .mapping-distort-return-icon {
