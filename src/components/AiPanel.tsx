@@ -799,6 +799,7 @@ export function AiPanel({
     targetId: string | null,
     finishIds: string[],
   ) => {
+    onPromptFocus();
     scrollPromptToEndRef.current = true;
     onPromptChange(buildWordShaderPrompt(effectId, motionId, targetId, finishIds));
   };
