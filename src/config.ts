@@ -5,14 +5,24 @@ import {
   createStarterTimelineSteps,
   STARTER_TIMELINE_SHADER_COUNT,
 } from './lib/bundledProjects';
-import { getShaderTimelineDuration } from './lib/timeline';
+import { createTimelineShaderStep, getShaderTimelineDuration } from './lib/timeline';
 import {
+  BUNDLED_EMPTY_CANVAS_ASSET,
+  BUNDLED_EMPTY_CANVAS_ASSET_ID,
   BUNDLED_STATUE_ASSET_ID,
   BUNDLED_VERTICAL_STAGE_ASSET_ID,
+  BUNDLED_WHITE_CANVAS_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
+  isInternalCanvasAssetId,
   pickStarterBundledAssetId,
 } from './lib/bundledAssets';
+import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
 import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
+import { blankShaderTemplate } from './shaders/templates/blankShader';
+import {
+  fullCanvasShaderTemplate,
+  fullCanvasShaderUniformValues,
+} from './shaders/templates/fullCanvasShader';
 
 export const APP_VERSION = 3;
 export const PROJECT_STORAGE_PREFIX = 'mapshroom-v3:project:';
@@ -207,6 +217,180 @@ export function createDefaultProject(
         enabled: false,
         deterministicRenderReady: true,
         lastRequestedAt: null,
+      },
+    },
+  };
+}
+
+export function createEmptyProject(
+  sessionId: string,
+  options: { isMobile?: boolean } = {},
+): ProjectDocument {
+  const project = createDefaultProject(sessionId, options);
+  const shaderId = `empty-project-${crypto.randomUUID()}`;
+  const shaderName = 'Full Canvas Flow';
+  const shaderCode = fullCanvasShaderTemplate;
+  const shaderVersion = {
+    id: crypto.randomUUID(),
+    prompt: 'Empty project base shader',
+    name: shaderName,
+    code: shaderCode,
+    createdAt: new Date().toISOString(),
+  };
+  const emptyShader = {
+    id: shaderId,
+    name: shaderName,
+    code: shaderCode,
+    description:
+      'A full-frame procedural shader for an empty project that renders across every pixel.',
+    template: 'stage' as const,
+    group: 'Project',
+    versions: [shaderVersion],
+    uniformValues: fullCanvasShaderUniformValues,
+    lastValidCode: shaderCode,
+    lastValidUniformValues: fullCanvasShaderUniformValues,
+  };
+  const timelineStep = {
+    ...createTimelineShaderStep(shaderId),
+    assetSettings: normalizeTimelineStepAssetSettings({
+      fitMode: 'stretch',
+      opacity: 1,
+      quality: 'high',
+      useStepAssetAsShaderBase: true,
+    }),
+  };
+
+  return {
+    ...project,
+    name: 'Untitled Empty Project',
+    library: {
+      assets: [...DEFAULT_BUNDLED_ASSETS, BUNDLED_EMPTY_CANVAS_ASSET],
+      activeAssetId: BUNDLED_EMPTY_CANVAS_ASSET_ID,
+    },
+    studio: {
+      ...project.studio,
+      activeShaderId: shaderId,
+      activeShaderName: shaderName,
+      activeShaderCode: shaderCode,
+      shaderVersions: [shaderVersion],
+      savedShaders: [...project.studio.savedShaders, emptyShader],
+      shaderChatHistory: [],
+      uniformValues: fullCanvasShaderUniformValues,
+    },
+    playback: {
+      ...project.playback,
+      activeAssetId: BUNDLED_EMPTY_CANVAS_ASSET_ID,
+    },
+    timeline: {
+      stub: {
+        ...project.timeline.stub,
+        durationSeconds: timelineStep.durationSeconds,
+        markers: [],
+        tracks: [],
+        shaderSequence: {
+          ...project.timeline.stub.shaderSequence,
+          mode: 'sequence',
+          stagePreviewMode: 'timeline',
+          focusedStepId: timelineStep.id,
+          randomSeedToken: crypto.randomUUID(),
+          singleStepLoopEnabled: false,
+          randomChoiceEnabled: false,
+          sharedTransitionEnabled: false,
+          steps: [timelineStep],
+        },
+      },
+    },
+  };
+}
+
+/** Upgrade empty projects from the visible white source and untouched blank shader. */
+export function upgradeLegacyEmptyProject(project: ProjectDocument): ProjectDocument {
+  const legacyShaderCode = blankShaderTemplate.replace(
+    '// NAME: New Shader',
+    '// NAME: Blank Shader',
+  );
+  const usesLegacyWhiteCanvas =
+    project.playback?.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID ||
+    project.library?.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID;
+  const usesInternalCanvas =
+    usesLegacyWhiteCanvas ||
+    project.playback?.activeAssetId === BUNDLED_EMPTY_CANVAS_ASSET_ID ||
+    project.library?.activeAssetId === BUNDLED_EMPTY_CANVAS_ASSET_ID;
+  const isUntouchedLegacyShader =
+    project.studio.activeShaderName === 'Blank Shader' &&
+    project.studio.activeShaderCode.trim() === legacyShaderCode.trim();
+
+  if (!usesInternalCanvas) {
+    return project;
+  }
+
+  const upgradedProject = usesLegacyWhiteCanvas
+    ? {
+        ...project,
+        library: {
+          ...project.library,
+          assets: [
+            ...project.library.assets.filter(
+              (asset) => !isInternalCanvasAssetId(asset.id),
+            ),
+            BUNDLED_EMPTY_CANVAS_ASSET,
+          ],
+          activeAssetId:
+            project.library.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID
+              ? BUNDLED_EMPTY_CANVAS_ASSET_ID
+              : project.library.activeAssetId,
+        },
+        playback: {
+          ...project.playback,
+          activeAssetId:
+            project.playback.activeAssetId === BUNDLED_WHITE_CANVAS_ASSET_ID
+              ? BUNDLED_EMPTY_CANVAS_ASSET_ID
+              : project.playback.activeAssetId,
+        },
+      }
+    : project;
+
+  if (!isUntouchedLegacyShader) {
+    return upgradedProject;
+  }
+
+  const replacement = createEmptyProject(project.sessionId);
+  const replacementShader = replacement.studio.savedShaders.find(
+    (shader) => shader.id === replacement.studio.activeShaderId,
+  );
+  if (!replacementShader) {
+    return upgradedProject;
+  }
+
+  const legacyShaderId = project.studio.activeShaderId;
+  return {
+    ...upgradedProject,
+    studio: {
+      ...upgradedProject.studio,
+      activeShaderId: replacement.studio.activeShaderId,
+      activeShaderName: replacement.studio.activeShaderName,
+      activeShaderCode: replacement.studio.activeShaderCode,
+      shaderVersions: replacement.studio.shaderVersions,
+      savedShaders: [
+        ...upgradedProject.studio.savedShaders.filter(
+          (shader) => shader.id !== legacyShaderId,
+        ),
+        replacementShader,
+      ],
+      shaderChatHistory: [],
+      uniformValues: replacement.studio.uniformValues,
+    },
+    timeline: {
+      stub: {
+        ...upgradedProject.timeline.stub,
+        shaderSequence: {
+          ...upgradedProject.timeline.stub.shaderSequence,
+          steps: upgradedProject.timeline.stub.shaderSequence.steps.map((step) =>
+            step.shaderId === legacyShaderId
+              ? { ...step, shaderId: replacement.studio.activeShaderId }
+              : step,
+          ),
+        },
       },
     },
   };

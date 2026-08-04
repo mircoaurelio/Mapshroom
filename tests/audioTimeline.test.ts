@@ -128,6 +128,24 @@ test('section detector honors the minimum hold between confirmed changes', () =>
   assert.equal(state.snapshot.changedAtEpochMs, firstChangeAt);
 });
 
+test('section detector recognizes a realistic sustained spectral shift', () => {
+  let state = createAudioSectionDetector('run-real-audio', 0, 1_700_000_000_000);
+  state = advanceDetector(state, {
+    fromMs: 0,
+    count: 40,
+    features: [0.18, 0.24, 0.16, 0.21, 0.19, 0.27],
+  });
+  state = advanceDetector(state, {
+    fromMs: 4_000,
+    count: 16,
+    features: [0.235, 0.295, 0.215, 0.265, 0.245, 0.325],
+    beat: 1,
+  });
+
+  assert.equal(state.snapshot.revision, 1);
+  assert.ok(state.snapshot.novelty >= 0.03);
+});
+
 test('audio timeline advances by section revision and crossfades from the previous shader', () => {
   const steps = [
     createStep('step-a', 'shader-a'),
@@ -182,6 +200,35 @@ test('audio timeline skips disabled/missing shaders and settles on the detected 
 
   assert.equal(resolution?.currentStep.id, 'step-c');
   assert.equal(resolution?.nextStep?.id, 'step-a');
+  assert.equal(resolution?.transitionProgress, 0);
+  assert.equal(resolution?.isTransitioning, false);
+});
+
+test('manual focused shader overrides audio progression until the hold is released', () => {
+  const steps = [
+    createStep('step-a', 'shader-a'),
+    createStep('step-b', 'shader-b'),
+    createStep('step-c', 'shader-c'),
+  ];
+  const resolution = resolveAudioReactiveTimelineState({
+    shaders: SHADERS,
+    steps,
+    section: {
+      runId: 'run-1',
+      revision: 7,
+      changedAtEpochMs: 10_000,
+      confidence: 0.9,
+      novelty: 0.5,
+    },
+    nowEpochMs: 10_100,
+    transitionEffect: 'mix',
+    transitionDurationSeconds: 0.75,
+    focusedStepId: 'step-c',
+    singleStepLoopEnabled: true,
+  });
+
+  assert.equal(resolution?.currentStep.id, 'step-c');
+  assert.equal(resolution?.nextStep, null);
   assert.equal(resolution?.transitionProgress, 0);
   assert.equal(resolution?.isTransitioning, false);
 });

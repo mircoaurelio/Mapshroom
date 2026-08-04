@@ -872,6 +872,9 @@ export function TimelineStageRenderer({
         transitionEffect: shaderSequence.sharedTransitionEffect ?? 'mix',
         transitionDurationSeconds:
           shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+        focusedStepId: shaderSequence.focusedStepId ?? null,
+        singleStepLoopEnabled:
+          shaderSequence.singleStepLoopEnabled ?? false,
       });
     }
 
@@ -2049,6 +2052,10 @@ export function TimelineStageRenderer({
 
   const primaryLookaheadTimelineStates = useMemo(() => {
     if (shaderSequence.mode === 'audioReactive' && audioRuntime) {
+      if (shaderSequence.singleStepLoopEnabled) {
+        return [];
+      }
+
       const currentSection = audioRuntime.current.section;
       const followingState = resolveAudioReactiveTimelineState({
         shaders: availableShaders,

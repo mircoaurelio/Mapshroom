@@ -73,7 +73,9 @@ import {
   DEFAULT_UI_PREFERENCES,
   GOOGLE_API_KEY_STORAGE_KEY,
   OPENAI_API_KEY_STORAGE_KEY,
+  createEmptyProject,
   createDefaultProject,
+  upgradeLegacyEmptyProject,
 } from '../config';
 import {
   getTransportTimeSeconds,
@@ -325,7 +327,7 @@ const MOBILE_ONBOARDING_COPY = {
 } as const;
 const ONBOARDING_COPY = {
   en: {
-    welcomeEyebrow: 'Welcome to Mapshroom',
+    welcomeEyebrow: 'Mapshroom Vibe Projection Mapping',
     welcomeTitle: 'How would you like to begin?',
     welcomeStartMapping: 'Open the workspace',
     welcomeLearnApp: 'Take the guided tour',
@@ -1444,6 +1446,10 @@ function withNewTimelineRandomSeed(project: ProjectDocument): ProjectDocument {
 }
 
 function normalizeProject(project: ProjectDocument): ProjectDocument {
+  return normalizeProjectDocument(upgradeLegacyEmptyProject(project));
+}
+
+function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
   const uniformDefinitions = parseUniforms(project.studio.activeShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
   const mergedLibraryAssets = mergeBundledAssets(project.library?.assets ?? []);
@@ -3282,6 +3288,29 @@ export function WorkspaceRoute() {
     setCompilerError('');
     setStatusMessage('Created a new project.');
     trackUiClick('create_project');
+  }, [isMobile]);
+
+  const handleCreateEmptyProject = useCallback(() => {
+    const confirmed = window.confirm(
+      'Create a new empty project? Unsaved changes in the current workspace will be lost unless you save first.',
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const nextSessionId = crypto.randomUUID();
+    const nextProject = normalizeProject(createEmptyProject(nextSessionId, { isMobile }));
+
+    setProject(nextProject);
+    persistActiveSessionId(nextSessionId);
+    setIsProjectDialogOpen(false);
+    setEditingTimelineStepId(null);
+    setPreviewShaderId(null);
+    setStudioPreviewOverride(false);
+    clearGeneratedShaderRetry();
+    setCompilerError('');
+    setStatusMessage('Created a new empty project with a white canvas.');
+    trackUiClick('create_empty_project');
   }, [isMobile]);
 
   const handleOpenSavedProject = useCallback((sessionId: string) => {
@@ -7228,6 +7257,9 @@ ${errorSnapshot}`,
           transitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
           transitionDurationSeconds:
             timelineStub.shaderSequence.sharedTransitionDurationSeconds,
+          focusedStepId: timelineStub.shaderSequence.focusedStepId,
+          singleStepLoopEnabled:
+            timelineStub.shaderSequence.singleStepLoopEnabled,
         })
       : resolveShaderTimelineState({
           shaders: timelineSelectableShaders,
@@ -7247,6 +7279,19 @@ ${errorSnapshot}`,
           randomSeedSalt: timelineStub.shaderSequence.randomSeedToken || project.sessionId,
         })
     : null;
+  const resolveCurrentAudioTimelineState = () =>
+    resolveAudioReactiveTimelineState({
+      shaders: timelineSelectableShaders,
+      steps: timelinePlaybackSteps,
+      section: audioReactivity.uiFrame.section,
+      nowEpochMs: Date.now(),
+      transitionEffect: timelineStub.shaderSequence.sharedTransitionEffect,
+      transitionDurationSeconds:
+        timelineStub.shaderSequence.sharedTransitionDurationSeconds,
+      focusedStepId: timelineStub.shaderSequence.focusedStepId,
+      singleStepLoopEnabled:
+        timelineStub.shaderSequence.singleStepLoopEnabled,
+    });
   const resolveCurrentPlaybackStepId = () => {
     if (editingTimelineStepId) {
       return editingTimelineStepId;
@@ -7257,6 +7302,10 @@ ${errorSnapshot}`,
       timelineStub.shaderSequence.focusedStepId
     ) {
       return timelineStub.shaderSequence.focusedStepId;
+    }
+
+    if (timelineStub.shaderSequence.mode === 'audioReactive') {
+      return resolveCurrentAudioTimelineState()?.currentStep.id ?? null;
     }
 
     return resolveShaderTimelineState({
@@ -7287,6 +7336,28 @@ ${errorSnapshot}`,
       timelineStub.shaderSequence.singleStepLoopEnabled ||
       timelineStub.shaderSequence.stagePreviewMode === 'focused'
     ) {
+      if (timelineStub.shaderSequence.mode === 'audioReactive') {
+        setEditingTimelineStepId(null);
+        setStudioPreviewOverride(false);
+        updateProject((currentProject) => ({
+          ...currentProject,
+          timeline: {
+            stub: {
+              ...currentProject.timeline.stub,
+              shaderSequence: {
+                ...currentProject.timeline.stub.shaderSequence,
+                stagePreviewMode: 'timeline',
+                singleStepLoopEnabled: false,
+              },
+            },
+          },
+        }));
+        setStatusMessage(
+          'Audio Reactive resumed from the latest detected music section.',
+        );
+        return;
+      }
+
       const exitPlan = getTimelineRepeatExitPlan(project);
       if (!exitPlan) {
         return;
@@ -7301,7 +7372,10 @@ ${errorSnapshot}`,
       return;
     }
 
-    const currentTimelineState = resolveProjectTimelineState(project, false);
+    const currentTimelineState =
+      timelineStub.shaderSequence.mode === 'audioReactive'
+        ? resolveCurrentAudioTimelineState()
+        : resolveProjectTimelineState(project, false);
     if (!currentTimelineState) {
       return;
     }
@@ -7314,10 +7388,17 @@ ${errorSnapshot}`,
     void selectTimelineStepForEditing(currentTimelineState.currentStep.id, {
       focusStudioOnMobile: false,
       stagePreviewMode: 'focused',
-      seekTimeSeconds: repeatTimeSeconds,
+      seekTimeSeconds:
+        timelineStub.shaderSequence.mode === 'audioReactive'
+          ? null
+          : repeatTimeSeconds,
       preserveRenderTimeOnSeek: true,
     });
-    setStatusMessage('Repeating the highlighted shader while its animation keeps running.');
+    setStatusMessage(
+      timelineStub.shaderSequence.mode === 'audioReactive'
+        ? 'Holding the selected shader. Disable repeat to resume music-driven changes.'
+        : 'Repeating the highlighted shader while its animation keeps running.',
+    );
   };
   const handlePlaybackStepOffset = (offset: -1 | 1) => {
     if (isMobile && editingTimelineStepId) {
@@ -7351,16 +7432,22 @@ ${errorSnapshot}`,
 
     if (
       timelineStub.shaderSequence.singleStepLoopEnabled ||
-      timelineStub.shaderSequence.stagePreviewMode === 'focused'
+      timelineStub.shaderSequence.stagePreviewMode === 'focused' ||
+      timelineStub.shaderSequence.mode === 'audioReactive'
     ) {
       void selectTimelineStepForEditing(nextStep.id, {
         focusStudioOnMobile: false,
         stagePreviewMode: 'focused',
-        seekTimeSeconds: nextTimeSeconds,
+        seekTimeSeconds:
+          timelineStub.shaderSequence.mode === 'audioReactive'
+            ? null
+            : nextTimeSeconds,
         preserveRenderTimeOnSeek: true,
       });
       setStatusMessage(
-        `${offset > 0 ? 'Next' : 'Previous'} repeated shader: ${nextIndex + 1} of ${playableTimelineSteps.length}.`,
+        timelineStub.shaderSequence.mode === 'audioReactive'
+          ? `${offset > 0 ? 'Next' : 'Previous'} audio shader held: ${nextIndex + 1} of ${playableTimelineSteps.length}.`
+          : `${offset > 0 ? 'Next' : 'Previous'} repeated shader: ${nextIndex + 1} of ${playableTimelineSteps.length}.`,
       );
       return;
     }
@@ -7527,7 +7614,10 @@ ${errorSnapshot}`,
       setPendingTimelineRepeatExit(null);
     }
 
-    const currentTimelineState = resolveProjectTimelineState(project, false);
+    const currentTimelineState =
+      sequence.mode === 'audioReactive'
+        ? resolveCurrentAudioTimelineState()
+        : resolveProjectTimelineState(project, false);
     if (!currentTimelineState) {
       return;
     }
@@ -7539,7 +7629,8 @@ ${errorSnapshot}`,
     );
     void selectTimelineStepForEditing(currentTimelineState.currentStep.id, {
       stagePreviewMode: 'focused',
-      seekTimeSeconds: repeatTimeSeconds,
+      seekTimeSeconds:
+        sequence.mode === 'audioReactive' ? null : repeatTimeSeconds,
       preserveRenderTimeOnSeek: true,
     });
     setStatusMessage(
@@ -7592,6 +7683,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
+      onUniformInteractionStart={handlePromptFocus}
       onUniformChange={handleUniformChange}
       newUniformName={newUniformName}
       onNewUniformNameChange={setNewUniformName}
@@ -7630,6 +7722,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
+      onInteractionStart={handlePromptFocus}
       onUniformChange={handleUniformChange}
       newUniformName={newUniformName}
       onNewUniformNameChange={setNewUniformName}
@@ -7663,13 +7756,6 @@ ${errorSnapshot}`,
 
   const mobileShaderPanel = (
     <div className="mobile-shader-workspace">
-      <article className={`mobile-current-shader-card ${editingTimelineStepId ? 'mobile-current-shader-card-editing' : ''}`}>
-        <div className="mobile-current-shader-copy">
-          <span>{editingTimelineStepId ? 'Editing timeline shader' : 'Current shader'}</span>
-          <strong>{project.studio.activeShaderName}</strong>
-          <small>{editingTimelineStepId ? 'Timeline paused while you customize this shader.' : 'Select a preset or describe a change below.'}</small>
-        </div>
-      </article>
       <ShaderTimelineEditor
         assets={project.library.assets}
         assetKind={activeAsset?.kind ?? null}
@@ -7770,6 +7856,7 @@ ${errorSnapshot}`,
       savedShaders={timelineSelectableShaders}
       editingStepId={editingTimelineStepId}
       pinnedStepId={pinnedTimelineStepId}
+      repeatExitPending={pendingTimelineRepeatExit !== null}
       sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
@@ -8027,6 +8114,7 @@ ${errorSnapshot}`,
           audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={project.studio.uniformValues}
+          onInteractionStart={handlePromptFocus}
           onUniformChange={handleUniformChange}
           onClose={() => handleMobilePanelChange(null)}
         />
@@ -8390,6 +8478,7 @@ ${errorSnapshot}`,
         savedShaders={timelineSelectableShaders}
         editingStepId={editingTimelineStepId}
         pinnedStepId={pinnedTimelineStepId}
+        repeatExitPending={pendingTimelineRepeatExit !== null}
         sequence={timelineStub.shaderSequence}
         transport={project.playback.transport}
         durationSeconds={timelineDurationSeconds}
@@ -8494,6 +8583,7 @@ ${errorSnapshot}`,
         onSaveProject={handleSaveProject}
         onSaveAsNewProject={handleSaveAsNewProject}
         onCreateNewProject={handleCreateNewProject}
+        onCreateEmptyProject={handleCreateEmptyProject}
         onOpenProject={handleOpenSavedProject}
       />
 

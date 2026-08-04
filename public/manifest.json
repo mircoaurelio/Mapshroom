@@ -1,7 +1,7 @@
 {
-  "name": "Mapshroom Pocket",
-  "short_name": "Mapshroom",
-  "description": "Mapshroom Pocket - AI-powered projection mapping studio",
+  "name": "Mapshroom Vibe Projection Mapping",
+  "short_name": "Mapshroom Vibe",
+  "description": "Free forever, open-source, shader-based projection mapping with an automatic machine-learning workflow to map any 3D surface, painting, or structure.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

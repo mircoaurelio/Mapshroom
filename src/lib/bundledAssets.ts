@@ -14,6 +14,9 @@ export const BUNDLED_VERTICAL_STAGE_ASSET_ID = 'bundled-stage-vertical';
 export const BUNDLED_COLOR_MASK_STAGE_ASSET_ID = 'bundled-stage-color-mask-pro';
 export const BUNDLED_COLOR_MASK_STAGE_DEPTH_ASSET_ID =
   'bundled-stage-color-mask-pro-depth';
+/** Legacy ID retained only to migrate projects created with the old white source. */
+export const BUNDLED_WHITE_CANVAS_ASSET_ID = 'bundled-white-canvas';
+export const BUNDLED_EMPTY_CANVAS_ASSET_ID = 'bundled-empty-canvas';
 /** Fallback live stage media when a random starter pick is unavailable. */
 export const DEFAULT_BUNDLED_ASSET_ID = BUNDLED_STAGE_ASSET_ID;
 
@@ -39,7 +42,29 @@ const BUNDLED_ASSET_URLS: Record<string, string> = {
   [BUNDLED_VERTICAL_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-vertical.png`,
   [BUNDLED_COLOR_MASK_STAGE_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-color-mask-pro.png`,
   [BUNDLED_COLOR_MASK_STAGE_DEPTH_ASSET_ID]: `${import.meta.env.BASE_URL}assets/defaults-stage-color-mask-pro-depth.png`,
+  [BUNDLED_WHITE_CANVAS_ASSET_ID]:
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlQ47kAAAAASUVORK5CYII=',
+  [BUNDLED_EMPTY_CANVAS_ASSET_ID]:
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAANSURBVBhXY7j//el/AAkvA7vI7ZWqAAAAAElFTkSuQmCC',
 };
+
+export const BUNDLED_EMPTY_CANVAS_ASSET: AssetRecord = {
+  id: BUNDLED_EMPTY_CANVAS_ASSET_ID,
+  name: 'Internal Pastel Green Canvas',
+  kind: 'image',
+  mimeType: 'image/png',
+  size: 144,
+  lastModified: 1785348000000,
+  createdAt: '2026-07-29T18:00:00.000Z',
+  sourceType: 'bundled',
+};
+
+export function isInternalCanvasAssetId(assetId: string): boolean {
+  return (
+    assetId === BUNDLED_EMPTY_CANVAS_ASSET_ID ||
+    assetId === BUNDLED_WHITE_CANVAS_ASSET_ID
+  );
+}
 
 export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
   {

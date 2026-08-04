@@ -44,6 +44,7 @@ interface TimelineBarProps {
   savedShaders: SavedShader[];
   editingStepId: string | null;
   pinnedStepId: string | null;
+  repeatExitPending?: boolean;
   sequence: TimelineStub['shaderSequence'];
   transport: PlaybackTransport;
   durationSeconds: number;
@@ -312,6 +313,7 @@ export function TimelineBar({
   savedShaders,
   editingStepId,
   pinnedStepId,
+  repeatExitPending = false,
   sequence,
   transport,
   durationSeconds,
@@ -530,6 +532,8 @@ export function TimelineBar({
         nowEpochMs,
         transitionEffect: sequence.sharedTransitionEffect,
         transitionDurationSeconds: sequence.sharedTransitionDurationSeconds,
+        focusedStepId: sequence.focusedStepId,
+        singleStepLoopEnabled: sequence.singleStepLoopEnabled,
       });
     }
 
@@ -573,7 +577,7 @@ export function TimelineBar({
     [playbackDisplaySteps],
   );
   const repeatedDisplaySegment =
-    sequence.singleStepLoopEnabled && sequence.focusedStepId
+    !repeatExitPending && sequence.singleStepLoopEnabled && sequence.focusedStepId
       ? stepSegments.find((segment) => segment.step.id === sequence.focusedStepId) ?? null
       : null;
   const visibleTimeSeconds =
@@ -788,7 +792,11 @@ export function TimelineBar({
 
   return (
     <div className={`timeline-bar timeline-bar-${variant}`}>
-      <div className="timeline-rail-grid">
+      <div
+        className={`timeline-rail-grid ${
+          displayStepSegments.length > 0 ? 'timeline-rail-grid-has-segments' : ''
+        }`}
+      >
         <div className="timeline-rail-leading">
           <span className="timeline-timecode">{formatTimelineTime(Number(sliderValue))}</span>
           {transportControls}

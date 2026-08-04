@@ -399,12 +399,14 @@ export function ApiSettingsDialog({
                 ? 'In ChatGPT, click the two overlapping squares below the finished answer.'
                 : 'Use the Copy response control in Perplexity, then paste it below.',
             };
-  const externalSurfaceLabel =
-    externalWindowMode === 'popup'
-      ? 'left-side window'
-      : externalWindowMode === 'tab'
-        ? 'browser tab'
-        : 'AI window';
+  const directLoadingLabel =
+    directHandoffPhase === 'opening'
+      ? `Opening ${directProviderName}…`
+      : directHandoffPhase === 'waiting'
+        ? 'Generating shader…'
+        : directHandoffPhase === 'copy'
+          ? 'Shader ready to copy'
+          : `${directProviderName} ready`;
   const guideTitle = usingDirectChat
     ? `${directProviderName} is open on the left`
     : selectedPath === 'api'
@@ -506,16 +508,16 @@ export function ApiSettingsDialog({
         : 'Finish your shader';
   const pasteReplyControls = (
     <div className="ai-chat-paste-zone">
-      <div className="ai-chat-paste-heading">
-        <span className="ai-chat-paste-label">Paste the shader reply</span>
-        <small>
-          Copy the GLSL code block from {usingDirectChat ? directProviderName : 'your AI chat'}, then paste it here.
-        </small>
-      </div>
+      {!usingDirectChat ? (
+        <div className="ai-chat-paste-heading">
+          <span className="ai-chat-paste-label">Paste the shader reply</span>
+          <small>Copy the GLSL code block from your AI chat, then paste it here.</small>
+        </div>
+      ) : null}
       <textarea
         className="prompt-field ai-chat-response"
         aria-label="AI chat shader response"
-        placeholder="Paste the GLSL code block or the full AI reply here…"
+        placeholder={usingDirectChat ? 'Paste here…' : 'Paste the GLSL code block or the full AI reply here…'}
         value={chatResponse}
         disabled={isApplyingChatResponse}
         onChange={(event) => setChatResponse(event.target.value)}
@@ -526,18 +528,35 @@ export function ApiSettingsDialog({
           }
         }}
       />
-      <button
-        type="button"
-        className="primary-button ai-chat-apply-button"
-        disabled={isApplyingChatResponse}
-        onClick={() => void handlePasteAndApply()}
-      >
-        {isApplyingChatResponse
-          ? 'Applying shader…'
-          : chatResponse.trim()
-            ? 'Apply shader'
-            : 'Paste clipboard & apply'}
-      </button>
+      {usingDirectChat ? (
+        <div className="ai-chat-apply-actions">
+          <button
+            type="button"
+            className="primary-button ai-chat-apply-button"
+            disabled={isApplyingChatResponse}
+            onClick={() => void handlePasteAndApply()}
+          >
+            {isApplyingChatResponse ? 'Applying shader…' : 'Apply'}
+          </button>
+          <button
+            type="button"
+            className="primary-button ai-chat-apply-button ai-chat-apply-button-secondary"
+            disabled={isApplyingChatResponse}
+            onClick={() => void handlePasteAndApply()}
+          >
+            {isApplyingChatResponse ? 'Applying shader…' : 'Simply click to apply'}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="primary-button ai-chat-apply-button"
+          disabled={isApplyingChatResponse}
+          onClick={() => void handlePasteAndApply()}
+        >
+          {isApplyingChatResponse ? 'Applying shader…' : 'Paste Clipboard & Apply'}
+        </button>
+      )}
     </div>
   );
 
@@ -554,19 +573,23 @@ export function ApiSettingsDialog({
         aria-modal="true"
         aria-labelledby="api-settings-title"
       >
-        <header className="dialog-header">
-          <div>
-            <span className="panel-eyebrow">{isSetup ? 'Shader assistant' : 'AI settings'}</span>
-            <h2 id="api-settings-title" className="dialog-title">
-              {isSetup ? setupTitle : 'Choose how shaders are generated'}
-            </h2>
-          </div>
-          <button type="button" className="ghost-button" onClick={onClose}>Close</button>
-        </header>
+        {isSetup && usingDirectChat ? (
+          <h2 id="api-settings-title" className="sr-only">Finish shader</h2>
+        ) : (
+          <header className="dialog-header">
+            <div>
+              <span className="panel-eyebrow">{isSetup ? 'Shader assistant' : 'AI settings'}</span>
+              <h2 id="api-settings-title" className="dialog-title">
+                {isSetup ? setupTitle : 'Choose how shaders are generated'}
+              </h2>
+            </div>
+            <button type="button" className="ghost-button" onClick={onClose}>Close</button>
+          </header>
+        )}
         <div className="dialog-body">
           {!(isSetup && usingEmbeddedSettings) ? (
-          <div className="ai-route-sidebar">
-          {quickGuide}
+          <div className={`ai-route-sidebar ${usingDirectChat ? 'ai-route-sidebar-direct' : ''}`}>
+          {usingDirectChat ? null : quickGuide}
           {!selectedPath ? (
             <p className="dialog-note">
               {isSetup
@@ -575,7 +598,7 @@ export function ApiSettingsDialog({
             </p>
           ) : null}
 
-          {isSetup ? (
+          {isSetup && !usingDirectChat ? (
             <div className="ai-route-picker-heading">
               <span>AI model</span>
               <small>Switch anytime</small>
@@ -733,77 +756,42 @@ export function ApiSettingsDialog({
                         </button>
                       </div>
                     ) : (
-                    <div className="ai-chat-window-handoff" role="status" aria-live="polite">
-                      <div className="ai-chat-window-header">
-                        <span className="ai-chat-window-presence" aria-hidden="true">
-                          <span />
-                        </span>
-                        <div>
-                          <span className="ai-chat-window-eyebrow">
-                            {directProviderName} · {externalSurfaceLabel} open
-                          </span>
-                          <strong>Finish these steps in {directProviderName}</strong>
-                          <small>Keep this Mapshroom modal open, then paste the finished shader below.</small>
-                        </div>
-                        <button
-                          type="button"
-                          className="ghost-button ai-chat-focus-window"
-                          onClick={handleFocusDirectChat}
-                        >
-                          Bring to front
-                        </button>
-                      </div>
-                      <ol className="ai-chat-handoff-steps" aria-label={`${directProviderName} handoff steps`}>
-                        <li className="is-current">
-                          <span className="ai-chat-step-number">1</span>
-                          <div>
-                            <strong>Wait for the prompt, then send it</strong>
-                            <small>
-                              When the prepared prompt appears, click the black arrow at the bottom-right of {directProviderName}.
-                            </small>
-                          </div>
-                          <span className="ai-chat-send-button-cue" aria-hidden="true">↑</span>
-                        </li>
-                        <li>
-                          <span className="ai-chat-step-number">2</span>
-                          <div>
-                            <strong>
-                              {usingChatGpt ? 'Use Copy response in ChatGPT' : 'Copy the finished response'}
-                            </strong>
-                            <small>
-                              {usingChatGpt
-                                ? 'When the answer is finished, click the two overlapping squares below it. Copy the whole response—Mapshroom will extract the GLSL code.'
-                                : `${directProviderName} will return a response containing the GLSL shader code.`}
-                            </small>
-                          </div>
-                          {usingChatGpt ? (
-                            <span className="ai-chat-copy-response-cue" aria-hidden="true">
-                              <CopyResponseIcon />
-                            </span>
-                          ) : null}
-                        </li>
-                        <li>
-                          <span className="ai-chat-step-number">3</span>
-                          <div>
-                            <strong>Return to Mapshroom, paste, and apply</strong>
-                            <small>Paste the copied response below, then click Apply shader.</small>
-                          </div>
-                        </li>
-                      </ol>
-                      {isSetup && usingChatGpt ? (
-                        <div className="ai-chat-copy-instruction">
-                          <span aria-hidden="true">
-                            <CopyResponseIcon />
-                          </span>
-                          <div>
-                            <strong>Copy the finished answer in ChatGPT—not in this panel.</strong>
-                            <small>
-                              Click the two overlapping squares below ChatGPT’s answer (“Copy response”), then paste the full reply here.
-                            </small>
-                          </div>
-                        </div>
-                      ) : null}
+                    <>
+                    <div
+                      className={`ai-chat-loading-block is-${directHandoffPhase}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <span className="ai-chat-loading-spinner" aria-hidden="true" />
+                      <strong>{directLoadingLabel}</strong>
+                      <span className="ai-chat-loading-track" aria-hidden="true">
+                        <span />
+                      </span>
                     </div>
+                    <div className="ai-chat-minimal-actions" aria-label={`${directProviderName} actions`}>
+                      <button
+                        type="button"
+                        className={`ai-chat-minimal-action ${directHandoffPhase === 'copy' ? '' : 'is-current'}`}
+                        onClick={handleDirectGuideCue}
+                      >
+                        <span className="ai-chat-minimal-icon" aria-hidden="true">↑</span>
+                        <strong>{`Click Send in ${directProviderName}`}</strong>
+                      </button>
+                      <button
+                        type="button"
+                        className={`ai-chat-minimal-action ${directHandoffPhase === 'copy' ? 'is-current' : ''}`}
+                        onClick={() => {
+                          setDirectHandoffPhase('copy');
+                          handleFocusDirectChat();
+                        }}
+                      >
+                        <span className="ai-chat-minimal-icon ai-chat-minimal-copy-icon" aria-hidden="true">
+                          <CopyResponseIcon />
+                        </span>
+                        <strong>Copy</strong>
+                      </button>
+                    </div>
+                    </>
                     )
                   ) : (
                     <div

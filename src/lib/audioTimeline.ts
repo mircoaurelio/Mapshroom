@@ -32,6 +32,8 @@ export function resolveAudioReactiveTimelineState({
   nowEpochMs,
   transitionEffect,
   transitionDurationSeconds,
+  focusedStepId = null,
+  singleStepLoopEnabled = false,
 }: {
   shaders: SavedShader[];
   steps: TimelineStub['shaderSequence']['steps'];
@@ -39,6 +41,8 @@ export function resolveAudioReactiveTimelineState({
   nowEpochMs: number;
   transitionEffect: TimelineTransitionEffect;
   transitionDurationSeconds: number;
+  focusedStepId?: string | null;
+  singleStepLoopEnabled?: boolean;
 }): TimelineResolution | null {
   const shaderMap = new Map(shaders.map((shader) => [shader.id, shader]));
   const validSteps = steps.filter(
@@ -49,7 +53,14 @@ export function resolveAudioReactiveTimelineState({
   }
 
   const revision = Math.max(0, Math.floor(section?.revision ?? 0));
-  const targetIndex = revision % validSteps.length;
+  const focusedStepIndex =
+    singleStepLoopEnabled && focusedStepId
+      ? validSteps.findIndex((step) => step.id === focusedStepId)
+      : -1;
+  const isFocusedHold = focusedStepIndex >= 0;
+  const targetIndex = isFocusedHold
+    ? focusedStepIndex
+    : revision % validSteps.length;
   const targetStep = validSteps[targetIndex];
   const targetShader = shaderMap.get(targetStep.shaderId);
   if (!targetShader) {
@@ -62,6 +73,7 @@ export function resolveAudioReactiveTimelineState({
   );
   const changedAtEpochMs = Math.max(0, section?.changedAtEpochMs ?? 0);
   const transitionProgress =
+    !isFocusedHold &&
     revision > 0 &&
     changedAtEpochMs > 0 &&
     requestedTransitionDurationSeconds > 0
@@ -75,6 +87,7 @@ export function resolveAudioReactiveTimelineState({
         )
       : 1;
   const isTransitioning =
+    !isFocusedHold &&
     validSteps.length > 1 &&
     revision > 0 &&
     requestedTransitionDurationSeconds > 0 &&
@@ -91,12 +104,17 @@ export function resolveAudioReactiveTimelineState({
   const nextIndex = isTransitioning
     ? targetIndex
     : (targetIndex + 1) % validSteps.length;
-  const nextStep = validSteps.length > 1 ? validSteps[nextIndex] : null;
+  const nextStep =
+    !isFocusedHold && validSteps.length > 1
+      ? validSteps[nextIndex]
+      : null;
   const nextShader = nextStep ? shaderMap.get(nextStep.shaderId) ?? null : null;
   const stepStartSeconds = getStepStartSeconds(validSteps, currentIndex);
   const durationSeconds = clampTimelineStepDuration(currentStep.durationSeconds);
   const elapsedSinceChangeSeconds =
-    changedAtEpochMs > 0 ? Math.max(0, (nowEpochMs - changedAtEpochMs) / 1_000) : 0;
+    !isFocusedHold && changedAtEpochMs > 0
+      ? Math.max(0, (nowEpochMs - changedAtEpochMs) / 1_000)
+      : 0;
 
   return {
     currentStep,

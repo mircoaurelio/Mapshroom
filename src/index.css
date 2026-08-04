@@ -2452,6 +2452,66 @@ a {
   gap: 0.45rem;
 }
 
+/* Keep shader controls dense enough to expose more parameters without scrolling. */
+.uniform-control-stack {
+  gap: 0.5rem;
+}
+
+.uniform-control-stack > .field {
+  gap: 0.28rem;
+}
+
+.uniform-range-shell {
+  position: relative;
+  height: 30px;
+  display: block;
+  margin-top: -0.2rem;
+}
+
+.uniform-range-shell::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 11px;
+  bottom: 6px;
+  left: 11px;
+  border: 1px solid rgba(63, 63, 70, 0.9);
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(244, 244, 245, 0.18) 0,
+      rgba(244, 244, 245, 0.18) 1px,
+      transparent 1px,
+      transparent 12px
+    ),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.26), rgba(24, 24, 27, 0.96));
+  pointer-events: none;
+}
+
+.uniform-range-shell > input[type='range'] {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin: 0;
+}
+
+.uniform-range-shell > input[type='range']::-webkit-slider-runnable-track {
+  border-color: transparent;
+  background: transparent;
+}
+
+.uniform-range-shell > input[type='range']::-moz-range-track,
+.uniform-range-shell > input[type='range']::-moz-range-progress {
+  border-color: transparent;
+  background: transparent;
+}
+
+html:root[data-color-theme='pink'] body .uniform-range-shell::before {
+  right: 12px;
+  left: 12px;
+}
+
 .field:focus-within,
 .mobile-uniform-field:focus-within,
 .mobile-precision-field:focus-within,
@@ -3943,6 +4003,11 @@ a {
   pointer-events: none;
 }
 
+.audio-uniform-bound-range:hover,
+.audio-uniform-bound-range:focus-visible {
+  z-index: 4;
+}
+
 .audio-uniform-bound-range::-webkit-slider-runnable-track {
   border-color: transparent !important;
   background: transparent !important;
@@ -3963,7 +4028,12 @@ a {
   filter:
     drop-shadow(0 0 1px #020617)
     drop-shadow(0 0 5px rgba(var(--audio-signal-rgb), 0.78)) !important;
+  cursor: ew-resize;
   pointer-events: auto;
+  transition:
+    width 180ms ease,
+    background-color 180ms ease,
+    filter 180ms ease;
 }
 
 .audio-uniform-bound-range-max::-webkit-slider-thumb {
@@ -3980,11 +4050,47 @@ a {
   filter:
     drop-shadow(0 0 1px #020617)
     drop-shadow(0 0 5px rgba(var(--audio-signal-rgb), 0.78)) !important;
+  cursor: ew-resize;
   pointer-events: auto;
+  transition:
+    width 180ms ease,
+    background-color 180ms ease,
+    filter 180ms ease;
 }
 
 .audio-uniform-bound-range-max::-moz-range-thumb {
   clip-path: polygon(0 0, 100% 12%, 100% 88%, 0 100%) !important;
+}
+
+/* Give min/max handles the same amber precision feedback as regular sliders. */
+.audio-uniform-bound-range:hover::-webkit-slider-thumb,
+.audio-uniform-bound-range:focus-visible::-webkit-slider-thumb,
+.audio-uniform-bound-range[data-range-precision]::-webkit-slider-thumb {
+  width: 16px !important;
+  background: #fbbf24 !important;
+  filter:
+    drop-shadow(0 0 1px #020617)
+    drop-shadow(0 0 7px rgba(251, 191, 36, 0.82)) !important;
+}
+
+.audio-uniform-bound-range:hover::-moz-range-thumb,
+.audio-uniform-bound-range:focus-visible::-moz-range-thumb,
+.audio-uniform-bound-range[data-range-precision]::-moz-range-thumb {
+  width: 16px !important;
+  background: #fbbf24 !important;
+  filter:
+    drop-shadow(0 0 1px #020617)
+    drop-shadow(0 0 7px rgba(251, 191, 36, 0.82)) !important;
+}
+
+.audio-uniform-control:has(.audio-uniform-bound-range-min:hover) .audio-uniform-range-values > span:first-child,
+.audio-uniform-control:has(.audio-uniform-bound-range-min:focus-visible) .audio-uniform-range-values > span:first-child,
+.audio-uniform-control:has(.audio-uniform-bound-range-min[data-range-precision]) .audio-uniform-range-values > span:first-child,
+.audio-uniform-control:has(.audio-uniform-bound-range-max:hover) .audio-uniform-range-values > span:last-child,
+.audio-uniform-control:has(.audio-uniform-bound-range-max:focus-visible) .audio-uniform-range-values > span:last-child,
+.audio-uniform-control:has(.audio-uniform-bound-range-max[data-range-precision]) .audio-uniform-range-values > span:last-child {
+  color: #fbbf24;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.45);
 }
 
 .audio-uniform-range-values {
@@ -4028,8 +4134,8 @@ a {
 
 .audio-reactive-field .uniform-field-actions {
   order: 2;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
 }
@@ -4043,8 +4149,8 @@ a {
 
 .field.audio-reactive-field {
   margin: 0;
-  gap: 0.42rem;
-  padding: 0.56rem 0.58rem;
+  gap: 0.28rem;
+  padding: 0.38rem 0.48rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-raised);
@@ -4052,7 +4158,7 @@ a {
 }
 
 .audio-reactive-field .field-inline-label {
-  min-height: 32px;
+  min-height: 26px;
   display: grid;
   grid-template-columns: minmax(64px, 1fr) auto;
   gap: 0.5rem;
@@ -4072,7 +4178,7 @@ a {
 
 .audio-reactive-field .uniform-field-meta {
   display: grid;
-  grid-template-columns: auto 34px minmax(104px, 126px);
+  grid-template-columns: auto 30px minmax(96px, 118px);
   align-items: center;
   gap: 0.42rem;
 }
@@ -4106,8 +4212,8 @@ a {
 }
 
 .audio-reactive-field .audio-uniform-toggle {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -4130,7 +4236,7 @@ a {
 }
 
 .audio-reactive-field .audio-uniform-signal-trigger {
-  height: 30px;
+  height: 26px;
   grid-template-columns: 6px minmax(0, 1fr) 10px;
   gap: 0.28rem;
   padding: 0 0.42rem;
@@ -4487,7 +4593,7 @@ a {
 }
 
 .prompt-field-hero {
-  min-height: 132px;
+  min-height: 188px;
   font-size: 0.92rem;
   line-height: 1.65;
 }
@@ -4508,7 +4614,7 @@ a {
 }
 
 .ai-prompt-composer > .prompt-field {
-  min-height: 104px;
+  min-height: 188px;
   padding-bottom: 0.3rem;
   border: 0;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -4773,8 +4879,101 @@ a {
   opacity: 0.58;
 }
 
+.ai-prompt-send-button.is-ready {
+  border-color: rgba(var(--accent-rgb), 0.72);
+  background: var(--accent);
+  color: #071109;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.09);
+}
+
+.ai-prompt-send-button.is-ready:hover:not(:disabled) {
+  border-color: var(--accent-pale);
+  background: var(--accent-pale);
+  color: #071109;
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
+}
+
+.shader-word-builder {
+  position: relative;
+  display: grid;
+  gap: 0.48rem;
+  padding: 0.42rem 0.62rem 0.58rem;
+  border-top: 1px solid rgba(113, 113, 122, 0.12);
+  background: rgba(var(--accent-rgb), 0.018);
+}
+
+.shader-word-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.shader-word-tag {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0.3rem 0.52rem;
+  border: 1px solid rgba(161, 161, 170, 0.2);
+  border-radius: 999px;
+  background: rgba(113, 113, 122, 0.07);
+  color: #d4d4d8;
+  font: 650 0.6rem/1.1 'IBM Plex Mono', monospace;
+  white-space: nowrap;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease,
+    transform 140ms ease;
+}
+
+.shader-word-options-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.32rem;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.shader-word-tag:hover,
+.shader-word-tag:focus-visible {
+  border-color: rgba(var(--accent-rgb), 0.48);
+  background: rgba(var(--accent-rgb), 0.11);
+  color: var(--text-bright);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.shader-word-tag.is-selected {
+  border-color: rgba(var(--accent-rgb), 0.62);
+  background: rgba(var(--accent-rgb), 0.18);
+  color: var(--accent-pale);
+}
+
+.shader-word-reset-button {
+  display: grid;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(161, 161, 170, 0.18);
+  border-radius: 999px;
+  background: rgba(113, 113, 122, 0.06);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.shader-word-reset-button:hover,
+.shader-word-reset-button:focus-visible {
+  border-color: rgba(212, 212, 216, 0.34);
+  background: rgba(113, 113, 122, 0.14);
+  color: var(--text-bright);
+  outline: none;
+}
+
 .code-editor {
-  min-height: 300px;
+  min-height: 176px;
   padding: 0.75rem;
   resize: vertical;
   font-family: 'IBM Plex Mono', monospace;
@@ -6132,6 +6331,16 @@ a {
   overflow: hidden;
 }
 
+.code-editor-shell:not(.code-editor-shell-expanded) {
+  height: 176px;
+}
+
+.code-editor-shell:not(.code-editor-shell-expanded) .code-editor {
+  min-height: 100%;
+  height: 100%;
+  resize: none;
+}
+
 .preset-browser-body {
   display: flex;
   flex-direction: column;
@@ -6853,13 +7062,16 @@ a {
 .timeline-rail-grid {
   display: grid;
   grid-template-columns: 10.5rem minmax(0, 1fr) max-content;
+  grid-template-areas:
+    'timeline-leading timeline-range timeline-duration'
+    'timeline-length timeline-segments .';
   align-items: center;
   column-gap: 0.65rem;
   row-gap: 0.22rem;
 }
 
 .timeline-rail-leading {
-  grid-column: 1;
+  grid-area: timeline-leading;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -6910,7 +7122,7 @@ a {
 }
 
 .timeline-rail-grid > .timeline-duration-shell {
-  grid-column: 3;
+  grid-area: timeline-duration;
 }
 
 .timeline-duration-shell-track {
@@ -6925,7 +7137,7 @@ a {
 }
 
 .timeline-rail-grid > .timeline-duration-shell.timeline-duration-shell-track-left {
-  grid-column: 1;
+  grid-area: timeline-length;
 }
 
 .timeline-bar-desktop .timeline-duration-shell-track-left {
@@ -7036,7 +7248,7 @@ a {
   position: relative;
   flex: 1;
   min-width: 0;
-  grid-column: 2;
+  grid-area: timeline-range;
 }
 
 .timeline-range-shell-repeat::before {
@@ -7157,15 +7369,11 @@ a {
   height: 12px;
   border: 1px solid rgba(248, 113, 113, 0.72);
   border-radius: 3px;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(254, 226, 226, 0.34) 0,
-      rgba(254, 226, 226, 0.34) 1px,
-      transparent 1px,
-      transparent 14px
-    ),
-    linear-gradient(90deg, rgba(185, 28, 28, 0.8), rgba(69, 10, 10, 0.94));
+  background: linear-gradient(
+    90deg,
+    rgba(185, 28, 28, 0.68),
+    rgba(69, 10, 10, 0.82)
+  );
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.16);
   transform: translateY(-50%);
   pointer-events: none;
@@ -7217,7 +7425,7 @@ a {
 
 .timeline-segment-track-shell {
   position: relative;
-  grid-column: 2;
+  grid-area: timeline-segments;
   padding: 0.08rem 0 0.22rem;
   overflow: visible;
   z-index: 3;
@@ -13545,8 +13753,7 @@ a {
 }
 
 .ai-settings-dialog-direct-chat .ai-chat-guide-slot {
-  margin-top: auto;
-  padding-top: 0.5rem;
+  display: none;
 }
 
 .ai-settings-dialog-direct-chat .ai-chat-paste-zone {
@@ -13557,6 +13764,200 @@ a {
   min-height: 88px;
   max-height: 88px;
   resize: none;
+}
+
+.ai-settings-dialog-direct-chat.ai-settings-dialog-setup,
+.ai-direct-chat-layout .ai-settings-dialog-direct-chat.ai-settings-dialog-setup {
+  width: min(100%, 760px);
+  height: clamp(560px, 76dvh, 720px);
+  min-height: 0;
+  max-height: calc(100dvh - 2rem);
+}
+
+.ai-settings-dialog-direct-chat.ai-settings-dialog-setup .dialog-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.46rem;
+  padding: 0.46rem;
+  overflow: hidden;
+}
+
+.ai-settings-dialog-direct-chat .ai-route-sidebar-direct {
+  display: block;
+}
+
+.ai-settings-dialog-direct-chat .ai-route-sidebar-direct .ai-runtime-choice {
+  margin: 0;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-section,
+.ai-settings-dialog-direct-chat .ai-chat-workflow {
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-workflow {
+  gap: 0.34rem;
+}
+
+.ai-chat-minimal-actions {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.ai-chat-loading-block {
+  display: grid;
+  grid-template-columns: 26px auto minmax(90px, 1fr);
+  min-height: 42px;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.36rem 0.46rem;
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  border-radius: var(--radius-sm);
+  background: rgba(6, 78, 59, 0.1);
+  color: #d1fae5;
+}
+
+.ai-chat-loading-block strong {
+  font-size: 0.66rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ai-chat-loading-spinner {
+  width: 18px;
+  height: 18px;
+  justify-self: center;
+  border: 2px solid rgba(110, 231, 183, 0.2);
+  border-top-color: #6ee7b7;
+  border-radius: 999px;
+}
+
+.ai-chat-loading-block.is-opening .ai-chat-loading-spinner,
+.ai-chat-loading-block.is-waiting .ai-chat-loading-spinner {
+  animation: ai-chat-guide-spin 0.75s linear infinite;
+}
+
+.ai-chat-loading-block.is-send .ai-chat-loading-spinner,
+.ai-chat-loading-block.is-copy .ai-chat-loading-spinner {
+  border-color: rgba(52, 211, 153, 0.34);
+  background: #34d399;
+  box-shadow: inset 0 0 0 5px rgba(3, 20, 16, 0.88), 0 0 10px rgba(52, 211, 153, 0.34);
+}
+
+.ai-chat-loading-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(167, 243, 208, 0.1);
+}
+
+.ai-chat-loading-track > span {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, #34d399, transparent);
+  animation: ai-chat-loading-sweep 1.35s ease-in-out infinite;
+}
+
+.ai-chat-loading-block.is-send .ai-chat-loading-track > span,
+.ai-chat-loading-block.is-copy .ai-chat-loading-track > span {
+  width: 100%;
+  background: #34d399;
+  animation: none;
+}
+
+@keyframes ai-chat-loading-sweep {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(280%); }
+}
+
+.ai-chat-minimal-action {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  min-height: 52px;
+  align-items: center;
+  gap: 0.62rem;
+  padding: 0.54rem 0.62rem;
+  border: 1px solid rgba(113, 113, 122, 0.26);
+  border-radius: var(--radius-sm);
+  background: rgba(9, 9, 11, 0.42);
+  color: var(--text-bright);
+  text-align: left;
+}
+
+.ai-chat-minimal-action:hover,
+.ai-chat-minimal-action:focus-visible,
+.ai-chat-minimal-action.is-current {
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(6, 78, 59, 0.2);
+  outline: none;
+}
+
+.ai-chat-minimal-action strong {
+  font-size: 0.76rem;
+  line-height: 1.2;
+}
+
+.ai-chat-minimal-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(52, 211, 153, 0.36);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.13);
+  color: #6ee7b7;
+  font: 800 0.86rem/1 'IBM Plex Mono', monospace;
+}
+
+.ai-chat-minimal-copy-icon {
+  border-color: rgba(129, 140, 248, 0.42);
+  background: rgba(79, 70, 229, 0.16);
+  color: #c7d2fe;
+}
+
+.ai-chat-minimal-copy-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-paste-zone {
+  flex: 1;
+  grid-template-rows: minmax(104px, 1fr) auto;
+  gap: 0.32rem;
+  padding: 0.42rem;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-response {
+  min-height: 104px;
+  max-height: none;
+  height: 100%;
+}
+
+.ai-settings-dialog-direct-chat .ai-chat-apply-button {
+  min-height: 48px;
+}
+
+.ai-chat-apply-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.34rem;
+}
+
+.ai-chat-apply-button-secondary {
+  border-color: rgba(110, 231, 183, 0.34);
+  background: rgba(6, 78, 59, 0.26);
+}
+
+.ai-settings-dialog-direct-chat .dialog-footer {
+  min-height: 44px;
+  padding: 0.4rem 0.52rem;
 }
 
 .ai-settings-dialog-setup.ai-settings-dialog-config {
@@ -14513,22 +14914,27 @@ a {
 
   .timeline-rail-grid {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'timeline-leading'
+      'timeline-range'
+      'timeline-duration';
     row-gap: 0.38rem;
   }
 
+  .timeline-rail-grid-has-segments {
+    grid-template-areas:
+      'timeline-leading'
+      'timeline-range'
+      'timeline-length'
+      'timeline-segments';
+  }
+
   .timeline-rail-leading {
-    grid-column: 1;
     justify-content: space-between;
   }
 
   .timeline-rail-leading-spacer {
     display: none;
-  }
-
-  .timeline-rail-grid > .timeline-range-shell,
-  .timeline-segment-track-shell,
-  .timeline-rail-grid > .timeline-duration-shell {
-    grid-column: 1;
   }
 
   .timeline-duration-shell {
