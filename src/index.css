@@ -12412,12 +12412,14 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 .ai-settings-dialog-direct-chat { width: min(100%, 760px); }
 @media (min-width: 1280px) {
   .dialog-backdrop.ai-direct-chat-layout {
+    --ai-direct-chat-panel-width: calc(41.6667vw - 0.8333rem);
     justify-items: end;
-    padding-right: max(1rem, 2.5vw);
+    padding-inline: 1rem;
   }
 
   .ai-direct-chat-layout .ai-settings-dialog-direct-chat {
-    width: clamp(520px, 46vw, 880px);
+    width: var(--ai-direct-chat-panel-width);
+    max-width: calc(100vw - 2rem);
     height: clamp(600px, 76dvh, 820px);
     max-height: calc(100dvh - 32px);
   }
@@ -13790,6 +13792,13 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   height: clamp(560px, 76dvh, 720px);
   min-height: 0;
   max-height: calc(100dvh - 2rem);
+}
+
+@media (min-width: 1280px) {
+  .ai-direct-chat-layout .ai-settings-dialog-direct-chat.ai-settings-dialog-setup {
+    width: var(--ai-direct-chat-panel-width);
+    max-width: calc(100vw - 2rem);
+  }
 }
 
 .ai-settings-dialog-direct-chat.ai-settings-dialog-setup .dialog-body {
