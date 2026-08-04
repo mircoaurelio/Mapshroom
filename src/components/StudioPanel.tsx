@@ -111,17 +111,25 @@ function ExpandIcon() {
 function PresetIcon() {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="4" width="5" height="5" rx="1" />
-      <rect x="12" y="4" width="5" height="5" rx="1" />
-      <rect x="3" y="11" width="5" height="5" rx="1" />
-      <rect x="12" y="11" width="5" height="5" rx="1" />
+      <rect x="3" y="4" width="5" height="5" rx="1" fill="currentColor" />
+      <rect x="12" y="4" width="5" height="5" rx="1" fill="currentColor" />
+      <rect x="3" y="11" width="5" height="5" rx="1" fill="currentColor" />
+      <rect x="12" y="11" width="5" height="5" rx="1" fill="currentColor" />
     </svg>
   );
 }
 
 function SaveIcon() {
   return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3h8.38L17 6.12V15.5A1.5 1.5 0 0 1 15.5 17h-10A1.5 1.5 0 0 1 4 15.5Z" />
       <path d="M7 3.75v4.5h5.5v-4.5" />
       <path d="M7.25 17v-4.75h5.5V17" />
