@@ -7756,13 +7756,6 @@ ${errorSnapshot}`,
 
   const mobileShaderPanel = (
     <div className="mobile-shader-workspace">
-      <article className={`mobile-current-shader-card ${editingTimelineStepId ? 'mobile-current-shader-card-editing' : ''}`}>
-        <div className="mobile-current-shader-copy">
-          <span>{editingTimelineStepId ? 'Editing timeline shader' : 'Current shader'}</span>
-          <strong>{project.studio.activeShaderName}</strong>
-          <small>{editingTimelineStepId ? 'Timeline paused while you customize this shader.' : 'Select a preset or describe a change below.'}</small>
-        </div>
-      </article>
       <ShaderTimelineEditor
         assets={project.library.assets}
         assetKind={activeAsset?.kind ?? null}
@@ -7863,6 +7856,7 @@ ${errorSnapshot}`,
       savedShaders={timelineSelectableShaders}
       editingStepId={editingTimelineStepId}
       pinnedStepId={pinnedTimelineStepId}
+      repeatExitPending={pendingTimelineRepeatExit !== null}
       sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
@@ -8484,6 +8478,7 @@ ${errorSnapshot}`,
         savedShaders={timelineSelectableShaders}
         editingStepId={editingTimelineStepId}
         pinnedStepId={pinnedTimelineStepId}
+        repeatExitPending={pendingTimelineRepeatExit !== null}
         sequence={timelineStub.shaderSequence}
         transport={project.playback.transport}
         durationSeconds={timelineDurationSeconds}

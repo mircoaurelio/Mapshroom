@@ -686,8 +686,8 @@ export function AudioReactivePanelControls({
               )
             }
           >
-            <option value="system">System audio · YouTube</option>
             <option value="microphone">Microphone input</option>
+            <option value="system">Windows / browser audio</option>
           </select>
         </span>
         <span className={`audio-reactive-health audio-reactive-health-${status}`}>
@@ -933,6 +933,7 @@ export function AudioReactiveUniformSlider({
               className="audio-uniform-bound-range audio-uniform-bound-range-min"
               type="range"
               aria-label={`Audio minimum for ${name}`}
+              title={`Minimum audio value: ${formatValue(binding.min, definition)}`}
               min={definition.min}
               max={definition.max}
               step={step}
@@ -947,6 +948,7 @@ export function AudioReactiveUniformSlider({
               className="audio-uniform-bound-range audio-uniform-bound-range-max"
               type="range"
               aria-label={`Audio maximum for ${name}`}
+              title={`Maximum audio value: ${formatValue(binding.max, definition)}`}
               min={definition.min}
               max={definition.max}
               step={step}

@@ -624,26 +624,6 @@ export function WorkspaceToolbar({
                 <button
                   type="button"
                   role="menuitemradio"
-                  aria-checked={audioReactiveSource === 'system'}
-                  className={`toolbar-menu-item toolbar-audio-source-option ${
-                    audioReactiveSource === 'system'
-                      ? 'toolbar-audio-source-option-selected'
-                      : ''
-                  }`}
-                  onClick={() => {
-                    onStartAudioReactive('system');
-                    closeMenu();
-                  }}
-                >
-                  <span className="toolbar-audio-source-indicator" aria-hidden="true" />
-                  <span className="toolbar-audio-source-copy">
-                    <strong>Computer / browser tab</strong>
-                    <small>Windows, YouTube and desktop audio</small>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitemradio"
                   aria-checked={audioReactiveSource === 'microphone'}
                   className={`toolbar-menu-item toolbar-audio-source-option ${
                     audioReactiveSource === 'microphone'
@@ -659,6 +639,26 @@ export function WorkspaceToolbar({
                   <span className="toolbar-audio-source-copy">
                     <strong>Microphone</strong>
                     <small>Use the active system input</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={audioReactiveSource === 'system'}
+                  className={`toolbar-menu-item toolbar-audio-source-option ${
+                    audioReactiveSource === 'system'
+                      ? 'toolbar-audio-source-option-selected'
+                      : ''
+                  }`}
+                  onClick={() => {
+                    onStartAudioReactive('system');
+                    closeMenu();
+                  }}
+                >
+                  <span className="toolbar-audio-source-indicator" aria-hidden="true" />
+                  <span className="toolbar-audio-source-copy">
+                    <strong>Computer / browser tab</strong>
+                    <small>Windows, YouTube and desktop audio</small>
                   </span>
                 </button>
                 {audioReactiveEnabled ? (

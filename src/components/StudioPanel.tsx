@@ -326,26 +326,14 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 }
 
 export function ShaderStudioControlsSection({
-  savedShaders,
-  activeShaderId,
   onSaveShader,
   onBrowsePresets,
   timelineSelection,
-  hideCurrentShader = false,
 }: ShaderStudioControlsSectionProps) {
-  const activeShaderName =
-    savedShaders.find((shader) => shader.id === activeShaderId)?.name ?? 'Custom Shader';
-
   return (
     <PanelSection title="Shader Studio">
       <div className="stack gap-md">
         <div className="stack gap-sm">
-          {!hideCurrentShader ? (
-            <div className="field-inline-label">
-              <span>Current Shader</span>
-              <small>{activeShaderName}</small>
-            </div>
-          ) : null}
           <div className="button-row shader-studio-action-row">
             <button
               type="button"
@@ -692,6 +680,7 @@ export function StudioPanel({
         onSaveShader={onSaveShader}
         onBrowsePresets={onBrowsePresets}
         timelineSelection={timelineSelection}
+        hideCurrentShader
       />
 
       {showUniformPanel ? (

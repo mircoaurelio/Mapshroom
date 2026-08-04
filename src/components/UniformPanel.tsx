@@ -91,7 +91,7 @@ export function UniformPanel({
       }
     >
       <div
-        className="stack gap-md"
+        className="stack gap-md uniform-control-stack"
         data-slider-key-scope="true"
         onPointerDownCapture={handlePointerDown}
         onFocusCapture={handleFocus}
@@ -195,18 +195,20 @@ export function UniformPanel({
                       showSignalPicker={false}
                     />
                   ) : (
-                    <input
-                      type="range"
-                      aria-label={name}
-                      min={definition.min}
-                      max={definition.max}
-                      step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
-                      value={Number(value)}
-                      onChange={(event) => onUniformChange(name, Number(event.target.value))}
-                      onKeyDown={(event) =>
-                        handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
-                      }
-                    />
+                    <span className="uniform-range-shell">
+                      <input
+                        type="range"
+                        aria-label={name}
+                        min={definition.min}
+                        max={definition.max}
+                        step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
+                        value={Number(value)}
+                        onChange={(event) => onUniformChange(name, Number(event.target.value))}
+                        onKeyDown={(event) =>
+                          handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
+                        }
+                      />
+                    </span>
                   )
                 ) : null}
                 {definition.type === 'bool' ? (
