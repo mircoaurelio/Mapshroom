@@ -4594,8 +4594,8 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 
 .prompt-field-hero {
   min-height: 188px;
-  font-size: 0.92rem;
-  line-height: 1.65;
+  font-size: 0.88rem;
+  line-height: 1.15;
 }
 
 .ai-prompt-composer {
