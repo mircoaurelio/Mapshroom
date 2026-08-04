@@ -73,7 +73,7 @@ const AI_ROUTE_OPTIONS: Array<{
     icon: 'perplexity.svg',
   },
   { value: 'local', label: 'Local model', note: 'Runs on device', mark: 'L' },
-  { value: 'api', label: 'API', note: 'Use your key', mark: 'API' },
+  { value: 'api', label: 'API', note: 'Use your key', mark: 'A', icon: 'ai.svg' },
 ];
 
 type WordChoice = {
