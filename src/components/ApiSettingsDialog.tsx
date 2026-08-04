@@ -568,7 +568,7 @@ export function ApiSettingsDialog({
     >
       <section
         ref={dialogRef}
-        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && selectedPath === 'chat' ? 'ai-settings-dialog-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''} ${isSetup && selectedPath === 'local' ? 'ai-settings-dialog-local-config' : ''} ${isSetup && selectedPath === 'api' ? 'ai-settings-dialog-api-config' : ''}`}
+        className={`dialog-panel ai-settings-dialog ${isSetup ? 'ai-settings-dialog-setup' : 'ai-settings-dialog-settings'} ${isSetup && !selectedPath ? 'ai-settings-dialog-chooser' : ''} ${usingDirectChat ? 'ai-settings-dialog-direct-chat' : ''} ${isSetup && selectedPath === 'chat' ? 'ai-settings-dialog-chat' : ''} ${isSetup && usingEmbeddedSettings ? 'ai-settings-dialog-config' : ''} ${isSetup && selectedPath === 'local' ? 'ai-settings-dialog-local-config' : ''} ${isSetup && selectedPath === 'api' ? 'ai-settings-dialog-api-config' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="api-settings-title"

@@ -12442,6 +12442,14 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   padding: 0.65rem;
 }
 
+.ai-settings-dialog-chooser .dialog-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ai-settings-dialog-chooser .ai-route-sidebar {
+  width: 100%;
+}
+
 .ai-route-sidebar {
   min-width: 0;
 }
