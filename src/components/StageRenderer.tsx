@@ -38,6 +38,7 @@ import {
   type AudioReactiveBindingMap,
   type AudioReactiveRuntime,
 } from '../lib/audioReactivity';
+import { shouldForceVideoTransportSeek } from '../lib/videoTransport';
 
 interface StageRendererProps {
   asset: AssetRecord | null;
@@ -796,13 +797,15 @@ function createTextureSourceState(
 function updateTextureSourceStateTransport(
   state: StageTextureSourceState,
   transport: PlaybackTransport,
+  forceSeek: boolean,
+  nowMs: number,
 ) {
   if (state.source.kind !== 'video' || !state.video || state.status !== 'ready') {
     return;
   }
 
   state.textureUploadPending =
-    syncVideoToTransport(state.video, state.source, transport, performance.now(), true) ||
+    syncVideoToTransport(state.video, state.source, transport, nowMs, forceSeek) ||
     state.textureUploadPending;
   requestNextVideoFrame(state);
 }
@@ -926,6 +929,7 @@ export function StageRenderer({
   const mediaAspectRatioRef = useRef<number | null>(null);
   const compositeRenderTargetRef = useRef<StageRenderTarget | null>(null);
   const transportRef = useRef(transport);
+  const lastVideoTransportRef = useRef(transport);
   const preserveDrawingBufferRef = useRef(Boolean(onCanvasReady));
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
   const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
@@ -1671,15 +1675,25 @@ export function StageRenderer({
   }, [preferredAspectSourceId, requiredInputSourceSignature, requiredInputSources, glContextGeneration]);
 
   useEffect(() => {
+    const nextTransport = {
+      isPlaying,
+      currentTimeSeconds,
+      anchorTimestampMs,
+      playbackRate,
+      loop,
+      externalClockEnabled,
+      renderTimeOffsetSeconds: transport.renderTimeOffsetSeconds,
+    };
+    const nowMs = performance.now();
+    const forceSeek = shouldForceVideoTransportSeek(
+      lastVideoTransportRef.current,
+      nextTransport,
+      nowMs,
+    );
+    lastVideoTransportRef.current = nextTransport;
+
     textureSourcesRef.current.forEach((state) => {
-      updateTextureSourceStateTransport(state, {
-        isPlaying,
-        currentTimeSeconds,
-        anchorTimestampMs,
-        playbackRate,
-        loop,
-        externalClockEnabled,
-      });
+      updateTextureSourceStateTransport(state, nextTransport, forceSeek, nowMs);
     });
   }, [
     isPlaying,
@@ -1688,6 +1702,7 @@ export function StageRenderer({
     playbackRate,
     loop,
     externalClockEnabled,
+    transport.renderTimeOffsetSeconds,
   ]);
 
   useEffect(() => {
