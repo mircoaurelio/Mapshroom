@@ -33,7 +33,7 @@ Open `http://localhost:5173/segmentation/`.
 - **BEN2**: higher-detail, heavier model.
 - **MODNet**: fast portrait-oriented fallback.
 
-Large models can require several hundred megabytes of download and substantial device memory. ORMBG Q4 is the recommended AI option for low-memory computers; the model-free Smart Erase and Pencil tools require no model download.
+Large models can require several hundred megabytes of download and substantial device memory. ORMBG Q8 is the recommended default: its measured mask quality is nearly identical to Q4 while its model artifact is roughly 44 MB instead of 176 MB. The model-free Smart Erase and Pencil tools require no model download.
 
 ## Reproducible CPU model test
 
@@ -41,4 +41,4 @@ Large models can require several hundred megabytes of download and substantial d
 node segmentation/test-model.mjs "C:/path/to/input.png" "segmentation/test-results/output.png"
 ```
 
-The harness runs the ORMBG Q4 model with the software CPU provider, reports model/inference timing and mask coverage, then saves both the transparent output and a checkerboard preview.
+The harness runs the ORMBG Q8 model with the software CPU provider, reports model/inference timing and mask coverage, then saves both the transparent output and a checkerboard preview.

@@ -1,6 +1,6 @@
 import { env, pipeline, RawImage } from '@huggingface/transformers';
 
-const [, , inputPath, outputPath = './segmentation/test-results/ormbg-q4-cpu.png'] = process.argv;
+const [, , inputPath, outputPath = './segmentation/test-results/ormbg-q8-cpu.png'] = process.argv;
 
 if (!inputPath) {
   console.error('Usage: node segmentation/test-model.mjs <input-image> [output-image]');
@@ -12,7 +12,7 @@ if (!inputPath) {
     // The Node runtime names its software execution provider `cpu`; the browser
     // worker uses the equivalent WebAssembly provider named `wasm`.
     device: 'cpu',
-    dtype: 'q4',
+    dtype: 'q8',
     progress_callback: (progress) => {
       if (progress.status === 'progress' && progress.progress) {
         const percent = Math.round(progress.progress);

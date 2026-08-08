@@ -77,26 +77,32 @@ self.onmessage = async ({ data }) => {
     if (samModel?.dispose) await samModel.dispose();
     samModel = null;
     samProcessor = null;
-    const key = `${data.model}:${data.device}`;
+    let dtype;
+    // ORMBG's q8 artifact is substantially smaller than its q4 artifact in
+    // this repository, while the measured mask quality is nearly identical.
+    // MODNet stays on q4 because its q8 export loses too much mask quality.
+    if (data.device === 'webgpu') {
+      dtype = 'fp16';
+    } else if (data.model === 'onnx-community/ormbg-ONNX') {
+      dtype = 'q8';
+    } else if (data.model === 'onnx-community/BiRefNet_lite-ONNX') {
+      dtype = 'fp32';
+    } else if (data.model === 'onnx-community/BEN2-ONNX') {
+      dtype = 'fp16';
+    } else {
+      dtype = 'q4';
+    }
+
+    const key = `${data.model}:${data.device}:${dtype}`;
     if (key !== activeKey || !activePipeline) {
       if (activePipeline?.dispose) await activePipeline.dispose();
       activePipeline = null;
 
       const options = {
         device: data.device,
+        dtype,
         progress_callback: reportProgress,
       };
-      // MODNet only publishes reliable fp32 browser weights. The larger art
-      // models expose quantized/fp16 variants to keep browser memory practical.
-      if (data.device === 'webgpu') {
-        options.dtype = 'fp16';
-      } else if (data.model === 'onnx-community/BiRefNet_lite-ONNX') {
-        options.dtype = 'fp32';
-      } else if (data.model === 'onnx-community/BEN2-ONNX') {
-        options.dtype = 'fp16';
-      } else {
-        options.dtype = 'q4';
-      }
       activePipeline = await pipeline('background-removal', data.model, options);
       activeKey = key;
     }
