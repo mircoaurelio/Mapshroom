@@ -9924,13 +9924,33 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 
 .mobile-shader-workspace {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   gap: .7rem;
   padding: .75rem;
+  overflow-x: hidden;
+}
+
+.mobile-shader-workspace > *,
+.mobile-shader-workspace .panel-section {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mobile-shader-workspace .panel-section {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
+}
+
+.mobile-shader-workspace .shader-code-paste-button {
+  max-width: 108px;
+  padding: 0 0.52rem;
+  border-color: var(--line);
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  visibility: visible;
 }
 
 .mobile-current-shader-card {
@@ -10326,7 +10346,9 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .mobile-sheet-body {
-  overflow: auto;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0;

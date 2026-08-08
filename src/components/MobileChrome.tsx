@@ -82,7 +82,7 @@ export function MobileChrome({
           type="button"
           className={activePanel === 'studio' ? 'mobile-dock-button-active' : ''}
           data-mobile-onboarding-target="shader"
-          onClick={() => onPanelChange('studio')}
+          onClick={() => onPanelChange(activePanel === 'studio' ? null : 'studio')}
         >
           Shader
         </button>

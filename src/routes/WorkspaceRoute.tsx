@@ -7790,6 +7790,17 @@ ${errorSnapshot}`,
         mobileCardsOnly
       />
       {mobileShaderToolsPanel}
+      <ShaderCodeSection
+        shaderCode={project.studio.activeShaderCode}
+        onShaderCodeChange={handleActiveShaderCodeChange}
+        compilerError={compilerError}
+        aiLoading={aiLoading}
+        onFixError={handleFixError}
+        onReloadShaderCode={reloadShaderCode}
+        onPasteCode={handlePasteShaderFromClipboard}
+        pasteCodeSuggested={Boolean(externalChatPasteSource)}
+        pasteCodeSource={externalChatPasteSource}
+      />
       {aiPanel}
     </div>
   );
