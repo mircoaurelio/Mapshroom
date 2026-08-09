@@ -55,12 +55,12 @@
       <h1>WebGL compatibility check</h1>
       <p class="intro">
         Il catalogo ufficiale è normalizzato in GLSL ES 3.00 e compilato sul runtime WebGL 2.
-        Lo stesso test verifica anche la conversione di compatibilità per i progetti WebGL 1.
+        Il fallback WebGL 1 viene verificato sui preset che non richiedono primitive esclusive WebGL 2.
       </p>
       <div id="status" class="status"><span id="progress">Preparazione catalogo…</span></div>
       <section id="results" class="results" aria-live="polite"></section>
       <section id="failures" class="failures" hidden></section>
-      <footer>WebGL 2 è il runtime ufficiale; WebGL 1 viene verificato come fallback per i progetti legacy.</footer>
+      <footer>WebGL 2 è il runtime ufficiale; i preset avanzati GLSL ES 3.00 dichiarano esplicitamente il requisito minimo.</footer>
     </main>
     <script type="module" src="/src/shaderSmokeTest.ts"></script>
   </body>

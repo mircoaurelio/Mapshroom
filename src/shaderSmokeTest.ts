@@ -1,6 +1,8 @@
 import {
   buildShaderProgramSources,
+  isShaderTargetSupported,
   normalizeOfficialShaderBody,
+  OFFICIAL_SHADER_PROFILE,
   OFFICIAL_SHADER_TARGET,
   SHADER_ABI_VERSION,
   type ShaderCompileTarget,
@@ -22,6 +24,7 @@ interface TargetSmokeResult {
   supported: boolean;
   passed: number;
   total: number;
+  skipped: number;
   durationMs: number;
   failures: ShaderFailure[];
 }
@@ -117,6 +120,9 @@ async function runTarget(
   onProgress: (completed: number) => void,
 ): Promise<TargetSmokeResult> {
   const label = target === 'webgl2' ? 'WebGL 2 · GLSL ES 3.00' : 'WebGL 1 · GLSL ES 1.00';
+  const eligiblePresets = shaderPresetList.filter((preset) =>
+    isShaderTargetSupported(preset.minimumTarget, target),
+  );
   const gl = getContext(target);
   const startedAt = performance.now();
 
@@ -126,7 +132,8 @@ async function runTarget(
       label,
       supported: false,
       passed: 0,
-      total: shaderPresetList.length,
+      total: eligiblePresets.length,
+      skipped: shaderPresetList.length - eligiblePresets.length,
       durationMs: performance.now() - startedAt,
       failures: [{
         id: target,
@@ -139,14 +146,14 @@ async function runTarget(
 
   const failures: ShaderFailure[] = [];
   let passed = 0;
-  const firstSources = buildShaderProgramSources(shaderPresetList[0]?.code ?? '', target);
+  const firstSources = buildShaderProgramSources(eligiblePresets[0]?.code ?? '', target);
   let vertexShader: WebGLShader | null = null;
 
   try {
     vertexShader = compileShader(gl, gl.VERTEX_SHADER, firstSources.vertexSource);
 
-    for (let index = 0; index < shaderPresetList.length; index += 1) {
-      const preset = shaderPresetList[index];
+    for (let index = 0; index < eligiblePresets.length; index += 1) {
+      const preset = eligiblePresets[index];
       try {
         const sources = buildShaderProgramSources(preset.code, target);
         linkProgram(gl, vertexShader, sources.fragmentSource);
@@ -161,7 +168,7 @@ async function runTarget(
       }
 
       const completed = index + 1;
-      if (completed % 40 === 0 || completed === shaderPresetList.length) {
+      if (completed % 40 === 0 || completed === eligiblePresets.length) {
         onProgress(completed);
         await yieldToPage();
       }
@@ -184,7 +191,8 @@ async function runTarget(
     label,
     supported: true,
     passed,
-    total: shaderPresetList.length,
+    total: eligiblePresets.length,
+    skipped: shaderPresetList.length - eligiblePresets.length,
     durationMs: performance.now() - startedAt,
     failures,
   };
@@ -209,7 +217,9 @@ function renderTargetCard(result: TargetSmokeResult): HTMLElement {
 
   const detail = document.createElement('p');
   detail.textContent = result.supported
-    ? `Programmi compilati e collegati · ${Math.round(result.durationMs)} ms`
+    ? `Programmi compilati e collegati · ${Math.round(result.durationMs)} ms${
+        result.skipped ? ` · ${result.skipped} WebGL2-only esclusi` : ''
+      }`
     : 'Contesto non disponibile nel browser';
 
   heading.append(title, badge);
@@ -241,7 +251,7 @@ function renderReport(report: ShaderSmokeReport): void {
   status.className = report.status === 'ok' ? 'status status--ok' : 'status status--fail';
   status.textContent =
     report.status === 'ok'
-      ? `Catalogo compatibile: ${shaderPresetList.length} shader verificati su entrambi i target.`
+      ? `Catalogo compatibile: ${shaderPresetList.length} shader ufficiali verificati su WebGL 2; fallback WebGL 1 verificato dove dichiarato.`
       : `${allFailures.length} errori rilevati. Consulta i dettagli qui sotto.`;
 
   if (allFailures.length === 0) {
@@ -261,7 +271,11 @@ async function runShaderSmokeTest(): Promise<void> {
   const progress = document.getElementById('progress');
   const targets: TargetSmokeResult[] = [];
   const nonOfficialPresetIds = shaderPresetList
-    .filter((preset) => normalizeOfficialShaderBody(preset.code) !== preset.code)
+    .filter(
+      (preset) =>
+        normalizeOfficialShaderBody(preset.code) !== preset.code ||
+        preset.sourceProfile !== OFFICIAL_SHADER_PROFILE,
+    )
     .map((preset) => preset.id);
 
   for (const target of ['webgl1', 'webgl2'] as const) {
@@ -270,7 +284,10 @@ async function runShaderSmokeTest(): Promise<void> {
     }
     const result = await runTarget(target, (completed) => {
       if (progress) {
-        progress.textContent = `${resultLabel(target)}: ${completed} / ${shaderPresetList.length}`;
+        const total = shaderPresetList.filter((preset) =>
+          isShaderTargetSupported(preset.minimumTarget, target),
+        ).length;
+        progress.textContent = `${resultLabel(target)}: ${completed} / ${total}`;
       }
     });
     targets.push(result);

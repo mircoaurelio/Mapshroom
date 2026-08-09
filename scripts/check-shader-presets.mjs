@@ -123,7 +123,7 @@ async function main() {
       throw new Error(stdout);
     }
 
-    console.log('Shader smoke test passed for WebGL 1 and WebGL 2.');
+    console.log('Shader smoke test passed for WebGL 2 and the eligible WebGL 1 fallback set.');
   } finally {
     if (!server.killed) {
       if (process.platform === 'win32' && server.pid) {

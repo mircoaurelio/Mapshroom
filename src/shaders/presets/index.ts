@@ -1,5 +1,9 @@
 import type { ShaderPresetDefinition } from './types';
-import { normalizeOfficialShaderBody } from '../../lib/shaderCompiler';
+import {
+  detectMinimumShaderTarget,
+  normalizeOfficialShaderBody,
+  OFFICIAL_SHADER_PROFILE,
+} from '../../lib/shaderCompiler';
 import { audioReactivePresetList as legacyAudioReactivePresetList } from './audioReactive';
 import { projectionAtelierPresetList as legacyProjectionAtelierPresetList } from './atelier';
 import { drawingPresetList as legacyDrawingPresetList } from './drawing';
@@ -7,10 +11,16 @@ import { importedShaderBundlePresetList as legacyImportedShaderBundlePresetList 
 import { sculpturePresetList as legacySculpturePresetList } from './sculpture';
 import { stagePresetList as legacyStagePresetList } from './stage';
 import { createStageReworkPresetList } from './stageReworks';
+import { webgl2DepthLabPresetList as depthLabPresetSource } from './depthLab';
 
 function normalizeOfficialPreset(preset: ShaderPresetDefinition): ShaderPresetDefinition {
   const code = normalizeOfficialShaderBody(preset.code);
-  return code === preset.code ? preset : { ...preset, code };
+  return {
+    ...preset,
+    code,
+    sourceProfile: OFFICIAL_SHADER_PROFILE,
+    minimumTarget: preset.minimumTarget ?? detectMinimumShaderTarget(code),
+  };
 }
 
 function normalizeOfficialPresetList(
@@ -32,10 +42,12 @@ export const stageReworkPresetList = normalizeOfficialPresetList(
 const importedShaderBundlePresetList = normalizeOfficialPresetList(
   legacyImportedShaderBundlePresetList,
 );
+export const webgl2DepthLabPresetList = normalizeOfficialPresetList(depthLabPresetSource);
 
 export type { ShaderPresetDefinition } from './types';
 
 export const shaderPresetList: ShaderPresetDefinition[] = [
+  ...webgl2DepthLabPresetList,
   ...projectionAtelierPresetList,
   ...stageReworkPresetList,
   ...sculpturePresetList,

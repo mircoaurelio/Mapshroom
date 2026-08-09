@@ -3,7 +3,9 @@ import {
   shaderPresets,
   stageReworkPresetList,
   projectionAtelierPresetList,
+  webgl2DepthLabPresetList,
 } from '../shaders/presets';
+import { OFFICIAL_SHADER_PROFILE } from './shaderCompiler';
 import type { ShaderPresetDefinition } from '../shaders/presets/types';
 import type { ProjectDocument, ProjectLibraryEntry } from '../types';
 import {
@@ -20,10 +22,13 @@ export const BUNDLED_PROJECTION_ATELIER_PROJECT_SESSION_ID =
   'bundled-projection-atelier-showcase';
 export const BUNDLED_STAGE_REWORKS_PROJECT_SESSION_ID =
   'bundled-stage-reworks-complete-set';
+export const BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_SESSION_ID =
+  'bundled-webgl2-depth-lab-statue';
 
 const BUNDLED_STATUE_PROJECT_CREATED_AT = '2026-05-24T15:15:00.000Z';
 const BUNDLED_PROJECTION_ATELIER_PROJECT_CREATED_AT = '2026-07-28T20:00:00.000Z';
 const BUNDLED_STAGE_REWORKS_PROJECT_CREATED_AT = '2026-07-28T21:45:00.000Z';
+const BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_CREATED_AT = '2026-08-09T12:00:00.000Z';
 export const STARTER_TIMELINE_SHADER_COUNT = 8;
 
 function shuffleInPlace<T>(items: T[]): T[] {
@@ -81,6 +86,13 @@ function buildStarterShaderSequence(presets: ShaderPresetDefinition[]) {
 
 export const BUNDLED_PROJECT_LIBRARY_ENTRIES: ProjectLibraryEntry[] = [
   {
+    sessionId: BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_SESSION_ID,
+    name: 'WebGL2 Depth Lab · Statue',
+    createdAt: BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_CREATED_AT,
+    updatedAt: BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_CREATED_AT,
+    bundled: true,
+  },
+  {
     sessionId: BUNDLED_STAGE_REWORKS_PROJECT_SESSION_ID,
     name: 'Stage Reworks · Selected Pair',
     createdAt: BUNDLED_STAGE_REWORKS_PROJECT_CREATED_AT,
@@ -106,9 +118,146 @@ export const BUNDLED_PROJECT_LIBRARY_ENTRIES: ProjectLibraryEntry[] = [
 export function isBundledProjectSessionId(sessionId: string): boolean {
   return (
     sessionId === BUNDLED_STATUE_PROJECT_SESSION_ID ||
+    sessionId === BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_SESSION_ID ||
     sessionId === BUNDLED_PROJECTION_ATELIER_PROJECT_SESSION_ID ||
     sessionId === BUNDLED_STAGE_REWORKS_PROJECT_SESSION_ID
   );
+}
+
+export function createWebgl2DepthLabProjectDocument(): ProjectDocument {
+  const presets = webgl2DepthLabPresetList;
+  const activeShader = presets[0];
+
+  if (!activeShader || presets.length !== 10) {
+    throw new Error('WebGL2 Depth Lab requires exactly ten shader presets.');
+  }
+
+  const steps = presets.map((preset) => ({
+    ...createTimelineShaderStep(preset.id),
+    durationSeconds: 10,
+    transitionDurationSeconds: 1,
+    transitionEffect: 'mix' as const,
+    assetSettings: normalizeTimelineStepAssetSettings({
+      fitMode: 'contain',
+      opacity: 1,
+      quality: 'high',
+      useStepAssetAsShaderBase: true,
+    }),
+  }));
+  const versions = presets.map((preset) => ({
+    id: `webgl2-depth-lab-version-${preset.id}`,
+    prompt: 'WebGL2 Depth Lab reference preset',
+    name: preset.name,
+    code: preset.code,
+    sourceProfile: OFFICIAL_SHADER_PROFILE,
+    createdAt: BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_CREATED_AT,
+  }));
+
+  return {
+    version: 3,
+    sessionId: BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_SESSION_ID,
+    name: 'WebGL2 Depth Lab · Statue',
+    library: {
+      assets: DEFAULT_BUNDLED_ASSETS.filter(
+        (asset) =>
+          asset.id === BUNDLED_STATUE_ASSET_ID ||
+          asset.id === BUNDLED_STATUE_DEPTH_ASSET_ID,
+      ),
+      activeAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
+    },
+    studio: {
+      activeShaderId: activeShader.id,
+      activeShaderName: activeShader.name,
+      activeShaderCode: activeShader.code,
+      activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
+      shaderVersions: [versions[0]!],
+      savedShaders: presets.map((preset, index) => ({
+        ...preset,
+        inputAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
+        versions: [versions[index]!],
+        lastValidCode: preset.code,
+        lastValidUniformValues: preset.uniformValues ?? {},
+      })),
+      shaderChatHistory: [],
+      uniformValues: activeShader.uniformValues ?? {},
+    },
+    mapping: {
+      stageTransform: {
+        offsetX: 0,
+        offsetY: 0,
+        widthAdjust: 0,
+        heightAdjust: 0,
+        precision: 12,
+        rotationDegrees: 0,
+        moveMode: false,
+        rotationLocked: false,
+        showGrid: false,
+        distortMode: false,
+      },
+    },
+    playback: {
+      activeAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
+      transport: {
+        isPlaying: true,
+        currentTimeSeconds: 0,
+        renderTimeOffsetSeconds: 0,
+        anchorTimestampMs: null,
+        playbackRate: 1,
+        loop: true,
+        externalClockEnabled: false,
+      },
+    },
+    ai: {
+      settings: {
+        openaiApiKey: '',
+        anthropicApiKey: '',
+        googleApiKey: '',
+        runwayApiKey: '',
+        shaderProvider: 'google',
+        openaiShaderModel: 'gpt-5.6-terra',
+        anthropicShaderModel: 'claude-sonnet-5',
+        googleShaderModel: 'gemini-3.5-flash',
+        shaderRuntime: '',
+        localShaderModel: '',
+        visionEnabled: false,
+        videoGenProvider: 'runway',
+      },
+    },
+    timeline: {
+      stub: {
+        enabled: true,
+        durationSeconds: getShaderTimelineDuration(steps),
+        markers: presets.map((preset) => preset.name),
+        tracks: [
+          { id: 'timeline-track-depth', label: 'Statue depth map', type: 'media' },
+          { id: 'timeline-track-webgl2', label: 'WebGL2 depth studies', type: 'automation' },
+        ],
+        shaderSequence: {
+          enabled: true,
+          mode: 'sequence',
+          editorView: 'simple',
+          stagePreviewMode: 'timeline',
+          focusedStepId: steps[0]?.id ?? null,
+          pinnedStepId: null,
+          randomSeedToken: 'webgl2-depth-lab-statue-sequence',
+          singleStepLoopEnabled: false,
+          randomChoiceEnabled: false,
+          sharedTransitionEnabled: true,
+          sharedTransitionEffect: 'mix',
+          sharedTransitionDurationSeconds: 1,
+          sharedSectionDurationSeconds: 10,
+          steps,
+        },
+      },
+    },
+    export: {
+      stub: {
+        enabled: true,
+        deterministicRenderReady: true,
+        lastRequestedAt: null,
+      },
+    },
+  };
 }
 
 function createStageReworksProjectDocument(): ProjectDocument {
@@ -491,6 +640,10 @@ function createStatueProjectDocument(): ProjectDocument {
 }
 
 export function createBundledProjectDocument(sessionId: string): ProjectDocument | null {
+  if (sessionId === BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_SESSION_ID) {
+    return createWebgl2DepthLabProjectDocument();
+  }
+
   if (sessionId === BUNDLED_STAGE_REWORKS_PROJECT_SESSION_ID) {
     return createStageReworksProjectDocument();
   }
