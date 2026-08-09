@@ -113,6 +113,13 @@ const PREVIEW_RENDER_MAX_EDGE = 180;
 const PREVIEW_FALLBACK_BG = '#050506';
 const PREVIEW_IMAGE_QUALITY = 0.68;
 const FAVORITE_PRESETS_STORAGE_KEY = 'mapshroom-v3:favorite-shaders';
+const MAX_PRESET_PREVIEW_PROGRAMS = 32;
+
+interface PreviewProgram {
+  program: WebGLProgram;
+  fragmentShader: WebGLShader;
+  positionLocation: number;
+}
 
 interface PreviewRenderer {
   canvas: HTMLCanvasElement;
@@ -120,6 +127,7 @@ interface PreviewRenderer {
   quadBuffer: WebGLBuffer;
   texture: WebGLTexture;
   vertexShader: WebGLShader;
+  programCache: Map<string, PreviewProgram>;
 }
 
 export type PresetSelectionAction = 'replace-current' | 'create-new';
@@ -469,6 +477,7 @@ function createPreviewRenderer(): PreviewRenderer | null {
     quadBuffer,
     texture,
     vertexShader,
+    programCache: new Map(),
   };
 }
 
@@ -477,6 +486,11 @@ function destroyPreviewRenderer(renderer: PreviewRenderer | null) {
     return;
   }
 
+  for (const bundle of renderer.programCache.values()) {
+    renderer.gl.deleteProgram(bundle.program);
+    renderer.gl.deleteShader(bundle.fragmentShader);
+  }
+  renderer.programCache.clear();
   renderer.gl.deleteTexture(renderer.texture);
   renderer.gl.deleteBuffer(renderer.quadBuffer);
   renderer.gl.deleteShader(renderer.vertexShader);
@@ -491,6 +505,61 @@ function getPreviewRenderer(rendererRef: MutableRefObject<PreviewRenderer | null
   return rendererRef.current;
 }
 
+function getPreviewProgram(renderer: PreviewRenderer, shaderCode: string): PreviewProgram | null {
+  const cachedProgram = renderer.programCache.get(shaderCode);
+  if (cachedProgram) {
+    renderer.programCache.delete(shaderCode);
+    renderer.programCache.set(shaderCode, cachedProgram);
+    return cachedProgram;
+  }
+
+  const { gl, vertexShader } = renderer;
+  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!fragmentShader) {
+    return null;
+  }
+
+  gl.shaderSource(fragmentShader, buildFragmentShaderSource(shaderCode));
+  gl.compileShader(fragmentShader);
+  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  const positionLocation = gl.getAttribLocation(program, 'a_position');
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS) || positionLocation === -1) {
+    gl.deleteProgram(program);
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  const bundle = { program, fragmentShader, positionLocation };
+  renderer.programCache.set(shaderCode, bundle);
+  while (renderer.programCache.size > MAX_PRESET_PREVIEW_PROGRAMS) {
+    const oldestKey = renderer.programCache.keys().next().value;
+    if (typeof oldestKey !== 'string') {
+      break;
+    }
+    const oldestBundle = renderer.programCache.get(oldestKey);
+    if (oldestBundle) {
+      gl.deleteProgram(oldestBundle.program);
+      gl.deleteShader(oldestBundle.fragmentShader);
+    }
+    renderer.programCache.delete(oldestKey);
+  }
+
+  return bundle;
+}
+
 function renderPreviewToCanvas(
   shaderCode: string,
   uniformValues: ShaderUniformValueMap | undefined,
@@ -503,7 +572,7 @@ function renderPreviewToCanvas(
     return createPreviewMessageDataUrl('Preview unavailable');
   }
 
-  const { gl, canvas: renderCanvas, quadBuffer, texture, vertexShader } = renderer;
+  const { gl, canvas: renderCanvas, quadBuffer, texture } = renderer;
   const imageAspect = image.width > 0 && image.height > 0 ? image.width / image.height : 4 / 3;
   const renderWidth =
     imageAspect >= 1 ? PREVIEW_RENDER_MAX_EDGE : Math.max(1, Math.round(PREVIEW_RENDER_MAX_EDGE * imageAspect));
@@ -514,32 +583,11 @@ function renderPreviewToCanvas(
     renderCanvas.height = renderHeight;
   }
 
-  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-  if (!fragmentShader) {
-    return createPreviewMessageDataUrl('Preview unavailable');
-  }
-
-  gl.shaderSource(fragmentShader, buildFragmentShaderSource(shaderCode));
-  gl.compileShader(fragmentShader);
-  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-    gl.deleteShader(fragmentShader);
+  const previewProgram = getPreviewProgram(renderer, shaderCode);
+  if (!previewProgram) {
     return createPreviewMessageDataUrl('Shader error');
   }
-
-  const program = gl.createProgram();
-  if (!program) {
-    gl.deleteShader(fragmentShader);
-    return createPreviewMessageDataUrl('Preview unavailable');
-  }
-
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    gl.deleteProgram(program);
-    gl.deleteShader(fragmentShader);
-    return createPreviewMessageDataUrl('Shader error');
-  }
+  const { program, positionLocation: posLoc } = previewProgram;
 
   gl.viewport(0, 0, renderCanvas.width, renderCanvas.height);
   gl.clearColor(0, 0, 0, 1);
@@ -549,13 +597,6 @@ function renderPreviewToCanvas(
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
   gl.useProgram(program);
-
-  const posLoc = gl.getAttribLocation(program, 'a_position');
-  if (posLoc === -1) {
-    gl.deleteProgram(program);
-    gl.deleteShader(fragmentShader);
-    return createPreviewMessageDataUrl('Preview unavailable');
-  }
 
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
   gl.enableVertexAttribArray(posLoc);
@@ -587,12 +628,9 @@ function renderPreviewToCanvas(
   }
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
-  gl.finish();
   const previewSrc = renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
 
   gl.disableVertexAttribArray(posLoc);
-  gl.deleteProgram(program);
-  gl.deleteShader(fragmentShader);
   return previewSrc;
 }
 
@@ -813,18 +851,23 @@ export function PresetBrowserDialog({
   const previewRendererRef = useRef<PreviewRenderer | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
   const previewRequestsRef = useRef(new Set<string>());
+  const previewRequestGenerationRef = useRef(0);
 
   useEffect(() => {
     if (open) {
       return;
     }
 
+    previewRequestGenerationRef.current += 1;
+    previewRequestsRef.current.clear();
     destroyPreviewRenderer(previewRendererRef.current);
     previewRendererRef.current = null;
   }, [open]);
 
   useEffect(
     () => () => {
+      previewRequestGenerationRef.current += 1;
+      previewRequestsRef.current.clear();
       destroyPreviewRenderer(previewRendererRef.current);
       previewRendererRef.current = null;
     },
@@ -902,29 +945,49 @@ export function PresetBrowserDialog({
     }
 
     previewRequestsRef.current.add(previewKey);
-    const previewSrc = renderPreviewToCanvas(
-      renderCode,
-      renderUniformValues,
-      image,
-      previewRendererRef,
-    );
-    previewRequestsRef.current.delete(previewKey);
-
-    previewSourceRef.current = {
-      ...previewSourceRef.current,
-      [previewKey]: previewSrc,
-    };
-
-    setPreviewSources((current) => {
-      if (current[previewKey]) {
-        return current;
+    const requestGeneration = previewRequestGenerationRef.current;
+    const renderPreview = () => {
+      if (requestGeneration !== previewRequestGenerationRef.current) {
+        return;
       }
 
-      return {
-        ...current,
+      const previewSrc = renderPreviewToCanvas(
+        renderCode,
+        renderUniformValues,
+        image,
+        previewRendererRef,
+      );
+      previewRequestsRef.current.delete(previewKey);
+
+      previewSourceRef.current = {
+        ...previewSourceRef.current,
         [previewKey]: previewSrc,
       };
-    });
+
+      setPreviewSources((current) => {
+        if (current[previewKey]) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [previewKey]: previewSrc,
+        };
+      });
+    };
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (
+        callback: IdleRequestCallback,
+        options?: IdleRequestOptions,
+      ) => number;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      idleWindow.requestIdleCallback(renderPreview, { timeout: 1_000 });
+      return;
+    }
+
+    window.setTimeout(renderPreview, 0);
   };
   const renderAnimatedPreview = (preset: SavedShader, timeSeconds: number) => {
     if (!image) {

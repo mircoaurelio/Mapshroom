@@ -134,8 +134,31 @@ function isUnmodifiedDefaultPreset(shader: SavedShader): boolean {
   );
 }
 
-function createProjectSnapshot(project: ProjectDocument): ProjectDocument {
-  const normalizedProject = normalizeProjectShaderSources(project);
+export function createProjectSnapshot(
+  project: ProjectDocument,
+  retainShaderIds: Iterable<string> = [],
+): ProjectDocument {
+  // The workspace keeps the complete built-in catalog in memory so presets can
+  // be selected without another lookup. Canonicalizing that whole catalog on
+  // every autosave is expensive (and blocks pointer input on the main thread),
+  // even though unchanged built-ins are removed from the persisted snapshot.
+  // Compact first, then normalize only the shaders that are actually written.
+  const retainedShaderIds = new Set([
+    project.studio.activeShaderId,
+    ...project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
+    ...retainShaderIds,
+  ]);
+  const compactProject = {
+    ...project,
+    studio: {
+      ...project.studio,
+      savedShaders: project.studio.savedShaders.filter(
+        (shader) =>
+          retainedShaderIds.has(shader.id) || !isUnmodifiedDefaultPreset(shader),
+      ),
+    },
+  };
+  const normalizedProject = normalizeProjectShaderSources(compactProject);
   return {
     ...normalizedProject,
     playback: {
@@ -144,9 +167,7 @@ function createProjectSnapshot(project: ProjectDocument): ProjectDocument {
     },
     studio: {
       ...normalizedProject.studio,
-      savedShaders: normalizedProject.studio.savedShaders.filter(
-        (shader) => !isUnmodifiedDefaultPreset(shader),
-      ),
+      savedShaders: normalizedProject.studio.savedShaders,
     },
   };
 }
@@ -306,7 +327,13 @@ export function saveShaderSliderCache(
   sessionId: string,
   cache: Record<string, ShaderUniformValueMap>,
 ): void {
-  localStorage.setItem(getShaderSliderCacheKey(sessionId), JSON.stringify(cache));
+  try {
+    localStorage.setItem(getShaderSliderCacheKey(sessionId), JSON.stringify(cache));
+  } catch (error) {
+    // Slider values are also part of the project snapshot. A full localStorage
+    // cache must never prevent live output/session synchronization.
+    console.warn('Unable to persist shader slider cache.', error);
+  }
 }
 
 export async function clearPersistedSiteData(): Promise<void> {

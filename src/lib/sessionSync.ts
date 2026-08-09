@@ -1,5 +1,6 @@
 import { BROADCAST_PREFIX, PROJECT_STORAGE_PREFIX } from '../config';
-import { restoreTransport, snapshotTransport } from './clock';
+import { restoreTransport } from './clock';
+import { createProjectSnapshot } from './storage';
 import type { ProjectDocument } from '../types';
 
 function getProjectStorageKey(sessionId: string): string {
@@ -54,13 +55,15 @@ export function createSessionSync(
 
   return {
     publish(project: ProjectDocument) {
-      broadcastChannel?.postMessage({
-        ...project,
-        playback: {
-          ...project.playback,
-          transport: snapshotTransport(project.playback.transport),
-        },
-      });
+      if (!broadcastChannel) {
+        return;
+      }
+
+      const liveShaderIds = new Set([
+        project.studio.activeShaderId,
+        ...project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
+      ]);
+      broadcastChannel.postMessage(createProjectSnapshot(project, liveShaderIds));
     },
     destroy() {
       if (shouldUseStorageFallback) {

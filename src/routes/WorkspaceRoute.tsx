@@ -2340,13 +2340,47 @@ function createSliderCacheSnapshot(
   const cache: Record<string, ShaderUniformValueMap> = {};
 
   for (const shader of project.studio.savedShaders) {
-    if (shader.uniformValues) {
+    if (!shader.uniformValues) {
+      continue;
+    }
+
+    const defaultUniformValues = DEFAULT_SHADERS[shader.id]?.uniformValues;
+    if (
+      !defaultUniformValues ||
+      !areUniformValueMapsEqual(shader.uniformValues, defaultUniformValues)
+    ) {
       cache[shader.id] = shader.uniformValues;
     }
   }
 
   cache[project.studio.activeShaderId] = project.studio.uniformValues;
   return cache;
+}
+
+function areUniformValueMapsEqual(
+  left: ShaderUniformValueMap,
+  right: ShaderUniformValueMap,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => {
+    const leftValue = left[key];
+    const rightValue = right[key];
+    if (Array.isArray(leftValue) || Array.isArray(rightValue)) {
+      return (
+        Array.isArray(leftValue) &&
+        Array.isArray(rightValue) &&
+        leftValue.length === rightValue.length &&
+        leftValue.every((value, index) => value === rightValue[index])
+      );
+    }
+
+    return leftValue === rightValue;
+  });
 }
 
 function createSavedShaderRecord(
@@ -2650,6 +2684,7 @@ export function WorkspaceRoute() {
   const outputWindowRef = useRef<Window | null>(null);
   const [outputWindowOpen, setOutputWindowOpen] = useState(false);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
+  const syncedProjectAutosaveRef = useRef<ProjectDocument | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
   const audioReactivity = useAudioReactivity(project?.sessionId ?? null, {
@@ -3242,7 +3277,13 @@ export function WorkspaceRoute() {
         if (!currentProject || currentProject.sessionId !== incomingProject.sessionId) {
           return currentProject;
         }
-        return normalizeProject(incomingProject);
+        // The sender already persisted and broadcast this state. Remember the
+        // exact receiving render so two open workspaces cannot echo the same
+        // project back and forth. A local update batched after this one creates
+        // a different object and is therefore still persisted normally.
+        const normalizedIncomingProject = normalizeProject(incomingProject);
+        syncedProjectAutosaveRef.current = normalizedIncomingProject;
+        return normalizedIncomingProject;
       });
     });
     midiOutputSyncRef.current = createMidiOutputSync(activeSessionId, () => undefined);
@@ -3261,6 +3302,11 @@ export function WorkspaceRoute() {
     }
 
     persistActiveSessionId(project.sessionId);
+
+    if (syncedProjectAutosaveRef.current === project) {
+      syncedProjectAutosaveRef.current = null;
+      return;
+    }
 
     const timeoutId = window.setTimeout(() => {
       saveProjectDocument(project);

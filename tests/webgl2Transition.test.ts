@@ -163,6 +163,50 @@ test('save, share, export, clipboard and AI boundaries declare the official prof
   assert.match(sources.presets, /sourceProfile: OFFICIAL_SHADER_PROFILE/);
 });
 
+test('autosave and WebGL previews keep background work out of the interaction path', () => {
+  const root = new URL('..', import.meta.url);
+  const storage = readFileSync(new URL('src/lib/storage.ts', root), 'utf8');
+  const timelinePreview = readFileSync(
+    new URL('src/components/ShaderTimelineEditor.tsx', root),
+    'utf8',
+  );
+  const presetPreview = readFileSync(
+    new URL('src/components/PresetBrowserDialog.tsx', root),
+    'utf8',
+  );
+  const previewRenderer = readFileSync(new URL('src/lib/shaderPreview.ts', root), 'utf8');
+  const stageRenderer = readFileSync(new URL('src/components/StageRenderer.tsx', root), 'utf8');
+  const sessionSync = readFileSync(new URL('src/lib/sessionSync.ts', root), 'utf8');
+  const workspace = readFileSync(new URL('src/routes/WorkspaceRoute.tsx', root), 'utf8');
+  const snapshotBody = storage.slice(
+    storage.indexOf('function createProjectSnapshot'),
+    storage.indexOf('function createEmergencyProjectSnapshot'),
+  );
+
+  assert.ok(
+    snapshotBody.indexOf('savedShaders: project.studio.savedShaders.filter') <
+      snapshotBody.indexOf('normalizeProjectShaderSources(compactProject)'),
+    'autosave must discard unchanged built-ins before canonicalizing persisted shaders',
+  );
+  assert.doesNotMatch(snapshotBody, /normalizeProjectShaderSources\(project\)/);
+  assert.match(snapshotBody, /project\.studio\.activeShaderId/);
+  assert.match(snapshotBody, /shaderSequence\.steps\.map/);
+  assert.match(timelinePreview, /requestIdleCallback/);
+  assert.match(timelinePreview, /data-preview-shader-id/);
+  assert.match(timelinePreview, /IntersectionObserver/);
+  assert.match(stageRenderer, /requestAnimationFrame/);
+  assert.match(stageRenderer, /COMPILE_AFTER_INTERACTION_QUIET_MS/);
+  assert.match(stageRenderer, /processShaderQueue\(true\)/);
+  assert.match(stageRenderer, /processShaderQueue\(false\)/);
+  assert.match(sessionSync, /createProjectSnapshot\(project, liveShaderIds\)/);
+  assert.match(workspace, /syncedProjectAutosaveRef\.current === project/);
+  assert.match(storage, /Unable to persist shader slider cache/);
+  assert.doesNotMatch(previewRenderer, /gl\.finish\(\)/);
+  assert.doesNotMatch(presetPreview, /gl\.finish\(\)/);
+  assert.match(previewRenderer, /programCache/);
+  assert.match(presetPreview, /programCache/);
+});
+
 test('bundled project and visual eval are wired to the statue depth map', () => {
   const root = new URL('..', import.meta.url);
   const bundled = readFileSync(new URL('src/lib/bundledProjects.ts', root), 'utf8');

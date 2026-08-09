@@ -166,7 +166,6 @@ interface PendingProgramBundle {
   program: WebGLProgram;
   vertexShader: WebGLShader;
   fragmentShader: WebGLShader;
-  shaderCode: string;
   uniformDefinitions: ShaderUniformMap;
   parallelCompileExtension: ParallelShaderCompileExtension | null;
 }
@@ -202,6 +201,7 @@ const VIDEO_HARD_SEEK_THRESHOLD_SECONDS = 0.45;
 const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
 const MIN_STAGE_SCALE = 0;
 const MAX_RETAINED_PROGRAMS = 96;
+const COMPILE_AFTER_INTERACTION_QUIET_MS = 750;
 
 interface StageRenderTarget {
   framebuffer: WebGLFramebuffer;
@@ -279,21 +279,6 @@ function clampVideoPlaybackRate(playbackRate: number) {
   return Math.min(MAX_VIDEO_PLAYBACK_RATE, Math.max(MIN_VIDEO_PLAYBACK_RATE, playbackRate));
 }
 
-function compileShaderRaw(gl: WebGL2RenderingContext, type: number, source: string) {
-  const shader = gl.createShader(type);
-  if (!shader) {
-    throw new Error('Unable to allocate shader.');
-  }
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const error = gl.getShaderInfoLog(shader) || 'Shader compilation failed.';
-    gl.deleteShader(shader);
-    throw new Error(error);
-  }
-  return shader;
-}
-
 function compileShaderUnchecked(gl: WebGL2RenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
   if (!shader) {
@@ -302,71 +287,6 @@ function compileShaderUnchecked(gl: WebGL2RenderingContext, type: number, source
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   return shader;
-}
-
-function createProgramBundle(
-  gl: WebGL2RenderingContext,
-  shaderCode: string,
-  uniformDefinitions: ShaderUniformMap,
-) {
-  const vertexShader = compileShaderRaw(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
-  const fragmentShader = compileShaderRaw(
-    gl,
-    gl.FRAGMENT_SHADER,
-    buildFragmentShaderSource(shaderCode),
-  );
-
-  const program = gl.createProgram();
-  if (!program) {
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
-    throw new Error('Unable to create the WebGL program.');
-  }
-
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const error = gl.getProgramInfoLog(program) || 'GLSL link error.';
-    gl.deleteProgram(program);
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
-    throw new Error(error);
-  }
-
-  const bundle = {
-    program,
-    locations: {
-      position: gl.getAttribLocation(program, 'a_position'),
-      time: gl.getUniformLocation(program, 'u_time'),
-      image: gl.getUniformLocation(program, 'u_image'),
-      overlayImage: gl.getUniformLocation(program, 'u_timeline_overlay_image'),
-      overlayAspectRatio: gl.getUniformLocation(program, 'u_timeline_overlay_aspect_ratio'),
-      transitionFromImage: gl.getUniformLocation(program, 'u_timeline_from_image'),
-      transitionToImage: gl.getUniformLocation(program, 'u_timeline_to_image'),
-      transitionFromOverlayImage: gl.getUniformLocation(program, 'u_timeline_from_overlay_image'),
-      transitionToOverlayImage: gl.getUniformLocation(program, 'u_timeline_to_overlay_image'),
-      transitionFromOverlayAspectRatio: gl.getUniformLocation(
-        program,
-        'u_timeline_from_overlay_aspect_ratio',
-      ),
-      transitionToOverlayAspectRatio: gl.getUniformLocation(
-        program,
-        'u_timeline_to_overlay_aspect_ratio',
-      ),
-      baseImage: gl.getUniformLocation(program, 'u_timeline_base_image'),
-      resolution: gl.getUniformLocation(program, 'u_resolution'),
-      custom: Object.fromEntries(
-        Object.keys(uniformDefinitions).map((name) => [name, gl.getUniformLocation(program, name)]),
-      ),
-    },
-  };
-
-  gl.deleteShader(vertexShader);
-  gl.deleteShader(fragmentShader);
-
-  return bundle;
 }
 
 function createPendingProgramBundle(
@@ -396,7 +316,6 @@ function createPendingProgramBundle(
     program,
     vertexShader,
     fragmentShader,
-    shaderCode,
     uniformDefinitions,
     parallelCompileExtension,
   };
@@ -934,6 +853,7 @@ export function StageRenderer({
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
   const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
   const audioRuntimeRef = useRef(audioRuntime);
+  const lastUserInteractionAtRef = useRef(0);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
@@ -953,6 +873,22 @@ export function StageRenderer({
     },
     [],
   );
+  useEffect(() => {
+    const recordInteraction = () => {
+      lastUserInteractionAtRef.current = performance.now();
+    };
+    const passiveCapture = { capture: true, passive: true } as const;
+    window.addEventListener('pointerdown', recordInteraction, passiveCapture);
+    window.addEventListener('keydown', recordInteraction, true);
+    window.addEventListener('input', recordInteraction, true);
+    window.addEventListener('wheel', recordInteraction, passiveCapture);
+    return () => {
+      window.removeEventListener('pointerdown', recordInteraction, true);
+      window.removeEventListener('keydown', recordInteraction, true);
+      window.removeEventListener('input', recordInteraction, true);
+      window.removeEventListener('wheel', recordInteraction, true);
+    };
+  }, []);
   const defaultInputSource = useMemo<StageRenderInputSource | null>(
     () =>
       asset
@@ -1336,6 +1272,15 @@ export function StageRenderer({
 
     let disposed = false;
     let timeoutId: number | null = null;
+    let idleCallbackId: number | null = null;
+    let frameId: number | null = null;
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (
+        callback: IdleRequestCallback,
+        options?: IdleRequestOptions,
+      ) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
     const parallelCompileExtension = gl.getExtension(
       'KHR_parallel_shader_compile',
     ) as ParallelShaderCompileExtension | null;
@@ -1429,17 +1374,62 @@ export function StageRenderer({
       return true;
     };
 
+    const isShaderCodeMissing = (shaderCode: string) =>
+      !programCacheRef.current.has(shaderCode) &&
+      !pendingProgramCacheRef.current.has(shaderCode) &&
+      !failedProgramCodesRef.current.has(shaderCode);
+    const findMissingShaderCode = (shaderCodes: ReadonlySet<string>) =>
+      Array.from(shaderCodes).find(isShaderCodeMissing);
+
     const scheduleNextTick = () => {
       if (disposed) {
         return;
       }
 
-      timeoutId = window.setTimeout(processShaderQueue, parallelCompileExtension ? 16 : 0);
+      if (parallelCompileExtension) {
+        timeoutId = window.setTimeout(() => processShaderQueue(true), 16);
+        return;
+      }
+
+      if (findMissingShaderCode(visibleShaderCodes)) {
+        timeoutId = window.setTimeout(() => processShaderQueue(false), 16);
+        return;
+      }
+
+      // Synchronous driver compilation can monopolize the main thread. Queue
+      // lookahead programs as idle work so pointer/slider input is serviced
+      // between compiles. The timeout still guarantees timeline warmup makes
+      // progress on a continuously animating stage.
+      if (idleWindow.requestIdleCallback) {
+        idleCallbackId = idleWindow.requestIdleCallback(
+          () => {
+            idleCallbackId = null;
+            processShaderQueue(true);
+          },
+          { timeout: 500 },
+        );
+        return;
+      }
+
+      timeoutId = window.setTimeout(() => processShaderQueue(true), 32);
     };
 
-    const processShaderQueue = () => {
+    const processShaderQueue = (allowPreloadCompile = true) => {
       if (disposed) {
         return;
+      }
+
+      if (!parallelCompileExtension) {
+        const remainingQuietMs =
+          COMPILE_AFTER_INTERACTION_QUIET_MS -
+          (performance.now() - lastUserInteractionAtRef.current);
+        if (remainingQuietMs > 0) {
+          timeoutId = window.setTimeout(
+            () => processShaderQueue(allowPreloadCompile),
+            Math.ceil(remainingQuietMs),
+          );
+          return;
+        }
       }
 
       let visibleError = '';
@@ -1467,36 +1457,27 @@ export function StageRenderer({
         }
       }
 
-      const missingShaderCode = Array.from(requiredShaderCodes).find(
-        (shaderCode) =>
-          !programCacheRef.current.has(shaderCode) &&
-          !pendingProgramCacheRef.current.has(shaderCode) &&
-          !failedProgramCodesRef.current.has(shaderCode),
-      );
+      const missingShaderCode =
+        findMissingShaderCode(visibleShaderCodes) ??
+        (allowPreloadCompile ? findMissingShaderCode(requiredShaderCodes) : undefined);
 
       if (missingShaderCode) {
         try {
           const uniformMap = shaderDefinitionByCode.get(missingShaderCode) ?? {};
-          if (parallelCompileExtension) {
-            pendingProgramCacheRef.current.set(
+          // Even without KHR_parallel_shader_compile, submit compile/link first
+          // and defer the blocking status reads to a later idle tick. Several
+          // drivers perform the actual compilation asynchronously but only
+          // expose it after get*Parameter(), so this keeps the selection event
+          // and its first paint out of that synchronization point.
+          pendingProgramCacheRef.current.set(
+            missingShaderCode,
+            createPendingProgramBundle(
+              gl,
               missingShaderCode,
-              createPendingProgramBundle(
-                gl,
-                missingShaderCode,
-                uniformMap,
-                parallelCompileExtension,
-              ),
-            );
-          } else {
-            programCacheRef.current.set(
-              missingShaderCode,
-              {
-                ...createProgramBundle(gl, missingShaderCode, uniformMap),
-                lastUsedAt: ++programCacheClockRef.current,
-              },
-            );
-            programCacheChanged = true;
-          }
+              uniformMap,
+              parallelCompileExtension,
+            ),
+          );
         } catch (error) {
           failedProgramCodesRef.current.add(missingShaderCode);
           if (visibleShaderCodes.has(missingShaderCode)) {
@@ -1518,23 +1499,38 @@ export function StageRenderer({
 
       const hasPendingWork =
         pendingProgramCacheRef.current.size > 0 ||
-        Array.from(requiredShaderCodes).some(
-          (shaderCode) =>
-            !programCacheRef.current.has(shaderCode) &&
-            !failedProgramCodesRef.current.has(shaderCode),
-        );
+        Array.from(requiredShaderCodes).some(isShaderCodeMissing);
       if (hasPendingWork) {
         scheduleNextTick();
       }
       pruneProgramCache();
     };
 
-    processShaderQueue();
+    if (parallelCompileExtension) {
+      processShaderQueue(true);
+    } else if (findMissingShaderCode(visibleShaderCodes)) {
+      // React may flush passive effects before painting an interaction update.
+      // A synchronous driver compile here made the selected card and sliders
+      // appear only after compilation. Give the browser one paint first; the
+      // stage keeps displaying the last valid compiled layers meanwhile.
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        timeoutId = window.setTimeout(() => processShaderQueue(false), 0);
+      });
+    } else {
+      processShaderQueue(false);
+    }
 
     return () => {
       disposed = true;
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
       if (timeoutId !== null) {
         window.clearTimeout(timeoutId);
+      }
+      if (idleCallbackId !== null && idleWindow.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleCallbackId);
       }
     };
   }, [renderLayerShaderSignature, shaderCompileNonce, glContextGeneration]);

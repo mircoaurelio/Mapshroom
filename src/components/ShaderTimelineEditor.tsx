@@ -216,6 +216,7 @@ export function ShaderTimelineEditor({
   mobileCardsOnly = false,
 }: ShaderTimelineEditorProps) {
   const flowStripRef = useRef<HTMLDivElement>(null);
+  const previewViewportRef = useRef<HTMLDivElement>(null);
   const title =
     sequence.mode === 'audioReactive'
       ? 'Audio Sync'
@@ -234,6 +235,9 @@ export function ShaderTimelineEditor({
     assetUrl ? 'loading' : 'idle',
   );
   const [previewSources, setPreviewSources] = useState<Record<string, string>>({});
+  const [visiblePreviewShaderIds, setVisiblePreviewShaderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [resolvedAssignedAssetUrls, setResolvedAssignedAssetUrls] = useState<Record<string, string | null>>({});
   const [loadedAssignedPreviews, setLoadedAssignedPreviews] = useState<
     Record<string, { assetUrl: string; image: HTMLCanvasElement } | null>
@@ -339,6 +343,55 @@ export function ShaderTimelineEditor({
 
   const previewImage = assetUrl && loadedPreview?.assetUrl === assetUrl ? loadedPreview.image : null;
   const previewNamespace = assetUrl ?? '__no_asset__';
+
+  useEffect(() => {
+    const previewViewport = previewViewportRef.current;
+    if (!previewViewport) {
+      return;
+    }
+
+    const previewNodes = Array.from(
+      previewViewport.querySelectorAll<HTMLElement>('[data-preview-shader-id]'),
+    );
+    if (previewNodes.length === 0) {
+      return;
+    }
+
+    const revealShader = (node: HTMLElement) => {
+      const shaderId = node.dataset.previewShaderId;
+      if (!shaderId) {
+        return;
+      }
+      setVisiblePreviewShaderIds((currentIds) => {
+        if (currentIds.has(shaderId)) {
+          return currentIds;
+        }
+        const nextIds = new Set(currentIds);
+        nextIds.add(shaderId);
+        return nextIds;
+      });
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      previewNodes.forEach(revealShader);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) {
+            continue;
+          }
+          revealShader(entry.target as HTMLElement);
+          observer.unobserve(entry.target);
+        }
+      },
+      { root: previewViewport, rootMargin: '180px' },
+    );
+    previewNodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [mobileCardsOnly, previewNamespace, sequence.steps]);
 
   useEffect(() => {
     let disposed = false;
@@ -478,6 +531,9 @@ export function ShaderTimelineEditor({
     }> = [];
 
     for (const shader of sequenceShaders) {
+      if (!visiblePreviewShaderIds.has(shader.id)) {
+        continue;
+      }
       const renderCode = getRenderableShaderCode(shader);
       const renderUniformValues = getRenderableShaderUniformValues(shader);
       const assignedPreview = shader.inputAssetId
@@ -516,7 +572,30 @@ export function ShaderTimelineEditor({
     }
 
     let disposed = false;
-    let timeoutId = 0;
+    let timeoutId: number | null = null;
+    let idleCallbackId: number | null = null;
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (
+        callback: IdleRequestCallback,
+        options?: IdleRequestOptions,
+      ) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    const schedulePreviewRender = (callback: () => void, delayMs: number) => {
+      timeoutId = window.setTimeout(() => {
+        timeoutId = null;
+        if (idleWindow.requestIdleCallback) {
+          idleCallbackId = idleWindow.requestIdleCallback(() => {
+            idleCallbackId = null;
+            callback();
+          }, { timeout: 1_000 });
+          return;
+        }
+
+        timeoutId = window.setTimeout(callback, 0);
+      }, delayMs);
+    };
 
     const renderNextPreview = (queueIndex: number) => {
       if (disposed || queueIndex >= renderQueue.length) {
@@ -551,22 +630,30 @@ export function ShaderTimelineEditor({
         [queuedPreview.previewKey]: cachedPreview,
       }));
 
-      timeoutId = window.setTimeout(
+      schedulePreviewRender(
         () => renderNextPreview(queueIndex + 1),
         TIMELINE_PREVIEW_RENDER_SPACING_MS,
       );
     };
 
-    timeoutId = window.setTimeout(
-      () => renderNextPreview(0),
-      TIMELINE_PREVIEW_RENDER_DELAY_MS,
-    );
+    schedulePreviewRender(() => renderNextPreview(0), TIMELINE_PREVIEW_RENDER_DELAY_MS);
 
     return () => {
       disposed = true;
-      window.clearTimeout(timeoutId);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      if (idleCallbackId !== null && idleWindow.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleCallbackId);
+      }
     };
-  }, [loadedAssignedPreviews, previewImage, previewNamespace, sequenceShaders]);
+  }, [
+    loadedAssignedPreviews,
+    previewImage,
+    previewNamespace,
+    sequenceShaders,
+    visiblePreviewShaderIds,
+  ]);
 
   const previewPlaceholder =
     !assetUrl || !assetKind
@@ -706,7 +793,7 @@ export function ShaderTimelineEditor({
           </div>
           <small>Tap a card to hold and edit it</small>
         </div>
-        <div className="mobile-shader-card-grid" role="list">
+        <div ref={previewViewportRef} className="mobile-shader-card-grid" role="list">
           {sequence.steps.map((step, index) => {
             const shader = shaderMap.get(step.shaderId);
             const assignedPreview = shader?.inputAssetId
@@ -726,6 +813,7 @@ export function ShaderTimelineEditor({
                 key={step.id}
                 type="button"
                 role="listitem"
+                data-preview-shader-id={shader?.id}
                 className={`mobile-shader-sequence-card ${isEditing ? 'mobile-shader-sequence-card-editing' : ''} ${isCurrent ? 'mobile-shader-sequence-card-current' : ''}`}
                 aria-pressed={isEditing}
                 onClick={() => onEditStep(step.id)}
@@ -976,7 +1064,10 @@ export function ShaderTimelineEditor({
       </div>
 
       <div
-        ref={flowStripRef}
+        ref={(node) => {
+          flowStripRef.current = node;
+          previewViewportRef.current = node;
+        }}
         className="timeline-flow-strip"
         role="list"
         aria-label="Shader timeline flow"
@@ -1018,6 +1109,7 @@ export function ShaderTimelineEditor({
                   isPinnedStep ? 'timeline-step-card-pinned' : ''
                 }`}
                 data-timeline-step-id={step.id}
+                data-preview-shader-id={shader?.id}
                 role="button"
                 tabIndex={0}
                 aria-pressed={step.id === editingStepId}

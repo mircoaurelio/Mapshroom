@@ -6,6 +6,13 @@ const PREVIEW_HEIGHT = 96;
 const PREVIEW_SOURCE_MAX_EDGE = 256;
 const PREVIEW_FALLBACK_BG = '#050506';
 const PREVIEW_IMAGE_QUALITY = 0.68;
+const MAX_PREVIEW_PROGRAMS = 24;
+
+interface ShaderPreviewProgram {
+  program: WebGLProgram;
+  fragmentShader: WebGLShader;
+  positionLocation: number;
+}
 
 export interface ShaderPreviewRenderer {
   canvas: HTMLCanvasElement;
@@ -13,6 +20,7 @@ export interface ShaderPreviewRenderer {
   quadBuffer: WebGLBuffer;
   texture: WebGLTexture;
   vertexShader: WebGLShader;
+  programCache: Map<string, ShaderPreviewProgram>;
 }
 
 function createPreviewSourceFromDrawable(
@@ -192,6 +200,7 @@ function createShaderPreviewRenderer(): ShaderPreviewRenderer | null {
     quadBuffer,
     texture,
     vertexShader,
+    programCache: new Map(),
   };
 }
 
@@ -200,6 +209,11 @@ export function destroyShaderPreviewRenderer(renderer: ShaderPreviewRenderer | n
     return;
   }
 
+  for (const bundle of renderer.programCache.values()) {
+    renderer.gl.deleteProgram(bundle.program);
+    renderer.gl.deleteShader(bundle.fragmentShader);
+  }
+  renderer.programCache.clear();
   renderer.gl.deleteTexture(renderer.texture);
   renderer.gl.deleteBuffer(renderer.quadBuffer);
   renderer.gl.deleteShader(renderer.vertexShader);
@@ -214,6 +228,65 @@ function getShaderPreviewRenderer(rendererRef: { current: ShaderPreviewRenderer 
   return rendererRef.current;
 }
 
+function getShaderPreviewProgram(
+  renderer: ShaderPreviewRenderer,
+  shaderCode: string,
+): ShaderPreviewProgram | null {
+  const cachedProgram = renderer.programCache.get(shaderCode);
+  if (cachedProgram) {
+    // Refresh insertion order so the cache behaves like an LRU.
+    renderer.programCache.delete(shaderCode);
+    renderer.programCache.set(shaderCode, cachedProgram);
+    return cachedProgram;
+  }
+
+  const { gl, vertexShader } = renderer;
+  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+  if (!fragmentShader) {
+    return null;
+  }
+
+  gl.shaderSource(fragmentShader, buildFragmentShaderSource(shaderCode));
+  gl.compileShader(fragmentShader);
+  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  const positionLocation = gl.getAttribLocation(program, 'a_position');
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS) || positionLocation === -1) {
+    gl.deleteProgram(program);
+    gl.deleteShader(fragmentShader);
+    return null;
+  }
+
+  const bundle = { program, fragmentShader, positionLocation };
+  renderer.programCache.set(shaderCode, bundle);
+  while (renderer.programCache.size > MAX_PREVIEW_PROGRAMS) {
+    const oldestKey = renderer.programCache.keys().next().value;
+    if (typeof oldestKey !== 'string') {
+      break;
+    }
+    const oldestBundle = renderer.programCache.get(oldestKey);
+    if (oldestBundle) {
+      gl.deleteProgram(oldestBundle.program);
+      gl.deleteShader(oldestBundle.fragmentShader);
+    }
+    renderer.programCache.delete(oldestKey);
+  }
+
+  return bundle;
+}
+
 export function renderShaderPreviewToDataUrl(
   shaderCode: string,
   uniformValues: ShaderUniformValueMap | undefined,
@@ -226,33 +299,12 @@ export function renderShaderPreviewToDataUrl(
     return createPreviewMessageDataUrl('Preview unavailable');
   }
 
-  const { gl, canvas: renderCanvas, quadBuffer, texture, vertexShader } = renderer;
-  const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-  if (!fragmentShader) {
-    return createPreviewMessageDataUrl('Preview unavailable');
-  }
-
-  gl.shaderSource(fragmentShader, buildFragmentShaderSource(shaderCode));
-  gl.compileShader(fragmentShader);
-  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-    gl.deleteShader(fragmentShader);
+  const { gl, canvas: renderCanvas, quadBuffer, texture } = renderer;
+  const previewProgram = getShaderPreviewProgram(renderer, shaderCode);
+  if (!previewProgram) {
     return createPreviewMessageDataUrl('Shader error');
   }
-
-  const program = gl.createProgram();
-  if (!program) {
-    gl.deleteShader(fragmentShader);
-    return createPreviewMessageDataUrl('Preview unavailable');
-  }
-
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    gl.deleteProgram(program);
-    gl.deleteShader(fragmentShader);
-    return createPreviewMessageDataUrl('Shader error');
-  }
+  const { program, positionLocation: posLoc } = previewProgram;
 
   gl.viewport(0, 0, renderCanvas.width, renderCanvas.height);
   gl.clearColor(0, 0, 0, 1);
@@ -262,13 +314,6 @@ export function renderShaderPreviewToDataUrl(
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
   gl.useProgram(program);
-
-  const posLoc = gl.getAttribLocation(program, 'a_position');
-  if (posLoc === -1) {
-    gl.deleteProgram(program);
-    gl.deleteShader(fragmentShader);
-    return createPreviewMessageDataUrl('Preview unavailable');
-  }
 
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
   gl.enableVertexAttribArray(posLoc);
@@ -310,7 +355,6 @@ export function renderShaderPreviewToDataUrl(
   }
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
-  gl.finish();
 
   let previewSrc = renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
 
@@ -332,7 +376,5 @@ export function renderShaderPreviewToDataUrl(
   }
 
   gl.disableVertexAttribArray(posLoc);
-  gl.deleteProgram(program);
-  gl.deleteShader(fragmentShader);
   return previewSrc;
 }
