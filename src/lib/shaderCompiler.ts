@@ -1,5 +1,7 @@
 export type ShaderCompileTarget = 'webgl1' | 'webgl2';
 
+export const OFFICIAL_SHADER_TARGET: ShaderCompileTarget = 'webgl2';
+
 export interface ShaderProgramSources {
   abiVersion: typeof SHADER_ABI_VERSION;
   target: ShaderCompileTarget;
@@ -156,7 +158,10 @@ function replaceCodeIdentifiers(source: string, replacements: Readonly<Record<st
 
 export function adaptShaderBodyForTarget(code: string, target: ShaderCompileTarget): string {
   if (target === 'webgl1') {
-    return code;
+    return replaceCodeIdentifiers(code, {
+      texture: 'texture2D',
+      textureProj: 'texture2DProj',
+    });
   }
 
   return replaceCodeIdentifiers(code, {
@@ -167,6 +172,10 @@ export function adaptShaderBodyForTarget(code: string, target: ShaderCompileTarg
     texture2DProj: 'textureProj',
     textureCube: 'texture',
   });
+}
+
+export function normalizeOfficialShaderBody(code: string): string {
+  return adaptShaderBodyForTarget(code, OFFICIAL_SHADER_TARGET);
 }
 
 export function buildVertexShaderSource(target: ShaderCompileTarget): string {

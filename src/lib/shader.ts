@@ -4,11 +4,13 @@ import {
   buildFragmentShaderHeader,
   buildFragmentShaderSourceForTarget,
   buildVertexShaderSource,
+  normalizeOfficialShaderBody,
+  OFFICIAL_SHADER_TARGET,
 } from './shaderCompiler';
 
-export const VERTEX_SHADER_SOURCE = buildVertexShaderSource('webgl1');
-export const FRAGMENT_SHADER_HEADER = buildFragmentShaderHeader('webgl1');
-export const FRAGMENT_SHADER_FOOTER = buildFragmentShaderFooter('webgl1');
+export const VERTEX_SHADER_SOURCE = buildVertexShaderSource(OFFICIAL_SHADER_TARGET);
+export const FRAGMENT_SHADER_HEADER = buildFragmentShaderHeader(OFFICIAL_SHADER_TARGET);
+export const FRAGMENT_SHADER_FOOTER = buildFragmentShaderFooter(OFFICIAL_SHADER_TARGET);
 
 export function rgbToHex(value: ShaderUniformValue): string {
   if (!Array.isArray(value)) {
@@ -239,6 +241,10 @@ export function validateGeneratedShader(code: string): string {
     problems.push('must not write directly to gl_FragColor inside the generated shader body');
   }
 
+  if (/^\s*#version\b/m.test(trimmed)) {
+    problems.push('must not declare #version because the app injects the GLSL ES version');
+  }
+
   if (/```|`/.test(trimmed)) {
     problems.push('contains markdown fence characters instead of pure GLSL');
   }
@@ -247,9 +253,9 @@ export function validateGeneratedShader(code: string): string {
     throw new Error(`AI shader does not match the required structure: ${problems.join('; ')}.`);
   }
 
-  return trimmed;
+  return normalizeOfficialShaderBody(trimmed);
 }
 
 export function buildFragmentShaderSource(code: string): string {
-  return buildFragmentShaderSourceForTarget(code, 'webgl1');
+  return buildFragmentShaderSourceForTarget(code, OFFICIAL_SHADER_TARGET);
 }

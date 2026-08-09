@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   adaptShaderBodyForTarget,
   buildShaderProgramSources,
+  OFFICIAL_SHADER_TARGET,
   SHADER_ABI_VERSION,
 } from '../src/lib/shaderCompiler.ts';
 
@@ -37,6 +38,17 @@ test('emits a GLSL ES 3.00 program from the same stored shader body', () => {
   assert.match(sources.fragmentSource, /out vec4 mapshroom_fragColor/);
   assert.match(sources.fragmentSource, /texture\(tex, uv\)/);
   assert.match(sources.fragmentSource, /mapshroom_fragColor = processColor/);
+});
+
+test('defines WebGL 2 as the official target and keeps a WebGL1 fallback for official bodies', () => {
+  assert.equal(OFFICIAL_SHADER_TARGET, 'webgl2');
+
+  const officialBody = shaderBody.replace('texture2D(tex, uv)', 'texture(tex, uv)');
+  const officialSources = buildShaderProgramSources(officialBody, OFFICIAL_SHADER_TARGET);
+  const fallbackSources = buildShaderProgramSources(officialBody, 'webgl1');
+
+  assert.match(officialSources.fragmentSource, /texture\(tex, uv\)/);
+  assert.match(fallbackSources.fragmentSource, /texture2D\(tex, uv\)/);
 });
 
 test('rewrites complete GLSL identifiers but preserves comments and longer names', () => {

@@ -240,7 +240,7 @@ PASTED SHADER:
         {
           number: '03',
           title: 'Restate the rules',
-          body: 'WebGL 1.0, one complete Mapshroom shader.',
+          body: 'WebGL 2 with GLSL ES 3.00, one complete Mapshroom shader.',
         },
         {
           number: '04',
@@ -251,7 +251,7 @@ PASTED SHADER:
       promptLabel: 'Repair prompt for any chat LLM',
       prompt: `Fix this shader with the smallest possible change.
 Preserve its current look, colors, controls, and transparency.
-It must use WebGL 1.0 GLSL, texture2D(), and one processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) function.
+It must use GLSL ES 3.00 for WebGL 2, texture(), and one processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) function.
 Do not add void main() or gl_FragColor.
 Return one complete replacement shader.
 
@@ -283,7 +283,7 @@ BROKEN GLSL:
           label: 'WRONG CODE FORMAT',
           title: 'Repeat the contract',
           body:
-            '“Return one complete WebGL 1.0 shader with processColor(), texture2D(), and no main().”',
+            '“Return one complete WebGL 2 / GLSL ES 3.00 shader body with processColor(), texture(), no #version, and no main().”',
         },
       ],
     },
@@ -556,7 +556,7 @@ SHADER INCOLLATO:
         {
           number: '03',
           title: 'Ripeti le regole',
-          body: 'WebGL 1.0, un unico shader Mapshroom completo.',
+          body: 'WebGL 2 con GLSL ES 3.00, un unico shader Mapshroom completo.',
         },
         {
           number: '04',
@@ -567,7 +567,7 @@ SHADER INCOLLATO:
       promptLabel: 'Prompt di correzione per qualsiasi chat LLM',
       prompt: `Correggi questo shader con la modifica più piccola possibile.
 Mantieni l’aspetto attuale, i colori, i controlli e la trasparenza.
-Deve usare GLSL WebGL 1.0, texture2D() e una sola funzione processColor(sampler2D tex, vec2 uv, float time, vec2 resolution).
+Deve usare GLSL ES 3.00 per WebGL 2, texture() e una sola funzione processColor(sampler2D tex, vec2 uv, float time, vec2 resolution).
 Non aggiungere void main() o gl_FragColor.
 Restituisci un unico shader sostitutivo completo.
 
@@ -599,7 +599,7 @@ GLSL ROTTO:
           label: 'FORMATO CODICE ERRATO',
           title: 'Ripeti il contratto',
           body:
-            '“Restituisci un unico shader WebGL 1.0 completo con processColor(), texture2D() e senza main().”',
+            '“Restituisci un unico corpo shader WebGL 2 / GLSL ES 3.00 con processColor(), texture(), senza #version e senza main().”',
         },
       ],
     },

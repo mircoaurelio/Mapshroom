@@ -97,6 +97,7 @@ import {
   syncUniformValues,
   validateGeneratedShader,
 } from '../lib/shader';
+import { normalizeOfficialShaderBody } from '../lib/shaderCompiler';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import {
   readConfiguredLocalModel,
@@ -1453,7 +1454,14 @@ function normalizeProject(project: ProjectDocument): ProjectDocument {
 }
 
 function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
-  const uniformDefinitions = parseUniforms(project.studio.activeShaderCode);
+  const normalizedActiveShaderCode = normalizeOfficialShaderBody(
+    project.studio.activeShaderCode,
+  );
+  const normalizedProjectShaderVersions = project.studio.shaderVersions.map((version) => ({
+    ...version,
+    code: normalizeOfficialShaderBody(version.code),
+  }));
+  const uniformDefinitions = parseUniforms(normalizedActiveShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
   const mergedLibraryAssets = mergeBundledAssets(project.library?.assets ?? []);
   const requestedActiveAssetId =
@@ -1470,19 +1478,26 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
     ...project.studio.savedShaders,
   ].reduce<SavedShader[]>((collection, shader) => {
     const shaderUniformValues = 'uniformValues' in shader ? shader.uniformValues : undefined;
-    const shaderVersions = 'versions' in shader ? shader.versions : undefined;
+    const shaderVersions = 'versions' in shader
+      ? shader.versions?.map((version) => ({
+          ...version,
+          code: normalizeOfficialShaderBody(version.code),
+        }))
+      : undefined;
     const shaderLastValidCode = 'lastValidCode' in shader ? shader.lastValidCode : undefined;
     const shaderLastValidUniformValues =
       'lastValidUniformValues' in shader ? shader.lastValidUniformValues : undefined;
     const shaderCompileError = 'compileError' in shader ? shader.compileError : undefined;
     const defaultPreset = DEFAULT_SHADERS[shader.id];
     const normalizedName = defaultPreset?.name ?? shader.name;
-    const normalizedCode = shader.code;
+    const normalizedCode = normalizeOfficialShaderBody(shader.code);
     const normalizedUniformValues = getSyncedShaderUniformValues(
       normalizedCode,
       shaderUniformValues ?? defaultPreset?.uniformValues,
     );
-    const normalizedLastValidCode = shaderLastValidCode ?? normalizedCode;
+    const normalizedLastValidCode = normalizeOfficialShaderBody(
+      shaderLastValidCode ?? normalizedCode,
+    );
     const normalizedShader: SavedShader = {
       ...shader,
       name: normalizedName,
@@ -1506,7 +1521,9 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
         },
         {
           fallbackVersions:
-            shader.id === project.studio.activeShaderId ? project.studio.shaderVersions : undefined,
+            shader.id === project.studio.activeShaderId
+              ? normalizedProjectShaderVersions
+              : undefined,
           fallbackName: normalizedName,
           fallbackCode: normalizedCode,
         },
@@ -1586,9 +1603,9 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
   const normalizedActiveShader =
     mergedSavedShaders.find((shader) => shader.id === project.studio.activeShaderId) ?? null;
   const normalizedStudioShaderVersions = getShaderVersionTrail(normalizedActiveShader, {
-    fallbackVersions: project.studio.shaderVersions,
-    fallbackName: parseShaderName(project.studio.activeShaderCode),
-    fallbackCode: project.studio.activeShaderCode,
+    fallbackVersions: normalizedProjectShaderVersions,
+    fallbackName: parseShaderName(normalizedActiveShaderCode),
+    fallbackCode: normalizedActiveShaderCode,
   });
   const normalizedTimelineSteps = (
     project.timeline?.stub?.shaderSequence?.steps?.length
@@ -1746,7 +1763,8 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
     studio: {
       ...project.studio,
       shaderChatHistory: project.studio.shaderChatHistory ?? [],
-      activeShaderName: parseShaderName(project.studio.activeShaderCode),
+      activeShaderName: parseShaderName(normalizedActiveShaderCode),
+      activeShaderCode: normalizedActiveShaderCode,
       shaderVersions: normalizedStudioShaderVersions,
       savedShaders: mergedSavedShaders,
       uniformValues: syncUniformValues(project.studio.uniformValues, uniformDefinitions),
@@ -6472,7 +6490,8 @@ ${compilerError}`;
 The shader MUST start with // NAME: <name> on the first line.
 The shader MUST define: vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution)
 Do NOT declare void main() or write to gl_FragColor.
-Use WebGL 1.0 GLSL syntax with texture2D().
+Use GLSL ES 3.00 syntax for WebGL 2 and sample textures with texture().
+Do not include #version 300 es because Mapshroom injects it.
 
 Error:
 ${errorSnapshot}`,

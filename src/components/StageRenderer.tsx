@@ -211,7 +211,7 @@ interface StageRenderTarget {
 }
 
 function ensureStageRenderTarget(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   currentTarget: StageRenderTarget | null,
   width: number,
   height: number,
@@ -279,7 +279,7 @@ function clampVideoPlaybackRate(playbackRate: number) {
   return Math.min(MAX_VIDEO_PLAYBACK_RATE, Math.max(MIN_VIDEO_PLAYBACK_RATE, playbackRate));
 }
 
-function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: string) {
+function compileShaderRaw(gl: WebGL2RenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
   if (!shader) {
     throw new Error('Unable to allocate shader.');
@@ -294,7 +294,7 @@ function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: strin
   return shader;
 }
 
-function compileShaderUnchecked(gl: WebGLRenderingContext, type: number, source: string) {
+function compileShaderUnchecked(gl: WebGL2RenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
   if (!shader) {
     throw new Error('Unable to allocate shader.');
@@ -305,7 +305,7 @@ function compileShaderUnchecked(gl: WebGLRenderingContext, type: number, source:
 }
 
 function createProgramBundle(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   shaderCode: string,
   uniformDefinitions: ShaderUniformMap,
 ) {
@@ -370,7 +370,7 @@ function createProgramBundle(
 }
 
 function createPendingProgramBundle(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   shaderCode: string,
   uniformDefinitions: ShaderUniformMap,
   parallelCompileExtension: ParallelShaderCompileExtension | null,
@@ -403,7 +403,7 @@ function createPendingProgramBundle(
 }
 
 function resolvePendingProgramBundle(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   pendingBundle: PendingProgramBundle,
 ) {
   if (
@@ -493,7 +493,7 @@ function resolvePendingProgramBundle(
 }
 
 function disposePendingProgramBundle(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   pendingBundle: PendingProgramBundle,
 ) {
   gl.deleteProgram(pendingBundle.program);
@@ -502,7 +502,7 @@ function disposePendingProgramBundle(
 }
 
 function initializeTexture(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   texture: WebGLTexture,
 ) {
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -524,7 +524,7 @@ function initializeTexture(
 }
 
 function applyTextureSamplingQuality(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   texture: WebGLTexture,
   quality: TimelineAssetQuality | undefined,
 ) {
@@ -676,7 +676,7 @@ function requestNextVideoFrame(state: StageTextureSourceState) {
 }
 
 function disposeTextureSourceState(
-  gl: WebGLRenderingContext | null,
+  gl: WebGL2RenderingContext | null,
   state: StageTextureSourceState | null | undefined,
 ) {
   if (!state) {
@@ -697,7 +697,7 @@ function disposeTextureSourceState(
 }
 
 function createTextureSourceState(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   source: StageRenderInputSource,
   transport: PlaybackTransport,
   onReady: (sourceKey: string, aspectRatio: number | null, renderStatus: string) => void,
@@ -811,7 +811,7 @@ function updateTextureSourceStateTransport(
 }
 
 function bindTextureSourceState(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   state: StageTextureSourceState | null | undefined,
   textureUnit: number,
   transport: PlaybackTransport,
@@ -914,7 +914,7 @@ export function StageRenderer({
     pointerId: number;
     cleanup: () => void;
   } | null>(null);
-  const glRef = useRef<WebGLRenderingContext | null>(null);
+  const glRef = useRef<WebGL2RenderingContext | null>(null);
   const programCacheRef = useRef<Map<string, CachedProgram>>(new Map());
   const pendingProgramCacheRef = useRef<Map<string, PendingProgramBundle>>(new Map());
   const failedProgramCodesRef = useRef<Set<string>>(new Set());
@@ -1181,12 +1181,12 @@ export function StageRenderer({
     canvas.addEventListener('webglcontextlost', handleContextLost);
     canvas.addEventListener('webglcontextrestored', handleContextRestored);
 
-    const gl = canvas.getContext('webgl', {
+    const gl = canvas.getContext('webgl2', {
       preserveDrawingBuffer: preserveDrawingBufferRef.current,
     });
     if (!gl || gl.isContextLost()) {
       if (!gl) {
-        onCompilerErrorRef.current?.('WebGL is not available in this browser.');
+        onCompilerErrorRef.current?.('WebGL 2 is not available in this browser.');
       }
       return () => {
         canvas.removeEventListener('webglcontextlost', handleContextLost);
@@ -1926,7 +1926,11 @@ export function StageRenderer({
                     integer: definition.type === 'int',
                   })
                 : baseValue;
-              gl.uniform1f(location, effectiveValue);
+              if (definition.type === 'int') {
+                gl.uniform1i(location, Math.round(effectiveValue));
+              } else {
+                gl.uniform1f(location, effectiveValue);
+              }
             } else if (definition.type === 'bool') {
               gl.uniform1i(location, value ? 1 : 0);
             } else if (definition.type === 'vec3' && Array.isArray(value)) {

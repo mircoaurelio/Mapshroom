@@ -14,7 +14,7 @@ const REVIEW_HEIGHT = 540;
 const REVIEW_TIMES = [0, 1.7, 4.1];
 
 function compileShader(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   type: number,
   source: string,
 ): WebGLShader {
@@ -207,7 +207,7 @@ function createPainting(): HTMLCanvasElement {
 }
 
 function setUniform(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   location: WebGLUniformLocation | null,
   definition: ShaderUniformDefinition,
   value: ShaderUniformValue,
@@ -235,13 +235,13 @@ function renderShaderFrame(
 ) {
   canvas.width = REVIEW_WIDTH;
   canvas.height = REVIEW_HEIGHT;
-  const gl = canvas.getContext('webgl', {
+  const gl = canvas.getContext('webgl2', {
     alpha: false,
     antialias: true,
     preserveDrawingBuffer: true,
   });
   if (!gl) {
-    throw new Error('WebGL is unavailable.');
+    throw new Error('WebGL 2 is unavailable.');
   }
 
   const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);

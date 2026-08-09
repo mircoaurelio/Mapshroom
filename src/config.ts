@@ -18,7 +18,9 @@ import {
 } from './lib/bundledAssets';
 import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
 import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
-import { blankShaderTemplate } from './shaders/templates/blankShader';
+import {
+  legacyBlankShaderTemplate,
+} from './shaders/templates/blankShader';
 import {
   fullCanvasShaderTemplate,
   fullCanvasShaderUniformValues,
@@ -305,7 +307,7 @@ export function createEmptyProject(
 
 /** Upgrade empty projects from the visible white source and untouched blank shader. */
 export function upgradeLegacyEmptyProject(project: ProjectDocument): ProjectDocument {
-  const legacyShaderCode = blankShaderTemplate.replace(
+  const legacyShaderCode = legacyBlankShaderTemplate.replace(
     '// NAME: New Shader',
     '// NAME: Blank Shader',
   );

@@ -1,5 +1,7 @@
 import {
   buildShaderProgramSources,
+  normalizeOfficialShaderBody,
+  OFFICIAL_SHADER_TARGET,
   SHADER_ABI_VERSION,
   type ShaderCompileTarget,
 } from './lib/shaderCompiler';
@@ -26,8 +28,10 @@ interface TargetSmokeResult {
 
 interface ShaderSmokeReport {
   abiVersion: number;
+  officialTarget: ShaderCompileTarget;
   status: 'ok' | 'fail';
   generatedAt: string;
+  nonOfficialPresetIds: string[];
   targets: TargetSmokeResult[];
 }
 
@@ -228,6 +232,11 @@ function renderReport(report: ShaderSmokeReport): void {
         `${target.label} · ${failure.phase.toUpperCase()} · ${failure.name} [${failure.id}]\n${failure.message}`,
     ),
   );
+  allFailures.push(
+    ...report.nonOfficialPresetIds.map(
+      (id) => `CATALOG · ${id}\nPreset body is not canonical GLSL ES 3.00.`,
+    ),
+  );
 
   status.className = report.status === 'ok' ? 'status status--ok' : 'status status--fail';
   status.textContent =
@@ -251,6 +260,9 @@ function renderReport(report: ShaderSmokeReport): void {
 async function runShaderSmokeTest(): Promise<void> {
   const progress = document.getElementById('progress');
   const targets: TargetSmokeResult[] = [];
+  const nonOfficialPresetIds = shaderPresetList
+    .filter((preset) => normalizeOfficialShaderBody(preset.code) !== preset.code)
+    .map((preset) => preset.id);
 
   for (const target of ['webgl1', 'webgl2'] as const) {
     if (progress) {
@@ -266,14 +278,21 @@ async function runShaderSmokeTest(): Promise<void> {
 
   const report: ShaderSmokeReport = {
     abiVersion: SHADER_ABI_VERSION,
-    status: targets.every((target) => target.supported && target.failures.length === 0) ? 'ok' : 'fail',
+    officialTarget: OFFICIAL_SHADER_TARGET,
+    status:
+      nonOfficialPresetIds.length === 0 &&
+      targets.every((target) => target.supported && target.failures.length === 0)
+        ? 'ok'
+        : 'fail',
     generatedAt: new Date().toISOString(),
+    nonOfficialPresetIds,
     targets,
   };
 
   window.__MAPSHROOM_SHADER_SMOKE__ = report;
   document.body.dataset.status = report.status;
   document.body.dataset.shaderAbi = String(report.abiVersion);
+  document.body.dataset.officialTarget = report.officialTarget;
   if (progress) {
     progress.remove();
   }

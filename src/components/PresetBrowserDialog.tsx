@@ -116,7 +116,7 @@ const FAVORITE_PRESETS_STORAGE_KEY = 'mapshroom-v3:favorite-shaders';
 
 interface PreviewRenderer {
   canvas: HTMLCanvasElement;
-  gl: WebGLRenderingContext;
+  gl: WebGL2RenderingContext;
   quadBuffer: WebGLBuffer;
   texture: WebGLTexture;
   vertexShader: WebGLShader;
@@ -415,7 +415,7 @@ function createPreviewRenderer(): PreviewRenderer | null {
   canvas.width = PREVIEW_WIDTH;
   canvas.height = PREVIEW_HEIGHT;
 
-  const gl = canvas.getContext('webgl', {
+  const gl = canvas.getContext('webgl2', {
     alpha: false,
     antialias: false,
     preserveDrawingBuffer: true,
@@ -575,8 +575,10 @@ function renderPreviewToCanvas(
     const loc = gl.getUniformLocation(program, name);
     if (loc === null) continue;
     const value = uniformValues?.[name] ?? def.default;
-    if (def.type === 'float' || def.type === 'int') {
+    if (def.type === 'float') {
       gl.uniform1f(loc, Number(value));
+    } else if (def.type === 'int') {
+      gl.uniform1i(loc, Math.round(Number(value)));
     } else if (def.type === 'bool') {
       gl.uniform1i(loc, value ? 1 : 0);
     } else if (def.type === 'vec3' && Array.isArray(value)) {

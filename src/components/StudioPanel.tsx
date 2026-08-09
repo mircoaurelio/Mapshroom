@@ -201,7 +201,7 @@ const GLSL_BUILTINS = new Set([
   'sqrt',
   'step',
   'tan',
-  'texture2D',
+  'texture',
 ]);
 
 function escapeHtml(value: string): string {

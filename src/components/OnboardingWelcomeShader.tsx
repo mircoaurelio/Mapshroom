@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react';
 
 const SHADER_RENDER_DURATION_MS = 4_200;
 
-const VERTEX_SHADER_SOURCE = `
-attribute vec2 a_position;
-varying vec2 v_uv;
+const VERTEX_SHADER_SOURCE = `#version 300 es
+in vec2 a_position;
+out vec2 v_uv;
 
 void main() {
   v_uv = a_position * 0.5 + 0.5;
@@ -12,14 +12,15 @@ void main() {
 }
 `;
 
-const FRAGMENT_SHADER_SOURCE = `
+const FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision mediump float;
 
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec2 u_pointer;
 uniform float u_pointer_strength;
-varying vec2 v_uv;
+in vec2 v_uv;
+out vec4 mapshroom_fragColor;
 
 float hash21(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -127,12 +128,12 @@ void main() {
   color += coral * (coralTrace + pointerRing * 0.16);
   color += emerald * topGlow * 0.035;
 
-  gl_FragColor = vec4(color, 1.0);
+  mapshroom_fragColor = vec4(color, 1.0);
 }
 `;
 
 function compileShader(
-  gl: WebGLRenderingContext,
+  gl: WebGL2RenderingContext,
   type: number,
   source: string,
 ): WebGLShader | null {
@@ -171,7 +172,7 @@ export function MapshroomShaderBackdrop({
     }
 
     const canvas = canvasRef.current;
-    const gl = canvas?.getContext('webgl', {
+    const gl = canvas?.getContext('webgl2', {
       alpha: false,
       antialias: false,
       powerPreference: 'low-power',

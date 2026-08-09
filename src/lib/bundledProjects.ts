@@ -2,8 +2,8 @@ import {
   shaderPresetList,
   shaderPresets,
   stageReworkPresetList,
+  projectionAtelierPresetList,
 } from '../shaders/presets';
-import { projectionAtelierPresetList } from '../shaders/presets/atelier';
 import type { ShaderPresetDefinition } from '../shaders/presets/types';
 import type { ProjectDocument, ProjectLibraryEntry } from '../types';
 import {

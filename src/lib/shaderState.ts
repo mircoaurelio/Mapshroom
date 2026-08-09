@@ -8,7 +8,7 @@ import {
 
 const EMPTY_UNIFORM_VALUES: ShaderUniformValueMap = {};
 
-function compileShaderRaw(gl: WebGLRenderingContext, type: number, source: string) {
+function compileShaderRaw(gl: WebGL2RenderingContext, type: number, source: string) {
   const shader = gl.createShader(type);
   if (!shader) {
     throw new Error('Unable to allocate shader.');
@@ -61,17 +61,17 @@ export function getRenderableShaderUniformValues(
 }
 
 export function validateShaderCodeCompilation(code: string): string | null {
-  let gl: WebGLRenderingContext | null = null;
+  let gl: WebGL2RenderingContext | null = null;
 
   try {
     const canvas = document.createElement('canvas');
-    gl = canvas.getContext('webgl', {
+    gl = canvas.getContext('webgl2', {
       alpha: false,
       antialias: false,
       preserveDrawingBuffer: false,
     });
   } catch (error) {
-    console.warn('Unable to create a WebGL validation context.', error);
+    console.warn('Unable to create a WebGL 2 validation context.', error);
     return null;
   }
 

@@ -9,7 +9,7 @@ const PREVIEW_IMAGE_QUALITY = 0.68;
 
 export interface ShaderPreviewRenderer {
   canvas: HTMLCanvasElement;
-  gl: WebGLRenderingContext;
+  gl: WebGL2RenderingContext;
   quadBuffer: WebGLBuffer;
   texture: WebGLTexture;
   vertexShader: WebGLShader;
@@ -138,7 +138,7 @@ function createShaderPreviewRenderer(): ShaderPreviewRenderer | null {
   canvas.width = PREVIEW_WIDTH;
   canvas.height = PREVIEW_HEIGHT;
 
-  const gl = canvas.getContext('webgl', {
+  const gl = canvas.getContext('webgl2', {
     alpha: false,
     antialias: false,
     preserveDrawingBuffer: true,
@@ -298,8 +298,10 @@ export function renderShaderPreviewToDataUrl(
 
     const value = uniformValues?.[name] ?? definition.default;
 
-    if (definition.type === 'float' || definition.type === 'int') {
+    if (definition.type === 'float') {
       gl.uniform1f(location, Number(value));
+    } else if (definition.type === 'int') {
+      gl.uniform1i(location, Math.round(Number(value)));
     } else if (definition.type === 'bool') {
       gl.uniform1i(location, value ? 1 : 0);
     } else if (definition.type === 'vec3' && Array.isArray(value)) {

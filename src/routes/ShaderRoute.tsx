@@ -17,7 +17,7 @@ function HeroShaderPreview() {
       return;
     }
 
-    const gl = canvas.getContext('webgl', {
+    const gl = canvas.getContext('webgl2', {
       alpha: false,
       antialias: false,
       depth: false,
@@ -27,17 +27,18 @@ function HeroShaderPreview() {
       return;
     }
 
-    const vertexSource = `
-      attribute vec2 position;
+    const vertexSource = `#version 300 es
+      in vec2 position;
       void main() {
         gl_Position = vec4(position, 0.0, 1.0);
       }
     `;
 
-    const fragmentSource = `
+    const fragmentSource = `#version 300 es
       precision highp float;
       uniform vec2 u_resolution;
       uniform float u_time;
+      out vec4 mapshroom_fragColor;
 
       mat2 rotate2d(float angle) {
         float s = sin(angle);
@@ -134,7 +135,7 @@ function HeroShaderPreview() {
         float vignette = smoothstep(1.55, 0.18, radius);
         color *= vignette;
         color = pow(max(color, 0.0), vec3(0.82));
-        gl_FragColor = vec4(color, 1.0);
+        mapshroom_fragColor = vec4(color, 1.0);
       }
     `;
 
