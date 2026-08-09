@@ -22,6 +22,7 @@ export default defineConfig(({ command }) => {
           tutorial: resolve(__dirname, 'tutorial/index.html'),
           why: resolve(__dirname, 'why/index.html'),
           shader: resolve(__dirname, 'shader/index.html'),
+          shaderLab: resolve(__dirname, 'shader-lab/index.html'),
           creatorchallenge: resolve(__dirname, 'creatorchallenge/index.html'),
         },
       },

@@ -1,0 +1,195 @@
+:root {
+  color: #eef2ef;
+  background: #080a09;
+  font-family: Inter, Arial, sans-serif;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+html { background: #080a09; scroll-behavior: smooth; }
+
+body.spore-page-active {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  color: #eef2ef;
+  background:
+    radial-gradient(circle at 90% 6%, rgba(77, 255, 151, 0.07), transparent 24rem),
+    #080a09;
+}
+
+button, a { font: inherit; }
+button { color: inherit; }
+
+.spore-app {
+  width: min(1680px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 34px 36px;
+}
+
+.spore-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 72px;
+  border-bottom: 1px solid #242825;
+}
+
+.spore-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #f4f7f5;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.spore-brand img { width: 25px; height: 25px; object-fit: contain; }
+.spore-brand span { font-weight: 600; }
+.spore-brand > i { width: 1px; height: 18px; margin: 0 2px; background: #3b413d; }
+.spore-brand strong { color: #a6ffca; font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.spore-brand em { padding: 3px 5px; border: 1px solid #344039; border-radius: 3px; color: #727a75; font-family: 'DM Mono', monospace; font-size: 8px; font-style: normal; letter-spacing: 0.12em; }
+
+.spore-nav-meta { display: flex; align-items: center; gap: 24px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+.spore-nav-meta > span { color: #7c867f; }
+.spore-nav-meta a { display: flex; align-items: center; gap: 8px; color: #e7ece9; text-decoration: none; }
+.spore-nav-meta a:hover { color: #a6ffca; }
+.spore-status-dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: #55f59a; box-shadow: 0 0 9px rgba(85, 245, 154, 0.7); }
+
+.spore-header {
+  display: grid;
+  grid-template-columns: 1.45fr 0.55fr;
+  align-items: end;
+  gap: 48px;
+  padding: 55px 0 46px;
+}
+
+.spore-kicker { margin: 0 0 16px; color: #6f7a73; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.13em; }
+.spore-header h1 { max-width: 740px; margin: 0; color: #f4f7f5; font-size: clamp(54px, 6.4vw, 104px); font-weight: 500; line-height: 0.86; letter-spacing: -0.075em; }
+.spore-header h1 em { color: #93f8bd; font-style: normal; }
+.spore-intro { padding-bottom: 6px; }
+.spore-intro > p { max-width: 390px; margin: 0 0 25px; color: #9aa39d; font-size: 14px; line-height: 1.65; }
+.spore-header-actions { display: flex; gap: 8px; }
+.spore-header-actions button {
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid #303632;
+  border-radius: 4px;
+  background: #111512;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+.spore-header-actions button:last-child { border-color: #97f7be; color: #07110b; background: #97f7be; }
+.spore-header-actions button:hover { transform: translateY(-1px); border-color: #97f7be; }
+.spore-header-actions button:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+.spore-legend {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  min-height: 44px;
+  border-top: 1px solid #242825;
+  border-bottom: 1px solid #242825;
+  color: #adb6b0;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.spore-legend span { display: flex; align-items: center; gap: 7px; }
+.spore-legend small { color: #535b56; font: inherit; text-transform: none; }
+.spore-legend b { margin-left: auto; color: #677069; font-weight: 400; }
+.spore-dot { width: 6px; height: 6px; border-radius: 50%; background: #5f6962; }
+.spore-dot.mutation { background: #93f8bd; }
+.spore-dot.crossover { border: 1px solid #c984ff; background: transparent; }
+
+.spore-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-left: 1px solid #242825;
+}
+
+.spore-card {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid #242825;
+  border-bottom: 1px solid #242825;
+  animation: spore-enter 520ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+  animation-delay: calc(var(--spore-index) * 45ms);
+}
+
+@keyframes spore-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.spore-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.56 / 1;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  background: #030504;
+  cursor: pointer;
+}
+.spore-preview::after { content: ''; position: absolute; inset: 0; border: 1px solid rgba(255,255,255,0.09); border-radius: inherit; pointer-events: none; }
+.spore-canvas { display: block; width: 100%; height: 100%; transition: transform 700ms cubic-bezier(0.2, 0.75, 0.2, 1), filter 400ms ease; }
+.spore-canvas-fallback { display: grid; width: 100%; height: 100%; place-items: center; color: #737c76; font-family: 'DM Mono', monospace; font-size: 10px; }
+.spore-preview:hover .spore-canvas { transform: scale(1.035); filter: saturate(1.12) brightness(1.06); }
+.spore-card-index, .spore-lineage, .spore-pick { position: absolute; z-index: 1; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+.spore-card-index { top: 10px; left: 11px; color: rgba(255,255,255,0.7); }
+.spore-lineage { top: 9px; right: 10px; padding: 3px 6px; border-radius: 2px; color: rgba(255,255,255,0.72); background: rgba(5,8,6,0.56); backdrop-filter: blur(8px); }
+.spore-lineage.mutation { color: #9fffc5; }
+.spore-lineage.crossover { color: #e3b4ff; }
+.spore-pick { right: 10px; bottom: 10px; display: flex; align-items: center; gap: 6px; padding: 7px 9px; color: #061109; background: #9fffc5; opacity: 0; transform: translateY(4px); transition: opacity 180ms ease, transform 180ms ease; }
+.spore-preview:hover .spore-pick, .spore-preview:focus-visible .spore-pick { opacity: 1; transform: translateY(0); }
+.spore-preview:focus-visible { outline: 2px solid #a6ffca; outline-offset: 2px; }
+
+.spore-card-info { display: flex; align-items: start; justify-content: space-between; gap: 20px; padding: 15px 2px 10px; }
+.spore-card-info h2 { margin: 0 0 4px; color: #edf2ef; font-size: 15px; font-weight: 500; letter-spacing: -0.03em; }
+.spore-card-info p { margin: 0; color: #68716b; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.03em; text-transform: uppercase; }
+.spore-card-info button { padding: 5px 7px; border: 1px solid #323833; border-radius: 3px; color: #89928c; background: transparent; font-family: 'DM Mono', monospace; font-size: 8px; cursor: pointer; }
+.spore-card-info button:hover { border-color: #87eeb1; color: #a6ffca; }
+.spore-traits { display: flex; gap: 6px; padding: 0 2px 4px; }
+.spore-traits span { padding: 4px 6px; border: 1px solid #232824; border-radius: 2px; color: #555e58; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; }
+
+.spore-footer { display: flex; align-items: baseline; gap: 20px; padding: 26px 0 0; }
+.spore-footer p { margin: 0; color: #eff4f1; font-size: 13px; }
+.spore-footer span { color: #626b65; font-family: 'DM Mono', monospace; font-size: 9px; }
+.spore-footer button { margin-left: auto; padding: 0; border: 0; border-bottom: 1px solid #55615a; color: #9ba59f; background: transparent; font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; cursor: pointer; }
+.spore-footer button:hover { border-color: #a6ffca; color: #a6ffca; }
+
+@media (max-width: 900px) {
+  .spore-app { padding-inline: 18px; }
+  .spore-header { grid-template-columns: 1fr; gap: 26px; padding-block: 42px 34px; }
+  .spore-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .spore-nav-meta > span { display: none; }
+}
+
+@media (max-width: 580px) {
+  .spore-app { padding-inline: 12px; }
+  .spore-nav { height: 62px; }
+  .spore-brand em, .spore-nav-meta { display: none; }
+  .spore-header h1 { font-size: 55px; }
+  .spore-grid { grid-template-columns: 1fr; }
+  .spore-legend { gap: 14px; }
+  .spore-legend small { display: none; }
+  .spore-preview { aspect-ratio: 1.38 / 1; }
+  .spore-footer { align-items: center; flex-wrap: wrap; }
+  .spore-footer span { order: 3; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .spore-card { animation: none; }
+  .spore-canvas, .spore-header-actions button { transition: none; }
+}
