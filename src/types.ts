@@ -5,6 +5,8 @@ export type ShaderUniformValue = number | boolean | [number, number, number];
 export type WorkspaceMode = 'split' | 'immersive';
 export type ShaderProvider = 'openai' | 'anthropic' | 'google';
 export type ShaderRuntime = '' | 'local' | 'api' | 'chat';
+export type ShaderSourceProfile = 'glsl100' | 'glsl300';
+export type ShaderMinimumTarget = 'webgl1' | 'webgl2';
 export type MobileUiMode = 'full' | 'bar' | 'hidden';
 export type ShaderTemplate = 'stage' | 'drawing' | 'sculpture';
 export type TimelineTransitionEffect = 'mix' | 'wipe' | 'radial' | 'random' | 'noise';
@@ -38,6 +40,7 @@ export interface ShaderVersion {
   prompt: string;
   name: string;
   code: string;
+  sourceProfile?: ShaderSourceProfile;
   createdAt: string;
 }
 
@@ -65,6 +68,8 @@ export interface SavedShader {
   id: string;
   name: string;
   code: string;
+  sourceProfile?: ShaderSourceProfile;
+  minimumTarget?: ShaderMinimumTarget;
   inputAssetId?: string | null;
   versions?: ShaderVersion[];
   lastValidCode?: string;
@@ -201,6 +206,8 @@ export interface ShaderDefinition {
   id: string;
   name: string;
   code: string;
+  sourceProfile?: ShaderSourceProfile;
+  minimumTarget?: ShaderMinimumTarget;
   description: string;
   template: ShaderTemplate;
   templates?: ShaderTemplate[];
@@ -243,6 +250,7 @@ export interface ProjectDocument {
     activeShaderId: string;
     activeShaderName: string;
     activeShaderCode: string;
+    activeShaderSourceProfile?: ShaderSourceProfile;
     shaderVersions: ShaderVersion[];
     savedShaders: SavedShader[];
     shaderChatHistory: ShaderChatTurn[];

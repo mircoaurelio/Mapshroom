@@ -3,7 +3,12 @@ import { blankShaderTemplate } from './templates/blankShader';
 export const SHADER_REQUEST_CONTRACT = `Return one complete replacement fragment shader.
 The first non-empty line must be: // NAME: <Short Name>
 All visual logic must live inside: vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution)
-Use only supported custom uniforms: float, int, vec3, bool
+Expose 3 to 6 meaningful effect controls as custom uniforms so Mapshroom automatically creates sliders (for example speed, intensity, scale, threshold, color)
+Use only supported custom uniform types: float, int, vec3, bool
+Put every uniform on its own line and keep its UI metadata on that same line after //
+Every float or int must include: @min <number> @max <number> @default <number>
+Every vec3 must include: @default <r>,<g>,<b>; every bool must include: @default true|false
+Preserve useful uniforms from the current shader unless the user explicitly asks to remove them
 Use GLSL ES 3.00 syntax for WebGL 2 and sample textures with texture()
 Do not include #version 300 es because Mapshroom injects the version and program wrapper
 Do not declare void main()
@@ -37,6 +42,8 @@ export function buildExternalChatShaderPrompt(
   return `You are a strict GLSL ES 3.00 shader generator for WebGL 2.
 Generate a complete replacement shader that the user can copy and paste back into Mapshroom.
 Follow every shader rule and final-response rule below.
+
+IMPORTANT: the returned shader must include annotated uniforms. Without the exact @min, @max and @default comments Mapshroom cannot create the slider controls.
 
 CURRENT GLSL TO REPLACE:
 \`\`\`glsl

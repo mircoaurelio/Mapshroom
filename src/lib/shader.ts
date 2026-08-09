@@ -6,7 +6,7 @@ import {
   buildVertexShaderSource,
   normalizeOfficialShaderBody,
   OFFICIAL_SHADER_TARGET,
-} from './shaderCompiler';
+} from './shaderCompiler.ts';
 
 export const VERTEX_SHADER_SOURCE = buildVertexShaderSource(OFFICIAL_SHADER_TARGET);
 export const FRAGMENT_SHADER_HEADER = buildFragmentShaderHeader(OFFICIAL_SHADER_TARGET);
@@ -247,6 +247,31 @@ export function validateGeneratedShader(code: string): string {
 
   if (/```|`/.test(trimmed)) {
     problems.push('contains markdown fence characters instead of pure GLSL');
+  }
+
+  const uniformDeclarations = Array.from(
+    trimmed.matchAll(
+      /^\s*uniform\s+(float|int|vec3|bool)\s+([A-Za-z_][A-Za-z0-9_]*)\s*;\s*(?:\/\/\s*(.*))?$/gm,
+    ),
+  );
+  if (uniformDeclarations.length === 0) {
+    problems.push('must expose at least one annotated UI uniform so Mapshroom can create sliders');
+  }
+  for (const declaration of uniformDeclarations) {
+    const type = declaration[1];
+    const name = declaration[2];
+    const metadata = declaration[3] ?? '';
+    const hasDefault = /@default\s+[\w.,-]+/.test(metadata);
+    const hasNumericRange = /@min\s+[\d.-]+/.test(metadata) && /@max\s+[\d.-]+/.test(metadata);
+    if (!hasDefault || ((type === 'float' || type === 'int') && !hasNumericRange)) {
+      problems.push(
+        `uniform ${name} is missing the same-line ${
+          type === 'float' || type === 'int'
+            ? '@min, @max or @default slider metadata'
+            : '@default control metadata'
+        }`,
+      );
+    }
   }
 
   if (problems.length > 0) {

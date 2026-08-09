@@ -18,6 +18,7 @@ import {
 } from './lib/bundledAssets';
 import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
 import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
+import { OFFICIAL_SHADER_PROFILE } from './lib/shaderCompiler';
 import {
   legacyBlankShaderTemplate,
 } from './shaders/templates/blankShader';
@@ -137,6 +138,7 @@ export function createDefaultProject(
       activeShaderId: activeShader.id,
       activeShaderName: activeShader.name,
       activeShaderCode: activeShader.code,
+      activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
       shaderVersions: defaultShaderVersions,
       savedShaders: Object.values(DEFAULT_SHADERS).map((shader) => ({
         ...shader,
@@ -274,6 +276,7 @@ export function createEmptyProject(
       activeShaderId: shaderId,
       activeShaderName: shaderName,
       activeShaderCode: shaderCode,
+      activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
       shaderVersions: [shaderVersion],
       savedShaders: [...project.studio.savedShaders, emptyShader],
       shaderChatHistory: [],

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect, useState, type UIEvent as ReactUIEvent } from 'react';
+import { normalizeOfficialShaderBody } from '../lib/shaderCompiler';
 import type {
   SavedShader,
   ShaderUniformMap,
@@ -455,7 +456,7 @@ export function ShaderCodeSection({
         throw new Error('Clipboard unavailable.');
       }
 
-      await navigator.clipboard.writeText(shaderCode);
+      await navigator.clipboard.writeText(normalizeOfficialShaderBody(shaderCode));
       setCopyState('copied');
     } catch {
       setCopyState('error');

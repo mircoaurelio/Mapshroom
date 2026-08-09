@@ -1,6 +1,8 @@
 import { APP_VERSION, createDefaultProject } from '../config';
 import { persistActiveSessionId, saveProjectDocument } from './storage';
 import { parseShaderName, parseUniforms, syncUniformValues } from './shader';
+import { normalizeOfficialShaderBody, OFFICIAL_SHADER_PROFILE } from './shaderCompiler';
+import { normalizeProjectShaderSources } from './shaderProfile';
 import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings';
 import { normalizeTimelineTransitionEffect } from './timeline';
 import {
@@ -10,6 +12,8 @@ import {
 import type {
   ProjectDocument,
   SavedShader,
+  ShaderMinimumTarget,
+  ShaderSourceProfile,
   ShaderUniformValueMap,
   TimelineEditorViewMode,
   TimelineSequenceMode,
@@ -37,6 +41,8 @@ interface CompactSharedShaderPayload {
   i: string;
   c: string;
   u?: ShaderUniformValueMap;
+  p?: ShaderSourceProfile;
+  w?: ShaderMinimumTarget;
 }
 
 interface CompactSharedTimelineStepPayload {
@@ -265,6 +271,7 @@ function createBaseShaderVersion(name: string, code: string) {
       prompt: 'Base Node Source',
       name,
       code,
+      sourceProfile: OFFICIAL_SHADER_PROFILE,
       createdAt: new Date().toISOString(),
     },
   ];
@@ -367,22 +374,27 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
         i: shader.id,
         c: compactCode,
         u: Object.keys(compactUniformValues).length ? compactUniformValues : undefined,
+        p: OFFICIAL_SHADER_PROFILE,
+        w: shader.minimumTarget ?? 'webgl1',
       };
     }),
   };
 }
 
 function restoreSavedShader(payload: CompactSharedShaderPayload): SavedShader {
-  const name = parseShaderName(payload.c);
-  const uniformValues = syncUniformValues(payload.u ?? {}, parseUniforms(payload.c));
+  const code = normalizeOfficialShaderBody(payload.c);
+  const name = parseShaderName(code);
+  const uniformValues = syncUniformValues(payload.u ?? {}, parseUniforms(code));
 
   return {
     id: payload.i,
     name,
-    code: payload.c,
-    versions: createBaseShaderVersion(name, payload.c),
+    code,
+    sourceProfile: OFFICIAL_SHADER_PROFILE,
+    minimumTarget: payload.w ?? 'webgl1',
+    versions: createBaseShaderVersion(name, code),
     uniformValues,
-    lastValidCode: payload.c,
+    lastValidCode: code,
     lastValidUniformValues: uniformValues,
     pendingAiJobCount: 0,
     hasUnreadAiResult: false,
@@ -446,6 +458,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
       activeShaderId: activeShader.id,
       activeShaderName: activeShader.name,
       activeShaderCode: activeShader.code,
+      activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
       shaderVersions: activeShader.versions ?? createBaseShaderVersion(activeShader.name, activeShader.code),
       savedShaders,
       shaderChatHistory: [],
@@ -525,7 +538,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
 export async function createProjectShareLink(
   project: ProjectDocument,
 ): Promise<ProjectShareLinkResult> {
-  const payload = createCompactSharePayload(project);
+  const payload = createCompactSharePayload(normalizeProjectShaderSources(project));
   const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
   const sha256 = await createSha256Hex(payloadBytes);
   const compressedBytes = await compressBytes(payloadBytes);
@@ -570,7 +583,7 @@ export async function importProjectFromSharedUrl(): Promise<ImportedSharedProjec
     throw new Error('Shared project link is invalid.');
   }
 
-  const importedProject = restoreProjectFromCompactPayload(payload);
+  const importedProject = normalizeProjectShaderSources(restoreProjectFromCompactPayload(payload));
   saveProjectDocument(importedProject);
   persistActiveSessionId(importedProject.sessionId);
   stripShareParamsFromUrl();

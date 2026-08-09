@@ -15,6 +15,7 @@ import {
   isBundledProjectSessionId,
 } from './bundledProjects';
 import { restoreTransport, snapshotTransport } from './clock';
+import { normalizeProjectShaderSources } from './shaderProfile';
 import type {
   ProjectDocument,
   ProjectLibraryEntry,
@@ -65,13 +66,13 @@ export function loadProjectDocument(sessionId: string): ProjectDocument | null {
     if (parsed.version !== APP_VERSION) {
       return null;
     }
-    return {
+    return normalizeProjectShaderSources({
       ...parsed,
       playback: {
         ...parsed.playback,
         transport: restoreTransport(parsed.playback.transport),
       },
-    };
+    });
   } catch (error) {
     console.warn('Unable to parse persisted project document.', error);
     return null;
@@ -134,15 +135,18 @@ function isUnmodifiedDefaultPreset(shader: SavedShader): boolean {
 }
 
 function createProjectSnapshot(project: ProjectDocument): ProjectDocument {
+  const normalizedProject = normalizeProjectShaderSources(project);
   return {
-    ...project,
+    ...normalizedProject,
     playback: {
-      ...project.playback,
-      transport: snapshotTransport(project.playback.transport),
+      ...normalizedProject.playback,
+      transport: snapshotTransport(normalizedProject.playback.transport),
     },
     studio: {
-      ...project.studio,
-      savedShaders: project.studio.savedShaders.filter((shader) => !isUnmodifiedDefaultPreset(shader)),
+      ...normalizedProject.studio,
+      savedShaders: normalizedProject.studio.savedShaders.filter(
+        (shader) => !isUnmodifiedDefaultPreset(shader),
+      ),
     },
   };
 }

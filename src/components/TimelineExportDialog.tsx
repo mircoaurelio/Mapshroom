@@ -4,6 +4,11 @@ import { TimelineStageRenderer } from './TimelineStageRenderer';
 import type { StageFrameInfo, StageRendererState } from './StageRenderer';
 import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 import { loadOutputViewportSnapshot } from '../lib/outputViewport';
+import {
+  detectMinimumShaderTarget,
+  normalizeOfficialShaderBody,
+  OFFICIAL_SHADER_PROFILE,
+} from '../lib/shaderCompiler';
 import type {
   AssetRecord,
   PlaybackTransport,
@@ -35,6 +40,8 @@ interface ShaderBundleEntry {
   id: string;
   name: string;
   code: string;
+  sourceProfile: typeof OFFICIAL_SHADER_PROFILE;
+  minimumTarget: NonNullable<SavedShader['minimumTarget']>;
   description?: string;
   template?: SavedShader['template'];
   group?: string;
@@ -293,7 +300,12 @@ export function TimelineExportDialog({
       (shader): ShaderBundleEntry => ({
         id: shader.id,
         name: shader.name,
-        code: shader.code,
+        code: normalizeOfficialShaderBody(shader.code),
+        sourceProfile: OFFICIAL_SHADER_PROFILE,
+        minimumTarget:
+          shader.minimumTarget === 'webgl2' || detectMinimumShaderTarget(shader.code) === 'webgl2'
+            ? 'webgl2'
+            : 'webgl1',
         ...(shader.description ? { description: shader.description } : {}),
         ...(shader.template ? { template: shader.template } : {}),
         ...(shader.group ? { group: shader.group } : {}),
@@ -677,7 +689,10 @@ export function TimelineExportDialog({
     ];
     const bundle = {
       format: 'mapshroom-shader-bundle',
-      version: 1,
+      version: 2,
+      shaderAbi: 1,
+      sourceProfile: OFFICIAL_SHADER_PROFILE,
+      runtime: 'webgl2',
       exportedAt: new Date().toISOString(),
       project: {
         sessionId,

@@ -97,7 +97,12 @@ import {
   syncUniformValues,
   validateGeneratedShader,
 } from '../lib/shader';
-import { normalizeOfficialShaderBody } from '../lib/shaderCompiler';
+import {
+  detectMinimumShaderTarget,
+  normalizeOfficialShaderBody,
+  OFFICIAL_SHADER_PROFILE,
+} from '../lib/shaderCompiler';
+import { normalizeProjectShaderSources } from '../lib/shaderProfile';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import {
   readConfiguredLocalModel,
@@ -1450,7 +1455,9 @@ function withNewTimelineRandomSeed(project: ProjectDocument): ProjectDocument {
 }
 
 function normalizeProject(project: ProjectDocument): ProjectDocument {
-  return normalizeProjectDocument(upgradeLegacyEmptyProject(project));
+  return normalizeProjectDocument(
+    normalizeProjectShaderSources(upgradeLegacyEmptyProject(project)),
+  );
 }
 
 function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
@@ -1460,6 +1467,7 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
   const normalizedProjectShaderVersions = project.studio.shaderVersions.map((version) => ({
     ...version,
     code: normalizeOfficialShaderBody(version.code),
+    sourceProfile: OFFICIAL_SHADER_PROFILE,
   }));
   const uniformDefinitions = parseUniforms(normalizedActiveShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
@@ -1482,6 +1490,7 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
       ? shader.versions?.map((version) => ({
           ...version,
           code: normalizeOfficialShaderBody(version.code),
+          sourceProfile: OFFICIAL_SHADER_PROFILE,
         }))
       : undefined;
     const shaderLastValidCode = 'lastValidCode' in shader ? shader.lastValidCode : undefined;
@@ -1508,6 +1517,13 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
       audioReactiveBindings:
         defaultPreset?.audioReactiveBindings ?? shader.audioReactiveBindings,
       code: normalizedCode,
+      sourceProfile: OFFICIAL_SHADER_PROFILE,
+      minimumTarget:
+        defaultPreset?.minimumTarget === 'webgl2' ||
+        shader.minimumTarget === 'webgl2' ||
+        detectMinimumShaderTarget(normalizedCode) === 'webgl2'
+          ? 'webgl2'
+          : 'webgl1',
       versions: getShaderVersionTrail(
         {
           name: normalizedName,
@@ -1765,6 +1781,7 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
       shaderChatHistory: project.studio.shaderChatHistory ?? [],
       activeShaderName: parseShaderName(normalizedActiveShaderCode),
       activeShaderCode: normalizedActiveShaderCode,
+      activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
       shaderVersions: normalizedStudioShaderVersions,
       savedShaders: mergedSavedShaders,
       uniformValues: syncUniformValues(project.studio.uniformValues, uniformDefinitions),
@@ -2030,6 +2047,7 @@ function createShaderVersion(
     prompt,
     name,
     code,
+    sourceProfile: OFFICIAL_SHADER_PROFILE,
     createdAt: new Date().toISOString(),
   };
 }
@@ -2150,6 +2168,7 @@ function applyActiveShaderPatch(
       activeShaderId: nextActiveShaderId,
       activeShaderName: nextActiveShaderName,
       activeShaderCode: nextActiveShaderCode,
+      activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
       shaderVersions: nextShaderVersions,
       uniformValues: nextUniformValues,
       savedShaders: shouldSyncActiveSavedShader && activeSavedShader
@@ -2159,6 +2178,8 @@ function applyActiveShaderPatch(
                   ...shader,
                   name: nextActiveShaderName,
                   code: nextActiveShaderCode,
+                  sourceProfile: OFFICIAL_SHADER_PROFILE,
+                  minimumTarget: detectMinimumShaderTarget(nextActiveShaderCode),
                   versions: nextShaderVersions,
                   uniformValues: nextUniformValues,
                   isDirty: true,
@@ -2242,6 +2263,7 @@ function applyExternalShaderCodeToProject(
       activeShaderCode: shouldActivateTarget
         ? nextCode
         : currentProject.studio.activeShaderCode,
+      activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
       uniformValues: shouldActivateTarget
         ? nextUniformValues
         : currentProject.studio.uniformValues,
@@ -2261,6 +2283,8 @@ function applyExternalShaderCodeToProject(
               ...shader,
               name: nextName,
               code: nextCode,
+              sourceProfile: OFFICIAL_SHADER_PROFILE,
+              minimumTarget: detectMinimumShaderTarget(nextCode),
               versions: nextShaderVersions,
               uniformValues: nextUniformValues,
               lastValidCode: nextLastValidCode,
@@ -2356,6 +2380,8 @@ function createSavedShaderRecord(
     id: `${options.isTemporary ? 'timeline' : 'saved'}-${crypto.randomUUID()}`,
     name: label,
     code,
+    sourceProfile: OFFICIAL_SHADER_PROFILE,
+    minimumTarget: detectMinimumShaderTarget(code),
     versions: getShaderVersionTrail(
       {
         name: label,
@@ -2942,6 +2968,11 @@ export function WorkspaceRoute() {
       }
 
       let linkedProject: ProjectDocument | null = null;
+      const hashQuery = window.location.hash.split('?')[1] ?? '';
+      const requestedProjectSessionId = new URLSearchParams(hashQuery).get('project')?.trim() ?? '';
+      const requestedProject = requestedProjectSessionId
+        ? loadProjectDocument(requestedProjectSessionId)
+        : null;
       try {
         const shaderApplyLink = parseShaderApplyLink(window.location.href);
         linkedProject = shaderApplyLink
@@ -2952,10 +2983,11 @@ export function WorkspaceRoute() {
         // the regular workspace has loaded.
       }
 
-      const sessionId = linkedProject?.sessionId ?? getOrCreateSessionId();
+      const sessionId =
+        linkedProject?.sessionId ?? requestedProject?.sessionId ?? getOrCreateSessionId();
       // Existing installs that still point at the huge bundled Statue timeline
       // get a fresh starter project with a small random shader set.
-      if (isBundledProjectSessionId(sessionId) && !linkedProject) {
+      if (isBundledProjectSessionId(sessionId) && !linkedProject && !requestedProject) {
         const nextSessionId = crypto.randomUUID();
         const starterProject = activateTimelineOnAppEntry(
           normalizeProject(
@@ -2971,6 +3003,7 @@ export function WorkspaceRoute() {
       persistActiveSessionId(sessionId);
       const loadedProject =
         linkedProject ??
+        requestedProject ??
         loadProjectDocument(sessionId) ??
         createDefaultProject(sessionId, { isMobile: initialIsMobileRef.current });
       const sliderCache = loadShaderSliderCache(sessionId);
@@ -3091,7 +3124,7 @@ export function WorkspaceRoute() {
             name: `${normalizedTargetProject.name} AI Edit`,
           }
         : normalizedTargetProject;
-      const nextProject = applyExternalShaderCodeToProject(destinationProject, {
+      const appliedProject = applyExternalShaderCodeToProject(destinationProject, {
         targetShaderId: shaderApplyLink.targetShaderId,
         prompt,
         historyPrompt,
@@ -3101,6 +3134,31 @@ export function WorkspaceRoute() {
         versionId,
         activateTarget: true,
       });
+      const linkedAssetId = shaderApplyLink.assetId;
+      const linkedAsset = linkedAssetId
+        ? appliedProject.library.assets.find((asset) => asset.id === linkedAssetId) ?? null
+        : null;
+      const nextProject = linkedAsset
+        ? {
+            ...appliedProject,
+            library: {
+              ...appliedProject.library,
+              activeAssetId: linkedAsset.id,
+            },
+            studio: {
+              ...appliedProject.studio,
+              savedShaders: appliedProject.studio.savedShaders.map((shader) =>
+                shader.id === shaderApplyLink.targetShaderId
+                  ? { ...shader, inputAssetId: linkedAsset.id }
+                  : shader,
+              ),
+            },
+            playback: {
+              ...appliedProject.playback,
+              activeAssetId: linkedAsset.id,
+            },
+          }
+        : appliedProject;
       const nextName = parseShaderName(nextCode);
 
       generatedShaderRetryRef.current[shaderApplyLink.targetShaderId] = {
@@ -5859,6 +5917,7 @@ export function WorkspaceRoute() {
         activeShaderId: nextShader.id,
         activeShaderName: nextName,
         activeShaderCode: nextCode,
+        activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
         shaderChatHistory: [],
         shaderVersions: nextShaderVersions,
         uniformValues: getSyncedShaderUniformValues(nextCode, nextShader.uniformValues),
@@ -6039,6 +6098,7 @@ export function WorkspaceRoute() {
           activeShaderCode: shouldRetargetActiveShader
             ? nextAutosavedShader?.code ?? currentProject.studio.activeShaderCode
             : currentProject.studio.activeShaderCode,
+          activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
           uniformValues: shouldRetargetActiveShader
             ? getSyncedShaderUniformValues(
                 nextAutosavedShader?.code ?? currentProject.studio.activeShaderCode,
@@ -6115,6 +6175,7 @@ export function WorkspaceRoute() {
             ...currentProject.studio,
             activeShaderName: appliedToActiveShader ? nextName : currentProject.studio.activeShaderName,
             activeShaderCode: appliedToActiveShader ? nextCode : currentProject.studio.activeShaderCode,
+            activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
             uniformValues: appliedToActiveShader
               ? nextUniformValues
               : currentProject.studio.uniformValues,
@@ -6134,6 +6195,8 @@ export function WorkspaceRoute() {
                     ...shader,
                     name: nextName,
                     code: nextCode,
+                    sourceProfile: OFFICIAL_SHADER_PROFILE,
+                    minimumTarget: detectMinimumShaderTarget(nextCode),
                     versions: nextShaderVersions,
                     uniformValues: nextUniformValues,
                     lastValidCode: nextLastValidCode,
@@ -6409,6 +6472,7 @@ ${compilerError}`;
               ...currentProject.studio,
               activeShaderName: nextName,
               activeShaderCode: nextCode,
+              activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
               uniformValues: nextUniformValues,
               shaderVersions: nextShaderVersions,
               savedShaders: currentProject.studio.savedShaders.map((shader) =>
@@ -6417,6 +6481,8 @@ ${compilerError}`;
                       ...shader,
                       name: nextName,
                       code: nextCode,
+                      sourceProfile: OFFICIAL_SHADER_PROFILE,
+                      minimumTarget: detectMinimumShaderTarget(nextCode),
                       versions: nextShaderVersions,
                       uniformValues: nextUniformValues,
                       lastValidCode: nextLastValidCode,

@@ -26,5 +26,6 @@ test('AI contracts request the official WebGL 2 / GLSL ES 3.00 shader body', () 
 
 test('the official blank shader uses texture while retaining a named legacy migration fixture', () => {
   assert.match(blankShaderSource, /export const blankShaderTemplate[\s\S]*texture\(tex, uv\)/);
+  assert.match(blankShaderSource, /uniform float intensity; \/\/ @min 0\.0 @max 2\.0 @default 1\.0/);
   assert.match(blankShaderSource, /export const legacyBlankShaderTemplate[\s\S]*texture2D\(tex, uv\)/);
 });

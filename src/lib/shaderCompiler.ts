@@ -1,6 +1,9 @@
-export type ShaderCompileTarget = 'webgl1' | 'webgl2';
+import type { ShaderMinimumTarget, ShaderSourceProfile } from '../types';
+
+export type ShaderCompileTarget = ShaderMinimumTarget;
 
 export const OFFICIAL_SHADER_TARGET: ShaderCompileTarget = 'webgl2';
+export const OFFICIAL_SHADER_PROFILE: ShaderSourceProfile = 'glsl300';
 
 export interface ShaderProgramSources {
   abiVersion: typeof SHADER_ABI_VERSION;
@@ -156,6 +159,37 @@ function replaceCodeIdentifiers(source: string, replacements: Readonly<Record<st
   return result;
 }
 
+const OFFICIAL_IDENTIFIER_REPLACEMENTS = {
+  active: 'mapshroom_legacy_active',
+  texture2D: 'texture',
+  texture2DProj: 'textureProj',
+  textureCube: 'texture',
+} as const;
+
+export function normalizeOfficialShaderIdentifier(identifier: string): string {
+  return OFFICIAL_IDENTIFIER_REPLACEMENTS[
+    identifier as keyof typeof OFFICIAL_IDENTIFIER_REPLACEMENTS
+  ] ?? identifier;
+}
+
+export function isShaderTargetSupported(
+  minimumTarget: ShaderMinimumTarget | undefined,
+  target: ShaderCompileTarget,
+): boolean {
+  return target === 'webgl2' || minimumTarget !== 'webgl2';
+}
+
+export function detectMinimumShaderTarget(code: string): ShaderMinimumTarget {
+  const codeWithoutComments = code
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\/\/[^\r\n]*/g, ' ');
+  return /\b(?:texelFetch|textureSize|textureLod|textureGrad|uint|uvec[234]|isnan|isinf|round|trunc|dFdx|dFdy|fwidth)\b/.test(
+    codeWithoutComments,
+  )
+    ? 'webgl2'
+    : 'webgl1';
+}
+
 export function adaptShaderBodyForTarget(code: string, target: ShaderCompileTarget): string {
   if (target === 'webgl1') {
     return replaceCodeIdentifiers(code, {
@@ -164,14 +198,9 @@ export function adaptShaderBodyForTarget(code: string, target: ShaderCompileTarg
     });
   }
 
-  return replaceCodeIdentifiers(code, {
-    // `active` is legal in GLSL ES 1.00 but reserved in GLSL ES 3.00.
-    // It exists as a local variable in the legacy catalog.
-    active: 'mapshroom_legacy_active',
-    texture2D: 'texture',
-    texture2DProj: 'textureProj',
-    textureCube: 'texture',
-  });
+  // `active` is legal in GLSL ES 1.00 but reserved in GLSL ES 3.00.
+  // It exists in legacy catalog code and can also occur as an old uniform name.
+  return replaceCodeIdentifiers(code, OFFICIAL_IDENTIFIER_REPLACEMENTS);
 }
 
 export function normalizeOfficialShaderBody(code: string): string {
