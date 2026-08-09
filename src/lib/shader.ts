@@ -1,43 +1,14 @@
 import type { ShaderUniformDefinition, ShaderUniformMap, ShaderUniformValue } from '../types';
+import {
+  buildFragmentShaderFooter,
+  buildFragmentShaderHeader,
+  buildFragmentShaderSourceForTarget,
+  buildVertexShaderSource,
+} from './shaderCompiler';
 
-export const VERTEX_SHADER_SOURCE = `
-attribute vec2 a_position;
-varying vec2 v_uv;
-
-void main() {
-    v_uv = a_position * 0.5 + 0.5;
-    v_uv.y = 1.0 - v_uv.y;
-    gl_Position = vec4(a_position, 0.0, 1.0);
-}`;
-
-export const FRAGMENT_SHADER_HEADER = `
-precision highp float;
-varying vec2 v_uv;
-uniform sampler2D u_image;
-uniform float u_time;
-uniform vec2 u_resolution;
-
-float node_rand(vec2 n) {
-    return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
-}
-
-float node_noise(vec2 p) {
-    vec2 ip = floor(p);
-    vec2 u = fract(p);
-    u = u * u * (3.0 - 2.0 * u);
-    float res = mix(
-        mix(node_rand(ip), node_rand(ip + vec2(1.0, 0.0)), u.x),
-        mix(node_rand(ip + vec2(0.0, 1.0)), node_rand(ip + vec2(1.0, 1.0)), u.x),
-        u.y
-    );
-    return res * res;
-}
-`;
-
-export const FRAGMENT_SHADER_FOOTER = `
-void main() {
-    gl_FragColor = processColor(u_image, v_uv, u_time, u_resolution);
-}`;
+export const VERTEX_SHADER_SOURCE = buildVertexShaderSource('webgl1');
+export const FRAGMENT_SHADER_HEADER = buildFragmentShaderHeader('webgl1');
+export const FRAGMENT_SHADER_FOOTER = buildFragmentShaderFooter('webgl1');
 
 export function rgbToHex(value: ShaderUniformValue): string {
   if (!Array.isArray(value)) {
@@ -280,5 +251,5 @@ export function validateGeneratedShader(code: string): string {
 }
 
 export function buildFragmentShaderSource(code: string): string {
-  return `${FRAGMENT_SHADER_HEADER}\n${code}\n${FRAGMENT_SHADER_FOOTER}`;
+  return buildFragmentShaderSourceForTarget(code, 'webgl1');
 }

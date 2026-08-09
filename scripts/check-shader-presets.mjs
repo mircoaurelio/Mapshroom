@@ -1,9 +1,12 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const PORT = 4600 + Math.floor(Math.random() * 200);
 const HOST = '127.0.0.1';
-const URL = `http://${HOST}:${PORT}/shader-smoke-test.html`;
+const TEST_URL = `http://${HOST}:${PORT}/shader-smoke-test.html`;
+const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
+const VITE_CLI = fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url));
 const CHROME_PATHS = [
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
@@ -73,17 +76,22 @@ async function main() {
     throw new Error('Unable to find Chrome or Edge for the shader smoke test.');
   }
 
-  const serverCommand =
-    process.platform === 'win32'
-      ? ['cmd.exe', ['/c', `npm run dev -- --host ${HOST} --port ${PORT} --strictPort`]]
-      : ['npm', ['run', 'dev', '--', '--host', HOST, '--port', String(PORT), '--strictPort']];
-
   const server = spawn(
-    serverCommand[0],
-    serverCommand[1],
+    process.execPath,
+    [
+      VITE_CLI,
+      '--config',
+      'vite.shader-test.config.ts',
+      '--host',
+      HOST,
+      '--port',
+      String(PORT),
+      '--strictPort',
+    ],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
+      cwd: REPO_ROOT,
     },
   );
 
@@ -96,21 +104,26 @@ async function main() {
   });
 
   try {
-    await waitForServer(URL);
+    await waitForServer(TEST_URL);
 
     const { stdout } = await runProcess(browserPath, [
       '--headless=new',
-      '--disable-gpu',
-      '--virtual-time-budget=5000',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
+      '--disable-gpu-sandbox',
+      // The runner only loads the isolated localhost smoke page. This avoids a
+      // Windows headless GPU-process deadlock seen with Chrome's sandbox.
+      '--no-sandbox',
+      '--virtual-time-budget=30000',
       '--dump-dom',
-      URL,
+      TEST_URL,
     ]);
 
     if (!stdout.includes('data-status="ok"')) {
       throw new Error(stdout);
     }
 
-    console.log('Shader smoke test passed.');
+    console.log('Shader smoke test passed for WebGL 1 and WebGL 2.');
   } finally {
     if (!server.killed) {
       if (process.platform === 'win32' && server.pid) {
