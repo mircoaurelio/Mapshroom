@@ -5,7 +5,11 @@ import {
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
 import type { ShaderRequestOptions } from './openai';
-import { extractGlslCode, validateGeneratedShader } from './shader';
+import {
+  AI_MINIMUM_UI_UNIFORM_COUNT,
+  extractGlslCode,
+  validateGeneratedShader,
+} from './shader';
 
 export async function requestGoogleShaderMutation({
   apiKey,
@@ -82,5 +86,7 @@ export async function requestGoogleShaderMutation({
     throw new Error('Google AI returned no shader content.');
   }
 
-  return validateGeneratedShader(extractGlslCode(text));
+  return validateGeneratedShader(extractGlslCode(text), {
+    minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+  });
 }

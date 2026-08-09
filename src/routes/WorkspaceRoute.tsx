@@ -91,6 +91,7 @@ import {
 } from '../lib/bundledAssets';
 import { isBundledProjectSessionId } from '../lib/bundledProjects';
 import {
+  AI_MINIMUM_UI_UNIFORM_COUNT,
   extractGlslCode,
   parseShaderName,
   parseUniforms,
@@ -3103,7 +3104,9 @@ export function WorkspaceRoute() {
     }
 
     try {
-      const nextCode = validateGeneratedShader(shaderApplyLink.code);
+      const nextCode = validateGeneratedShader(shaderApplyLink.code, {
+        minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+      });
       const validationError = validateShaderCodeCompilation(nextCode);
       const pendingRequest = loadPendingShaderApplyRequest(shaderApplyLink.requestId);
       const matchingPendingRequest =
@@ -6297,6 +6300,7 @@ export function WorkspaceRoute() {
     }
     const nextCode = validateGeneratedShader(
       shaderApplyLink?.code ?? extractGlslCode(response),
+      { minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT },
     );
     const targetShader = project.studio.savedShaders.find(
       (shader) => shader.id === externalChatRequest.targetShaderId,

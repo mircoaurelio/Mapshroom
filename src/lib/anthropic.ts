@@ -1,6 +1,10 @@
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
-import { extractGlslCode, validateGeneratedShader } from './shader';
+import {
+  AI_MINIMUM_UI_UNIFORM_COUNT,
+  extractGlslCode,
+  validateGeneratedShader,
+} from './shader';
 
 import type { ShaderRequestOptions } from './openai';
 
@@ -78,5 +82,7 @@ export async function requestAnthropicShaderMutation({
     .join('\n')
     .trim();
   if (!text) throw new Error('Anthropic returned no shader content.');
-  return validateGeneratedShader(extractGlslCode(text));
+  return validateGeneratedShader(extractGlslCode(text), {
+    minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+  });
 }

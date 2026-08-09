@@ -1,6 +1,10 @@
 import { buildShaderMutationPrompt } from '../shaders/requestContract';
 import { SHADER_SYSTEM_PROMPT } from '../shaders/systemPrompt';
-import { extractGlslCode, validateGeneratedShader } from './shader';
+import {
+  AI_MINIMUM_UI_UNIFORM_COUNT,
+  extractGlslCode,
+  validateGeneratedShader,
+} from './shader';
 
 export const LOCAL_VISION_MODEL = { id: 'onnx-community/Florence-2-base-ft', label: 'Florence-2 Vision', size: '~0.8 GB quantized' } as const;
 export const LOCAL_SHADER_MODELS = [
@@ -109,5 +113,7 @@ export async function requestLocalShaderMutation({ modelId, prompt, currentCode,
   const output = await generator([{ role: 'system', content: SHADER_SYSTEM_PROMPT }, { role: 'user', content: request }], { max_new_tokens: 4096, do_sample: false, repetition_penalty: 1.05 });
   const text = generatedText(output).trim();
   if (!text) throw new Error('The local model returned no shader content.');
-  return validateGeneratedShader(extractGlslCode(text));
+  return validateGeneratedShader(extractGlslCode(text), {
+    minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+  });
 }

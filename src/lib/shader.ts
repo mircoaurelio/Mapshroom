@@ -213,7 +213,12 @@ export function extractGlslCode(text: string): string {
   return sanitizeExtractedShader(normalized);
 }
 
-export function validateGeneratedShader(code: string): string {
+export const AI_MINIMUM_UI_UNIFORM_COUNT = 3;
+
+export function validateGeneratedShader(
+  code: string,
+  options: { minimumUiUniformCount?: number } = {},
+): string {
   const trimmed = code.trim();
   const firstNonEmptyLine = trimmed
     .split('\n')
@@ -254,8 +259,13 @@ export function validateGeneratedShader(code: string): string {
       /^\s*uniform\s+(float|int|vec3|bool)\s+([A-Za-z_][A-Za-z0-9_]*)\s*;\s*(?:\/\/\s*(.*))?$/gm,
     ),
   );
-  if (uniformDeclarations.length === 0) {
-    problems.push('must expose at least one annotated UI uniform so Mapshroom can create sliders');
+  const minimumUiUniformCount = Math.max(1, options.minimumUiUniformCount ?? 1);
+  if (uniformDeclarations.length < minimumUiUniformCount) {
+    problems.push(
+      `must expose at least ${minimumUiUniformCount} annotated UI uniform${
+        minimumUiUniformCount === 1 ? '' : 's'
+      } so Mapshroom can create automatic controls`,
+    );
   }
   for (const declaration of uniformDeclarations) {
     const type = declaration[1];

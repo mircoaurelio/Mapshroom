@@ -89,8 +89,12 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
   return texture(tex, uv) * intensity;
 }`;
 
-  assert.throws(() => validateGeneratedShader(noControls), /at least one annotated UI uniform/);
+  assert.throws(() => validateGeneratedShader(noControls), /at least 1 annotated UI uniform/);
   assert.throws(() => validateGeneratedShader(missingRange), /slider metadata/);
+  assert.throws(
+    () => validateGeneratedShader(legacyBody, { minimumUiUniformCount: 3 }),
+    /at least 3 annotated UI uniforms/,
+  );
 });
 
 test('Depth Lab contains exactly ten WebGL2-only, parametrized, audio-reactive presets', () => {
