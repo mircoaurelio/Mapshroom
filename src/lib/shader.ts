@@ -7,6 +7,7 @@ import {
   normalizeOfficialShaderBody,
   OFFICIAL_SHADER_TARGET,
 } from './shaderCompiler.ts';
+import { embedShaderPromptComment } from './shaderPromptMetadata.ts';
 
 export const VERTEX_SHADER_SOURCE = buildVertexShaderSource(OFFICIAL_SHADER_TARGET);
 export const FRAGMENT_SHADER_HEADER = buildFragmentShaderHeader(OFFICIAL_SHADER_TARGET);
@@ -39,6 +40,33 @@ export function parseShaderName(code: string): string {
 // strings on every animation frame, so results are memoized by source code.
 const parseUniformsCache = new Map<string, ShaderUniformMap>();
 const PARSE_UNIFORMS_CACHE_LIMIT = 512;
+const SHADER_METADATA_NUMBER_SOURCE = '[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?';
+
+function readShaderMetadataNumber(metadata: string, tag: 'min' | 'max' | 'default'): number | null {
+  const match = metadata.match(new RegExp(`@${tag}\\s+(${SHADER_METADATA_NUMBER_SOURCE})`));
+  if (!match) {
+    return null;
+  }
+
+  const value = Number.parseFloat(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+function readShaderMetadataVec3(metadata: string): [number, number, number] | null {
+  const match = metadata.match(
+    new RegExp(
+      `@default\\s+(${SHADER_METADATA_NUMBER_SOURCE})\\s*,\\s*(${SHADER_METADATA_NUMBER_SOURCE})\\s*,\\s*(${SHADER_METADATA_NUMBER_SOURCE})`,
+    ),
+  );
+  if (!match) {
+    return null;
+  }
+
+  const channels = [match[1], match[2], match[3]].map((item) => Number.parseFloat(item));
+  return channels.every(Number.isFinite)
+    ? [channels[0], channels[1], channels[2]]
+    : null;
+}
 
 export function parseUniforms(code: string): ShaderUniformMap {
   const cachedUniforms = parseUniformsCache.get(code);
@@ -61,30 +89,25 @@ export function parseUniforms(code: string): ShaderUniformMap {
     let defaultValue: ShaderUniformValue = type === 'bool' ? false : type === 'vec3' ? [1, 1, 1] : 0.5;
 
     if (type === 'float' || type === 'int') {
-      const minMatch = meta.match(/@min\s+([\d.-]+)/);
-      const maxMatch = meta.match(/@max\s+([\d.-]+)/);
-      if (minMatch) {
-        min = Number.parseFloat(minMatch[1]);
+      const parsedMin = readShaderMetadataNumber(meta, 'min');
+      const parsedMax = readShaderMetadataNumber(meta, 'max');
+      if (parsedMin !== null) {
+        min = parsedMin;
       }
-      if (maxMatch) {
-        max = Number.parseFloat(maxMatch[1]);
+      if (parsedMax !== null) {
+        max = parsedMax;
       }
     }
 
-    const defaultMatch = meta.match(/@default\s+([\w.,-]+)/);
-    if (defaultMatch) {
-      if (type === 'bool') {
-        defaultValue = defaultMatch[1] === 'true';
-      } else if (type === 'vec3') {
-        const channels = defaultMatch[1].split(',').map((item) => Number.parseFloat(item));
-        defaultValue = [
-          channels[0] ?? 1,
-          channels[1] ?? 1,
-          channels[2] ?? 1,
-        ];
-      } else {
-        defaultValue = Number.parseFloat(defaultMatch[1]);
+    if (type === 'bool') {
+      const defaultMatch = meta.match(/@default\s+(true|false)\b/i);
+      if (defaultMatch) {
+        defaultValue = defaultMatch[1].toLowerCase() === 'true';
       }
+    } else if (type === 'vec3') {
+      defaultValue = readShaderMetadataVec3(meta) ?? defaultValue;
+    } else {
+      defaultValue = readShaderMetadataNumber(meta, 'default') ?? defaultValue;
     }
 
     uniforms[name] = {
@@ -217,9 +240,15 @@ export const AI_MINIMUM_UI_UNIFORM_COUNT = 3;
 
 export function validateGeneratedShader(
   code: string,
-  options: { minimumUiUniformCount?: number } = {},
+  options: {
+    minimumUiUniformCount?: number;
+    prompt?: string;
+  } = {},
 ): string {
-  const trimmed = code.trim();
+  const trimmed = (options.prompt
+    ? embedShaderPromptComment(code, options.prompt)
+    : code
+  ).trim();
   const firstNonEmptyLine = trimmed
     .split('\n')
     .map((line) => line.trim())
@@ -271,15 +300,34 @@ export function validateGeneratedShader(
     const type = declaration[1];
     const name = declaration[2];
     const metadata = declaration[3] ?? '';
-    const hasDefault = /@default\s+[\w.,-]+/.test(metadata);
-    const hasNumericRange = /@min\s+[\d.-]+/.test(metadata) && /@max\s+[\d.-]+/.test(metadata);
-    if (!hasDefault || ((type === 'float' || type === 'int') && !hasNumericRange)) {
+    if (type === 'float' || type === 'int') {
+      const min = readShaderMetadataNumber(metadata, 'min');
+      const max = readShaderMetadataNumber(metadata, 'max');
+      const defaultValue = readShaderMetadataNumber(metadata, 'default');
+      if (min === null || max === null || defaultValue === null) {
+        problems.push(
+          `uniform ${name} is missing the same-line @min, @max and @default slider metadata`,
+        );
+        continue;
+      }
+      if (max <= min) {
+        problems.push(`uniform ${name} must use a @max value greater than @min`);
+      }
+      if (defaultValue < min || defaultValue > max) {
+        problems.push(`uniform ${name} has an @default value outside its slider range`);
+      }
+      if (type === 'int' && ![min, max, defaultValue].every(Number.isInteger)) {
+        problems.push(`uniform ${name} must use integer @min, @max and @default values`);
+      }
+      continue;
+    }
+
+    const hasValidDefault = type === 'vec3'
+      ? readShaderMetadataVec3(metadata) !== null
+      : /@default\s+(?:true|false)\b/i.test(metadata);
+    if (!hasValidDefault) {
       problems.push(
-        `uniform ${name} is missing the same-line ${
-          type === 'float' || type === 'int'
-            ? '@min, @max or @default slider metadata'
-            : '@default control metadata'
-        }`,
+        `uniform ${name} is missing valid same-line @default control metadata`,
       );
     }
   }

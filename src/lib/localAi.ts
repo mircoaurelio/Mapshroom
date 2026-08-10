@@ -115,5 +115,6 @@ export async function requestLocalShaderMutation({ modelId, prompt, currentCode,
   if (!text) throw new Error('The local model returned no shader content.');
   return validateGeneratedShader(extractGlslCode(text), {
     minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+    prompt,
   });
 }

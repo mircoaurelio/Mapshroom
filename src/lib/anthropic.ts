@@ -84,5 +84,6 @@ export async function requestAnthropicShaderMutation({
   if (!text) throw new Error('Anthropic returned no shader content.');
   return validateGeneratedShader(extractGlslCode(text), {
     minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+    prompt,
   });
 }

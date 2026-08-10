@@ -88,5 +88,6 @@ export async function requestGoogleShaderMutation({
 
   return validateGeneratedShader(extractGlslCode(text), {
     minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+    prompt,
   });
 }

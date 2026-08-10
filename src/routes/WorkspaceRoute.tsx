@@ -3190,10 +3190,6 @@ export function WorkspaceRoute() {
     }
 
     try {
-      const nextCode = validateGeneratedShader(shaderApplyLink.code, {
-        minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
-      });
-      const validationError = validateShaderCodeCompilation(nextCode);
       const pendingRequest = loadPendingShaderApplyRequest(shaderApplyLink.requestId);
       const matchingPendingRequest =
         pendingRequest?.sessionId === shaderApplyLink.sessionId &&
@@ -3205,6 +3201,11 @@ export function WorkspaceRoute() {
       const historyPrompt =
         matchingPendingRequest?.historyPrompt ?? 'Applied from AI chat link';
       const currentCode = matchingPendingRequest?.currentCode ?? targetShader.code;
+      const nextCode = validateGeneratedShader(shaderApplyLink.code, {
+        minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+        prompt,
+      });
+      const validationError = validateShaderCodeCompilation(nextCode);
       const versionId = crypto.randomUUID();
       const destinationProject = isBundledProjectSessionId(normalizedTargetProject.sessionId)
         ? {
@@ -6452,7 +6453,10 @@ export function WorkspaceRoute() {
     }
     const nextCode = validateGeneratedShader(
       shaderApplyLink?.code ?? extractGlslCode(response),
-      { minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT },
+      {
+        minimumUiUniformCount: AI_MINIMUM_UI_UNIFORM_COUNT,
+        prompt: externalChatRequest.prompt,
+      },
     );
     const targetShader = project.studio.savedShaders.find(
       (shader) => shader.id === externalChatRequest.targetShaderId,
@@ -6590,6 +6594,7 @@ ${compilerError}`;
     void requestShaderMutation({
       settings: project.ai.settings,
       prompt: repairPrompt,
+      recordedPrompt: originalPrompt,
       currentCode: brokenCode,
     })
       .then((nextCode) => {

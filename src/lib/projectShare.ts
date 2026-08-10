@@ -3,6 +3,7 @@ import { persistActiveSessionId, saveProjectDocument } from './storage';
 import { parseShaderName, parseUniforms, syncUniformValues } from './shader';
 import { normalizeOfficialShaderBody, OFFICIAL_SHADER_PROFILE } from './shaderCompiler';
 import { normalizeProjectShaderSources } from './shaderProfile';
+import { isShaderPromptCommentLine } from './shaderPromptMetadata';
 import { normalizeTimelineStepAssetSettings } from './timelineAssetSettings';
 import { normalizeTimelineTransitionEffect } from './timeline';
 import {
@@ -242,6 +243,10 @@ function compactShaderCode(code: string): string {
 
       if (/^\/\/\s*NAME:/i.test(line)) {
         return [line.replace(/^\/\/\s*NAME:\s*/i, '// NAME: ')];
+      }
+
+      if (isShaderPromptCommentLine(line)) {
+        return [line];
       }
 
       if (/^uniform\s+(float|int|vec3|bool)\s+/.test(line)) {

@@ -3,10 +3,12 @@ import { requestAnthropicShaderMutation } from './anthropic';
 import { requestGoogleShaderMutation } from './google';
 import { requestLocalShaderMutation } from './localAi';
 import { requestOpenAiShaderMutation } from './openai';
+import { embedShaderPromptComment } from './shaderPromptMetadata';
 
 interface ShaderMutationRequest {
   settings: AiSettings;
   prompt: string;
+  recordedPrompt?: string;
   currentCode: string;
   chatHistory?: ShaderChatTurn[];
   stageImage?: string;
@@ -15,19 +17,19 @@ interface ShaderMutationRequest {
 export async function requestShaderMutation({
   settings,
   prompt,
+  recordedPrompt,
   currentCode,
   chatHistory,
   stageImage,
 }: ShaderMutationRequest): Promise<string> {
+  let generatedCode: string;
   if (settings.shaderRuntime === 'local') {
     if (!settings.localShaderModel) throw new Error('Choose and download a local shader model first.');
-    return requestLocalShaderMutation({ modelId: settings.localShaderModel, prompt, currentCode, stageImage, visionEnabled: settings.visionEnabled });
-  }
-  if (settings.shaderRuntime === 'chat') {
+    generatedCode = await requestLocalShaderMutation({ modelId: settings.localShaderModel, prompt, currentCode, stageImage, visionEnabled: settings.visionEnabled });
+  } else if (settings.shaderRuntime === 'chat') {
     throw new Error('Copy this request to your AI chat, then paste its shader reply into Mapshroom.');
-  }
-  if (settings.shaderProvider === 'openai') {
-    return requestOpenAiShaderMutation({
+  } else if (settings.shaderProvider === 'openai') {
+    generatedCode = await requestOpenAiShaderMutation({
       apiKey: settings.openaiApiKey,
       model: settings.openaiShaderModel,
       prompt,
@@ -35,9 +37,8 @@ export async function requestShaderMutation({
       chatHistory,
       stageImage: settings.visionEnabled ? stageImage : undefined,
     });
-  }
-  if (settings.shaderProvider === 'anthropic') {
-    return requestAnthropicShaderMutation({
+  } else if (settings.shaderProvider === 'anthropic') {
+    generatedCode = await requestAnthropicShaderMutation({
       apiKey: settings.anthropicApiKey,
       model: settings.anthropicShaderModel,
       prompt,
@@ -45,13 +46,16 @@ export async function requestShaderMutation({
       chatHistory,
       stageImage: settings.visionEnabled ? stageImage : undefined,
     });
+  } else {
+    generatedCode = await requestGoogleShaderMutation({
+      apiKey: settings.googleApiKey,
+      model: settings.googleShaderModel,
+      prompt,
+      currentCode,
+      chatHistory,
+      stageImage: settings.visionEnabled ? stageImage : undefined,
+    });
   }
-  return requestGoogleShaderMutation({
-    apiKey: settings.googleApiKey,
-    model: settings.googleShaderModel,
-    prompt,
-    currentCode,
-    chatHistory,
-    stageImage: settings.visionEnabled ? stageImage : undefined,
-  });
+
+  return embedShaderPromptComment(generatedCode, recordedPrompt ?? prompt);
 }
