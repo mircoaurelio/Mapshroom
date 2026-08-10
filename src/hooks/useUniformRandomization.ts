@@ -76,13 +76,17 @@ function getRandomValue(definition: ShaderUniformDefinition): number {
 interface UseUniformRandomizationOptions {
   randomizationKey: string;
   uniformDefinitions: ShaderUniformMap;
+  uniformValues: Record<string, ShaderUniformValue>;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
+  onUniformValuesChange?: (values: Record<string, ShaderUniformValue>) => void;
 }
 
 export function useUniformRandomization({
   randomizationKey,
   uniformDefinitions,
+  uniformValues,
   onUniformChange,
+  onUniformValuesChange,
 }: UseUniformRandomizationOptions) {
   const [lockedUniforms, setLockedUniforms] = useState<Set<string>>(() =>
     loadLockedUniforms(randomizationKey),
@@ -123,12 +127,36 @@ export function useUniformRandomization({
   );
 
   const randomizeUniforms = useCallback(() => {
+    const randomizedValues: Record<string, ShaderUniformValue> = {
+      ...uniformValues,
+    };
+    const changedEntries: Array<[string, ShaderUniformValue]> = [];
+
     numericUniforms.forEach(([name, definition]) => {
       if (!lockedUniforms.has(name)) {
-        onUniformChange(name, getRandomValue(definition));
+        const nextValue = getRandomValue(definition);
+        randomizedValues[name] = nextValue;
+        changedEntries.push([name, nextValue]);
       }
     });
-  }, [lockedUniforms, numericUniforms, onUniformChange]);
+
+    if (changedEntries.length === 0) {
+      return;
+    }
+
+    if (onUniformValuesChange) {
+      onUniformValuesChange(randomizedValues);
+      return;
+    }
+
+    changedEntries.forEach(([name, value]) => onUniformChange(name, value));
+  }, [
+    lockedUniforms,
+    numericUniforms,
+    onUniformChange,
+    onUniformValuesChange,
+    uniformValues,
+  ]);
 
   return {
     isUniformLocked: (name: string) => lockedUniforms.has(name),

@@ -441,7 +441,6 @@ export function TimelineStageRenderer({
       code: activeShaderCode,
       description: 'Current shader from the live editor.',
       group: 'Live',
-      uniformValues: activeUniformValues,
     };
 
     if (savedShaders.some((shader) => shader.id === activeShaderId)) {
@@ -449,7 +448,7 @@ export function TimelineStageRenderer({
     }
 
     return [liveShader, ...savedShaders];
-  }, [activeShaderCode, activeShaderId, activeShaderName, activeUniformValues, savedShaders]);
+  }, [activeShaderCode, activeShaderId, activeShaderName, savedShaders]);
   const shaderSequence = timeline.shaderSequence ?? {
     enabled: false,
     mode: 'sequence',
@@ -1036,9 +1035,10 @@ export function TimelineStageRenderer({
   const renderableActiveShaderCode = activeSavedShader
     ? getRenderableShaderCode(activeSavedShader)
     : activeShaderCode;
-  const renderableActiveUniformValues = activeSavedShader
-    ? getRenderableShaderUniformValues(activeSavedShader)
-    : activeUniformValues;
+  const renderableActiveUniformValues =
+    activeSavedShader && hasShaderCompileError(activeSavedShader)
+      ? getRenderableShaderUniformValues(activeSavedShader)
+      : activeUniformValues;
   const previewActiveShaderCode = preferActiveShaderCompilePreview
     ? activeShaderCode
     : renderableActiveShaderCode;

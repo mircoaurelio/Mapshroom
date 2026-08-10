@@ -50,6 +50,7 @@ interface StudioPanelProps
   uniformValues: ShaderUniformValueMap;
   onUniformInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
+  onUniformValuesChange?: (values: ShaderUniformValueMap) => void;
   newUniformName: string;
   onNewUniformNameChange: (value: string) => void;
   onQuickAddUniform: () => void;
@@ -662,6 +663,7 @@ export function StudioPanel({
   uniformValues,
   onUniformInteractionStart,
   onUniformChange,
+  onUniformValuesChange,
   newUniformName,
   onNewUniformNameChange,
   onQuickAddUniform,
@@ -703,6 +705,7 @@ export function StudioPanel({
           uniformValues={uniformValues}
           onInteractionStart={onUniformInteractionStart}
           onUniformChange={onUniformChange}
+          onUniformValuesChange={onUniformValuesChange}
           newUniformName={newUniformName}
           onNewUniformNameChange={onNewUniformNameChange}
           onQuickAddUniform={onQuickAddUniform}

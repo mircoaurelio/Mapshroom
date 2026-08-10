@@ -24,6 +24,7 @@ interface UniformPanelProps {
   uniformValues: ShaderUniformValueMap;
   onInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
+  onUniformValuesChange?: (values: ShaderUniformValueMap) => void;
   newUniformName: string;
   onNewUniformNameChange: (value: string) => void;
   onQuickAddUniform: () => void;
@@ -39,6 +40,7 @@ export function UniformPanel({
   uniformValues,
   onInteractionStart,
   onUniformChange,
+  onUniformValuesChange,
   newUniformName,
   onNewUniformNameChange,
   onQuickAddUniform,
@@ -53,7 +55,9 @@ export function UniformPanel({
   } = useUniformRandomization({
     randomizationKey,
     uniformDefinitions,
+    uniformValues,
     onUniformChange,
+    onUniformValuesChange,
   });
   const handlePointerDown = () => {
     pointerActivationRef.current = true;

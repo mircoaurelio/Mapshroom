@@ -164,7 +164,13 @@ async function run(): Promise<void> {
   }
 
   const startedAt = performance.now();
+  let animationFrameId: number | null = null;
   const render = (now: number) => {
+    animationFrameId = null;
+    if (document.hidden) {
+      return;
+    }
+
     const time = (now - startedAt) / 1000;
     for (const { gl, program, canvas } of entries) {
       gl.useProgram(program);
@@ -173,9 +179,15 @@ async function run(): Promise<void> {
       gl.uniform2f(gl.getUniformLocation(program, 'u_resolution'), canvas.width, canvas.height);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
-    requestAnimationFrame(render);
+    animationFrameId = requestAnimationFrame(render);
   };
-  requestAnimationFrame(render);
+  const resumeRendering = () => {
+    if (!document.hidden && animationFrameId === null) {
+      animationFrameId = requestAnimationFrame(render);
+    }
+  };
+  document.addEventListener('visibilitychange', resumeRendering);
+  animationFrameId = requestAnimationFrame(render);
 
   const report: DepthLabEvalReport = {
     status: failures.length ? 'fail' : 'ok',

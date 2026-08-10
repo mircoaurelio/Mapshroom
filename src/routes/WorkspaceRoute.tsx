@@ -2192,6 +2192,56 @@ function applyActiveShaderPatch(
   };
 }
 
+function applyActiveShaderUniformValues(
+  currentProject: ProjectDocument,
+  nextUniformValues: ShaderUniformValueMap,
+  commitSavedShader: boolean,
+): ProjectDocument {
+  const activeShaderIndex = commitSavedShader
+    ? currentProject.studio.savedShaders.findIndex(
+        (shader) => shader.id === currentProject.studio.activeShaderId,
+      )
+    : -1;
+  const activeShader =
+    activeShaderIndex >= 0 ? currentProject.studio.savedShaders[activeShaderIndex] : null;
+  const studioValuesChanged = !areUniformValuesEqual(
+    currentProject.studio.uniformValues,
+    nextUniformValues,
+  );
+  const savedValuesChanged = Boolean(
+    activeShader &&
+      (!areUniformValuesEqual(activeShader.uniformValues, nextUniformValues) ||
+        (!activeShader.compileError &&
+          !areUniformValuesEqual(activeShader.lastValidUniformValues, nextUniformValues))),
+  );
+
+  if (!studioValuesChanged && !savedValuesChanged) {
+    return currentProject;
+  }
+
+  let nextSavedShaders = currentProject.studio.savedShaders;
+  if (activeShader && savedValuesChanged) {
+    nextSavedShaders = currentProject.studio.savedShaders.slice();
+    nextSavedShaders[activeShaderIndex] = {
+      ...activeShader,
+      uniformValues: nextUniformValues,
+      lastValidUniformValues: activeShader.compileError
+        ? activeShader.lastValidUniformValues
+        : nextUniformValues,
+      isDirty: activeShader.isTemporary ? true : activeShader.isDirty,
+    };
+  }
+
+  return {
+    ...currentProject,
+    studio: {
+      ...currentProject.studio,
+      uniformValues: nextUniformValues,
+      savedShaders: nextSavedShaders,
+    },
+  };
+}
+
 interface ApplyExternalShaderCodeOptions {
   targetShaderId: string;
   prompt: string;
@@ -2686,6 +2736,7 @@ export function WorkspaceRoute() {
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const syncedProjectAutosaveRef = useRef<ProjectDocument | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
+  const uniformCommitPendingRef = useRef(false);
   const [project, setProject] = useState<ProjectDocument | null>(null);
   const audioReactivity = useAudioReactivity(project?.sessionId ?? null, {
     sectionDetectionEnabled:
@@ -3297,11 +3348,15 @@ export function WorkspaceRoute() {
   }, [activeSessionId]);
 
   useEffect(() => {
+    if (activeSessionId) {
+      persistActiveSessionId(activeSessionId);
+    }
+  }, [activeSessionId]);
+
+  useEffect(() => {
     if (!project) {
       return;
     }
-
-    persistActiveSessionId(project.sessionId);
 
     if (syncedProjectAutosaveRef.current === project) {
       syncedProjectAutosaveRef.current = null;
@@ -3685,53 +3740,61 @@ export function WorkspaceRoute() {
   }, [project]);
 
   useEffect(() => {
-    if (!project) {
+    if (!project?.studio.activeShaderId) {
       return;
     }
 
-    const activeShader = project.studio.savedShaders.find(
-      (shader) => shader.id === project.studio.activeShaderId,
-    );
-    if (!activeShader) {
-      return;
-    }
+    updateProject((currentProject) => {
+      const activeShader = currentProject.studio.savedShaders.find(
+        (shader) => shader.id === currentProject.studio.activeShaderId,
+      );
+      if (!activeShader) {
+        return currentProject;
+      }
 
-    const nextCompileError = compilerError.trim() ? compilerError : undefined;
-    const nextLastValidCode = nextCompileError
-      ? activeShader.lastValidCode ?? activeShader.code
-      : project.studio.activeShaderCode;
-    const nextLastValidUniformValues = nextCompileError
-      ? getRenderableShaderUniformValues(activeShader)
-      : getSyncedShaderUniformValues(
-          project.studio.activeShaderCode,
-          project.studio.uniformValues,
-        );
+      const nextCompileError = compilerError.trim() ? compilerError : undefined;
+      const nextLastValidCode = nextCompileError
+        ? activeShader.lastValidCode ?? activeShader.code
+        : currentProject.studio.activeShaderCode;
+      const nextLastValidUniformValues = nextCompileError
+        ? getRenderableShaderUniformValues(activeShader)
+        : getSyncedShaderUniformValues(
+            currentProject.studio.activeShaderCode,
+            currentProject.studio.uniformValues,
+          );
 
-    if (
-      (activeShader.compileError ?? undefined) === nextCompileError &&
-      (activeShader.lastValidCode ?? activeShader.code) === nextLastValidCode &&
-      areUniformValuesEqual(activeShader.lastValidUniformValues, nextLastValidUniformValues)
-    ) {
-      return;
-    }
+      if (
+        (activeShader.compileError ?? undefined) === nextCompileError &&
+        (activeShader.lastValidCode ?? activeShader.code) === nextLastValidCode &&
+        areUniformValuesEqual(activeShader.lastValidUniformValues, nextLastValidUniformValues)
+      ) {
+        return currentProject;
+      }
 
-    updateProject((currentProject) => ({
-      ...currentProject,
-      studio: {
-        ...currentProject.studio,
-        savedShaders: currentProject.studio.savedShaders.map((shader) =>
-          shader.id === currentProject.studio.activeShaderId
-            ? {
-                ...shader,
-                compileError: nextCompileError,
-                lastValidCode: nextLastValidCode,
-                lastValidUniformValues: nextLastValidUniformValues,
-              }
-            : shader,
-        ),
-      },
-    }));
-  }, [compileFeedbackVersion, compilerError, project, updateProject]);
+      return {
+        ...currentProject,
+        studio: {
+          ...currentProject.studio,
+          savedShaders: currentProject.studio.savedShaders.map((shader) =>
+            shader.id === currentProject.studio.activeShaderId
+              ? {
+                  ...shader,
+                  compileError: nextCompileError,
+                  lastValidCode: nextLastValidCode,
+                  lastValidUniformValues: nextLastValidUniformValues,
+                }
+              : shader,
+          ),
+        },
+      };
+    });
+  }, [
+    compileFeedbackVersion,
+    compilerError,
+    project?.studio.activeShaderCode,
+    project?.studio.activeShaderId,
+    updateProject,
+  ]);
 
   const editingTimelineStepIndex = useMemo(() => {
     if (!project || !editingTimelineStepId) {
@@ -5084,16 +5147,59 @@ export function WorkspaceRoute() {
     }
   };
 
-  const handleUniformChange = (name: string, value: ShaderUniformValue) => {
+  const commitActiveUniformValues = useCallback(() => {
+    if (!uniformCommitPendingRef.current) {
+      return;
+    }
+
+    uniformCommitPendingRef.current = false;
     updateProject((currentProject) =>
-      applyActiveShaderPatch(currentProject, {
-        uniformValues: {
-          ...currentProject.studio.uniformValues,
-          [name]: value,
-        },
-      }),
+      applyActiveShaderUniformValues(
+        currentProject,
+        currentProject.studio.uniformValues,
+        true,
+      ),
     );
-  };
+  }, [updateProject]);
+
+  const handleUniformChange = useCallback((name: string, value: ShaderUniformValue) => {
+    uniformCommitPendingRef.current = true;
+    updateProject((currentProject) => {
+      const nextUniformValues = {
+        ...currentProject.studio.uniformValues,
+        [name]: value,
+      };
+      return applyActiveShaderUniformValues(currentProject, nextUniformValues, false);
+    });
+  }, [updateProject]);
+
+  const handleUniformValuesChange = useCallback((values: ShaderUniformValueMap) => {
+    uniformCommitPendingRef.current = false;
+    updateProject((currentProject) =>
+      applyActiveShaderUniformValues(currentProject, values, true),
+    );
+  }, [updateProject]);
+
+  useEffect(() => {
+    const commitOnInteractionEnd = () => commitActiveUniformValues();
+    window.addEventListener('pointerup', commitOnInteractionEnd, true);
+    window.addEventListener('pointercancel', commitOnInteractionEnd, true);
+    window.addEventListener('keyup', commitOnInteractionEnd, true);
+    return () => {
+      window.removeEventListener('pointerup', commitOnInteractionEnd, true);
+      window.removeEventListener('pointercancel', commitOnInteractionEnd, true);
+      window.removeEventListener('keyup', commitOnInteractionEnd, true);
+    };
+  }, [commitActiveUniformValues]);
+
+  useEffect(() => {
+    if (!uniformCommitPendingRef.current) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(commitActiveUniformValues, 180);
+    return () => window.clearTimeout(timeoutId);
+  }, [commitActiveUniformValues, project?.studio.uniformValues]);
 
   const selectTimelineStepByIndex = useCallback((stepIndex: number) => {
     const step = project?.timeline.stub.shaderSequence.steps[stepIndex];
@@ -7823,6 +7929,7 @@ ${errorSnapshot}`,
       uniformValues={project.studio.uniformValues}
       onUniformInteractionStart={handlePromptFocus}
       onUniformChange={handleUniformChange}
+      onUniformValuesChange={handleUniformValuesChange}
       newUniformName={newUniformName}
       onNewUniformNameChange={setNewUniformName}
       onQuickAddUniform={() => {
@@ -7862,6 +7969,7 @@ ${errorSnapshot}`,
       uniformValues={project.studio.uniformValues}
       onInteractionStart={handlePromptFocus}
       onUniformChange={handleUniformChange}
+      onUniformValuesChange={handleUniformValuesChange}
       newUniformName={newUniformName}
       onNewUniformNameChange={setNewUniformName}
       onQuickAddUniform={() => {
@@ -8269,6 +8377,7 @@ ${errorSnapshot}`,
           uniformValues={project.studio.uniformValues}
           onInteractionStart={handlePromptFocus}
           onUniformChange={handleUniformChange}
+          onUniformValuesChange={handleUniformValuesChange}
           onClose={() => handleMobilePanelChange(null)}
         />
       ) : null}

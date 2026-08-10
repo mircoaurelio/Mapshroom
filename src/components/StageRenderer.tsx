@@ -202,6 +202,7 @@ const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
 const MIN_STAGE_SCALE = 0;
 const MAX_RETAINED_PROGRAMS = 96;
 const COMPILE_AFTER_INTERACTION_QUIET_MS = 750;
+const MAX_WORKSPACE_PREVIEW_DPR = 2;
 
 interface StageRenderTarget {
   framebuffer: WebGLFramebuffer;
@@ -1224,7 +1225,10 @@ export function StageRenderer({
     const resize = () => {
       const surfaceWidth = Math.max(1, surface.clientWidth);
       const surfaceHeight = Math.max(1, surface.clientHeight);
-      const dpr = window.devicePixelRatio || 1;
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const dpr = isOutputOnly
+        ? devicePixelRatio
+        : Math.min(devicePixelRatio, MAX_WORKSPACE_PREVIEW_DPR);
       const nextAspectRatio =
         mediaAspectRatioRef.current && mediaAspectRatioRef.current > 0
           ? mediaAspectRatioRef.current
@@ -1239,8 +1243,15 @@ export function StageRenderer({
           ? Math.min(surfaceHeight, surfaceWidth / nextAspectRatio)
           : surfaceHeight;
 
-      canvas.width = Math.max(1, Math.round(targetWidth * dpr));
-      canvas.height = Math.max(1, Math.round(targetHeight * dpr));
+      const nextCanvasWidth = Math.max(1, Math.round(targetWidth * dpr));
+      const nextCanvasHeight = Math.max(1, Math.round(targetHeight * dpr));
+      if (canvas.width !== nextCanvasWidth || canvas.height !== nextCanvasHeight) {
+        // Assigning either canvas dimension clears the WebGL drawing buffer.
+        // Resize only when the backing resolution really changed so panel
+        // layout notifications cannot flash an otherwise stable stage.
+        canvas.width = nextCanvasWidth;
+        canvas.height = nextCanvasHeight;
+      }
       canvas.style.width = `${targetWidth}px`;
       canvas.style.height = `${targetHeight}px`;
       setCanvasCssSize((currentSize) =>
@@ -1262,7 +1273,7 @@ export function StageRenderer({
       resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
-  }, [mediaAspectRatio, glContextGeneration]);
+  }, [glContextGeneration, isOutputOnly, mediaAspectRatio]);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -1380,6 +1391,12 @@ export function StageRenderer({
       !failedProgramCodesRef.current.has(shaderCode);
     const findMissingShaderCode = (shaderCodes: ReadonlySet<string>) =>
       Array.from(shaderCodes).find(isShaderCodeMissing);
+    const hasVisibleProgramWork = () =>
+      Array.from(visibleShaderCodes).some(
+        (shaderCode) =>
+          pendingProgramCacheRef.current.has(shaderCode) ||
+          isShaderCodeMissing(shaderCode),
+      );
 
     const scheduleNextTick = () => {
       if (disposed) {
@@ -1391,7 +1408,7 @@ export function StageRenderer({
         return;
       }
 
-      if (findMissingShaderCode(visibleShaderCodes)) {
+      if (hasVisibleProgramWork()) {
         timeoutId = window.setTimeout(() => processShaderQueue(false), 16);
         return;
       }
@@ -1419,7 +1436,11 @@ export function StageRenderer({
         return;
       }
 
-      if (!parallelCompileExtension) {
+      if (
+        !parallelCompileExtension &&
+        allowPreloadCompile &&
+        !hasVisibleProgramWork()
+      ) {
         const remainingQuietMs =
           COMPILE_AFTER_INTERACTION_QUIET_MS -
           (performance.now() - lastUserInteractionAtRef.current);

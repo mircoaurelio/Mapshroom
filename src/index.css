@@ -315,6 +315,18 @@ input[type='range']:focus-visible::-moz-range-thumb {
     drop-shadow(0 0 6px rgba(251, 191, 36, 0.78));
 }
 
+/* Native range dragging must track the pointer without waiting for the
+   decorative thumb morph. Keep the long transition only for idle/focus UI. */
+:root input[type='range']:active::-webkit-slider-thumb,
+:root input[type='range'][data-range-precision]::-webkit-slider-thumb {
+  transition: none;
+}
+
+:root input[type='range']:active::-moz-range-thumb,
+:root input[type='range'][data-range-precision]::-moz-range-thumb {
+  transition: none;
+}
+
 html:root[data-color-theme='pink'] body input[type='range']::-webkit-slider-thumb {
   width: 24px;
   border: 0;

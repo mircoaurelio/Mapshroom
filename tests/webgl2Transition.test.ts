@@ -196,6 +196,17 @@ test('autosave and WebGL previews keep background work out of the interaction pa
   assert.match(timelinePreview, /IntersectionObserver/);
   assert.match(stageRenderer, /requestAnimationFrame/);
   assert.match(stageRenderer, /COMPILE_AFTER_INTERACTION_QUIET_MS/);
+  assert.match(stageRenderer, /hasVisibleProgramWork/);
+  assert.match(
+    stageRenderer,
+    /allowPreloadCompile\s*&&\s*!hasVisibleProgramWork\(\)/,
+    'the interaction quiet period must apply only to preload work',
+  );
+  assert.ok(
+    stageRenderer.indexOf('if (hasVisibleProgramWork())') <
+      stageRenderer.indexOf('if (idleWindow.requestIdleCallback)'),
+    'visible missing or pending programs must be scheduled before idle preload work',
+  );
   assert.match(stageRenderer, /processShaderQueue\(true\)/);
   assert.match(stageRenderer, /processShaderQueue\(false\)/);
   assert.match(sessionSync, /createProjectSnapshot\(project, liveShaderIds\)/);
@@ -205,6 +216,41 @@ test('autosave and WebGL previews keep background work out of the interaction pa
   assert.doesNotMatch(presetPreview, /gl\.finish\(\)/);
   assert.match(previewRenderer, /programCache/);
   assert.match(presetPreview, /programCache/);
+});
+
+test('live uniform controls avoid catalog churn and background GPU work', () => {
+  const root = new URL('..', import.meta.url);
+  const workspace = readFileSync(new URL('src/routes/WorkspaceRoute.tsx', root), 'utf8');
+  const randomization = readFileSync(
+    new URL('src/hooks/useUniformRandomization.ts', root),
+    'utf8',
+  );
+  const timelineStage = readFileSync(
+    new URL('src/components/TimelineStageRenderer.tsx', root),
+    'utf8',
+  );
+  const stageRenderer = readFileSync(new URL('src/components/StageRenderer.tsx', root), 'utf8');
+  const styles = readFileSync(new URL('src/index.css', root), 'utf8');
+  const depthEval = readFileSync(new URL('src/depthLabEval.ts', root), 'utf8');
+
+  assert.match(workspace, /applyActiveShaderUniformValues\(currentProject, nextUniformValues, false\)/);
+  assert.match(workspace, /commitActiveUniformValues/);
+  assert.match(workspace, /onUniformValuesChange=\{handleUniformValuesChange\}/);
+  assert.match(randomization, /onUniformValuesChange\(randomizedValues\)/);
+  assert.doesNotMatch(
+    timelineStage,
+    /activeShaderName, activeUniformValues, savedShaders/,
+    'live uniform changes must not rebuild the complete available shader catalog',
+  );
+  assert.match(
+    timelineStage,
+    /activeSavedShader && hasShaderCompileError\(activeSavedShader\)[\s\S]*?: activeUniformValues/,
+    'valid shaders must render transient slider values before the saved-shader commit',
+  );
+  assert.match(stageRenderer, /canvas\.width !== nextCanvasWidth \|\| canvas\.height !== nextCanvasHeight/);
+  assert.match(stageRenderer, /MAX_WORKSPACE_PREVIEW_DPR/);
+  assert.match(styles, /input\[type='range'\]:active::-[\s\S]*?transition: none/);
+  assert.match(depthEval, /if \(document\.hidden\)/);
 });
 
 test('bundled project and visual eval are wired to the statue depth map', () => {

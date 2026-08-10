@@ -22,6 +22,7 @@ interface MobileUniformOverlayProps {
   uniformValues: ShaderUniformValueMap;
   onInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
+  onUniformValuesChange?: (values: ShaderUniformValueMap) => void;
   onClose: () => void;
 }
 
@@ -35,6 +36,7 @@ export function MobileUniformOverlay({
   uniformValues,
   onInteractionStart,
   onUniformChange,
+  onUniformValuesChange,
   onClose,
 }: MobileUniformOverlayProps) {
   const pointerActivationRef = useRef(false);
@@ -48,7 +50,9 @@ export function MobileUniformOverlay({
   } = useUniformRandomization({
     randomizationKey,
     uniformDefinitions,
+    uniformValues,
     onUniformChange,
+    onUniformValuesChange,
   });
   const handlePointerDown = () => {
     pointerActivationRef.current = true;
