@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -12,7 +15,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,6 +39,12 @@ jobs:
 
       - name: Check for committed secrets
         run: npm run check:secrets
+
+      - name: Run tests
+        run: npm test
+
+      - name: Compile shader catalog
+        run: npm run check:shaders
 
       - name: Build app
         run: npm run build

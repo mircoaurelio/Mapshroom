@@ -124,6 +124,8 @@ export interface StageRenderLayer {
     from: StageRenderInputSource | null;
     to: StageRenderInputSource | null;
   } | null;
+  /** Samplers declared by a nested generated shader, keyed by GLSL uniform name. */
+  samplerSources?: Readonly<Record<string, StageRenderInputSource | null>>;
   compositeMode?: 'blend' | 'stackOnTop';
   requiresCompositeBase?: boolean;
 }
@@ -143,6 +145,7 @@ interface ProgramLocations {
   baseImage: WebGLUniformLocation | null;
   resolution: WebGLUniformLocation | null;
   custom: Record<string, WebGLUniformLocation | null>;
+  samplers: Record<string, WebGLUniformLocation | null>;
 }
 
 interface CachedProgram {
@@ -203,6 +206,10 @@ const MIN_STAGE_SCALE = 0;
 const MAX_RETAINED_PROGRAMS = 96;
 const COMPILE_AFTER_INTERACTION_QUIET_MS = 750;
 const MAX_WORKSPACE_PREVIEW_DPR = 2;
+const FIRST_NESTED_SAMPLER_TEXTURE_UNIT = 4;
+// WebGL2 guarantees at least 16 fragment texture units. Units 0-3 are kept
+// for the existing input/transition ABI; nested generated samplers use 4-15.
+const MAX_NESTED_SAMPLER_COUNT = 12;
 
 interface StageRenderTarget {
   framebuffer: WebGLFramebuffer;
@@ -404,6 +411,7 @@ function resolvePendingProgramBundle(
           gl.getUniformLocation(pendingBundle.program, name),
         ]),
       ),
+      samplers: {},
     },
   };
 
@@ -983,6 +991,9 @@ export function StageRenderer({
       registerSource(layer.transitionInputSources?.to);
       registerSource(layer.transitionOverlaySources?.from);
       registerSource(layer.transitionOverlaySources?.to);
+      for (const source of Object.values(layer.samplerSources ?? {})) {
+        registerSource(source);
+      }
     }
     for (const source of warmupSources ?? []) {
       registerSource(source);
@@ -1015,6 +1026,9 @@ export function StageRenderer({
         layer.transitionInputSources?.to ??
         layer.transitionOverlaySources?.from ??
         layer.transitionOverlaySources?.to ??
+        Object.values(layer.samplerSources ?? {}).find(
+          (candidate): candidate is StageRenderInputSource => Boolean(candidate),
+        ) ??
         null;
       if (source) {
         return source.sourceKey;
@@ -1576,6 +1590,7 @@ export function StageRenderer({
         compiledLayer.transitionInputSources?.to,
         compiledLayer.transitionOverlaySources?.from,
         compiledLayer.transitionOverlaySources?.to,
+        ...Object.values(compiledLayer.samplerSources ?? {}),
       ]) {
         if (source) {
           requiredSourceIds.add(source.sourceKey);
@@ -1915,6 +1930,42 @@ export function StageRenderer({
               layer.locations.transitionToOverlayAspectRatio,
               transitionToOverlayState?.aspectRatio ?? 1,
             );
+          }
+          const samplerEntries = Object.entries(
+            activeLayer.samplerSources ?? layer.samplerSources ?? {},
+          ).sort(([leftName], [rightName]) => leftName.localeCompare(rightName));
+          if (samplerEntries.length > MAX_NESTED_SAMPLER_COUNT) {
+            throw new Error(
+              `Nested shader requires ${samplerEntries.length} samplers; ` +
+                `Mapshroom supports ${MAX_NESTED_SAMPLER_COUNT}.`,
+            );
+          }
+          for (const [samplerIndex, [uniformName, source]] of samplerEntries.entries()) {
+            if (!Object.prototype.hasOwnProperty.call(layer.locations.samplers, uniformName)) {
+              layer.locations.samplers[uniformName] = gl.getUniformLocation(
+                layer.program,
+                uniformName,
+              );
+            }
+            const location = layer.locations.samplers[uniformName];
+            if (!location) {
+              continue;
+            }
+
+            const sourceState = source
+              ? textureSources.get(source.sourceKey) ?? null
+              : defaultInputSource
+                ? textureSources.get(defaultInputSource.sourceKey) ?? null
+                : primaryState;
+            const textureUnit = FIRST_NESTED_SAMPLER_TEXTURE_UNIT + samplerIndex;
+            bindTextureSourceState(
+              gl,
+              sourceState,
+              gl.TEXTURE0 + textureUnit,
+              currentTransport,
+              renderTime,
+            );
+            gl.uniform1i(location, textureUnit);
           }
           if (layer.locations.time) {
             gl.uniform1f(layer.locations.time, renderTime);

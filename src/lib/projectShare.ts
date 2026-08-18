@@ -64,7 +64,7 @@ interface CompactSharedTimelineStepPayload {
   acs?: number;
   acd?: number;
   aub?: 1;
-  apc?: 1;
+  apc?: 1 | 2;
   psm?: 1;
   pst?: number;
 }
@@ -282,7 +282,7 @@ function createBaseShaderVersion(name: string, code: string) {
   ];
 }
 
-function createCompactSharePayload(project: ProjectDocument): CompactSharedProjectPayload {
+export function createCompactSharePayload(project: ProjectDocument): CompactSharedProjectPayload {
   const sharedShaderIds = getSharedProjectShaderIds(project);
   const timelineShaders = project.studio.savedShaders.filter((shader) => sharedShaderIds.includes(shader.id));
   const focusedStepShaderId =
@@ -359,7 +359,7 @@ function createCompactSharePayload(project: ProjectDocument): CompactSharedProje
           acs: step.assetSettings.clipStartSeconds > 0 ? step.assetSettings.clipStartSeconds : undefined,
           acd: step.assetSettings.clipDurationSeconds ?? undefined,
           aub: step.assetSettings.useStepAssetAsShaderBase ? 1 : undefined,
-          apc: step.assetSettings.pinnedCompositeMode === 'stackOnTop' ? 1 : undefined,
+          apc: step.assetSettings.pinnedCompositeMode === 'blend' ? 2 : undefined,
           psm: step.assetSettings.pinnedStackMaskMode === 'nonBlack' ? 1 : undefined,
           pst:
             step.assetSettings.pinnedStackMaskThreshold !== 0.04
@@ -406,7 +406,7 @@ function restoreSavedShader(payload: CompactSharedShaderPayload): SavedShader {
   };
 }
 
-function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload): ProjectDocument {
+export function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload): ProjectDocument {
   const baseProject = createDefaultProject(crypto.randomUUID());
   const savedShaders = payload.h.length ? payload.h.map(restoreSavedShader) : baseProject.studio.savedShaders;
   const activeShader =
@@ -435,7 +435,7 @@ function restoreProjectFromCompactPayload(payload: CompactSharedProjectPayload):
             clipStartSeconds: step.acs,
             clipDurationSeconds: step.acd,
             useStepAssetAsShaderBase: step.aub ? true : undefined,
-            pinnedCompositeMode: step.apc ? 'stackOnTop' : undefined,
+            pinnedCompositeMode: step.apc === 2 ? 'blend' : 'stackOnTop',
             pinnedStackMaskMode: step.psm ? 'nonBlack' : undefined,
             pinnedStackMaskThreshold: step.pst,
           }),

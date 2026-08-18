@@ -7,15 +7,28 @@ const HOST = '127.0.0.1';
 const TEST_URL = `http://${HOST}:${PORT}/shader-smoke-test.html`;
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const VITE_CLI = fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url));
-const CHROME_PATHS = [
+const BROWSER_TIMEOUT_MS = 120_000;
+const PROCESS_STOP_TIMEOUT_MS = 2_000;
+const FORCE_KILL_TIMEOUT_MS = 5_000;
+const BROWSER_PATHS = [
+  process.env.CHROME_BIN,
+  process.env.CHROMIUM_BIN,
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
 ];
 
 function resolveBrowserPath() {
-  return CHROME_PATHS.find((path) => existsSync(path)) ?? null;
+  return BROWSER_PATHS.find((path) => path && existsSync(path)) ?? null;
 }
 
 function delay(ms) {
@@ -40,15 +53,31 @@ async function waitForServer(url, attempts = 60) {
 }
 
 function runProcess(command, args, options = {}) {
+  const { timeoutMs = 0, ...spawnOptions } = options;
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
-      ...options,
+      ...spawnOptions,
     });
 
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    let timedOut = false;
+    const timeoutId = timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          void stopProcess(child, false);
+        }, timeoutMs)
+      : null;
+
+    const settle = (callback) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      callback();
+    };
 
     child.stdout?.on('data', (chunk) => {
       stdout += String(chunk);
@@ -58,16 +87,90 @@ function runProcess(command, args, options = {}) {
       stderr += String(chunk);
     });
 
-    child.on('error', reject);
+    child.on('error', (error) => {
+      settle(() => {
+        reject(
+          timedOut
+            ? new Error(`Process timed out after ${timeoutMs} ms: ${command}`)
+            : error,
+        );
+      });
+    });
     child.on('close', (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
+      settle(() => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+          return;
+        }
 
-      reject(new Error(stderr || stdout || `Process exited with code ${code}.`));
+        reject(
+          timedOut
+            ? new Error(`Process timed out after ${timeoutMs} ms: ${command}`)
+            : new Error(stderr || stdout || `Process exited with code ${code}.`),
+        );
+      });
     });
   });
+}
+
+function forceKillWindowsProcessTree(pid) {
+  return new Promise((resolve) => {
+    const killer = spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
+      stdio: 'ignore',
+      shell: false,
+      windowsHide: true,
+    });
+    let settled = false;
+    const timeoutId = setTimeout(() => {
+      killer.kill('SIGKILL');
+      finish();
+    }, FORCE_KILL_TIMEOUT_MS);
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      resolve();
+    };
+    killer.once('error', finish);
+    killer.once('close', finish);
+  });
+}
+
+function waitForProcessClose(child, timeoutMs) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    const onClose = () => {
+      clearTimeout(timeoutId);
+      resolve(true);
+    };
+    const timeoutId = setTimeout(() => {
+      child.off('close', onClose);
+      resolve(false);
+    }, timeoutMs);
+    child.once('close', onClose);
+  });
+}
+
+async function stopProcess(child, graceful = true) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+
+  if (graceful) {
+    child.kill('SIGTERM');
+    if (await waitForProcessClose(child, PROCESS_STOP_TIMEOUT_MS)) return;
+  }
+
+  if (process.platform === 'win32' && child.pid) {
+    await forceKillWindowsProcessTree(child.pid);
+  } else {
+    child.kill('SIGKILL');
+  }
+
+  if (!(await waitForProcessClose(child, PROCESS_STOP_TIMEOUT_MS))) {
+    child.kill('SIGKILL');
+  }
 }
 
 async function main() {
@@ -106,18 +209,22 @@ async function main() {
   try {
     await waitForServer(TEST_URL);
 
-    const { stdout } = await runProcess(browserPath, [
-      '--headless=new',
-      '--use-angle=swiftshader',
-      '--enable-unsafe-swiftshader',
-      '--disable-gpu-sandbox',
-      // The runner only loads the isolated localhost smoke page. This avoids a
-      // Windows headless GPU-process deadlock seen with Chrome's sandbox.
-      '--no-sandbox',
-      '--virtual-time-budget=30000',
-      '--dump-dom',
-      TEST_URL,
-    ]);
+    const { stdout } = await runProcess(
+      browserPath,
+      [
+        '--headless=new',
+        '--use-angle=swiftshader',
+        '--enable-unsafe-swiftshader',
+        '--disable-gpu-sandbox',
+        // The runner only loads the isolated localhost smoke page. This avoids a
+        // Windows headless GPU-process deadlock seen with Chrome's sandbox.
+        '--no-sandbox',
+        '--virtual-time-budget=30000',
+        '--dump-dom',
+        TEST_URL,
+      ],
+      { timeoutMs: BROWSER_TIMEOUT_MS },
+    );
 
     if (!stdout.includes('data-status="ok"')) {
       throw new Error(stdout);
@@ -125,13 +232,7 @@ async function main() {
 
     console.log('Shader smoke test passed for WebGL 2 and the eligible WebGL 1 fallback set.');
   } finally {
-    if (!server.killed) {
-      if (process.platform === 'win32' && server.pid) {
-        await runProcess('taskkill', ['/pid', String(server.pid), '/T', '/F']).catch(() => {});
-      } else {
-        server.kill('SIGTERM');
-      }
-    }
+    await stopProcess(server);
   }
 }
 

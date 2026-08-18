@@ -27,6 +27,7 @@ import {
   buildTimelinePinShaderAlphaOverlayShaderCode,
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
+import { collectNestedTimelineSamplerSources } from '../lib/timelineSamplerBindings';
 import { getBundledAssetUrl } from '../lib/bundledAssets';
 import { getAssetBlob } from '../lib/storage';
 import type {
@@ -75,9 +76,19 @@ const EMPTY_AUDIO_BINDINGS_BY_SHADER_ID: Record<string, AudioReactiveBindingMap>
 function getStageRenderLayerWarmupKey(
   layer: Pick<
     StageRenderLayer,
-    'shaderCode' | 'inputSource' | 'overlaySource' | 'transitionInputSources' | 'transitionOverlaySources'
+    | 'shaderCode'
+    | 'inputSource'
+    | 'overlaySource'
+    | 'transitionInputSources'
+    | 'transitionOverlaySources'
+    | 'samplerSources'
   >,
 ): string {
+  const samplerSourceKey = Object.entries(layer.samplerSources ?? {})
+    .sort(([leftName], [rightName]) => leftName.localeCompare(rightName))
+    .map(([uniformName, source]) => `${uniformName}:${source?.sourceKey ?? ''}`)
+    .join(',');
+
   return [
     layer.shaderCode,
     layer.inputSource?.sourceKey ?? '',
@@ -86,6 +97,7 @@ function getStageRenderLayerWarmupKey(
     layer.transitionInputSources?.to?.sourceKey ?? '',
     layer.transitionOverlaySources?.from?.sourceKey ?? '',
     layer.transitionOverlaySources?.to?.sourceKey ?? '',
+    samplerSourceKey,
   ].join('|');
 }
 
@@ -148,6 +160,7 @@ interface TimelineRenderLayer {
     from: StageRenderInputSource | null;
     to: StageRenderInputSource | null;
   } | null;
+  samplerSources?: StageRenderLayer['samplerSources'];
 }
 
 interface ResolvedShaderLayer {
@@ -1513,6 +1526,7 @@ export function TimelineStageRenderer({
         from: primaryLayer.overlaySource ?? null,
         to: secondaryLayer.overlaySource ?? null,
       },
+      samplerSources: collectNestedTimelineSamplerSources(primaryLayer, secondaryLayer),
     };
   }, [
     buildTimelineRenderLayer,
@@ -1611,6 +1625,7 @@ export function TimelineStageRenderer({
     overlaySource: layer.overlaySource ?? null,
     transitionInputSources: layer.transitionInputSources ?? null,
     transitionOverlaySources: layer.transitionOverlaySources ?? null,
+    samplerSources: layer.samplerSources,
     compositeMode: layer.compositeMode,
     requiresCompositeBase: layer.requiresCompositeBase,
   }), []);

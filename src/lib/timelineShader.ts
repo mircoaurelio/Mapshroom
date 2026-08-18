@@ -1,4 +1,3 @@
-import { parseUniforms } from './shader';
 import type { TimelineTransitionEffect } from '../types';
 
 // Shader code generation (namespacing + assembly) runs regex passes over the
@@ -54,7 +53,7 @@ function collectFunctionNames(code: string): string[] {
 }
 
 function collectUniformNames(code: string): string[] {
-  const names = new Set(Object.keys(parseUniforms(code)));
+  const names = new Set<string>();
   const uniformRegex =
     /\buniform\s+(?:float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|sampler2D)\s+([A-Za-z_][A-Za-z0-9_]*)\b/g;
   let match: RegExpExecArray | null = null;

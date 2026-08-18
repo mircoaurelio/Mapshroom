@@ -132,10 +132,6 @@ export function normalizeTimelineStepAssetSettings(
   )
     ? (nextSettings.pinnedStackMaskMode as TimelinePinnedStackMaskMode)
     : DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.pinnedStackMaskMode;
-  const resolvedPinnedCompositeMode =
-    pinnedCompositeMode === 'blend'
-      ? DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.pinnedCompositeMode
-      : pinnedCompositeMode;
   const resolvedPinnedStackMaskMode = pinnedStackMaskMode;
 
   return {
@@ -160,7 +156,7 @@ export function normalizeTimelineStepAssetSettings(
     useStepAssetAsShaderBase:
       nextSettings.useStepAssetAsShaderBase ??
       DEFAULT_TIMELINE_STEP_ASSET_SETTINGS.useStepAssetAsShaderBase,
-    pinnedCompositeMode: resolvedPinnedCompositeMode,
+    pinnedCompositeMode,
     pinnedStackMaskMode: resolvedPinnedStackMaskMode,
     pinnedStackMaskThreshold: clampTimelinePinnedStackMaskThreshold(
       nextSettings.pinnedStackMaskThreshold ??

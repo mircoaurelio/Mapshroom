@@ -1,5 +1,6 @@
 import {
   buildShaderProgramSources,
+  detectMinimumShaderTarget,
   isShaderTargetSupported,
   normalizeOfficialShaderBody,
   OFFICIAL_SHADER_PROFILE,
@@ -7,7 +8,10 @@ import {
   SHADER_ABI_VERSION,
   type ShaderCompileTarget,
 } from './lib/shaderCompiler';
+import { normalizeProjectShaderSources } from './lib/shaderProfile';
+import { buildTimelineTransitionShaderCode } from './lib/timelineShader';
 import { shaderPresetList } from './shaders/presets';
+import type { ProjectDocument, ShaderMinimumTarget } from './types';
 
 type ShaderContext = WebGLRenderingContext | WebGL2RenderingContext;
 
@@ -16,6 +20,17 @@ interface ShaderFailure {
   name: string;
   phase: 'context' | 'vertex' | 'fragment' | 'link';
   message: string;
+}
+
+interface ShaderSmokeEntry {
+  id: string;
+  name: string;
+  code: string;
+  minimumTarget?: ShaderMinimumTarget;
+}
+
+interface HistoricalProjectBackup {
+  project: ProjectDocument;
 }
 
 interface TargetSmokeResult {
@@ -117,11 +132,12 @@ function yieldToPage(): Promise<void> {
 
 async function runTarget(
   target: ShaderCompileTarget,
+  shaderEntries: readonly ShaderSmokeEntry[],
   onProgress: (completed: number) => void,
 ): Promise<TargetSmokeResult> {
   const label = target === 'webgl2' ? 'WebGL 2 · GLSL ES 3.00' : 'WebGL 1 · GLSL ES 1.00';
-  const eligiblePresets = shaderPresetList.filter((preset) =>
-    isShaderTargetSupported(preset.minimumTarget, target),
+  const eligibleEntries = shaderEntries.filter((entry) =>
+    isShaderTargetSupported(entry.minimumTarget, target),
   );
   const gl = getContext(target);
   const startedAt = performance.now();
@@ -132,8 +148,8 @@ async function runTarget(
       label,
       supported: false,
       passed: 0,
-      total: eligiblePresets.length,
-      skipped: shaderPresetList.length - eligiblePresets.length,
+      total: eligibleEntries.length,
+      skipped: shaderEntries.length - eligibleEntries.length,
       durationMs: performance.now() - startedAt,
       failures: [{
         id: target,
@@ -146,29 +162,29 @@ async function runTarget(
 
   const failures: ShaderFailure[] = [];
   let passed = 0;
-  const firstSources = buildShaderProgramSources(eligiblePresets[0]?.code ?? '', target);
+  const firstSources = buildShaderProgramSources(eligibleEntries[0]?.code ?? '', target);
   let vertexShader: WebGLShader | null = null;
 
   try {
     vertexShader = compileShader(gl, gl.VERTEX_SHADER, firstSources.vertexSource);
 
-    for (let index = 0; index < eligiblePresets.length; index += 1) {
-      const preset = eligiblePresets[index];
+    for (let index = 0; index < eligibleEntries.length; index += 1) {
+      const entry = eligibleEntries[index];
       try {
-        const sources = buildShaderProgramSources(preset.code, target);
+        const sources = buildShaderProgramSources(entry.code, target);
         linkProgram(gl, vertexShader, sources.fragmentSource);
         passed += 1;
       } catch (error) {
         failures.push({
-          id: preset.id,
-          name: preset.name,
+          id: entry.id,
+          name: entry.name,
           phase: error instanceof ShaderProgramError ? error.phase : 'fragment',
           message: error instanceof Error ? error.message : 'Unknown shader error.',
         });
       }
 
       const completed = index + 1;
-      if (completed % 40 === 0 || completed === eligiblePresets.length) {
+      if (completed % 40 === 0 || completed === eligibleEntries.length) {
         onProgress(completed);
         await yieldToPage();
       }
@@ -191,10 +207,66 @@ async function runTarget(
     label,
     supported: true,
     passed,
-    total: eligiblePresets.length,
-    skipped: shaderPresetList.length - eligiblePresets.length,
+    total: eligibleEntries.length,
+    skipped: shaderEntries.length - eligibleEntries.length,
     durationMs: performance.now() - startedAt,
     failures,
+  };
+}
+
+async function loadHistoricalShaderEntries(): Promise<ShaderSmokeEntry[]> {
+  const response = await fetch(
+    '/docs/backups/mapshroom-v3-backup-902e74dc-028b-4136-8b55-d7c7d121b01f.json',
+  );
+  if (!response.ok) {
+    throw new Error(`Unable to load historical project fixture (${response.status}).`);
+  }
+
+  const backup = (await response.json()) as HistoricalProjectBackup;
+  const migratedProject = normalizeProjectShaderSources(backup.project);
+  return [
+    {
+      id: 'history-active',
+      name: 'Historical active shader',
+      code: migratedProject.studio.activeShaderCode,
+      minimumTarget: detectMinimumShaderTarget(migratedProject.studio.activeShaderCode),
+    },
+    ...migratedProject.studio.savedShaders
+      .filter((shader) => !shader.isDirty)
+      .map((shader) => ({
+        id: `history-${shader.id}`,
+        name: `Historical · ${shader.name}`,
+        code: shader.code,
+        minimumTarget: shader.minimumTarget,
+      })),
+  ];
+}
+
+function buildNestedTransitionSmokeEntry(): ShaderSmokeEntry {
+  const shaderBody = (red: number, green: number, blue: number) => `
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+  return texture(tex, uv) * vec4(${red}.0, ${green}.0, ${blue}.0, 1.0);
+}`;
+  const primaryTransition = buildTimelineTransitionShaderCode({
+    fromCode: shaderBody(1, 0, 0),
+    toCode: shaderBody(0, 1, 0),
+    effect: 'mix',
+  });
+  const secondaryTransition = buildTimelineTransitionShaderCode({
+    fromCode: shaderBody(0, 0, 1),
+    toCode: shaderBody(1, 1, 0),
+    effect: 'wipe',
+  });
+
+  return {
+    id: 'generated-nested-double-transition',
+    name: 'Generated nested Double transition',
+    code: buildTimelineTransitionShaderCode({
+      fromCode: primaryTransition,
+      toCode: secondaryTransition,
+      effect: 'noise',
+    }),
+    minimumTarget: 'webgl2',
   };
 }
 
@@ -270,6 +342,12 @@ function renderReport(report: ShaderSmokeReport): void {
 async function runShaderSmokeTest(): Promise<void> {
   const progress = document.getElementById('progress');
   const targets: TargetSmokeResult[] = [];
+  const historicalShaderEntries = await loadHistoricalShaderEntries();
+  const shaderEntries: ShaderSmokeEntry[] = [
+    ...shaderPresetList,
+    ...historicalShaderEntries,
+    buildNestedTransitionSmokeEntry(),
+  ];
   const nonOfficialPresetIds = shaderPresetList
     .filter(
       (preset) =>
@@ -282,10 +360,10 @@ async function runShaderSmokeTest(): Promise<void> {
     if (progress) {
       progress.textContent = `Verifica ${target === 'webgl2' ? 'WebGL 2' : 'WebGL 1'}…`;
     }
-    const result = await runTarget(target, (completed) => {
+    const result = await runTarget(target, shaderEntries, (completed) => {
       if (progress) {
-        const total = shaderPresetList.filter((preset) =>
-          isShaderTargetSupported(preset.minimumTarget, target),
+        const total = shaderEntries.filter((entry) =>
+          isShaderTargetSupported(entry.minimumTarget, target),
         ).length;
         progress.textContent = `${resultLabel(target)}: ${completed} / ${total}`;
       }
