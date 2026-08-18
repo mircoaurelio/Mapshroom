@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ShaderCanvas } from './ShaderCanvas';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { ACTIVE_SESSION_KEY } from '../config';
+import { getBundledAssetUrl } from '../lib/bundledAssets';
+import { savePendingShaderApplyRequest } from '../lib/shaderApplyLink';
+import { getAssetBlob, loadProjectDocument } from '../lib/storage';
+import { ShaderGridCanvas } from './ShaderGridCanvas';
 import {
-  buildFragmentShader,
+  buildMapshroomShader,
   createInitialColony,
   evolveGenome,
   FIELD_LABELS,
@@ -16,11 +20,25 @@ function ArrowIcon() {
   return <span aria-hidden="true">↗</span>;
 }
 
+function readCurrentMapshroomProject() {
+  const sessionId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+  return sessionId ? loadProjectDocument(sessionId) : null;
+}
+
 export function ShaderLabApp() {
   const [colony, setColony] = useState(() => createInitialColony());
   const [history, setHistory] = useState<ShaderGenome[]>([]);
   const [pastColonies, setPastColonies] = useState<ShaderGenome[][]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const gridRef = useRef<HTMLElement>(null);
+  const [mapshroomProject, setMapshroomProject] = useState(readCurrentMapshroomProject);
+  const [selectedAssetId, setSelectedAssetId] = useState(
+    () => mapshroomProject?.library.activeAssetId ?? '',
+  );
+  const [uploadedAssetPreview, setUploadedAssetPreview] = useState<{
+    assetId: string;
+    url: string;
+  } | null>(null);
   const generation = colony[0]?.generation ?? 0;
 
   useEffect(() => {
@@ -29,10 +47,51 @@ export function ShaderLabApp() {
     return () => document.body.classList.remove('spore-page-active');
   }, []);
 
+  useEffect(() => {
+    const refreshProject = () => setMapshroomProject(readCurrentMapshroomProject());
+    window.addEventListener('focus', refreshProject);
+    window.addEventListener('storage', refreshProject);
+    return () => {
+      window.removeEventListener('focus', refreshProject);
+      window.removeEventListener('storage', refreshProject);
+    };
+  }, []);
+
   const dominantParent = history.at(-1);
+  const effectiveAssetId = mapshroomProject?.library.assets.some(
+    (asset) => asset.id === selectedAssetId,
+  )
+    ? selectedAssetId
+    : mapshroomProject?.library.activeAssetId ?? '';
+  const selectedAsset = mapshroomProject?.library.assets.find(
+    (asset) => asset.id === effectiveAssetId,
+  ) ?? null;
+  const bundledAssetUrl = selectedAsset ? getBundledAssetUrl(selectedAsset.id) : null;
+  const selectedAssetUrl = bundledAssetUrl ?? (
+    selectedAsset && uploadedAssetPreview?.assetId === selectedAsset.id
+      ? uploadedAssetPreview.url
+      : null
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    let objectUrl: string | null = null;
+    if (!selectedAsset || bundledAssetUrl) {
+      return;
+    }
+    void getAssetBlob(selectedAsset.id).then((blob) => {
+      if (!blob || disposed) return;
+      objectUrl = URL.createObjectURL(blob);
+      setUploadedAssetPreview({ assetId: selectedAsset.id, url: objectUrl });
+    });
+    return () => {
+      disposed = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [bundledAssetUrl, selectedAsset]);
   const subtitle = useMemo(() => {
     if (!dominantParent) return 'Nine live starting points. Pick the one with the right energy.';
-    return `Five close mutations and four new crossovers grown from ${getGenomeName(dominantParent)}.`;
+    return `One close mutation and eight new directions grown from ${getGenomeName(dominantParent)}.`;
   }, [dominantParent]);
 
   const choose = (genome: ShaderGenome) => {
@@ -58,9 +117,35 @@ export function ShaderLabApp() {
   };
 
   const copyShader = async (genome: ShaderGenome) => {
-    await navigator.clipboard.writeText(buildFragmentShader(genome));
+    await navigator.clipboard.writeText(buildMapshroomShader(genome));
     setCopiedId(genome.id);
     window.setTimeout(() => setCopiedId(null), 1600);
+  };
+
+  const importInMapshroom = (genome: ShaderGenome) => {
+    if (!mapshroomProject) return;
+    const requestId = crypto.randomUUID();
+    const code = buildMapshroomShader(genome);
+    savePendingShaderApplyRequest({
+      version: 1,
+      requestId,
+      sessionId: mapshroomProject.sessionId,
+      targetShaderId: mapshroomProject.studio.activeShaderId,
+      prompt: `Import ${getGenomeName(genome)} from Mapshroom Spore.`,
+      historyPrompt: `Spore generation ${genome.generation}`,
+      currentCode: mapshroomProject.studio.activeShaderCode,
+      trigger: 'quick_add',
+      createdAt: new Date().toISOString(),
+    });
+    const url = new URL('/', window.location.origin);
+    url.searchParams.set('applyShader', '1');
+    url.searchParams.set('session', mapshroomProject.sessionId);
+    url.searchParams.set('shader', mapshroomProject.studio.activeShaderId);
+    url.searchParams.set('request', requestId);
+    if (effectiveAssetId) url.searchParams.set('asset', effectiveAssetId);
+    url.searchParams.set('code', code);
+    url.hash = '/';
+    window.open(url.toString(), '_blank', 'noopener');
   };
 
   return (
@@ -74,6 +159,19 @@ export function ShaderLabApp() {
           <em>LABS</em>
         </a>
         <div className="spore-nav-meta">
+          <label className="spore-asset-select">
+            <span>Depth map</span>
+            <select
+              value={effectiveAssetId}
+              onChange={(event) => setSelectedAssetId(event.target.value)}
+              aria-label="Choose a depth map from Mapshroom"
+            >
+              <option value="">Select depth map</option>
+              {mapshroomProject?.library.assets.map((asset) => (
+                <option key={asset.id} value={asset.id}>{asset.name}</option>
+              ))}
+            </select>
+          </label>
           <span><i className="spore-status-dot" /> GLSL ES 3.00</span>
           <a href="/">Open studio <ArrowIcon /></a>
         </div>
@@ -99,11 +197,16 @@ export function ShaderLabApp() {
         <b>{colony.length} shaders alive</b>
       </section>
 
-      <section className="spore-grid" aria-label="Shader choices">
+      <section ref={gridRef} className="spore-grid" aria-label="Shader choices">
+        <ShaderGridCanvas
+          genomes={colony}
+          gridRef={gridRef}
+          assetUrl={selectedAssetUrl}
+          assetKind={selectedAsset?.kind ?? null}
+        />
         {colony.map((genome, index) => (
           <article className="spore-card" key={genome.id} style={{ '--spore-index': index } as CSSProperties}>
-            <button className="spore-preview" type="button" onClick={() => choose(genome)} aria-label={`Evolve ${getGenomeName(genome)}`}>
-              <ShaderCanvas genome={genome} />
+            <button data-spore-preview className="spore-preview" type="button" onClick={() => choose(genome)} aria-label={`Evolve ${getGenomeName(genome)}`}>
               <span className="spore-card-index">{String(index + 1).padStart(2, '0')}</span>
               <span className={`spore-lineage ${genome.lineage}`}>{genome.lineage === 'origin' ? 'seed' : genome.lineage}</span>
               <span className="spore-pick">Choose <ArrowIcon /></span>
@@ -113,9 +216,20 @@ export function ShaderLabApp() {
                 <h2>{getGenomeName(genome)}</h2>
                 <p>{FIELD_LABELS[genome.field]} · {MIX_LABELS[genome.mix]}</p>
               </div>
-              <button type="button" onClick={() => copyShader(genome)} aria-label={`Copy ${getGenomeName(genome)} GLSL`}>
-                {copiedId === genome.id ? 'Copied' : 'GLSL'}
-              </button>
+              <div className="spore-card-actions">
+                <button type="button" onClick={() => copyShader(genome)} aria-label={`Copy ${getGenomeName(genome)} GLSL`}>
+                  {copiedId === genome.id ? 'Copied' : 'GLSL'}
+                </button>
+                <button
+                  type="button"
+                  className="spore-import-button"
+                  onClick={() => importInMapshroom(genome)}
+                  disabled={!mapshroomProject}
+                  title={mapshroomProject ? 'Open this shader and asset in Mapshroom' : 'Open Mapshroom once to create a project'}
+                >
+                  Import ↗
+                </button>
+              </div>
             </div>
             <div className="spore-traits" aria-label="Shader traits">
               <span>{PALETTE_LABELS[genome.palette]}</span>

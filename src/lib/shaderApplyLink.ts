@@ -16,6 +16,7 @@ export interface ShaderApplyLinkPayload {
   sessionId: string;
   targetShaderId: string;
   requestId: string;
+  assetId: string | null;
   code: string;
 }
 
@@ -23,7 +24,7 @@ const PENDING_REQUEST_STORAGE_KEY = 'mapshroom-v3:pending-shader-apply-requests'
 const PENDING_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PENDING_REQUESTS = 20;
 const MAX_SHADER_CODE_LENGTH = 120_000;
-const LINK_PARAM_NAMES = ['applyShader', 'session', 'shader', 'request', 'code'] as const;
+const LINK_PARAM_NAMES = ['applyShader', 'session', 'shader', 'request', 'asset', 'code'] as const;
 
 function getLinkParams(url: URL): URLSearchParams {
   if (url.searchParams.has('applyShader')) {
@@ -124,6 +125,8 @@ export function parseShaderApplyLink(urlValue: string | URL): ShaderApplyLinkPay
   const sessionId = validateLinkIdentifier(params.get('session'), 'project session');
   const targetShaderId = validateLinkIdentifier(params.get('shader'), 'target shader');
   const requestId = validateLinkIdentifier(params.get('request'), 'request ID');
+  const assetParam = params.get('asset');
+  const assetId = assetParam ? validateLinkIdentifier(assetParam, 'asset') : null;
   const code = params.get('code')?.replace(/\r\n/g, '\n').trim() ?? '';
 
   if (!code) {
@@ -137,6 +140,7 @@ export function parseShaderApplyLink(urlValue: string | URL): ShaderApplyLinkPay
     sessionId,
     targetShaderId,
     requestId,
+    assetId,
     code,
   };
 }

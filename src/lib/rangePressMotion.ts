@@ -9,8 +9,19 @@ export function installRangePressMotion(): () => void {
   const activePointers = new Map<number, HTMLInputElement>();
   const pressStates = new WeakMap<HTMLInputElement, { startedAt: number; token: string }>();
   const releaseTimers = new Map<HTMLInputElement, number>();
+  const pressAnimationFrames = new Map<HTMLInputElement, number>();
   const installationId = crypto.randomUUID();
   let pressSequence = 0;
+
+  const clearPressAnimationFrame = (input: HTMLInputElement) => {
+    const frameId = pressAnimationFrames.get(input);
+    if (frameId === undefined) {
+      return;
+    }
+
+    window.cancelAnimationFrame(frameId);
+    pressAnimationFrames.delete(input);
+  };
 
   const clearReleaseTimer = (input: HTMLInputElement) => {
     const timerId = releaseTimers.get(input);
@@ -24,10 +35,21 @@ export function installRangePressMotion(): () => void {
 
   const press = (input: HTMLInputElement, pointerId: number) => {
     clearReleaseTimer(input);
+    clearPressAnimationFrame(input);
     activePointers.set(pointerId, input);
     const token = `${installationId}-${pointerId}-${++pressSequence}`;
     pressStates.set(input, { startedAt: performance.now(), token });
-    input.setAttribute(RANGE_PRESS_ATTRIBUTE, token);
+
+    // Let the browser acquire the native range drag before changing the
+    // thumb's clip-path. Mutating it during the capture phase can make a fast
+    // pointer gesture miss the thumb while its press animation is starting.
+    const frameId = window.requestAnimationFrame(() => {
+      pressAnimationFrames.delete(input);
+      if (pressStates.get(input)?.token === token) {
+        input.setAttribute(RANGE_PRESS_ATTRIBUTE, token);
+      }
+    });
+    pressAnimationFrames.set(input, frameId);
   };
 
   const release = (input: HTMLInputElement) => {
@@ -84,6 +106,8 @@ export function installRangePressMotion(): () => void {
 
     releaseTimers.forEach((timerId) => window.clearTimeout(timerId));
     releaseTimers.clear();
+    pressAnimationFrames.forEach((frameId) => window.cancelAnimationFrame(frameId));
+    pressAnimationFrames.clear();
     activePointers.clear();
   };
 }

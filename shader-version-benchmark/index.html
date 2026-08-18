@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="Confronto controllato fra GLSL ES 1.00, GLSL ES 3.00 e WGSL/WebGPU." />
+    <title>Mapshroom — Shader Version Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/shader-version-benchmark/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow"><span class="signal"></span> MAPSHROOM / CONTROLLED TEST 01</p>
+          <h1>Shader Version Lab</h1>
+          <p class="lede">Quindici implementazioni indipendenti. Un solo brief, una sola texture e gli stessi controlli.</p>
+        </div>
+        <div class="specimen-tag">
+          <span>STANDARD EFFECT</span>
+          <strong>Spectral topographic flow</strong>
+          <small>single pass · source aware · alpha mask</small>
+        </div>
+      </header>
+
+      <section class="toolbar" aria-label="Controlli benchmark">
+        <div class="run-picker" role="group" aria-label="Seleziona run">
+          <span>RUN</span>
+          <button class="run-button active" data-run="0">01</button>
+          <button class="run-button" data-run="1">02</button>
+          <button class="run-button" data-run="2">03</button>
+          <button class="run-button" data-run="3">04</button>
+          <button class="run-button" data-run="4">05</button>
+        </div>
+        <div class="transport">
+          <button id="playToggle" class="icon-button" aria-label="Metti in pausa">II</button>
+          <button id="resetTime" class="text-button">RESET TIME</button>
+          <output id="timeReadout">T+ 00.00</output>
+        </div>
+        <button id="viewToggle" class="view-button" aria-pressed="false"><span class="grid-icon">+</span> OVERVIEW 15</button>
+      </section>
+
+      <section id="compareView" class="compare-grid" aria-live="polite">
+        <article class="shader-card v1-card">
+          <div class="card-head">
+            <div><p>LEGACY BASELINE</p><h2>GLSL ES 1.00 <span>/ WebGL 1</span></h2></div>
+            <button class="source-button" data-source-side="v1">VIEW SOURCE</button>
+          </div>
+          <div class="canvas-wrap checkerboard">
+            <canvas id="canvasV1" aria-label="Render GLSL ES 1.00"></canvas>
+            <div class="version-stamp">GLSL ES 1.00</div>
+          </div>
+          <div class="metrics">
+            <span class="compile-state" id="statusV1"><i></i> LOADING</span>
+            <span id="fpsV1">-- FPS</span><span id="msV1">-- MS</span>
+          </div>
+          <p class="variant-note" id="noteV1"></p>
+          <pre class="error-log" id="errorV1" hidden></pre>
+        </article>
+
+        <article class="shader-card v3-card">
+          <div class="card-head">
+            <div><p>MODERN CANDIDATE</p><h2>GLSL ES 3.00 <span>/ WebGL 2</span></h2></div>
+            <button class="source-button" data-source-side="v3">VIEW SOURCE</button>
+          </div>
+          <div class="canvas-wrap checkerboard">
+            <canvas id="canvasV3" aria-label="Render GLSL ES 3.00"></canvas>
+            <div class="version-stamp">GLSL ES 3.00</div>
+          </div>
+          <div class="metrics">
+            <span class="compile-state" id="statusV3"><i></i> LOADING</span>
+            <span id="fpsV3">-- FPS</span><span id="msV3">-- MS</span>
+          </div>
+          <p class="variant-note" id="noteV3"></p>
+          <pre class="error-log" id="errorV3" hidden></pre>
+        </article>
+
+        <article class="shader-card wgsl-card">
+          <div class="card-head">
+            <div><p>NEXT-GEN CANDIDATE</p><h2>WGSL <span>/ WebGPU</span></h2></div>
+            <button class="source-button" data-source-side="gpu">VIEW SOURCE</button>
+          </div>
+          <div class="canvas-wrap checkerboard">
+            <canvas id="canvasGpu" aria-label="Render WGSL su WebGPU"></canvas>
+            <div class="version-stamp">WGSL / WEBGPU</div>
+          </div>
+          <div class="metrics">
+            <span class="compile-state" id="statusGpu"><i></i> LOADING</span>
+            <span id="fpsGpu">-- FPS</span><span id="msGpu">-- MS</span>
+          </div>
+          <p class="variant-note" id="noteGpu"></p>
+          <pre class="error-log" id="errorGpu" hidden></pre>
+        </article>
+      </section>
+
+      <section id="overviewView" class="overview" hidden>
+        <div class="overview-column">
+          <div class="overview-heading"><span>GLSL ES 1.00</span><small>5 independent runs</small></div>
+          <div id="overviewV1" class="overview-list"></div>
+        </div>
+        <div class="overview-column">
+          <div class="overview-heading"><span>GLSL ES 3.00</span><small>5 independent runs</small></div>
+          <div id="overviewV3" class="overview-list"></div>
+        </div>
+        <div class="overview-column">
+          <div class="overview-heading"><span>WGSL / WEBGPU</span><small>5 independent runs</small></div>
+          <div id="overviewGpu" class="overview-list"></div>
+        </div>
+      </section>
+
+      <section class="control-deck">
+        <div class="deck-title"><p>SHARED PARAMETERS</p><span>Ogni valore è inviato identico ai tre renderer.</span></div>
+        <label>Speed <output id="speedOut">1.00</output><input id="speed" type="range" min="0" max="2.5" step="0.01" value="1" /></label>
+        <label>Intensity <output id="intensityOut">0.70</output><input id="intensity" type="range" min="0" max="1.5" step="0.01" value="0.70" /></label>
+        <label>Scale <output id="scaleOut">1.00</output><input id="scale" type="range" min="0.35" max="2.5" step="0.01" value="1" /></label>
+      </section>
+
+      <footer>
+        <div><span>SAME BRIEF</span><span>SAME INPUT</span><span>SAME PARAMETERS</span><span>SAME CLOCK</span></div>
+        <p>Valuta composizione, leggibilità sulla superficie, qualità del moto, dettaglio e stabilità — non soltanto gli FPS.</p>
+      </footer>
+    </main>
+
+    <dialog id="sourceDialog" class="source-dialog">
+      <div class="dialog-head">
+        <div><p id="sourceKicker">SOURCE</p><h2 id="sourceTitle">Shader source</h2></div>
+        <div><button id="copySource" class="text-button">COPY</button><button id="closeDialog" class="icon-button" aria-label="Chiudi">×</button></div>
+      </div>
+      <pre><code id="sourceCode"></code></pre>
+    </dialog>
+    <script type="module" src="/shader-version-benchmark/app.js"></script>
+  </body>
+</html>

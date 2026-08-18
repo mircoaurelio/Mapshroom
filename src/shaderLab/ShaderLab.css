@@ -58,6 +58,9 @@ button { color: inherit; }
 .spore-nav-meta > span { color: #7c867f; }
 .spore-nav-meta a { display: flex; align-items: center; gap: 8px; color: #e7ece9; text-decoration: none; }
 .spore-nav-meta a:hover { color: #a6ffca; }
+.spore-asset-select { display: flex; align-items: center; gap: 8px; color: #657069; }
+.spore-asset-select select { max-width: 190px; height: 30px; padding: 0 25px 0 9px; border: 1px solid #303632; border-radius: 3px; color: #dce4df; background: #111512; font: inherit; cursor: pointer; }
+.spore-asset-select select:focus-visible { outline: 1px solid #93f8bd; outline-offset: 2px; }
 .spore-status-dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: #55f59a; box-shadow: 0 0 9px rgba(85, 245, 154, 0.7); }
 
 .spore-header {
@@ -110,12 +113,26 @@ button { color: inherit; }
 .spore-dot.crossover { border: 1px solid #c984ff; background: transparent; }
 
 .spore-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border-left: 1px solid #242825;
 }
 
+.spore-grid-canvas,
+.spore-grid-canvas-fallback {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.spore-grid-canvas-fallback { display: grid; place-items: center; color: #737c76; font-family: 'DM Mono', monospace; font-size: 10px; }
+
 .spore-card {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   padding: 12px;
   border-right: 1px solid #242825;
@@ -138,13 +155,11 @@ button { color: inherit; }
   overflow: hidden;
   border: 0;
   border-radius: 3px;
-  background: #030504;
+  background: transparent;
   cursor: pointer;
 }
 .spore-preview::after { content: ''; position: absolute; inset: 0; border: 1px solid rgba(255,255,255,0.09); border-radius: inherit; pointer-events: none; }
-.spore-canvas { display: block; width: 100%; height: 100%; transition: transform 700ms cubic-bezier(0.2, 0.75, 0.2, 1), filter 400ms ease; }
-.spore-canvas-fallback { display: grid; width: 100%; height: 100%; place-items: center; color: #737c76; font-family: 'DM Mono', monospace; font-size: 10px; }
-.spore-preview:hover .spore-canvas { transform: scale(1.035); filter: saturate(1.12) brightness(1.06); }
+.spore-preview:hover::after { border-color: rgba(147, 248, 189, 0.42); }
 .spore-card-index, .spore-lineage, .spore-pick { position: absolute; z-index: 1; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
 .spore-card-index { top: 10px; left: 11px; color: rgba(255,255,255,0.7); }
 .spore-lineage { top: 9px; right: 10px; padding: 3px 6px; border-radius: 2px; color: rgba(255,255,255,0.72); background: rgba(5,8,6,0.56); backdrop-filter: blur(8px); }
@@ -154,12 +169,15 @@ button { color: inherit; }
 .spore-preview:hover .spore-pick, .spore-preview:focus-visible .spore-pick { opacity: 1; transform: translateY(0); }
 .spore-preview:focus-visible { outline: 2px solid #a6ffca; outline-offset: 2px; }
 
-.spore-card-info { display: flex; align-items: start; justify-content: space-between; gap: 20px; padding: 15px 2px 10px; }
+.spore-card-info { position: relative; display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-inline: -1px; padding: 15px 3px 10px; background: #080a09; }
 .spore-card-info h2 { margin: 0 0 4px; color: #edf2ef; font-size: 15px; font-weight: 500; letter-spacing: -0.03em; }
 .spore-card-info p { margin: 0; color: #68716b; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.03em; text-transform: uppercase; }
 .spore-card-info button { padding: 5px 7px; border: 1px solid #323833; border-radius: 3px; color: #89928c; background: transparent; font-family: 'DM Mono', monospace; font-size: 8px; cursor: pointer; }
 .spore-card-info button:hover { border-color: #87eeb1; color: #a6ffca; }
-.spore-traits { display: flex; gap: 6px; padding: 0 2px 4px; }
+.spore-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.spore-card-info .spore-import-button { border-color: #547662; color: #9fffc5; }
+.spore-card-info .spore-import-button:disabled { opacity: 0.35; cursor: not-allowed; }
+.spore-traits { position: relative; display: flex; gap: 6px; margin-inline: -1px; padding: 0 3px 4px; background: #080a09; }
 .spore-traits span { padding: 4px 6px; border: 1px solid #232824; border-radius: 2px; color: #555e58; font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; }
 
 .spore-footer { display: flex; align-items: baseline; gap: 20px; padding: 26px 0 0; }
@@ -191,5 +209,5 @@ button { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .spore-card { animation: none; }
-  .spore-canvas, .spore-header-actions button { transition: none; }
+  .spore-header-actions button { transition: none; }
 }

@@ -4,13 +4,52 @@ import react from '@vitejs/plugin-react';
 
 import { cloudflare } from "@cloudflare/vite-plugin";
 
+function normalizeShaderLabUrl() {
+  return {
+    name: 'normalize-shader-lab-url',
+    configureServer(server: { middlewares: { use: (handler: (
+      request: { url?: string },
+      response: { statusCode: number; setHeader: (name: string, value: string) => void; end: () => void },
+      next: () => void,
+    ) => void) => void } }) {
+      server.middlewares.use((request, response, next) => {
+        const rawUrl = request.url;
+        if (!rawUrl) {
+          next();
+          return;
+        }
+
+        const queryIndex = rawUrl.indexOf('?');
+        const rawPath = queryIndex >= 0 ? rawUrl.slice(0, queryIndex) : rawUrl;
+        const query = queryIndex >= 0 ? rawUrl.slice(queryIndex) : '';
+        let decodedPath = rawPath;
+        try {
+          decodedPath = decodeURIComponent(rawPath);
+        } catch {
+          next();
+          return;
+        }
+
+        if (/^\/shader-lab\/[\s\u00a0]*$/u.test(decodedPath) && decodedPath !== '/shader-lab/') {
+          response.statusCode = 308;
+          response.setHeader('Location', `/shader-lab/${query}`);
+          response.end();
+          return;
+        }
+
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command }) => {
   // Custom domain (mapshroom.dev) and Cloudflare Pages serve from root.
   // Override with BASE_PATH=/Mapshroom/ only if you still need GitHub Pages.
   const base = command === 'build' ? (process.env.BASE_PATH || '/') : '/';
 
   return {
-    plugins: [react(), cloudflare()],
+    plugins: [normalizeShaderLabUrl(), react(), cloudflare()],
     base,
     build: {
       rollupOptions: {
@@ -23,6 +62,7 @@ export default defineConfig(({ command }) => {
           why: resolve(__dirname, 'why/index.html'),
           shader: resolve(__dirname, 'shader/index.html'),
           shaderLab: resolve(__dirname, 'shader-lab/index.html'),
+          shaderVersionBenchmark: resolve(__dirname, 'shader-version-benchmark/index.html'),
           creatorchallenge: resolve(__dirname, 'creatorchallenge/index.html'),
         },
       },
