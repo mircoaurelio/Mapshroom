@@ -58,6 +58,7 @@ export default defineConfig(({ command }) => {
           slicer: resolve(__dirname, 'slicer/index.html'),
           segmentation: resolve(__dirname, 'segmentation/index.html'),
           depthmap: resolve(__dirname, 'depthmap/index.html'),
+          depthLabEval: resolve(__dirname, 'depth-lab-eval.html'),
           tutorial: resolve(__dirname, 'tutorial/index.html'),
           why: resolve(__dirname, 'why/index.html'),
           shader: resolve(__dirname, 'shader/index.html'),

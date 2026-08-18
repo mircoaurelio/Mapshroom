@@ -258,6 +258,7 @@ test('bundled project and visual eval are wired to the statue depth map', () => 
   const bundled = readFileSync(new URL('src/lib/bundledProjects.ts', root), 'utf8');
   const evaluation = readFileSync(new URL('src/depthLabEval.ts', root), 'utf8');
   const evaluationPage = readFileSync(new URL('depth-lab-eval.html', root), 'utf8');
+  const productionViteConfig = readFileSync(new URL('vite.config.ts', root), 'utf8');
 
   assert.match(bundled, /BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_SESSION_ID/);
   assert.match(bundled, /presets\.length !== 10/);
@@ -266,4 +267,9 @@ test('bundled project and visual eval are wired to the statue depth map', () => 
   assert.match(evaluation, /__MAPSHROOM_DEPTH_LAB_EVAL__/);
   assert.match(evaluation, /BUNDLED_STATUE_DEPTH_ASSET_ID/);
   assert.match(evaluationPage, /project=bundled-webgl2-depth-lab-statue/);
+  assert.match(
+    productionViteConfig,
+    /depthLabEval:\s*resolve\(__dirname, ['"]depth-lab-eval\.html['"]\)/,
+    'the production build must emit depth-lab-eval.html instead of relying on an SPA fallback',
+  );
 });
