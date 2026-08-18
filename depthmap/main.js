@@ -48,7 +48,7 @@ const elements = {
 };
 
 const modelInfo = {
-  'Xenova/depth-anything-small-hf': ['CPU TESTED', 'Fast default for sculptures, rooms, and mixed scenes.'],
+  'Xenova/depth-anything-small-hf': ['CPU TESTED', 'Fast low-memory option for sculptures, rooms, and mixed scenes.'],
   'onnx-community/depth-anything-v2-small': ['V2 SMALL', 'Newer Depth Anything V2 weights with sharper relief.'],
   'Xenova/depth-anything-large-hf': ['HIGH DETAIL', 'Larger model with finer depth transitions; slower on CPU.'],
 };
