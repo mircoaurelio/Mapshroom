@@ -14,6 +14,10 @@ import {
   type OutputDisplayQueryResult,
 } from '../lib/screenDetails';
 import { createSessionSync } from '../lib/sessionSync';
+import {
+  createLiveUniformSync,
+  type LiveUniformUpdate,
+} from '../lib/liveUniformSync';
 import { loadProjectDocument } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
 import { useAudioReactivityOutput } from '../hooks/useAudioReactivity';
@@ -42,14 +46,63 @@ const FALLBACK_TIMELINE_STUB = {
   },
 } as const;
 
+function applyLiveUniformUpdates(
+  project: ProjectDocument,
+  updates: LiveUniformUpdate[],
+): ProjectDocument {
+  if (updates.length === 0) {
+    return project;
+  }
+
+  const updatesByShaderId = new Map<string, Map<string, LiveUniformUpdate>>();
+  for (const update of updates) {
+    const shaderUpdates = updatesByShaderId.get(update.shaderId) ?? new Map();
+    shaderUpdates.set(update.name, update);
+    updatesByShaderId.set(update.shaderId, shaderUpdates);
+  }
+
+  const applyValues = (
+    values: ProjectDocument['studio']['uniformValues'] | undefined,
+    shaderUpdates: Map<string, LiveUniformUpdate>,
+  ) => {
+    const nextValues = { ...(values ?? {}) };
+    for (const update of shaderUpdates.values()) {
+      nextValues[update.name] = update.value;
+    }
+    return nextValues;
+  };
+
+  const activeUpdates = updatesByShaderId.get(project.studio.activeShaderId);
+  return {
+    ...project,
+    studio: {
+      ...project.studio,
+      uniformValues: activeUpdates
+        ? applyValues(project.studio.uniformValues, activeUpdates)
+        : project.studio.uniformValues,
+      savedShaders: project.studio.savedShaders.map((shader) => {
+        const shaderUpdates = updatesByShaderId.get(shader.id);
+        if (!shaderUpdates) {
+          return shader;
+        }
+        const nextValues = applyValues(shader.uniformValues, shaderUpdates);
+        return {
+          ...shader,
+          uniformValues: nextValues,
+          lastValidUniformValues: shader.compileError
+            ? shader.lastValidUniformValues
+            : nextValues,
+        };
+      }),
+    },
+  };
+}
+
 export function OutputRoute() {
   const { sessionId = '' } = useParams();
   const [searchParams] = useSearchParams();
   const chooseScreenOnOpen = searchParams.get('chooseScreen') === '1';
-  const storedProject = useMemo(
-    () => (sessionId ? loadProjectDocument(sessionId) : null),
-    [sessionId],
-  );
+  const [storedProject, setStoredProject] = useState<ProjectDocument | null>(null);
   const [liveProject, setLiveProject] = useState<ProjectDocument | null>(null);
   const [showFullscreenGate, setShowFullscreenGate] = useState(false);
   const [showScreenPicker, setShowScreenPicker] = useState(chooseScreenOnOpen);
@@ -60,6 +113,22 @@ export function OutputRoute() {
     sessionId ? loadMidiOutputMixState(sessionId) : null,
   );
   const audioReactivity = useAudioReactivityOutput(sessionId || null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!sessionId) {
+      return;
+    }
+
+    void loadProjectDocument(sessionId).then((loadedProject) => {
+      if (!cancelled) {
+        setStoredProject(loadedProject);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -132,6 +201,21 @@ export function OutputRoute() {
 
     return () => sync.destroy();
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    const sync = createLiveUniformSync(sessionId, (updates) => {
+      setLiveProject((currentProject) => {
+        const baseProject =
+          currentProject?.sessionId === sessionId ? currentProject : storedProject;
+        return baseProject ? applyLiveUniformUpdates(baseProject, updates) : currentProject;
+      });
+    });
+    return () => sync.destroy();
+  }, [sessionId, storedProject]);
 
   useEffect(() => {
     if (!sessionId) {

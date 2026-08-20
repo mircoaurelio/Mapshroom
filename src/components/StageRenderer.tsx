@@ -206,6 +206,11 @@ const MIN_STAGE_SCALE = 0;
 const MAX_RETAINED_PROGRAMS = 96;
 const COMPILE_AFTER_INTERACTION_QUIET_MS = 750;
 const MAX_WORKSPACE_PREVIEW_DPR = 2;
+const MAX_OUTPUT_RENDER_PIXELS = 3840 * 2160;
+const OUTPUT_START_RENDER_PIXELS = 1920 * 1080;
+const MIN_OUTPUT_RENDER_PIXELS = 960 * 540;
+const OUTPUT_SLOW_FRAME_MS = 48;
+const OUTPUT_FAST_FRAME_MS = 22;
 const FIRST_NESTED_SAMPLER_TEXTURE_UNIT = 4;
 // WebGL2 guarantees at least 16 fragment texture units. Units 0-3 are kept
 // for the existing input/transition ABI; nested generated samplers use 4-15.
@@ -862,7 +867,16 @@ export function StageRenderer({
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
   const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
   const audioRuntimeRef = useRef(audioRuntime);
+  const isOutputOnlyRef = useRef(isOutputOnly);
+  const outputPixelBudgetRef = useRef(OUTPUT_START_RENDER_PIXELS);
+  const outputSlowFrameStreakRef = useRef(0);
+  const outputFastFrameStreakRef = useRef(0);
+  const lastOutputFrameAtRef = useRef(0);
+  const lastOutputShaderKeyRef = useRef('');
+  const canvasLayoutRef = useRef({ targetWidth: 1, targetHeight: 1 });
+  const applyCanvasResolutionRef = useRef<() => void>(() => {});
   const lastUserInteractionAtRef = useRef(0);
+  const userInteractionActiveRef = useRef(false);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
@@ -876,6 +890,7 @@ export function StageRenderer({
   const onCompiledShaderCodesChangeRef = useRef(onCompiledShaderCodesChange);
   const onFrameRenderedRef = useRef(onFrameRendered);
   audioRuntimeRef.current = audioRuntime;
+  isOutputOnlyRef.current = isOutputOnly;
   useEffect(
     () => () => {
       distortionDragRef.current?.cleanup();
@@ -886,13 +901,25 @@ export function StageRenderer({
     const recordInteraction = () => {
       lastUserInteractionAtRef.current = performance.now();
     };
+    const beginPointerInteraction = () => {
+      userInteractionActiveRef.current = true;
+      recordInteraction();
+    };
+    const endPointerInteraction = () => {
+      userInteractionActiveRef.current = false;
+      recordInteraction();
+    };
     const passiveCapture = { capture: true, passive: true } as const;
-    window.addEventListener('pointerdown', recordInteraction, passiveCapture);
+    window.addEventListener('pointerdown', beginPointerInteraction, passiveCapture);
+    window.addEventListener('pointerup', endPointerInteraction, passiveCapture);
+    window.addEventListener('pointercancel', endPointerInteraction, passiveCapture);
     window.addEventListener('keydown', recordInteraction, true);
     window.addEventListener('input', recordInteraction, true);
     window.addEventListener('wheel', recordInteraction, passiveCapture);
     return () => {
-      window.removeEventListener('pointerdown', recordInteraction, true);
+      window.removeEventListener('pointerdown', beginPointerInteraction, true);
+      window.removeEventListener('pointerup', endPointerInteraction, true);
+      window.removeEventListener('pointercancel', endPointerInteraction, true);
       window.removeEventListener('keydown', recordInteraction, true);
       window.removeEventListener('input', recordInteraction, true);
       window.removeEventListener('wheel', recordInteraction, true);
@@ -1239,10 +1266,6 @@ export function StageRenderer({
     const resize = () => {
       const surfaceWidth = Math.max(1, surface.clientWidth);
       const surfaceHeight = Math.max(1, surface.clientHeight);
-      const devicePixelRatio = window.devicePixelRatio || 1;
-      const dpr = isOutputOnly
-        ? devicePixelRatio
-        : Math.min(devicePixelRatio, MAX_WORKSPACE_PREVIEW_DPR);
       const nextAspectRatio =
         mediaAspectRatioRef.current && mediaAspectRatioRef.current > 0
           ? mediaAspectRatioRef.current
@@ -1256,6 +1279,20 @@ export function StageRenderer({
         nextAspectRatio > containerAspectRatio
           ? Math.min(surfaceHeight, surfaceWidth / nextAspectRatio)
           : surfaceHeight;
+      canvasLayoutRef.current = { targetWidth, targetHeight };
+      applyCanvasResolution();
+    };
+
+    const applyCanvasResolution = () => {
+      const { targetWidth, targetHeight } = canvasLayoutRef.current;
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      const outputPixelRatioLimit = Math.sqrt(
+        (isOutputOnly ? outputPixelBudgetRef.current : MAX_OUTPUT_RENDER_PIXELS) /
+          Math.max(1, targetWidth * targetHeight),
+      );
+      const dpr = isOutputOnly
+        ? Math.min(devicePixelRatio, outputPixelRatioLimit)
+        : Math.min(devicePixelRatio, MAX_WORKSPACE_PREVIEW_DPR);
 
       const nextCanvasWidth = Math.max(1, Math.round(targetWidth * dpr));
       const nextCanvasHeight = Math.max(1, Math.round(targetHeight * dpr));
@@ -1276,6 +1313,7 @@ export function StageRenderer({
       );
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
+    applyCanvasResolutionRef.current = applyCanvasResolution;
 
     resize();
 
@@ -1447,6 +1485,14 @@ export function StageRenderer({
 
     const processShaderQueue = (allowPreloadCompile = true) => {
       if (disposed) {
+        return;
+      }
+
+      if (!parallelCompileExtension && userInteractionActiveRef.current) {
+        timeoutId = window.setTimeout(
+          () => processShaderQueue(allowPreloadCompile),
+          50,
+        );
         return;
       }
 
@@ -1766,6 +1812,55 @@ export function StageRenderer({
         });
         rafRef.current = requestAnimationFrame(render);
         return;
+      }
+
+      if (isOutputOnlyRef.current) {
+        const shaderKey = compiledLayers.map((layer) => layer.shaderCode).join('\0');
+        if (shaderKey !== lastOutputShaderKeyRef.current) {
+          lastOutputShaderKeyRef.current = shaderKey;
+          outputPixelBudgetRef.current = OUTPUT_START_RENDER_PIXELS;
+          outputSlowFrameStreakRef.current = 0;
+          outputFastFrameStreakRef.current = 0;
+          lastOutputFrameAtRef.current = 0;
+          applyCanvasResolutionRef.current();
+        } else if (lastOutputFrameAtRef.current > 0) {
+          const frameDeltaMs = timestamp - lastOutputFrameAtRef.current;
+          const previousBudget = outputPixelBudgetRef.current;
+          if (frameDeltaMs > OUTPUT_SLOW_FRAME_MS) {
+            outputSlowFrameStreakRef.current += 1;
+            outputFastFrameStreakRef.current = 0;
+            if (outputSlowFrameStreakRef.current >= 2) {
+              outputPixelBudgetRef.current = Math.max(
+                MIN_OUTPUT_RENDER_PIXELS,
+                Math.round(outputPixelBudgetRef.current * 0.7),
+              );
+              outputSlowFrameStreakRef.current = 0;
+            }
+          } else if (frameDeltaMs < OUTPUT_FAST_FRAME_MS) {
+            outputFastFrameStreakRef.current += 1;
+            outputSlowFrameStreakRef.current = 0;
+            if (outputFastFrameStreakRef.current >= 45) {
+              outputPixelBudgetRef.current = Math.min(
+                MAX_OUTPUT_RENDER_PIXELS,
+                Math.round(outputPixelBudgetRef.current * 1.12),
+              );
+              outputFastFrameStreakRef.current = 0;
+            }
+          } else {
+            outputSlowFrameStreakRef.current = Math.max(
+              0,
+              outputSlowFrameStreakRef.current - 1,
+            );
+            outputFastFrameStreakRef.current = Math.max(
+              0,
+              outputFastFrameStreakRef.current - 1,
+            );
+          }
+          if (outputPixelBudgetRef.current !== previousBudget) {
+            applyCanvasResolutionRef.current();
+          }
+        }
+        lastOutputFrameAtRef.current = timestamp;
       }
 
       // When some requested layer program is still compiling, keep drawing the

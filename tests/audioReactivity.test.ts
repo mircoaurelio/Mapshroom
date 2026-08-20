@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   analyzeAudioReactiveUniforms,
   buildAudioReactiveBindings,
+  getAudioReactiveStorageKey,
+  loadAudioReactivePreferences,
 } from '../src/lib/audioReactivity.ts';
 import type {
   ShaderUniformMap,
@@ -165,4 +167,54 @@ test('keeps random mapping mode intentionally unrestricted', () => {
     Object.values(bindings).every((binding) => binding.enabled),
     true,
   );
+});
+
+test('migrates persisted legacy audio binding names to GLSL 300 identifiers', () => {
+  const sessionId = 'legacy-audio-bindings';
+  const storageKey = getAudioReactiveStorageKey(sessionId);
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem: (key: string) =>
+          key === storageKey
+            ? JSON.stringify({
+                modeEnabled: true,
+                bindingsByShaderId: {
+                  legacy: {
+                    active: {
+                      enabled: true,
+                      signal: 'beat',
+                      min: 0,
+                      max: 1,
+                    },
+                  },
+                },
+              })
+            : null,
+      },
+    },
+  });
+
+  try {
+    const preferences = loadAudioReactivePreferences(sessionId);
+    assert.equal(preferences.modeEnabled, true);
+    assert.equal(preferences.bindingsByShaderId.legacy.active, undefined);
+    assert.deepEqual(
+      preferences.bindingsByShaderId.legacy.mapshroom_legacy_active,
+      {
+        enabled: true,
+        signal: 'beat',
+        min: 0,
+        max: 1,
+      },
+    );
+  } finally {
+    if (previousWindow) {
+      Object.defineProperty(globalThis, 'window', previousWindow);
+    } else {
+      Reflect.deleteProperty(globalThis, 'window');
+    }
+  }
 });

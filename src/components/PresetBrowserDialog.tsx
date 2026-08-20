@@ -395,7 +395,11 @@ function loadFavoritePresetIds(): Set<string> {
 }
 
 function saveFavoritePresetIds(ids: Set<string>) {
-  localStorage.setItem(FAVORITE_PRESETS_STORAGE_KEY, JSON.stringify([...ids].sort()));
+  try {
+    localStorage.setItem(FAVORITE_PRESETS_STORAGE_KEY, JSON.stringify([...ids].sort()));
+  } catch (error) {
+    console.warn('Unable to persist favorite presets.', error);
+  }
 }
 
 function createPreviewMessageDataUrl(message: string) {

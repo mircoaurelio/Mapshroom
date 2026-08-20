@@ -3,6 +3,7 @@ import { restoreTransport, snapshotTransport } from '../clock';
 import type { PlaybackTransport } from '../../types';
 
 const MIDI_OUTPUT_STORAGE_PREFIX = 'mapshroom-v3:midi-output:';
+const midiOutputStorageWarnings = new Set<string>();
 
 export interface MidiOutputMixState {
   enabled: boolean;
@@ -64,7 +65,12 @@ function parseMidiOutputMixState(value: string | null): MidiOutputLiveState | nu
 }
 
 export function loadMidiOutputMixState(sessionId: string): MidiOutputLiveState | null {
-  return parseMidiOutputMixState(localStorage.getItem(getMidiOutputStorageKey(sessionId)));
+  try {
+    return parseMidiOutputMixState(localStorage.getItem(getMidiOutputStorageKey(sessionId)));
+  } catch (error) {
+    console.warn('Unable to read persisted MIDI output state.', error);
+    return null;
+  }
 }
 
 export function createMidiOutputSync(
@@ -75,6 +81,15 @@ export function createMidiOutputSync(
   const storageKey = getMidiOutputStorageKey(sessionId);
   const broadcastChannel =
     typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(channelName) : null;
+  if (broadcastChannel) {
+    // Modern browsers synchronize this state directly. Remove the old
+    // localStorage fallback so it cannot consume quota or write every frame.
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // Live synchronization remains available through BroadcastChannel.
+    }
+  }
 
   const handleStorage = (event: StorageEvent) => {
     if (event.key !== storageKey) {
@@ -103,8 +118,20 @@ export function createMidiOutputSync(
         ...state,
         transport: state.transport ? snapshotTransport(state.transport) : null,
       };
-      const payload = JSON.stringify(stateSnapshot);
-      localStorage.setItem(storageKey, payload);
+      if (!broadcastChannel) {
+        const payload = JSON.stringify(stateSnapshot);
+        try {
+          localStorage.setItem(storageKey, payload);
+          midiOutputStorageWarnings.delete(storageKey);
+        } catch (error) {
+          // localStorage is only a fallback for browsers without
+          // BroadcastChannel. Quota failures must not interrupt rendering.
+          if (!midiOutputStorageWarnings.has(storageKey)) {
+            midiOutputStorageWarnings.add(storageKey);
+            console.warn('Unable to persist MIDI output fallback state.', error);
+          }
+        }
+      }
       broadcastChannel?.postMessage(stateSnapshot);
     },
     destroy() {

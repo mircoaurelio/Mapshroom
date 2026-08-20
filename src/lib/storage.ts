@@ -5,6 +5,7 @@ import {
   ASSET_DB_VERSION,
   ASSET_STORE_NAME,
   DEFAULT_SHADERS,
+  PROJECT_STORE_NAME,
   PROJECT_LIBRARY_STORAGE_KEY,
   PROJECT_STORAGE_PREFIX,
   UI_STORAGE_KEY,
@@ -26,6 +27,8 @@ import type {
 
 let cachedDbPromise: Promise<IDBDatabase | null> | null = null;
 const SHADER_SLIDER_CACHE_PREFIX = 'mapshroom-v3:shader-sliders:';
+const MIDI_OUTPUT_STORAGE_PREFIX = 'mapshroom-v3:midi-output:';
+const OUTPUT_VIEWPORT_STORAGE_PREFIX = 'mapshroom-v3:output-viewport:';
 const APP_STORAGE_PREFIX = 'mapshroom-v3:';
 
 function getProjectStorageKey(sessionId: string): string {
@@ -36,47 +39,189 @@ function getShaderSliderCacheKey(sessionId: string): string {
   return `${SHADER_SLIDER_CACHE_PREFIX}${sessionId}`;
 }
 
+function getRecoverableSessionStorageKeys(sessionId: string): string[] {
+  return [
+    getShaderSliderCacheKey(sessionId),
+    `${MIDI_OUTPUT_STORAGE_PREFIX}${sessionId}`,
+    `${OUTPUT_VIEWPORT_STORAGE_PREFIX}${sessionId}`,
+  ];
+}
+
+function readLocalStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch (error) {
+    console.warn('Unable to read localStorage.', error);
+    return null;
+  }
+}
+
+function writeLocalStorage(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn('Unable to write localStorage.', error);
+    return false;
+  }
+}
+
+function removeLocalStorage(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.warn('Unable to remove localStorage key.', error);
+  }
+}
+
+function listLocalStorageKeys(): string[] {
+  try {
+    return Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)).filter(
+      (key): key is string => Boolean(key),
+    );
+  } catch {
+    return [];
+  }
+}
+
+function reclaimRecoverableLocalStorage(keepSessionId?: string): void {
+  for (const key of listLocalStorageKeys()) {
+    const isRecoverable =
+      key.startsWith(SHADER_SLIDER_CACHE_PREFIX) ||
+      key.startsWith(MIDI_OUTPUT_STORAGE_PREFIX) ||
+      key.startsWith(OUTPUT_VIEWPORT_STORAGE_PREFIX);
+    if (!isRecoverable) {
+      continue;
+    }
+    if (keepSessionId && key.endsWith(keepSessionId)) {
+      continue;
+    }
+    removeLocalStorage(key);
+  }
+}
+
+function downloadJsonFile(filename: string, contents: string): void {
+  const blob = new Blob([contents], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function sanitizeBackupFilename(value: string): string {
+  return value.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+}
+
 export function getOrCreateSessionId(): string {
-  const existing = localStorage.getItem(ACTIVE_SESSION_KEY);
+  const existing = readLocalStorage(ACTIVE_SESSION_KEY);
   if (existing) {
     return existing;
   }
   const next = crypto.randomUUID();
-  localStorage.setItem(ACTIVE_SESSION_KEY, next);
+  writeLocalStorage(ACTIVE_SESSION_KEY, next);
   return next;
 }
 
 export function persistActiveSessionId(sessionId: string): void {
-  localStorage.setItem(ACTIVE_SESSION_KEY, sessionId);
+  writeLocalStorage(ACTIVE_SESSION_KEY, sessionId);
 }
 
-export function loadProjectDocument(sessionId: string): ProjectDocument | null {
-  const bundledProject = createBundledProjectDocument(sessionId);
-  if (bundledProject) {
-    return bundledProject;
-  }
-
-  const raw = localStorage.getItem(getProjectStorageKey(sessionId));
-  if (!raw) {
+function normalizePersistedProject(value: unknown): ProjectDocument | null {
+  const parsed = value as ProjectDocument | null;
+  if (!parsed || typeof parsed !== 'object' || !parsed.studio || !parsed.sessionId) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(raw) as ProjectDocument;
-    if (parsed.version !== APP_VERSION) {
-      return null;
-    }
     return normalizeProjectShaderSources({
       ...parsed,
+      version: APP_VERSION,
       playback: {
         ...parsed.playback,
         transport: restoreTransport(parsed.playback.transport),
       },
     });
   } catch (error) {
+    console.warn('Unable to normalize persisted project document.', error);
+    return null;
+  }
+}
+
+function readLocalStorageProject(sessionId: string): ProjectDocument | null {
+  const raw = readLocalStorage(getProjectStorageKey(sessionId));
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return normalizePersistedProject(JSON.parse(raw));
+  } catch (error) {
     console.warn('Unable to parse persisted project document.', error);
     return null;
   }
+}
+
+export async function hasPersistedProject(sessionId: string): Promise<boolean> {
+  if (isBundledProjectSessionId(sessionId) || createBundledProjectDocument(sessionId)) {
+    return true;
+  }
+  if (await getIndexedProjectDocument(sessionId)) {
+    return true;
+  }
+  return readLocalStorage(getProjectStorageKey(sessionId)) !== null;
+}
+
+export function downloadProjectBackup(project: ProjectDocument): void {
+  const snapshot = createProjectSnapshot(project);
+  downloadJsonFile(
+    `mapshroom-project-${sanitizeBackupFilename(snapshot.name)}-${snapshot.sessionId}.json`,
+    JSON.stringify(
+      {
+        savedShaderCount: snapshot.studio.savedShaders.length,
+        project: snapshot,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
+export function downloadRawPersistedProject(sessionId: string): boolean {
+  const raw = readLocalStorage(getProjectStorageKey(sessionId));
+  if (!raw) {
+    return false;
+  }
+  downloadJsonFile(`mapshroom-project-raw-${sessionId}.json`, raw);
+  return true;
+}
+
+export async function loadProjectDocument(sessionId: string): Promise<ProjectDocument | null> {
+  const bundledProject = createBundledProjectDocument(sessionId);
+  if (bundledProject) {
+    return bundledProject;
+  }
+
+  const indexedProject = normalizePersistedProject(await getIndexedProjectDocument(sessionId));
+  if (indexedProject) {
+    return indexedProject;
+  }
+
+  const localProject = readLocalStorageProject(sessionId);
+  if (!localProject) {
+    return null;
+  }
+
+  reclaimRecoverableLocalStorage(sessionId);
+  const migrated = await putIndexedProjectDocument(createProjectSnapshot(localProject));
+  if (migrated && (await getIndexedProjectDocument(sessionId))) {
+    removeLocalStorage(getProjectStorageKey(sessionId));
+    for (const key of getRecoverableSessionStorageKeys(sessionId)) {
+      removeLocalStorage(key);
+    }
+  }
+  return localProject;
 }
 
 function sortSerializableValue(value: unknown): unknown {
@@ -196,24 +341,61 @@ function createEmergencyProjectSnapshot(project: ProjectDocument): ProjectDocume
   };
 }
 
-export function saveProjectDocument(project: ProjectDocument): void {
+function isDestructiveProjectOverwrite(
+  existing: ProjectDocument,
+  next: ProjectDocument,
+): boolean {
+  const existingShaders = existing.studio.savedShaders.length;
+  const nextShaders = next.studio.savedShaders.length;
+  const existingSteps = existing.timeline.stub.shaderSequence.steps.length;
+  const nextSteps = next.timeline.stub.shaderSequence.steps.length;
+  return (
+    (existingShaders >= 10 && nextShaders <= 2 && nextShaders < existingShaders / 2) ||
+    (existingSteps >= 10 && nextSteps <= 2 && nextSteps < existingSteps / 2)
+  );
+}
+
+export async function saveProjectDocument(project: ProjectDocument): Promise<boolean> {
   const storageKey = getProjectStorageKey(project.sessionId);
+  const existing =
+    normalizePersistedProject(await getIndexedProjectDocument(project.sessionId)) ??
+    readLocalStorageProject(project.sessionId);
+  if (existing && isDestructiveProjectOverwrite(existing, project)) {
+    console.warn(
+      'Refusing to overwrite a larger persisted project with a smaller replacement.',
+    );
+    return false;
+  }
+
+  reclaimRecoverableLocalStorage(project.sessionId);
   const snapshot = createProjectSnapshot(project);
-
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(snapshot));
-  } catch (error) {
-    const fallbackSnapshot = createEmergencyProjectSnapshot(project);
-
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(fallbackSnapshot));
-      console.warn(
-        'Project snapshot exceeded localStorage quota. Saved a compact fallback snapshot instead.',
-      );
-    } catch (fallbackError) {
-      console.warn('Unable to persist project document.', fallbackError ?? error);
+  if (await putIndexedProjectDocument(snapshot)) {
+    const verified = await getIndexedProjectDocument(project.sessionId);
+    if (verified) {
+      removeLocalStorage(storageKey);
+      for (const key of getRecoverableSessionStorageKeys(project.sessionId)) {
+        removeLocalStorage(key);
+      }
+      return true;
     }
   }
+
+  if (writeLocalStorage(storageKey, JSON.stringify(snapshot))) {
+    removeLocalStorage(getShaderSliderCacheKey(project.sessionId));
+    return true;
+  }
+
+  reclaimRecoverableLocalStorage();
+  const fallbackSnapshot = createEmergencyProjectSnapshot(project);
+  if (writeLocalStorage(storageKey, JSON.stringify(fallbackSnapshot))) {
+    console.warn(
+      'Project snapshot exceeded localStorage quota. Saved a compact fallback snapshot instead.',
+    );
+    return true;
+  }
+
+  console.warn('Unable to persist project document.');
+  return false;
 }
 
 export function loadProjectLibrary(): ProjectLibraryEntry[] {
@@ -249,7 +431,7 @@ export function loadProjectLibrary(): ProjectLibraryEntry[] {
 }
 
 function saveProjectLibrary(entries: ProjectLibraryEntry[]): void {
-  localStorage.setItem(PROJECT_LIBRARY_STORAGE_KEY, JSON.stringify(entries));
+  writeLocalStorage(PROJECT_LIBRARY_STORAGE_KEY, JSON.stringify(entries));
 }
 
 export function saveProjectToLibrary(
@@ -280,9 +462,15 @@ export function removeProjectFromLibrary(sessionId: string): ProjectLibraryEntry
   return nextEntries;
 }
 
-export function deletePersistedProject(sessionId: string): ProjectLibraryEntry[] {
+export async function deletePersistedProject(
+  sessionId: string,
+): Promise<ProjectLibraryEntry[]> {
+  await deleteIndexedProjectDocument(sessionId);
   localStorage.removeItem(getProjectStorageKey(sessionId));
-  localStorage.removeItem(getShaderSliderCacheKey(sessionId));
+  for (const key of getRecoverableSessionStorageKeys(sessionId)) {
+    localStorage.removeItem(key);
+  }
+  localStorage.removeItem(`mapshroom-v3:audio-reactive:${sessionId}`);
   return removeProjectFromLibrary(sessionId);
 }
 
@@ -304,7 +492,7 @@ export function loadUiPreferences<T extends UiPreferences>(fallback: T): T {
 }
 
 export function saveUiPreferences(preferences: UiPreferences): void {
-  localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(preferences));
+  writeLocalStorage(UI_STORAGE_KEY, JSON.stringify(preferences));
 }
 
 export function loadShaderSliderCache(
@@ -402,6 +590,9 @@ function openDatabase(): Promise<IDBDatabase | null> {
       if (!database.objectStoreNames.contains(ASSET_STORE_NAME)) {
         database.createObjectStore(ASSET_STORE_NAME, { keyPath: 'id' });
       }
+      if (!database.objectStoreNames.contains(PROJECT_STORE_NAME)) {
+        database.createObjectStore(PROJECT_STORE_NAME, { keyPath: 'sessionId' });
+      }
     };
 
     request.onsuccess = () => resolve(request.result);
@@ -415,6 +606,7 @@ function openDatabase(): Promise<IDBDatabase | null> {
 }
 
 async function withStore(
+  storeName: string,
   mode: IDBTransactionMode,
   callback: (store: IDBObjectStore) => void,
 ): Promise<boolean> {
@@ -424,27 +616,78 @@ async function withStore(
   }
 
   return new Promise((resolve) => {
-    const transaction = database.transaction(ASSET_STORE_NAME, mode);
-    const store = transaction.objectStore(ASSET_STORE_NAME);
-    callback(store);
+    try {
+      if (!database.objectStoreNames.contains(storeName)) {
+        resolve(false);
+        return;
+      }
+      const transaction = database.transaction(storeName, mode);
+      const store = transaction.objectStore(storeName);
+      callback(store);
 
-    transaction.oncomplete = () => resolve(true);
-    transaction.onerror = () => {
-      console.warn('IndexedDB transaction failed.', transaction.error);
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => {
+        console.warn('IndexedDB transaction failed.', transaction.error);
+        resolve(false);
+      };
+    } catch (error) {
+      console.warn('IndexedDB transaction failed.', error);
       resolve(false);
-    };
+    }
   });
 }
 
 export async function putAssetBlob(id: string, blob: Blob): Promise<boolean> {
-  return withStore('readwrite', (store) => {
+  return withStore(ASSET_STORE_NAME, 'readwrite', (store) => {
     store.put({ id, blob });
   });
 }
 
 export async function deleteAssetBlob(id: string): Promise<boolean> {
-  return withStore('readwrite', (store) => {
+  return withStore(ASSET_STORE_NAME, 'readwrite', (store) => {
     store.delete(id);
+  });
+}
+
+async function putIndexedProjectDocument(project: ProjectDocument): Promise<boolean> {
+  return withStore(PROJECT_STORE_NAME, 'readwrite', (store) => {
+    store.put(project);
+  });
+}
+
+async function deleteIndexedProjectDocument(sessionId: string): Promise<boolean> {
+  return withStore(PROJECT_STORE_NAME, 'readwrite', (store) => {
+    store.delete(sessionId);
+  });
+}
+
+async function getIndexedProjectDocument(sessionId: string): Promise<ProjectDocument | null> {
+  const database = await openDatabase();
+  if (!database) {
+    return null;
+  }
+
+  if (!database.objectStoreNames.contains(PROJECT_STORE_NAME)) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const transaction = database.transaction(PROJECT_STORE_NAME, 'readonly');
+      const store = transaction.objectStore(PROJECT_STORE_NAME);
+      const request = store.get(sessionId);
+
+      request.onsuccess = () => {
+        resolve((request.result as ProjectDocument | undefined) ?? null);
+      };
+      request.onerror = () => {
+        console.warn('Unable to read project from IndexedDB.', request.error);
+        resolve(null);
+      };
+    } catch (error) {
+      console.warn('Unable to read project from IndexedDB.', error);
+      resolve(null);
+    }
   });
 }
 
@@ -454,18 +697,27 @@ export async function getAssetBlob(id: string): Promise<Blob | null> {
     return null;
   }
 
-  return new Promise((resolve) => {
-    const transaction = database.transaction(ASSET_STORE_NAME, 'readonly');
-    const store = transaction.objectStore(ASSET_STORE_NAME);
-    const request = store.get(id);
+  if (!database.objectStoreNames.contains(ASSET_STORE_NAME)) {
+    return null;
+  }
 
-    request.onsuccess = () => {
-      const record = request.result;
-      resolve(record?.blob instanceof Blob ? record.blob : null);
-    };
-    request.onerror = () => {
-      console.warn('Unable to read blob from IndexedDB.', request.error);
+  return new Promise((resolve) => {
+    try {
+      const transaction = database.transaction(ASSET_STORE_NAME, 'readonly');
+      const store = transaction.objectStore(ASSET_STORE_NAME);
+      const request = store.get(id);
+
+      request.onsuccess = () => {
+        const record = request.result;
+        resolve(record?.blob instanceof Blob ? record.blob : null);
+      };
+      request.onerror = () => {
+        console.warn('Unable to read blob from IndexedDB.', request.error);
+        resolve(null);
+      };
+    } catch (error) {
+      console.warn('Unable to read blob from IndexedDB.', error);
       resolve(null);
-    };
+    }
   });
 }

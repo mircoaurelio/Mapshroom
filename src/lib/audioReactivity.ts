@@ -6,6 +6,7 @@ import type {
   ShaderUniformValueMap,
 } from '../types';
 import type { AudioSectionSnapshot } from './audioSectionDetection';
+import { normalizeOfficialShaderIdentifier } from './shaderCompiler.ts';
 
 export type AudioReactiveSignal = ShaderAudioReactiveSignal;
 
@@ -43,11 +44,22 @@ export interface AudioReactiveRuntime {
   current: AudioReactiveFrame;
 }
 
-export interface AudioReactiveLiveMessage {
-  type: 'frame' | 'stop';
-  sessionId: string;
-  frame?: AudioReactiveFrame;
-}
+export type AudioReactiveLiveMessage =
+  | {
+      type: 'frame' | 'stop';
+      sessionId: string;
+      frame: AudioReactiveFrame;
+    }
+  | {
+      type: 'state';
+      sessionId: string;
+      frame: AudioReactiveFrame;
+      preferences: AudioReactivePreferences;
+    }
+  | {
+      type: 'request-state';
+      sessionId: string;
+    };
 
 const AUDIO_REACTIVE_STORAGE_PREFIX = 'mapshroom-v3:audio-reactive:';
 const AUDIO_REACTIVE_CHANNEL_PREFIX = 'mapshroom-v3:audio-reactive-live:';
@@ -137,7 +149,13 @@ function normalizeBindingsByShaderId(
     for (const [uniformName, rawBinding] of Object.entries(shaderBindings)) {
       const binding = normalizeBinding(rawBinding);
       if (binding) {
-        bindings[uniformName] = binding;
+        const normalizedName = normalizeOfficialShaderIdentifier(uniformName);
+        // Prefer an already-official key when legacy and migrated names both
+        // exist in storage. This makes migration deterministic and prevents a
+        // stale `active` binding from replacing `mapshroom_legacy_active`.
+        if (!(normalizedName in bindings) || normalizedName === uniformName) {
+          bindings[normalizedName] = binding;
+        }
       }
     }
 

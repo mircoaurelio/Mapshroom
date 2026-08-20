@@ -12,6 +12,8 @@ interface ProjectLibraryDialogProps {
   onCreateNewProject: () => void;
   onCreateEmptyProject: () => void;
   onOpenProject: (sessionId: string) => void;
+  onDeleteProject: (sessionId: string) => void;
+  onDownloadBackup: () => void;
 }
 
 function formatProjectTimestamp(value: string): string {
@@ -37,6 +39,8 @@ export function ProjectLibraryDialog({
   onCreateNewProject,
   onCreateEmptyProject,
   onOpenProject,
+  onDeleteProject,
+  onDownloadBackup,
 }: ProjectLibraryDialogProps) {
   const [projectNameDraft, setProjectNameDraft] = useState(currentProjectName);
 
@@ -116,12 +120,22 @@ export function ProjectLibraryDialog({
                 >
                   Save As New Project
                 </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={onDownloadBackup}
+                >
+                  Download Backup
+                </button>
               </div>
             </div>
           </section>
 
           <section className="dialog-section">
             <span className="panel-eyebrow">Saved Projects</span>
+            <p className="project-library-storage-hint">
+              Projects are stored in this browser. Delete unused projects to free local storage.
+            </p>
             <div className="project-library-list">
               {savedProjects.length ? (
                 savedProjects.map((entry) => (
@@ -140,13 +154,24 @@ export function ProjectLibraryDialog({
                         Updated {formatProjectTimestamp(entry.updatedAt)}
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => onOpenProject(entry.sessionId)}
-                    >
-                      Open
-                    </button>
+                    <div className="project-library-card-actions">
+                      {!entry.bundled && entry.sessionId !== activeSessionId ? (
+                        <button
+                          type="button"
+                          className="danger-button"
+                          onClick={() => onDeleteProject(entry.sessionId)}
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => onOpenProject(entry.sessionId)}
+                      >
+                        Open
+                      </button>
+                    </div>
                   </article>
                 ))
               ) : (

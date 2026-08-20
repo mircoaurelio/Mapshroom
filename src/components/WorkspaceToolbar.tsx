@@ -657,8 +657,8 @@ export function WorkspaceToolbar({
                 >
                   <span className="toolbar-audio-source-indicator" aria-hidden="true" />
                   <span className="toolbar-audio-source-copy">
-                    <strong>Computer / browser tab</strong>
-                    <small>Windows, YouTube and desktop audio</small>
+                    <strong>Computer audio</strong>
+                    <small>Share a window or screen with audio</small>
                   </span>
                 </button>
                 {audioReactiveEnabled ? (
@@ -679,7 +679,8 @@ export function WorkspaceToolbar({
                   </>
                 ) : null}
                 <p className="toolbar-audio-source-note">
-                  The browser permission window may take a moment to open.
+                  Share a window or entire screen with audio. A Chrome tab adds a
+                  banner on Output.
                 </p>
               </div>
             ) : null}

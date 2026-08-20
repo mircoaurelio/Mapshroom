@@ -4,6 +4,100 @@ import { importedSculpturePresetList } from './importedFromProjects';
 export const sculpturePresetList: ShaderPresetDefinition[] = [
   ...importedSculpturePresetList,
   {
+    id: 'sculpture_color_height_dots',
+    name: 'Color Height Dots',
+    template: 'sculpture',
+    templates: ['sculpture', 'stage'],
+    group: 'Base',
+    description:
+      'A parametric overhead field of shaded dots whose size and lift follow image color and brightness.',
+    audioReactiveBindings: {
+      intensity: { enabled: true, signal: 'level', min: 0.55, max: 1.65 },
+      heightAmount: { enabled: true, signal: 'bass', min: 0.2, max: 1.85 },
+      heightContrast: { enabled: true, signal: 'mid', min: 0.7, max: 2.4 },
+      dotSize: { enabled: true, signal: 'high', min: 0.28, max: 0.82 },
+    },
+    uniformValues: {
+      intensity: 1,
+      dotScale: 45,
+      dotSize: 0.58,
+      heightAmount: 1,
+      heightContrast: 1.4,
+      heightBias: 0,
+    },
+    code: `// NAME: Color Height Dots
+// MAPSHROOM PROMPT: "make this made of dots parametric and then make this dos change hight in 3d and theh camera is above the dots"
+uniform float intensity; // @min 0.0 @max 2.0 @default 1.0
+uniform float dotScale; // @min 8.0 @max 120.0 @default 45.0
+uniform float dotSize; // @min 0.1 @max 0.95 @default 0.58
+uniform float heightAmount; // @min 0.0 @max 2.0 @default 1.0
+uniform float heightContrast; // @min 0.25 @max 4.0 @default 1.4
+uniform float heightBias; // @min -1.0 @max 1.0 @default 0.0
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec4 source = texture(tex, uv);
+
+    float aspect = resolution.x / max(resolution.y, 1.0);
+
+    vec2 gridCoord = uv * vec2(dotScale * aspect, dotScale);
+    vec2 cellID = floor(gridCoord);
+    vec2 local = fract(gridCoord) - 0.5;
+
+    vec2 cellUV = (cellID + 0.5) / vec2(dotScale * aspect, dotScale);
+    cellUV = clamp(cellUV, vec2(0.0), vec2(1.0));
+
+    vec4 original = texture(tex, cellUV);
+
+    float luminance = dot(original.rgb, vec3(0.299, 0.587, 0.114));
+    float chroma = max(original.r, max(original.g, original.b))
+                 - min(original.r, min(original.g, original.b));
+
+    float colorHeight = clamp(
+        luminance * 0.82 + chroma * 0.18 + heightBias,
+        0.0,
+        1.0
+    );
+
+    colorHeight = pow(colorHeight, heightContrast);
+    float height = colorHeight * heightAmount;
+
+    float radius = dotSize * (0.28 + height * 0.17);
+
+    float dist = length(local);
+    float aa = max(fwidth(dist) * 1.5, 0.001);
+    float dotMask = 1.0 - smoothstep(radius - aa, radius + aa, dist);
+
+    vec2 spherePos = local / max(radius, 0.001);
+    float sphereR2 = dot(spherePos, spherePos);
+    float sphereZ = sqrt(max(0.0, 1.0 - sphereR2));
+
+    vec3 normal = normalize(vec3(spherePos.x, spherePos.y, sphereZ));
+    vec3 lightDir = normalize(vec3(-0.45, -0.55, 0.9));
+
+    float diffuse = 0.42 + 0.58 * max(dot(normal, lightDir), 0.0);
+    float heightLight = 0.75 + height * 0.35;
+
+    vec3 dotColor = original.rgb * diffuse * heightLight * intensity;
+
+    vec2 shadowOffset = vec2(0.055, 0.065) * height;
+    float shadowDist = length(local - shadowOffset);
+    float shadowRadius = radius * (1.0 + height * 0.2);
+    float shadow = 1.0 - smoothstep(
+        shadowRadius * 0.65,
+        shadowRadius * 1.35,
+        shadowDist
+    );
+    shadow *= (1.0 - dotMask) * clamp(height * 0.32, 0.0, 0.55);
+
+    vec3 background = source.rgb * 0.07 * intensity;
+    background *= 1.0 - shadow;
+
+    vec3 color = mix(background, dotColor, dotMask);
+
+    return vec4(color, source.a);
+}`,
+  },
+  {
     id: "sculpture_statue_rim_base",
     name: "Statue Rim Base",
     template: "sculpture",

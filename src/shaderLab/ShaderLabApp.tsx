@@ -21,8 +21,12 @@ function ArrowIcon() {
 }
 
 function readCurrentMapshroomProject() {
-  const sessionId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
-  return sessionId ? loadProjectDocument(sessionId) : null;
+  try {
+    const sessionId = window.localStorage.getItem(ACTIVE_SESSION_KEY);
+    return sessionId ? loadProjectDocument(sessionId) : Promise.resolve(null);
+  } catch {
+    return Promise.resolve(null);
+  }
 }
 
 export function ShaderLabApp() {
@@ -31,10 +35,10 @@ export function ShaderLabApp() {
   const [pastColonies, setPastColonies] = useState<ShaderGenome[][]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const gridRef = useRef<HTMLElement>(null);
-  const [mapshroomProject, setMapshroomProject] = useState(readCurrentMapshroomProject);
-  const [selectedAssetId, setSelectedAssetId] = useState(
-    () => mapshroomProject?.library.activeAssetId ?? '',
-  );
+  const [mapshroomProject, setMapshroomProject] = useState<Awaited<
+    ReturnType<typeof loadProjectDocument>
+  > | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = useState('');
   const [uploadedAssetPreview, setUploadedAssetPreview] = useState<{
     assetId: string;
     url: string;
@@ -48,10 +52,23 @@ export function ShaderLabApp() {
   }, []);
 
   useEffect(() => {
-    const refreshProject = () => setMapshroomProject(readCurrentMapshroomProject());
+    let cancelled = false;
+    const refreshProject = () => {
+      void readCurrentMapshroomProject().then((project) => {
+        if (!cancelled) {
+          setMapshroomProject(project);
+          if (project?.library.activeAssetId) {
+            const nextAssetId = project.library.activeAssetId;
+            setSelectedAssetId((current) => current || nextAssetId);
+          }
+        }
+      });
+    };
+    refreshProject();
     window.addEventListener('focus', refreshProject);
     window.addEventListener('storage', refreshProject);
     return () => {
+      cancelled = true;
       window.removeEventListener('focus', refreshProject);
       window.removeEventListener('storage', refreshProject);
     };

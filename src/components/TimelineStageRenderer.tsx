@@ -71,7 +71,6 @@ const MODE_LAYER_FADE_DURATION_MS = 1_000;
 const timelineAssetUrlCache = new Map<string, string>();
 const timelineDecodedAssetIds = new Set<string>();
 const timelineDecodedAssetAspectRatios = new Map<string, number>();
-const EMPTY_AUDIO_BINDINGS_BY_SHADER_ID: Record<string, AudioReactiveBindingMap> = {};
 
 function getStageRenderLayerWarmupKey(
   layer: Pick<
@@ -374,7 +373,7 @@ export function TimelineStageRenderer({
   activeShaderName,
   activeShaderCode,
   activeUniformValues,
-  audioBindingsByShaderId = EMPTY_AUDIO_BINDINGS_BY_SHADER_ID,
+  audioBindingsByShaderId,
   audioRuntime,
   savedShaders,
   timeline,
@@ -1139,8 +1138,11 @@ export function TimelineStageRenderer({
     );
     const overlaySource = useAssignedAssetAsBase ? null : assignedSource;
     const inputSource = useAssignedAssetAsBase ? assignedSource : null;
-    const targetAudioBindings =
-      audioBindingsByShaderId[targetShader?.id ?? activeShaderId] ?? {};
+    const targetAudioBindings = audioBindingsByShaderId
+      ? audioBindingsByShaderId[targetShader?.id ?? activeShaderId] ??
+        targetShader?.audioReactiveBindings ??
+        {}
+      : {};
     const mapAssignedInput = (
       shaderCode: string,
       uniformValues: ShaderUniformValueMap,
@@ -1189,8 +1191,7 @@ export function TimelineStageRenderer({
       return {
         shaderCode: previewActiveShaderCode,
         uniformValues: previewActiveUniformValues,
-        audioBindings:
-          audioBindingsByShaderId[activeShaderId] ?? {},
+        audioBindings: audioBindingsByShaderId?.[activeShaderId] ?? {},
         usedFallback: false,
         inputSource: null,
         overlaySource: null,

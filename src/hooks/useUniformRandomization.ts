@@ -14,7 +14,12 @@ function loadLockMap(): UniformRandomizationLockMap {
     return {};
   }
 
-  const storedValue = window.localStorage.getItem(STORAGE_KEY);
+  let storedValue: string | null = null;
+  try {
+    storedValue = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return {};
+  }
   if (!storedValue) {
     return {};
   }
@@ -54,7 +59,12 @@ function saveLockedUniforms(randomizationKey: string, lockedUniforms: Set<string
     delete lockMap[randomizationKey];
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lockMap));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lockMap));
+  } catch (error) {
+    // Locks are a convenience. A full localStorage must never crash the workspace.
+    console.warn('Unable to persist uniform randomization locks.', error);
+  }
 }
 
 function getRandomValue(definition: ShaderUniformDefinition): number {

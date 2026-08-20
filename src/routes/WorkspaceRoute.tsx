@@ -154,6 +154,7 @@ import {
   buildShaderMutationPrompt,
 } from '../shaders/requestContract';
 import { createSessionSync } from '../lib/sessionSync';
+import { createLiveUniformSync } from '../lib/liveUniformSync';
 import { useMidiController } from '../hooks/useMidiController';
 import { useAudioReactivity } from '../hooks/useAudioReactivity';
 import type {
@@ -173,6 +174,10 @@ import {
 } from '../lib/projectShare';
 import {
   clearPersistedSiteData,
+  deletePersistedProject,
+  downloadProjectBackup,
+  downloadRawPersistedProject,
+  hasPersistedProject,
   loadProjectLibrary,
   deleteAssetBlob,
   loadProjectDocument,
@@ -184,7 +189,6 @@ import {
   removeProjectFromLibrary,
   saveProjectToLibrary,
   saveProjectDocument,
-  saveShaderSliderCache,
   saveUiPreferences,
 } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
@@ -668,13 +672,21 @@ function registerOnboardingEntry(): number {
 
   const nextCount = readOnboardingEntryCount() + 1;
   setCookieValue(ONBOARDING_ENTRY_COOKIE, String(nextCount));
-  sessionStorage.setItem(ONBOARDING_ENTRY_SESSION_KEY, 'true');
+  try {
+    sessionStorage.setItem(ONBOARDING_ENTRY_SESSION_KEY, 'true');
+  } catch {
+    // Onboarding can continue without a session flag if storage is full.
+  }
   return nextCount;
 }
 
 function dismissOnboardingPermanently(): void {
   setCookieValue(ONBOARDING_ENTRY_COOKIE, '99');
-  sessionStorage.setItem(ONBOARDING_ENTRY_SESSION_KEY, 'true');
+  try {
+    sessionStorage.setItem(ONBOARDING_ENTRY_SESSION_KEY, 'true');
+  } catch {
+    // A full sessionStorage must not block dismissing onboarding.
+  }
 }
 
 function clampOnboardingCalloutPosition(value: number, min: number, max: number): number {
@@ -2192,6 +2204,101 @@ function applyActiveShaderPatch(
   };
 }
 
+function applyPastedShaderCodeToProject(
+  currentProject: ProjectDocument,
+  {
+    nextCode,
+    timelineStepId,
+  }: {
+    nextCode: string;
+    timelineStepId: string | null;
+  },
+): ProjectDocument {
+  const nextName = parseShaderName(nextCode);
+  const currentActiveShader =
+    currentProject.studio.savedShaders.find(
+      (shader) => shader.id === currentProject.studio.activeShaderId,
+    ) ?? null;
+  const nextUniformValues = getSyncedShaderUniformValues(
+    nextCode,
+    currentProject.studio.uniformValues,
+  );
+  const nextShaderVersion = createShaderVersion('Pasted shader', nextName, nextCode);
+  const savedShader = createSavedShaderRecord(
+    nextName,
+    nextCode,
+    nextUniformValues,
+    {
+      description: 'Pasted shader.',
+      template: currentActiveShader?.template ?? 'stage',
+      group: 'Saved',
+      inputAssetId: currentActiveShader?.inputAssetId ?? null,
+      isTemporary: false,
+      isDirty: false,
+      lastValidCode: nextCode,
+      lastValidUniformValues: nextUniformValues,
+      versions: [nextShaderVersion],
+    },
+  );
+  const timelineStep = timelineStepId
+    ? currentProject.timeline.stub.shaderSequence.steps.find((step) => step.id === timelineStepId) ??
+      null
+    : null;
+  const timelineDraft = timelineStep
+    ? createSavedShaderRecord(nextName, nextCode, nextUniformValues, {
+        description: 'Linked timeline shader from a paste.',
+        template: savedShader.template,
+        group: 'Timeline',
+        inputAssetId: savedShader.inputAssetId,
+        isTemporary: true,
+        isDirty: true,
+        sourceShaderId: savedShader.id,
+        ownerTimelineStepId: timelineStep.id,
+        lastValidCode: nextCode,
+        lastValidUniformValues: nextUniformValues,
+        versions: cloneShaderVersionsWithName(savedShader.versions, nextName),
+      })
+    : null;
+  const activeShader = timelineDraft ?? savedShader;
+  const nextSteps = timelineDraft
+    ? currentProject.timeline.stub.shaderSequence.steps.map((step) =>
+        step.id === timelineDraft.ownerTimelineStepId
+          ? { ...step, shaderId: timelineDraft.id }
+          : step,
+      )
+    : currentProject.timeline.stub.shaderSequence.steps;
+
+  return pruneTemporaryTimelineShaders(
+    {
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        activeShaderId: activeShader.id,
+        activeShaderName: nextName,
+        activeShaderCode: nextCode,
+        activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
+        shaderVersions: getShaderVersionTrail(activeShader),
+        uniformValues: nextUniformValues,
+        savedShaders: [
+          ...currentProject.studio.savedShaders,
+          savedShader,
+          ...(timelineDraft ? [timelineDraft] : []),
+        ],
+      },
+      timeline: {
+        stub: {
+          ...currentProject.timeline.stub,
+          shaderSequence: {
+            ...currentProject.timeline.stub.shaderSequence,
+            steps: nextSteps,
+          },
+        },
+      },
+    },
+    [savedShader.id, activeShader.id],
+  );
+}
+
 function applyActiveShaderUniformValues(
   currentProject: ProjectDocument,
   nextUniformValues: ShaderUniformValueMap,
@@ -2382,55 +2489,6 @@ function applyPersistedSliderCache(
         : project.studio.uniformValues,
     },
   };
-}
-
-function createSliderCacheSnapshot(
-  project: ProjectDocument,
-): Record<string, ShaderUniformValueMap> {
-  const cache: Record<string, ShaderUniformValueMap> = {};
-
-  for (const shader of project.studio.savedShaders) {
-    if (!shader.uniformValues) {
-      continue;
-    }
-
-    const defaultUniformValues = DEFAULT_SHADERS[shader.id]?.uniformValues;
-    if (
-      !defaultUniformValues ||
-      !areUniformValueMapsEqual(shader.uniformValues, defaultUniformValues)
-    ) {
-      cache[shader.id] = shader.uniformValues;
-    }
-  }
-
-  cache[project.studio.activeShaderId] = project.studio.uniformValues;
-  return cache;
-}
-
-function areUniformValueMapsEqual(
-  left: ShaderUniformValueMap,
-  right: ShaderUniformValueMap,
-): boolean {
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-
-  return leftKeys.every((key) => {
-    const leftValue = left[key];
-    const rightValue = right[key];
-    if (Array.isArray(leftValue) || Array.isArray(rightValue)) {
-      return (
-        Array.isArray(leftValue) &&
-        Array.isArray(rightValue) &&
-        leftValue.length === rightValue.length &&
-        leftValue.every((value, index) => value === rightValue[index])
-      );
-    }
-
-    return leftValue === rightValue;
-  });
 }
 
 function createSavedShaderRecord(
@@ -2734,9 +2792,15 @@ export function WorkspaceRoute() {
   const outputWindowRef = useRef<Window | null>(null);
   const [outputWindowOpen, setOutputWindowOpen] = useState(false);
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
+  const liveUniformSyncRef = useRef<ReturnType<typeof createLiveUniformSync> | null>(null);
   const syncedProjectAutosaveRef = useRef<ProjectDocument | null>(null);
+  const autosaveBlockedSessionRef = useRef<string | null>(null);
+  const emergencyBackupDownloadedRef = useRef<string | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const uniformCommitPendingRef = useRef(false);
+  const pendingUniformValuesRef = useRef<ShaderUniformValueMap>({});
+  const pendingUniformShaderIdRef = useRef<string | null>(null);
+  const uniformUpdateFrameRef = useRef<number | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
   const audioReactivity = useAudioReactivity(project?.sessionId ?? null, {
     sectionDetectionEnabled:
@@ -3058,12 +3122,12 @@ export function WorkspaceRoute() {
       const hashQuery = window.location.hash.split('?')[1] ?? '';
       const requestedProjectSessionId = new URLSearchParams(hashQuery).get('project')?.trim() ?? '';
       const requestedProject = requestedProjectSessionId
-        ? loadProjectDocument(requestedProjectSessionId)
+        ? await loadProjectDocument(requestedProjectSessionId)
         : null;
       try {
         const shaderApplyLink = parseShaderApplyLink(window.location.href);
         linkedProject = shaderApplyLink
-          ? loadProjectDocument(shaderApplyLink.sessionId)
+          ? await loadProjectDocument(shaderApplyLink.sessionId)
           : null;
       } catch {
         // The dedicated link handler below reports malformed shader links after
@@ -3082,21 +3146,40 @@ export function WorkspaceRoute() {
           ),
         );
         persistActiveSessionId(nextSessionId);
-        saveProjectDocument(starterProject);
+        await saveProjectDocument(starterProject);
         setProject(starterProject);
         return;
       }
 
-      persistActiveSessionId(sessionId);
+      const persisted = await hasPersistedProject(sessionId);
       const loadedProject =
         linkedProject ??
         requestedProject ??
-        loadProjectDocument(sessionId) ??
+        await loadProjectDocument(sessionId);
+      if (!loadedProject && persisted) {
+        downloadRawPersistedProject(sessionId);
+        const nextSessionId = crypto.randomUUID();
+        const recoveryProject = activateTimelineOnAppEntry(
+          normalizeProject(
+            createDefaultProject(nextSessionId, { isMobile: initialIsMobileRef.current }),
+          ),
+        );
+        persistActiveSessionId(nextSessionId);
+        setProject(recoveryProject);
+        setStatusMessage(
+          'Could not reopen the previous project without risking data loss. A raw backup was downloaded. Keep this tab open and delete unused saved projects.',
+        );
+        return;
+      }
+
+      const nextProject =
+        loadedProject ??
         createDefaultProject(sessionId, { isMobile: initialIsMobileRef.current });
+      persistActiveSessionId(sessionId);
       const sliderCache = loadShaderSliderCache(sessionId);
       setProject(
         activateTimelineOnAppEntry(
-          applyPersistedSliderCache(normalizeProject(loadedProject), sliderCache),
+          applyPersistedSliderCache(normalizeProject(nextProject), sliderCache),
         ),
       );
     })();
@@ -3165,10 +3248,11 @@ export function WorkspaceRoute() {
     }
     processedShaderApplyLinksRef.current.add(shaderApplyLink.requestId);
 
-    const persistedTargetProject =
-      project.sessionId === shaderApplyLink.sessionId
-        ? project
-        : loadProjectDocument(shaderApplyLink.sessionId);
+    void (async () => {
+      const persistedTargetProject =
+        project.sessionId === shaderApplyLink.sessionId
+          ? project
+          : await loadProjectDocument(shaderApplyLink.sessionId);
     if (!persistedTargetProject) {
       setStatusMessage(
         'The project for this shader link is not available in this browser.',
@@ -3260,7 +3344,7 @@ export function WorkspaceRoute() {
       };
 
       persistActiveSessionId(nextProject.sessionId);
-      saveProjectDocument(nextProject);
+      await saveProjectDocument(nextProject);
       setSavedProjects(saveProjectToLibrary(nextProject, nextProject.name));
       setProject(nextProject);
       setEditingTimelineStepId(
@@ -3308,6 +3392,7 @@ export function WorkspaceRoute() {
     } finally {
       stripShaderApplyParamsFromUrl();
     }
+    })();
   }, [
     applyCompilerFeedback,
     location.hash,
@@ -3323,6 +3408,7 @@ export function WorkspaceRoute() {
     }
 
     sessionSyncRef.current?.destroy();
+    liveUniformSyncRef.current?.destroy();
     midiOutputSyncRef.current?.destroy();
     sessionSyncRef.current = createSessionSync(activeSessionId, (incomingProject) => {
       setProject((currentProject) => {
@@ -3338,11 +3424,14 @@ export function WorkspaceRoute() {
         return normalizedIncomingProject;
       });
     });
+    liveUniformSyncRef.current = createLiveUniformSync(activeSessionId);
     midiOutputSyncRef.current = createMidiOutputSync(activeSessionId, () => undefined);
 
     return () => {
       sessionSyncRef.current?.destroy();
       sessionSyncRef.current = null;
+      liveUniformSyncRef.current?.destroy();
+      liveUniformSyncRef.current = null;
       midiOutputSyncRef.current?.destroy();
       midiOutputSyncRef.current = null;
     };
@@ -3364,10 +3453,26 @@ export function WorkspaceRoute() {
       return;
     }
 
+    if (autosaveBlockedSessionRef.current === project.sessionId) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
-      saveProjectDocument(project);
-      saveShaderSliderCache(project.sessionId, createSliderCacheSnapshot(project));
       sessionSyncRef.current?.publish(project);
+      void saveProjectDocument(project).then((saved) => {
+        if (saved) {
+          autosaveBlockedSessionRef.current = null;
+          return;
+        }
+        autosaveBlockedSessionRef.current = project.sessionId;
+        if (emergencyBackupDownloadedRef.current !== project.sessionId) {
+          emergencyBackupDownloadedRef.current = project.sessionId;
+          downloadProjectBackup(project);
+        }
+        setStatusMessage(
+          'Browser storage is full. A backup JSON was downloaded. Delete unused saved projects and keep this tab open.',
+        );
+      });
     }, 350);
 
     return () => window.clearTimeout(timeoutId);
@@ -3392,7 +3497,7 @@ export function WorkspaceRoute() {
     setSavedProjects(loadProjectLibrary());
   }, [isProjectDialogOpen]);
 
-  const handleSaveProject = useCallback((name: string) => {
+  const handleSaveProject = useCallback(async (name: string) => {
     if (!project) {
       return;
     }
@@ -3407,7 +3512,10 @@ export function WorkspaceRoute() {
       });
 
       setProject(nextProject);
-      saveProjectDocument(nextProject);
+      if (!(await saveProjectDocument(nextProject))) {
+        setStatusMessage('Unable to save this project because browser storage is full.');
+        return;
+      }
       setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
       persistActiveSessionId(nextProject.sessionId);
       setStatusMessage(`Saved "${trimmedName}" as a new project.`);
@@ -3422,7 +3530,10 @@ export function WorkspaceRoute() {
     };
 
     setProject(nextProject);
-    saveProjectDocument(nextProject);
+    if (!(await saveProjectDocument(nextProject))) {
+      setStatusMessage('Unable to save this project because browser storage is full.');
+      return;
+    }
     setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
     persistActiveSessionId(nextProject.sessionId);
     setStatusMessage(`Saved project "${trimmedName}".`);
@@ -3430,7 +3541,7 @@ export function WorkspaceRoute() {
     trackUiClick('save_project');
   }, [project]);
 
-  const handleSaveAsNewProject = useCallback((name: string) => {
+  const handleSaveAsNewProject = useCallback(async (name: string) => {
     if (!project) {
       return;
     }
@@ -3443,7 +3554,10 @@ export function WorkspaceRoute() {
     });
 
     setProject(nextProject);
-    saveProjectDocument(nextProject);
+    if (!(await saveProjectDocument(nextProject))) {
+      setStatusMessage('Unable to save this project because browser storage is full.');
+      return;
+    }
     setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
     persistActiveSessionId(nextProject.sessionId);
     setStatusMessage(`Saved "${trimmedName}" as a new project.`);
@@ -3497,8 +3611,8 @@ export function WorkspaceRoute() {
     trackUiClick('create_empty_project');
   }, [isMobile]);
 
-  const handleOpenSavedProject = useCallback((sessionId: string) => {
-    const loadedProject = loadProjectDocument(sessionId);
+  const handleOpenSavedProject = useCallback(async (sessionId: string) => {
+    const loadedProject = await loadProjectDocument(sessionId);
     if (!loadedProject) {
       setStatusMessage('That saved project is no longer available on this device.');
       setSavedProjects(removeProjectFromLibrary(sessionId));
@@ -3516,6 +3630,25 @@ export function WorkspaceRoute() {
     setStatusMessage(`Opened project "${normalizedProject.name}".`);
     trackUiClick('open_saved_project');
   }, []);
+
+  const handleDeleteSavedProject = useCallback(async (sessionId: string) => {
+    const entry = savedProjects.find((candidate) => candidate.sessionId === sessionId);
+    if (!entry || entry.bundled || sessionId === project?.sessionId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${entry.name}" from this browser? This cannot be undone.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setSavedProjects(await deletePersistedProject(sessionId));
+    autosaveBlockedSessionRef.current = null;
+    setStatusMessage(`Deleted "${entry.name}" and freed its local browser storage.`);
+    trackUiClick('delete_project');
+  }, [project?.sessionId, savedProjects]);
 
   const handleGenerateShareLink = useCallback(async () => {
     if (!project) {
@@ -5148,38 +5281,98 @@ export function WorkspaceRoute() {
     }
   };
 
+  const flushPendingUniformValues = useCallback((commitSavedShader: boolean) => {
+    if (uniformUpdateFrameRef.current !== null) {
+      window.cancelAnimationFrame(uniformUpdateFrameRef.current);
+      uniformUpdateFrameRef.current = null;
+    }
+
+    const pendingValues = pendingUniformValuesRef.current;
+    const pendingShaderId = pendingUniformShaderIdRef.current;
+    pendingUniformValuesRef.current = {};
+    pendingUniformShaderIdRef.current = null;
+    const hasPendingValues = Object.keys(pendingValues).length > 0;
+
+    if (!hasPendingValues && !commitSavedShader) {
+      return;
+    }
+
+    updateProject((currentProject) => {
+      if (pendingShaderId && pendingShaderId !== currentProject.studio.activeShaderId) {
+        return currentProject;
+      }
+      const nextUniformValues = hasPendingValues
+        ? {
+            ...currentProject.studio.uniformValues,
+            ...pendingValues,
+          }
+        : currentProject.studio.uniformValues;
+      return applyActiveShaderUniformValues(
+        currentProject,
+        nextUniformValues,
+        commitSavedShader,
+      );
+    });
+  }, [updateProject]);
+
   const commitActiveUniformValues = useCallback(() => {
     if (!uniformCommitPendingRef.current) {
       return;
     }
 
     uniformCommitPendingRef.current = false;
-    updateProject((currentProject) =>
-      applyActiveShaderUniformValues(
-        currentProject,
-        currentProject.studio.uniformValues,
-        true,
-      ),
-    );
-  }, [updateProject]);
+    flushPendingUniformValues(true);
+  }, [flushPendingUniformValues]);
 
   const handleUniformChange = useCallback((name: string, value: ShaderUniformValue) => {
+    const activeShaderId = project?.studio.activeShaderId;
+    if (!activeShaderId) {
+      return;
+    }
+
     uniformCommitPendingRef.current = true;
-    updateProject((currentProject) => {
-      const nextUniformValues = {
-        ...currentProject.studio.uniformValues,
-        [name]: value,
-      };
-      return applyActiveShaderUniformValues(currentProject, nextUniformValues, false);
-    });
-  }, [updateProject]);
+    pendingUniformShaderIdRef.current = activeShaderId;
+    pendingUniformValuesRef.current = {
+      ...pendingUniformValuesRef.current,
+      [name]: value,
+    };
+    liveUniformSyncRef.current?.publish(activeShaderId, name, value);
+
+    if (uniformUpdateFrameRef.current === null) {
+      uniformUpdateFrameRef.current = window.requestAnimationFrame(() => {
+        uniformUpdateFrameRef.current = null;
+        flushPendingUniformValues(false);
+      });
+    }
+  }, [flushPendingUniformValues, project?.studio.activeShaderId]);
 
   const handleUniformValuesChange = useCallback((values: ShaderUniformValueMap) => {
     uniformCommitPendingRef.current = false;
+    pendingUniformValuesRef.current = {};
+    pendingUniformShaderIdRef.current = null;
+    if (uniformUpdateFrameRef.current !== null) {
+      window.cancelAnimationFrame(uniformUpdateFrameRef.current);
+      uniformUpdateFrameRef.current = null;
+    }
+    const activeShaderId = project?.studio.activeShaderId;
+    if (activeShaderId) {
+      for (const [name, value] of Object.entries(values)) {
+        liveUniformSyncRef.current?.publish(activeShaderId, name, value);
+      }
+    }
     updateProject((currentProject) =>
       applyActiveShaderUniformValues(currentProject, values, true),
     );
-  }, [updateProject]);
+  }, [project?.studio.activeShaderId, updateProject]);
+
+  useEffect(
+    () => () => {
+      if (uniformUpdateFrameRef.current !== null) {
+        window.cancelAnimationFrame(uniformUpdateFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const commitOnInteractionEnd = () => commitActiveUniformValues();
@@ -6444,12 +6637,8 @@ export function WorkspaceRoute() {
     }
 
     const shaderApplyLink = extractShaderApplyLinkFromText(response);
-    if (
-      shaderApplyLink &&
-      (shaderApplyLink.sessionId !== project.sessionId ||
-        shaderApplyLink.targetShaderId !== externalChatRequest.targetShaderId)
-    ) {
-      throw new Error('That Mapshroom link targets a different project or shader.');
+    if (shaderApplyLink && shaderApplyLink.sessionId !== project.sessionId) {
+      throw new Error('That Mapshroom link targets a different project.');
     }
     const nextCode = validateGeneratedShader(
       shaderApplyLink?.code ?? extractGlslCode(response),
@@ -6458,8 +6647,9 @@ export function WorkspaceRoute() {
         prompt: externalChatRequest.prompt,
       },
     );
+    const targetShaderId = project.studio.activeShaderId;
     const targetShader = project.studio.savedShaders.find(
-      (shader) => shader.id === externalChatRequest.targetShaderId,
+      (shader) => shader.id === targetShaderId,
     );
     if (!targetShader) {
       throw new Error('The shader you started from is no longer available. Ask again from the current shader.');
@@ -6468,10 +6658,8 @@ export function WorkspaceRoute() {
     const nextName = parseShaderName(nextCode);
     const validationError = validateShaderCodeCompilation(nextCode);
     const versionId = crypto.randomUUID();
-    const appliedToActiveShader =
-      project.studio.activeShaderId === externalChatRequest.targetShaderId;
 
-    generatedShaderRetryRef.current[externalChatRequest.targetShaderId] = {
+    generatedShaderRetryRef.current[targetShaderId] = {
       sourcePrompt: externalChatRequest.prompt,
       code: nextCode,
       autoRepairUsed: false,
@@ -6481,13 +6669,14 @@ export function WorkspaceRoute() {
 
     updateProject((currentProject) =>
       applyExternalShaderCodeToProject(currentProject, {
-        targetShaderId: externalChatRequest.targetShaderId,
+        targetShaderId: currentProject.studio.activeShaderId,
         prompt: externalChatRequest.prompt,
         historyPrompt: externalChatRequest.historyPrompt,
-        currentCode: externalChatRequest.currentCode,
+        currentCode: currentProject.studio.activeShaderCode,
         nextCode,
         validationError,
         versionId,
+        activateTarget: true,
       }),
     );
 
@@ -6498,26 +6687,19 @@ export function WorkspaceRoute() {
     setIsApiSettingsOpen(false);
     setExternalChatRequest(null);
 
-    if (validationError && appliedToActiveShader) {
+    if (validationError) {
       setPreferLiveShaderCompilePreview(true);
       applyCompilerFeedback(validationError);
       setStatusMessage(
         `The pasted shader has GLSL errors. Keeping the previous valid render for ${nextName}.`,
       );
-    } else if (appliedToActiveShader) {
+    } else {
       setCompilerError('');
       setPreferLiveShaderCompilePreview(true);
       setAiFeedbackTone('success');
       setAiFeedbackMessage(`Shader pasted from your AI chat and applied: ${nextName}.`);
       setStatusMessage(`Shader updated: ${nextName}`);
       closeMobileShaderDialog();
-    } else if (validationError) {
-      clearGeneratedShaderRetry(externalChatRequest.targetShaderId);
-      setStatusMessage(
-        `The pasted shader updated "${nextName}" but has GLSL errors, so its previous valid render is still in use.`,
-      );
-    } else {
-      setStatusMessage(`Your AI chat result updated "${nextName}" in the timeline.`);
     }
 
     trackLlmRequest({
@@ -6793,8 +6975,12 @@ ${errorSnapshot}`,
           : field === 'googleApiKey'
             ? GOOGLE_API_KEY_STORAGE_KEY
             : null;
-      if (storageKey && value) localStorage.setItem(storageKey, value);
-      else if (storageKey) localStorage.removeItem(storageKey);
+      try {
+        if (storageKey && value) localStorage.setItem(storageKey, value);
+        else if (storageKey) localStorage.removeItem(storageKey);
+      } catch (error) {
+        console.warn('Unable to persist AI key preference.', error);
+      }
     }
     const nextSettings = project
       ? {
@@ -7795,19 +7981,30 @@ ${errorSnapshot}`,
       if (!clipboardText) {
         throw new Error('The clipboard is empty.');
       }
-      if (
-        externalChatRequest &&
-        (externalChatRequest.route === 'chatgpt' || externalChatRequest.route === 'perplexity')
-      ) {
-        await handleApplyExternalChatResponse(clipboardText);
-        return true;
+      const shaderApplyLink = extractShaderApplyLinkFromText(clipboardText);
+      const nextCode = validateGeneratedShader(
+        shaderApplyLink?.code ?? extractGlslCode(clipboardText),
+      );
+      clearGeneratedShaderRetry();
+      setCompilerError('');
+      setPreferLiveShaderCompilePreview(true);
+      setShaderCompileNonce((currentValue) => currentValue + 1);
+      const timelineStepId = editingTimelineStepId;
+      updateProject((currentProject) =>
+        applyPastedShaderCodeToProject(currentProject, {
+          nextCode,
+          timelineStepId,
+        }),
+      );
+      setPreviewShaderId(null);
+      setStudioPreviewOverride(false);
+      if (!timelineStepId) {
+        setEditingTimelineStepId(null);
       }
-      const nextCode = validateGeneratedShader(extractGlslCode(clipboardText));
-      handleActiveShaderCodeChange(nextCode);
       const shaderName = parseShaderName(nextCode);
       setAiFeedbackTone('success');
-      setAiFeedbackMessage(`Shader pasted and applied: ${shaderName}.`);
-      setStatusMessage(`Shader updated from clipboard: ${shaderName}.`);
+      setAiFeedbackMessage(`Shader pasted and saved: ${shaderName}.`);
+      setStatusMessage(`Pasted shader saved as "${shaderName}".`);
       return true;
     } catch (error) {
       const message =
@@ -7915,11 +8112,14 @@ ${errorSnapshot}`,
   const showDesktopSlidersWindow =
     !isMobile && uiPreferences.chromeVisible && uiPreferences.desktopSlidersWindowEnabled;
   const externalChatPasteSource =
-    externalChatRequest?.route === 'perplexity'
-      ? 'Perplexity'
-      : externalChatRequest?.route === 'chatgpt'
-        ? 'ChatGPT'
-        : undefined;
+    externalChatRequest &&
+    externalChatRequest.targetShaderId === project.studio.activeShaderId
+      ? externalChatRequest.route === 'perplexity'
+        ? 'Perplexity'
+        : externalChatRequest.route === 'chatgpt'
+          ? 'ChatGPT'
+          : undefined
+      : undefined;
 
   const studioPanel = (
     <StudioPanel
@@ -8852,6 +9052,14 @@ ${errorSnapshot}`,
         onCreateNewProject={handleCreateNewProject}
         onCreateEmptyProject={handleCreateEmptyProject}
         onOpenProject={handleOpenSavedProject}
+        onDeleteProject={handleDeleteSavedProject}
+        onDownloadBackup={() => {
+          if (!project) {
+            return;
+          }
+          downloadProjectBackup(project);
+          setStatusMessage(`Downloaded a backup of "${project.name}".`);
+        }}
       />
 
       <ShareProjectDialog

@@ -212,6 +212,8 @@ test('autosave and WebGL previews keep background work out of the interaction pa
   assert.match(sessionSync, /createProjectSnapshot\(project, liveShaderIds\)/);
   assert.match(workspace, /syncedProjectAutosaveRef\.current === project/);
   assert.match(storage, /Unable to persist shader slider cache/);
+  assert.doesNotMatch(workspace, /saveShaderSliderCache\(/);
+  assert.match(storage, /getRecoverableSessionStorageKeys\(project\.sessionId\)/);
   assert.doesNotMatch(previewRenderer, /gl\.finish\(\)/);
   assert.doesNotMatch(presetPreview, /gl\.finish\(\)/);
   assert.match(previewRenderer, /programCache/);
@@ -233,10 +235,12 @@ test('live uniform controls avoid catalog churn and background GPU work', () => 
   const styles = readFileSync(new URL('src/index.css', root), 'utf8');
   const depthEval = readFileSync(new URL('src/depthLabEval.ts', root), 'utf8');
 
-  assert.match(workspace, /applyActiveShaderUniformValues\(currentProject, nextUniformValues, false\)/);
+  assert.match(workspace, /flushPendingUniformValues\(false\)/);
+  assert.match(workspace, /uniformUpdateFrameRef\.current = window\.requestAnimationFrame/);
   assert.match(workspace, /commitActiveUniformValues/);
   assert.match(workspace, /onUniformValuesChange=\{handleUniformValuesChange\}/);
   assert.match(randomization, /onUniformValuesChange\(randomizedValues\)/);
+  assert.match(randomization, /Unable to persist uniform randomization locks/);
   assert.doesNotMatch(
     timelineStage,
     /activeShaderName, activeUniformValues, savedShaders/,
@@ -249,8 +253,87 @@ test('live uniform controls avoid catalog churn and background GPU work', () => 
   );
   assert.match(stageRenderer, /canvas\.width !== nextCanvasWidth \|\| canvas\.height !== nextCanvasHeight/);
   assert.match(stageRenderer, /MAX_WORKSPACE_PREVIEW_DPR/);
+  assert.match(stageRenderer, /OUTPUT_START_RENDER_PIXELS/);
+  assert.match(stageRenderer, /outputPixelBudgetRef/);
   assert.match(styles, /input\[type='range'\]:active::-[\s\S]*?transition: none/);
   assert.match(depthEval, /if \(document\.hidden\)/);
+});
+
+test('clipboard paste always writes onto the active shader by id', () => {
+  const root = new URL('..', import.meta.url);
+  const workspace = readFileSync(new URL('src/routes/WorkspaceRoute.tsx', root), 'utf8');
+  const pasteStart = workspace.indexOf('const handlePasteShaderFromClipboard');
+  const pasteEnd = workspace.indexOf('const handlePastePositionFromClipboard');
+  assert.notEqual(pasteStart, -1);
+  assert.notEqual(pasteEnd, -1);
+  const pasteHandler = workspace.slice(pasteStart, pasteEnd);
+
+  assert.match(workspace, /function applyPastedShaderCodeToProject/);
+  assert.match(workspace, /group: 'Saved'/);
+  assert.match(pasteHandler, /applyPastedShaderCodeToProject\(currentProject, \{/);
+  assert.match(pasteHandler, /timelineStepId/);
+  assert.doesNotMatch(
+    pasteHandler,
+    /handleApplyExternalChatResponse/,
+    'the code editor paste button must not apply onto a previous ChatGPT target shader',
+  );
+  assert.doesNotMatch(
+    pasteHandler,
+    /shader\.name ===/,
+    'pasted code must not be matched onto another shader by NAME header',
+  );
+  assert.match(
+    workspace,
+    /targetShaderId: currentProject\.studio\.activeShaderId/,
+    'external chat apply must follow the currently visible shader',
+  );
+});
+
+test('output receives migrated audio state and low-latency uniform updates', () => {
+  const root = new URL('..', import.meta.url);
+  const audioHook = readFileSync(new URL('src/hooks/useAudioReactivity.ts', root), 'utf8');
+  const audioRuntime = readFileSync(new URL('src/lib/audioReactivity.ts', root), 'utf8');
+  const output = readFileSync(new URL('src/routes/OutputRoute.tsx', root), 'utf8');
+  const workspace = readFileSync(new URL('src/routes/WorkspaceRoute.tsx', root), 'utf8');
+  const timelineStage = readFileSync(
+    new URL('src/components/TimelineStageRenderer.tsx', root),
+    'utf8',
+  );
+  const liveUniformSync = readFileSync(
+    new URL('src/lib/liveUniformSync.ts', root),
+    'utf8',
+  );
+  const storage = readFileSync(new URL('src/lib/storage.ts', root), 'utf8');
+  const midiOutputSync = readFileSync(
+    new URL('src/lib/midi/outputSync.ts', root),
+    'utf8',
+  );
+
+  assert.match(audioRuntime, /normalizeOfficialShaderIdentifier\(uniformName\)/);
+  assert.match(audioHook, /type: 'request-state'/);
+  assert.match(audioHook, /message\.type === 'state'/);
+  assert.match(audioHook, /surfaceSwitching:\s*['"]exclude['"]/);
+  assert.match(audioHook, /startAudioAnalysisClock/);
+  assert.match(audioHook, /audioWorklet/);
+  assert.doesNotMatch(audioHook, /requestAnimationFrame\(analyze\)/);
+  assert.match(
+    timelineStage,
+    /audioBindingsByShaderId\[[^\]]+\]\s*\?\?\s*targetShader\?\.audioReactiveBindings/,
+  );
+  assert.match(output, /createLiveUniformSync\(sessionId/);
+  assert.match(output, /applyLiveUniformUpdates\(baseProject, updates\)/);
+  assert.match(workspace, /liveUniformSyncRef\.current\?\.publish/);
+  assert.match(liveUniformSync, /window\.requestAnimationFrame\(flush\)/);
+  assert.match(
+    midiOutputSync,
+    /try\s*\{\s*localStorage\.setItem\(storageKey, payload\);[\s\S]*?\}\s*catch/,
+  );
+  assert.match(midiOutputSync, /if \(!broadcastChannel\)/);
+  assert.match(midiOutputSync, /broadcastChannel\?\.postMessage\(stateSnapshot\)/);
+  assert.match(storage, /putIndexedProjectDocument\(snapshot\)/);
+  assert.match(storage, /isDestructiveProjectOverwrite/);
+  assert.match(workspace, /hasPersistedProject\(sessionId\)/);
+  assert.match(workspace, /downloadProjectBackup\(project\)/);
 });
 
 test('bundled project and visual eval are wired to the statue depth map', () => {

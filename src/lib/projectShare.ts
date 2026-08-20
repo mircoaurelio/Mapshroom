@@ -589,7 +589,7 @@ export async function importProjectFromSharedUrl(): Promise<ImportedSharedProjec
   }
 
   const importedProject = normalizeProjectShaderSources(restoreProjectFromCompactPayload(payload));
-  saveProjectDocument(importedProject);
+  await saveProjectDocument(importedProject);
   persistActiveSessionId(importedProject.sessionId);
   stripShareParamsFromUrl();
 

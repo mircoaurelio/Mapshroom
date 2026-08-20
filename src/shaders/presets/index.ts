@@ -4,6 +4,10 @@ import {
   normalizeOfficialShaderBody,
   OFFICIAL_SHADER_PROFILE,
 } from '../../lib/shaderCompiler';
+import {
+  normalizeOfficialAudioBindings,
+  normalizeOfficialUniformValues,
+} from '../../lib/shaderProfile';
 import { audioReactivePresetList as legacyAudioReactivePresetList } from './audioReactive';
 import { projectionAtelierPresetList as legacyProjectionAtelierPresetList } from './atelier';
 import { drawingPresetList as legacyDrawingPresetList } from './drawing';
@@ -20,6 +24,8 @@ function normalizeOfficialPreset(preset: ShaderPresetDefinition): ShaderPresetDe
     code,
     sourceProfile: OFFICIAL_SHADER_PROFILE,
     minimumTarget: preset.minimumTarget ?? detectMinimumShaderTarget(code),
+    uniformValues: normalizeOfficialUniformValues(preset.uniformValues),
+    audioReactiveBindings: normalizeOfficialAudioBindings(preset.audioReactiveBindings),
   };
 }
 

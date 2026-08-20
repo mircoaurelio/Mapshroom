@@ -14547,6 +14547,19 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   gap: 0.8rem;
 }
 
+.project-library-storage-hint {
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.project-library-card-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
 .project-library-card-copy {
   min-width: 0;
   display: grid;

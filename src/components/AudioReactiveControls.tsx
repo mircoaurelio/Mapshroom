@@ -723,7 +723,8 @@ export function AudioReactivePanelControls({
 
       {preferences.source === 'system' && !isListening ? (
         <p className="audio-reactive-hint">
-          In the browser picker, choose the YouTube tab and enable “Share tab audio”.
+          Share a window or entire screen and enable audio. Sharing a Chrome tab
+          draws a banner on every tab, including Output.
         </p>
       ) : null}
       {controller.errorMessage ? (

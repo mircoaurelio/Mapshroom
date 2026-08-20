@@ -64,6 +64,35 @@ export interface AudioReactivityOptions {
   minimumSectionSeconds?: number;
 }
 
+type AudioReactivePublishMessage =
+  | {
+      type: 'frame' | 'stop';
+      frame: AudioReactiveFrame;
+    }
+  | {
+      type: 'state';
+      frame: AudioReactiveFrame;
+      preferences: AudioReactivePreferences;
+    };
+
+const AUDIO_CLOCK_WORKLET = `
+class MapshroomAudioClockProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.quantums = 0;
+  }
+  process() {
+    this.quantums += 1;
+    if (this.quantums >= 4) {
+      this.quantums = 0;
+      this.port.postMessage(currentTime);
+    }
+    return true;
+  }
+}
+registerProcessor('mapshroom-audio-clock', MapshroomAudioClockProcessor);
+`;
+
 interface AudioEngine {
   token: symbol;
   stream: MediaStream;
@@ -73,7 +102,8 @@ interface AudioEngine {
   silentGain: GainNode;
   frequencyData: Uint8Array<ArrayBuffer>;
   timeData: Uint8Array<ArrayBuffer>;
-  animationFrameId: number | null;
+  stopClock: (() => void) | null;
+  analysisBusy: boolean;
   lastAnalysisAt: number;
   lastUiUpdateAt: number;
   lastBroadcastAt: number;
@@ -203,7 +233,7 @@ function getAudioErrorMessage(error: unknown, source: AudioCaptureSource): strin
   if (error instanceof DOMException) {
     if (error.name === 'NotAllowedError') {
       return source === 'system'
-        ? 'Sharing was cancelled. Choose the YouTube tab and enable “Share tab audio”.'
+        ? 'Sharing was cancelled. Choose a window or entire screen and enable audio.'
         : 'Microphone access was not allowed.';
     }
     if (error.name === 'NotFoundError') {
@@ -219,6 +249,100 @@ function getAudioErrorMessage(error: unknown, source: AudioCaptureSource): strin
 function stopMediaStream(stream: MediaStream): void {
   for (const track of stream.getTracks()) {
     track.stop();
+  }
+}
+
+function buildSystemAudioCaptureOptions(): DisplayMediaStreamOptions {
+  type CaptureControllerLike = {
+    setFocusBehavior?: (behavior: 'focus-captured-surface' | 'no-focus-change') => void;
+  };
+  const options: DisplayMediaStreamOptions & {
+    controller?: CaptureControllerLike;
+    monitorTypeSurfaces?: 'include' | 'exclude';
+    preferCurrentTab?: boolean;
+    selfBrowserSurface?: 'include' | 'exclude';
+    surfaceSwitching?: 'include' | 'exclude';
+    systemAudio?: 'include' | 'exclude';
+  } = {
+    video: {
+      displaySurface: 'monitor',
+      frameRate: 1,
+      height: 16,
+      width: 16,
+    },
+    audio: true,
+    // Tab capture paints Chrome's sharing HUD on every tab, including Output.
+    // Prefer a window or screen so the projector window stays clean.
+    preferCurrentTab: false,
+    selfBrowserSurface: 'exclude',
+    surfaceSwitching: 'exclude',
+    systemAudio: 'include',
+    monitorTypeSurfaces: 'include',
+  };
+
+  const CaptureControllerCtor = (
+    globalThis as typeof globalThis & {
+      CaptureController?: new () => CaptureControllerLike;
+    }
+  ).CaptureController;
+  if (typeof CaptureControllerCtor === 'function') {
+    const controller = new CaptureControllerCtor();
+    try {
+      controller.setFocusBehavior?.('no-focus-change');
+    } catch {
+      // Focus locking is optional; capture still succeeds without it.
+    }
+    options.controller = controller;
+  }
+
+  return options;
+}
+
+async function startAudioAnalysisClock(
+  context: AudioContext,
+  onTick: (now: number) => void,
+): Promise<() => void> {
+  const connectMute = (node: AudioNode) => {
+    const mute = context.createGain();
+    mute.gain.value = 0;
+    node.connect(mute);
+    mute.connect(context.destination);
+    return mute;
+  };
+
+  try {
+    const blob = new Blob([AUDIO_CLOCK_WORKLET], { type: 'text/javascript' });
+    const workletUrl = URL.createObjectURL(blob);
+    try {
+      await context.audioWorklet.addModule(workletUrl);
+    } finally {
+      URL.revokeObjectURL(workletUrl);
+    }
+    const clockNode = new AudioWorkletNode(context, 'mapshroom-audio-clock');
+    const mute = connectMute(clockNode);
+    clockNode.port.onmessage = () => {
+      onTick(performance.now());
+    };
+    return () => {
+      clockNode.port.onmessage = null;
+      clockNode.disconnect();
+      mute.disconnect();
+    };
+  } catch {
+    if (typeof context.createScriptProcessor !== 'function') {
+      const intervalId = window.setInterval(() => onTick(performance.now()), 16);
+      return () => window.clearInterval(intervalId);
+    }
+    const processor = context.createScriptProcessor(1024, 1, 1);
+    const mute = connectMute(processor);
+    processor.onaudioprocess = () => {
+      onTick(performance.now());
+    };
+    return () => {
+      processor.onaudioprocess = null;
+      processor.disconnect();
+      mute.disconnect();
+    };
   }
 }
 
@@ -250,7 +374,7 @@ export function useAudioReactivity(
   optionsRef.current = options;
 
   const publish = useCallback(
-    (message: Omit<AudioReactiveLiveMessage, 'sessionId'>) => {
+    (message: AudioReactivePublishMessage) => {
       if (!sessionId) {
         return;
       }
@@ -269,9 +393,7 @@ export function useAudioReactivity(
     engineRef.current = null;
 
     if (engine) {
-      if (engine.animationFrameId !== null) {
-        cancelAnimationFrame(engine.animationFrameId);
-      }
+      engine.stopClock?.();
       engine.sourceNode.disconnect();
       engine.analyser.disconnect();
       engine.silentGain.disconnect();
@@ -311,19 +433,41 @@ export function useAudioReactivity(
       sessionId && typeof BroadcastChannel !== 'undefined'
         ? new BroadcastChannel(getAudioReactiveChannelName(sessionId))
         : null;
+    if (channelRef.current) {
+      channelRef.current.onmessage = (event: MessageEvent<AudioReactiveLiveMessage>) => {
+        const message = event.data;
+        if (message?.type !== 'request-state' || message.sessionId !== sessionId) {
+          return;
+        }
+        channelRef.current?.postMessage({
+          type: 'state',
+          sessionId,
+          frame: runtimeRef.current,
+          preferences: preferencesRef.current,
+        } satisfies AudioReactiveLiveMessage);
+      };
+    }
 
     return () => {
+      if (channelRef.current) {
+        channelRef.current.onmessage = null;
+      }
       channelRef.current?.close();
       channelRef.current = null;
     };
-  }, [sessionId, stop]);
+  }, [runtimeRef, sessionId, stop]);
 
   useEffect(() => {
     if (!sessionId || loadedSessionRef.current !== sessionId) {
       return;
     }
     saveAudioReactivePreferences(sessionId, preferences);
-  }, [preferences, sessionId]);
+    publish({
+      type: 'state',
+      frame: runtimeRef.current,
+      preferences,
+    });
+  }, [preferences, publish, runtimeRef, sessionId]);
 
   useEffect(() => stop, [stop]);
 
@@ -354,21 +498,21 @@ export function useAudioReactivity(
                   channelCount: 1,
                 },
               })
-            : await navigator.mediaDevices.getDisplayMedia({
-                video: true,
-                audio: true,
-              });
+            : await navigator.mediaDevices.getDisplayMedia(
+                buildSystemAudioCaptureOptions(),
+              );
 
         const audioTrack = stream.getAudioTracks()[0];
         if (!audioTrack) {
           stopMediaStream(stream);
           throw new Error(
-            'No audio was received. Choose a browser tab and enable “Share tab audio”.',
+            'No audio was received. Enable “Share audio” in the browser picker.',
           );
         }
 
         for (const videoTrack of stream.getVideoTracks()) {
-          videoTrack.enabled = false;
+          videoTrack.stop();
+          stream.removeTrack(videoTrack);
         }
 
         const context = new AudioContext({ latencyHint: 'interactive' });
@@ -393,7 +537,8 @@ export function useAudioReactivity(
           silentGain,
           frequencyData: new Uint8Array(analyser.frequencyBinCount),
           timeData: new Uint8Array(analyser.fftSize),
-          animationFrameId: null,
+          stopClock: null,
+          analysisBusy: false,
           lastAnalysisAt: performance.now(),
           lastUiUpdateAt: 0,
           lastBroadcastAt: 0,
@@ -433,10 +578,12 @@ export function useAudioReactivity(
 
         const analyze = (now: number) => {
           const currentEngine = engineRef.current;
-          if (!currentEngine || currentEngine.token !== token) {
+          if (!currentEngine || currentEngine.token !== token || currentEngine.analysisBusy) {
             return;
           }
 
+          currentEngine.analysisBusy = true;
+          try {
           const elapsedMs = Math.max(1, now - currentEngine.lastAnalysisAt);
           currentEngine.lastAnalysisAt = now;
           currentEngine.analyser.getByteTimeDomainData(currentEngine.timeData);
@@ -594,11 +741,16 @@ export function useAudioReactivity(
             currentEngine.lastBroadcastAt = now;
             publish({ type: 'frame', frame });
           }
-
-          currentEngine.animationFrameId = requestAnimationFrame(analyze);
+          } finally {
+            currentEngine.analysisBusy = false;
+          }
         };
 
-        engine.animationFrameId = requestAnimationFrame(analyze);
+        engine.stopClock = await startAudioAnalysisClock(context, analyze);
+        if (engineRef.current?.token !== token) {
+          engine.stopClock();
+          engine.stopClock = null;
+        }
       } catch (error) {
         if (stream) {
           stopMediaStream(stream);
@@ -820,10 +972,19 @@ export function useAudioReactivityOutput(sessionId: string | null): {
         if (!message || message.sessionId !== sessionId) {
           return;
         }
-        runtimeRef.current = message.frame
-          ? message.frame
-          : { ...DEFAULT_AUDIO_REACTIVE_FRAME };
+        if (message.type === 'state') {
+          setPreferences(message.preferences);
+          runtimeRef.current = message.frame;
+          return;
+        }
+        if (message.type === 'frame' || message.type === 'stop') {
+          runtimeRef.current = message.frame;
+        }
       };
+      channel.postMessage({
+        type: 'request-state',
+        sessionId,
+      } satisfies AudioReactiveLiveMessage);
     }
 
     return () => {
