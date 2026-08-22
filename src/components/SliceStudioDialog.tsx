@@ -1,4 +1,5 @@
 import { getSliceStudioUrl } from '../lib/sliceStudioUrl';
+import { isTauri, openExternalUrl } from '../lib/desktop';
 
 interface SliceStudioDialogProps {
   open: boolean;
@@ -11,7 +12,12 @@ export function SliceStudioDialog({ open, onClose }: SliceStudioDialogProps) {
   }
 
   const handleOpenSliceStudio = () => {
-    window.open(getSliceStudioUrl(), '_blank', 'noopener,noreferrer');
+    const url = getSliceStudioUrl();
+    if (isTauri()) {
+      void openExternalUrl(url);
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
     onClose();
   };
 

@@ -5,6 +5,9 @@ import {
   extractGlslCode,
   validateGeneratedShader,
 } from './shader';
+import { fetchJson } from './desktopHttp';
+import { hasStoredCloudApiKey } from './desktopSecrets';
+import { isTauri } from './desktop/index.ts';
 
 import type { ShaderRequestOptions } from './openai';
 
@@ -34,18 +37,24 @@ export async function requestAnthropicShaderMutation({
   chatHistory,
   stageImage,
 }: ShaderRequestOptions): Promise<string> {
-  const trimmedKey = apiKey.trim();
-  if (!trimmedKey) throw new Error('Add an Anthropic API key before using Shader AI.');
+  if (!hasStoredCloudApiKey(apiKey)) {
+    throw new Error('Add an Anthropic API key before using Shader AI.');
+  }
 
   const image = stageImage ? imageSource(stageImage) : null;
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'anthropic-version': '2023-06-01',
+  };
+  if (!isTauri()) {
+    headers['x-api-key'] = apiKey.trim();
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+  }
+
+  const response = await fetchJson('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': trimmedKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    provider: 'anthropic',
+    headers,
     body: JSON.stringify({
       model,
       max_tokens: 4096,

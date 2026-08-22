@@ -1,0 +1,10 @@
+{
+  "$schema": "../src-tauri/tauri.conf.json",
+  "bundle": {
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      }
+    }
+  }
+}

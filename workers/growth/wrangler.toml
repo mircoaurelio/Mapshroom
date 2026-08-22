@@ -1,0 +1,34 @@
+name = "mapshroom-growth"
+main = "src/index.ts"
+compatibility_date = "2026-07-25"
+compatibility_flags = ["nodejs_compat"]
+
+[[routes]]
+pattern = "mapshroom.dev/api/*"
+zone_name = "mapshroom.dev"
+
+[[routes]]
+pattern = "www.mapshroom.dev/api/*"
+zone_name = "mapshroom.dev"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mapshroom-growth"
+database_id = "739478e2-1e70-405f-9f82-81c5b254ec01"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "DESKTOP_BUCKET"
+bucket_name = "mapshroom-desktop-beta"
+
+[triggers]
+crons = ["15 * * * *"]
+
+[vars]
+PUBLIC_BASE_URL = "https://mapshroom.dev"
+BREVO_SENDER_EMAIL = "download@mapshroom.dev"
+BREVO_SENDER_NAME = "Mapshroom"
+BREVO_REPLY_TO = "download@mapshroom.dev"
+DESKTOP_OBJECT_KEY = "Mapshroom_3.0.0_x64-setup.exe"
+DAILY_EMAIL_BUDGET = "300"
+TURNSTILE_ENABLED = "1"

@@ -5,6 +5,9 @@ import {
   extractGlslCode,
   validateGeneratedShader,
 } from './shader';
+import { fetchJson } from './desktopHttp';
+import { hasStoredCloudApiKey } from './desktopSecrets';
+import { isTauri } from './desktop/index.ts';
 
 import type { ShaderChatTurn } from '../types';
 
@@ -52,17 +55,22 @@ export async function requestOpenAiShaderMutation({
   chatHistory,
   stageImage,
 }: ShaderRequestOptions): Promise<string> {
-  const trimmedKey = apiKey.trim();
-  if (!trimmedKey) {
+  if (!hasStoredCloudApiKey(apiKey)) {
     throw new Error('Add an OpenAI API key before using Shader AI.');
   }
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  // On desktop, the Rust proxy injects the key from Windows Credential Manager.
+  if (!isTauri()) {
+    headers.Authorization = `Bearer ${apiKey.trim()}`;
+  }
+
+  const response = await fetchJson('https://api.openai.com/v1/responses', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${trimmedKey}`,
-    },
+    provider: 'openai',
+    headers,
     body: JSON.stringify({
       model,
       store: false,

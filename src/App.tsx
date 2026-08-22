@@ -32,6 +32,18 @@ const CreatorChallengeRoute = lazy(() =>
     default: module.CreatorChallengeRoute,
   })),
 );
+const VerifyRoute = lazy(() =>
+  import('./routes/VerifyRoute').then((module) => ({ default: module.VerifyRoute })),
+);
+const ProfileRoute = lazy(() =>
+  import('./routes/ProfileRoute').then((module) => ({ default: module.ProfileRoute })),
+);
+const AdminRoute = lazy(() =>
+  import('./routes/AdminRoute').then((module) => ({ default: module.AdminRoute })),
+);
+const BetaTermsRoute = lazy(() =>
+  import('./routes/BetaTermsRoute').then((module) => ({ default: module.BetaTermsRoute })),
+);
 
 const PUBLIC_ROUTE_PATHS: Record<string, string> = {
   '/tutorial': '/tutorial/',
@@ -86,6 +98,10 @@ export default function App() {
           <Route path="/" element={<WorkspaceRoute />} />
           <Route path="/output/:sessionId" element={<OutputRoute />} />
           <Route path="/download" element={<DownloadRoute />} />
+          <Route path="/verify" element={<VerifyRoute />} />
+          <Route path="/profile" element={<ProfileRoute />} />
+          <Route path="/admin" element={<AdminRoute />} />
+          <Route path="/beta-terms" element={<BetaTermsRoute />} />
           <Route path="/privacy" element={<PrivacyRoute />} />
           <Route path="/tutorial" element={<TutorialRoute />} />
           <Route path="/why" element={<WhyRoute />} />

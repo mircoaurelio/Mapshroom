@@ -1,7 +1,9 @@
+import { isTauri, listDesktopMonitors, type DesktopMonitor } from './desktop';
+
 export interface OutputDisplayOption {
   id: string;
   label: string;
-  screen: ScreenDetailed;
+  screen: ScreenDetailed | null;
   left: number;
   top: number;
   width: number;
@@ -69,11 +71,65 @@ function toDisplayOption(
   };
 }
 
+function toDesktopDisplayOption(
+  monitor: DesktopMonitor,
+  index: number,
+  primaryId: string | null,
+): OutputDisplayOption {
+  const isPrimary = monitor.isPrimary || monitor.id === primaryId;
+  return {
+    id: monitor.id,
+    label: monitor.name || `Display ${index + 1}`,
+    screen: null,
+    left: monitor.x,
+    top: monitor.y,
+    width: Math.max(1, monitor.width),
+    height: Math.max(1, monitor.height),
+    isCurrent: false,
+    isPrimary,
+    isSecondary: !isPrimary,
+  };
+}
+
 export function isScreenDetailsSupported(): boolean {
-  return typeof window.getScreenDetails === 'function';
+  return isTauri() || typeof window.getScreenDetails === 'function';
 }
 
 export async function queryOutputDisplays(): Promise<OutputDisplayQueryResult> {
+  if (isTauri()) {
+    try {
+      const monitors = await listDesktopMonitors();
+      if (monitors.length === 0) {
+        return {
+          status: 'unsupported',
+          screens: [],
+          secondaryScreens: [],
+          message:
+            'No displays were reported by the desktop shell. Drag the Output window onto the projector, then use fullscreen.',
+        };
+      }
+      const primaryId = monitors.find((monitor) => monitor.isPrimary)?.id ?? monitors[0]?.id ?? null;
+      const screens = monitors.map((monitor, index) =>
+        toDesktopDisplayOption(monitor, index, primaryId),
+      );
+      return {
+        status: 'ready',
+        screens,
+        secondaryScreens: screens.filter((screen) => screen.isSecondary),
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        screens: [],
+        secondaryScreens: [],
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Unable to read connected displays from the desktop shell.',
+      };
+    }
+  }
+
   if (!isScreenDetailsSupported() || typeof window.getScreenDetails !== 'function') {
     return {
       status: 'unsupported',

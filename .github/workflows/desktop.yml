@@ -1,0 +1,90 @@
+name: Desktop Tauri / MSIX
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src-tauri/**'
+      - 'src/lib/desktop/**'
+      - 'windows/**'
+      - 'scripts/pack-msix.ps1'
+      - 'scripts/generate-tauri-icons.mjs'
+      - 'package.json'
+      - 'vite.config.ts'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/**'
+      - 'src/lib/desktop/**'
+      - 'windows/**'
+      - 'scripts/pack-msix.ps1'
+      - 'scripts/generate-tauri-icons.mjs'
+      - 'package.json'
+      - 'vite.config.ts'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Check for committed secrets
+        run: npm run check:secrets
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run desktop bridge tests
+        run: npm run test:desktop
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Generate icons
+        run: npm run icons:tauri
+
+      - name: Build desktop frontend + Tauri
+        run: npm run tauri:build
+
+      - name: Stage MSIX payload
+        shell: pwsh
+        run: |
+          $release = "src-tauri/target/release"
+          $exe = Get-ChildItem $release -Filter "*.exe" |
+            Where-Object { $_.Name -notmatch "uninstall|nsis" } |
+            Select-Object -First 1
+          if (-not $exe) { throw "Release exe not found" }
+          New-Item -ItemType Directory -Force -Path windows/msix-stage | Out-Null
+          Copy-Item $exe.FullName windows/msix-stage/Mapshroom.exe -Force
+
+      - name: Upload desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapshroom-windows-desktop
+          path: |
+            src-tauri/target/release/bundle/**
+            windows/msix-stage/**
+            windows/Package.appxmanifest

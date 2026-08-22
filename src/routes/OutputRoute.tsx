@@ -18,6 +18,7 @@ import {
   createLiveUniformSync,
   type LiveUniformUpdate,
 } from '../lib/liveUniformSync';
+import { isTauri, placeDesktopOutputOnMonitor } from '../lib/desktop';
 import { loadProjectDocument } from '../lib/storage';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
 import { useAudioReactivityOutput } from '../hooks/useAudioReactivity';
@@ -162,6 +163,24 @@ export function OutputRoute() {
   const enterFullscreenOnDisplay = (display: OutputDisplayOption | null) => {
     setFullscreenError('');
     setSelectedScreen(display?.screen ?? null);
+
+    if (isTauri()) {
+      void placeDesktopOutputOnMonitor(display?.id ?? null, true)
+        .then(() => {
+          setShowScreenPicker(false);
+          setShowFullscreenGate(false);
+        })
+        .catch((error: unknown) => {
+          setFullscreenError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to place the output window on the selected display.',
+          );
+          setShowFullscreenGate(true);
+        });
+      return;
+    }
+
     if (display) {
       try {
         window.moveTo(display.left, display.top);
@@ -172,7 +191,7 @@ export function OutputRoute() {
     }
 
     const request = document.documentElement.requestFullscreen?.(
-      display ? { screen: display.screen } : undefined,
+      display?.screen ? { screen: display.screen } : undefined,
     );
     if (!request) {
       setFullscreenError('Fullscreen is not available in this browser. Press F11 to continue.');

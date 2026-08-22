@@ -1,3 +1,9 @@
+import {
+  focusDesktopOutputWindow,
+  isTauri,
+  openDesktopOutputWindow,
+} from './desktop';
+
 export const OUTPUT_WINDOW_NAME = 'mapshroom-output';
 
 export interface OpenOutputWindowOptions {
@@ -35,10 +41,38 @@ function buildWindowFeatures(): string {
   ].join(',');
 }
 
+export async function openOutputWindowAsync({
+  sessionId,
+  existingWindow = null,
+}: OpenOutputWindowOptions): Promise<OpenOutputWindowResult> {
+  if (isTauri()) {
+    const focused = await focusDesktopOutputWindow();
+    await openDesktopOutputWindow(sessionId);
+    return {
+      popup: null,
+      reused: focused,
+      message: focused
+        ? 'Projection window focused.'
+        : 'Projection window opened. Choose its display to enter fullscreen.',
+    };
+  }
+
+  return openOutputWindow({ sessionId, existingWindow });
+}
+
 export function openOutputWindow({
   sessionId,
   existingWindow = null,
 }: OpenOutputWindowOptions): OpenOutputWindowResult {
+  if (isTauri()) {
+    void openOutputWindowAsync({ sessionId, existingWindow });
+    return {
+      popup: null,
+      reused: false,
+      message: 'Opening native projection window…',
+    };
+  }
+
   const nextUrl = buildOutputUrl(sessionId);
 
   if (existingWindow && !existingWindow.closed) {

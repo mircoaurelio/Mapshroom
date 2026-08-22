@@ -36,6 +36,17 @@ export function PrivacyRoute() {
         </section>
 
         <section className="privacy-section">
+          <h2>{copy.emailTitle}</h2>
+          <p className="helper-copy">{copy.emailIntro}</p>
+          <ul className="privacy-list">
+            {copy.emailBullets.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p className="helper-copy">{copy.emailLegal}</p>
+        </section>
+
+        <section className="privacy-section">
           <h2>{copy.analyticsTitle}</h2>
           <p className="helper-copy">
             {copy.analyticsIntroBefore}

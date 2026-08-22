@@ -793,3 +793,38 @@ export function prefixAudioReactiveBindingKeys({
   }
   return prefixed;
 }
+
+export const SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE =
+  'Chrome cannot hide the sharing bar when a browser tab is captured. Choose Entire Screen or a Window, enable Share audio, then try again.';
+
+export function getCapturedDisplaySurface(
+  stream: MediaStream,
+): string | undefined {
+  const videoTrack = stream.getVideoTracks()[0];
+  if (!videoTrack || typeof videoTrack.getSettings !== 'function') {
+    return undefined;
+  }
+  return videoTrack.getSettings().displaySurface;
+}
+
+export function assertWindowOrScreenAudioCapture(stream: MediaStream): void {
+  if (getCapturedDisplaySurface(stream) === 'browser') {
+    throw new Error(SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE);
+  }
+}
+
+export function describeSystemAudioCapture(
+  displaySurface: string | undefined,
+  audioLabel: string,
+): string {
+  if (audioLabel.trim()) {
+    return audioLabel;
+  }
+  if (displaySurface === 'monitor') {
+    return 'Entire screen audio';
+  }
+  if (displaySurface === 'window') {
+    return 'Window audio';
+  }
+  return 'Computer audio';
+}

@@ -1,3 +1,5 @@
+import { isTauri } from './desktop';
+
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -122,6 +124,10 @@ export function onAppInstalled(listener: () => void) {
 export function isStandaloneApp(): boolean {
   if (typeof window === 'undefined') {
     return false;
+  }
+
+  if (isTauri()) {
+    return true;
   }
 
   return (

@@ -53,6 +53,7 @@ import {
   setAnalyticsAiPresence,
   signalOnboardingComplete,
   track,
+  trackActivationMilestone,
   trackApiPresence,
   trackAppOpen,
   trackLlmRequest,
@@ -157,6 +158,16 @@ import { createSessionSync } from '../lib/sessionSync';
 import { createLiveUniformSync } from '../lib/liveUniformSync';
 import { useMidiController } from '../hooks/useMidiController';
 import { useAudioReactivity } from '../hooks/useAudioReactivity';
+import {
+  isTauri,
+} from '../lib/desktop';
+import {
+  hasStoredCloudApiKey,
+  loadDesktopKeyringMarkers,
+  migrateBrowserKeysToDesktopKeyring,
+  persistCloudApiKey,
+  providerForAiKeyField,
+} from '../lib/desktopSecrets';
 import type {
   MidiControllerMode,
   MidiTimelineTransportAction,
@@ -251,12 +262,12 @@ function hasConfiguredShaderAi(settings: AiSettings): boolean {
   }
   if (settings.shaderRuntime !== 'api') return false;
   if (settings.shaderProvider === 'openai') {
-    return Boolean(settings.openaiApiKey.trim() && settings.openaiShaderModel);
+    return Boolean(hasStoredCloudApiKey(settings.openaiApiKey) && settings.openaiShaderModel);
   }
   if (settings.shaderProvider === 'anthropic') {
-    return Boolean(settings.anthropicApiKey.trim() && settings.anthropicShaderModel);
+    return Boolean(hasStoredCloudApiKey(settings.anthropicApiKey) && settings.anthropicShaderModel);
   }
-  return Boolean(settings.googleApiKey.trim() && settings.googleShaderModel);
+  return Boolean(hasStoredCloudApiKey(settings.googleApiKey) && settings.googleShaderModel);
 }
 
 function getAnalyticsAiPresence(settings: AiSettings) {
@@ -1603,15 +1614,21 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
   const normalizedAiSettings: AiSettings = {
     ...defaultProject.ai.settings,
     ...legacySettings,
-    openaiApiKey: legacySettings.openaiApiKey?.trim()
-      ? legacySettings.openaiApiKey
-      : localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY) ?? '',
-    anthropicApiKey: legacySettings.anthropicApiKey?.trim()
-      ? legacySettings.anthropicApiKey
-      : localStorage.getItem(ANTHROPIC_API_KEY_STORAGE_KEY) ?? '',
-    googleApiKey: legacySettings.googleApiKey?.trim()
-      ? legacySettings.googleApiKey
-      : localStorage.getItem(GOOGLE_API_KEY_STORAGE_KEY) ?? '',
+    openaiApiKey: isTauri()
+      ? ''
+      : legacySettings.openaiApiKey?.trim()
+        ? legacySettings.openaiApiKey
+        : localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY) ?? '',
+    anthropicApiKey: isTauri()
+      ? ''
+      : legacySettings.anthropicApiKey?.trim()
+        ? legacySettings.anthropicApiKey
+        : localStorage.getItem(ANTHROPIC_API_KEY_STORAGE_KEY) ?? '',
+    googleApiKey: isTauri()
+      ? ''
+      : legacySettings.googleApiKey?.trim()
+        ? legacySettings.googleApiKey
+        : localStorage.getItem(GOOGLE_API_KEY_STORAGE_KEY) ?? '',
     runwayApiKey: legacySettings.runwayApiKey ?? '',
     shaderProvider: legacySettings.shaderProvider === 'openai' || legacySettings.shaderProvider === 'anthropic'
       ? legacySettings.shaderProvider
@@ -2980,9 +2997,9 @@ export function WorkspaceRoute() {
     const storedRoute = readStoredAiGenerationRoute();
     const settings = project.ai.settings;
     const hasAnyApi =
-      Boolean(settings.openaiApiKey.trim()) ||
-      Boolean(settings.anthropicApiKey.trim()) ||
-      Boolean(settings.googleApiKey.trim());
+      hasStoredCloudApiKey(settings.openaiApiKey) ||
+      hasStoredCloudApiKey(settings.anthropicApiKey) ||
+      hasStoredCloudApiKey(settings.googleApiKey);
     const resolvedRoute: AiGenerationRoute =
       storedRoute ??
       (settings.shaderRuntime === 'api' && hasAnyApi
@@ -3015,6 +3032,60 @@ export function WorkspaceRoute() {
       }));
     }
   }, [project, updateProject]);
+
+  useEffect(() => {
+    if (!isTauri() || !project) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const legacyOpenAi = localStorage.getItem(OPENAI_API_KEY_STORAGE_KEY);
+        const legacyAnthropic = localStorage.getItem(ANTHROPIC_API_KEY_STORAGE_KEY);
+        const legacyGoogle = localStorage.getItem(GOOGLE_API_KEY_STORAGE_KEY);
+        const migrated = await migrateBrowserKeysToDesktopKeyring({
+          openai: legacyOpenAi ?? project.ai.settings.openaiApiKey,
+          anthropic: legacyAnthropic ?? project.ai.settings.anthropicApiKey,
+          google: legacyGoogle ?? project.ai.settings.googleApiKey,
+        });
+        localStorage.removeItem(OPENAI_API_KEY_STORAGE_KEY);
+        localStorage.removeItem(ANTHROPIC_API_KEY_STORAGE_KEY);
+        localStorage.removeItem(GOOGLE_API_KEY_STORAGE_KEY);
+
+        const markers =
+          migrated.openaiApiKey || migrated.anthropicApiKey || migrated.googleApiKey
+            ? migrated
+            : await loadDesktopKeyringMarkers();
+
+        if (cancelled) {
+          return;
+        }
+
+        updateProject((currentProject) => {
+          const nextSettings = {
+            ...currentProject.ai.settings,
+            openaiApiKey: markers.openaiApiKey,
+            anthropicApiKey: markers.anthropicApiKey,
+            googleApiKey: markers.googleApiKey,
+            runwayApiKey: '',
+          };
+          return {
+            ...currentProject,
+            ai: {
+              settings: nextSettings,
+            },
+          };
+        });
+      } catch (error) {
+        console.warn('Unable to hydrate desktop API credentials.', error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.sessionId, updateProject]);
 
   useEffect(() => {
     if (!project || !pendingTimelineRepeatExit) {
@@ -3663,6 +3734,7 @@ export function WorkspaceRoute() {
       setShareLinkState(nextShareLink);
       setStatusMessage(`Share link ready for "${project.name}".`);
       track('share_project', { outcome: 'success' });
+      trackActivationMilestone('share_project');
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to generate the project share link.';
@@ -6975,31 +7047,59 @@ ${errorSnapshot}`,
           : field === 'googleApiKey'
             ? GOOGLE_API_KEY_STORAGE_KEY
             : null;
-      try {
-        if (storageKey && value) localStorage.setItem(storageKey, value);
-        else if (storageKey) localStorage.removeItem(storageKey);
-      } catch (error) {
-        console.warn('Unable to persist AI key preference.', error);
+      const credentialProvider = providerForAiKeyField(field);
+
+      if (credentialProvider && isTauri()) {
+        try {
+          if (storageKey) localStorage.removeItem(storageKey);
+        } catch (error) {
+          console.warn('Unable to clear legacy AI key preference.', error);
+        }
+        void persistCloudApiKey(credentialProvider, value)
+          .then((storedMarker) => {
+            updateProject((currentProject) => {
+              const nextSettings = {
+                ...currentProject.ai.settings,
+                [field]: storedMarker,
+              };
+              trackApiPresence(getAnalyticsAiPresence(nextSettings));
+              return {
+                ...currentProject,
+                ai: {
+                  settings: nextSettings,
+                },
+              };
+            });
+          })
+          .catch((error: unknown) => {
+            console.warn('Unable to persist desktop credential.', error);
+          });
+        return;
+      }
+
+      if (storageKey) {
+        try {
+          if (value) localStorage.setItem(storageKey, value);
+          else localStorage.removeItem(storageKey);
+        } catch (error) {
+          console.warn('Unable to persist AI key preference.', error);
+        }
       }
     }
-    const nextSettings = project
-      ? {
-          ...project.ai.settings,
-          [field]: value,
-        }
-      : null;
-    updateProject((currentProject) => ({
-      ...currentProject,
-      ai: {
-        settings: {
-          ...currentProject.ai.settings,
-          [field]: value,
-        },
-      },
-    }));
-    if (nextSettings) {
+
+    updateProject((currentProject) => {
+      const nextSettings = {
+        ...currentProject.ai.settings,
+        [field]: value,
+      };
       trackApiPresence(getAnalyticsAiPresence(nextSettings));
-    }
+      return {
+        ...currentProject,
+        ai: {
+          settings: nextSettings,
+        },
+      };
+    });
   };
 
   const handleAiGenerationRouteChange = (route: AiGenerationRoute) => {
@@ -9113,6 +9213,7 @@ ${errorSnapshot}`,
         }}
         onExportCompleted={({ filename, bytes }) => {
           track('export_mp4', { bytes });
+          trackActivationMilestone('export_mp4');
           setStatusMessage(
             `Downloaded ${filename} (${(bytes / (1024 * 1024)).toFixed(1)} MB).`,
           );

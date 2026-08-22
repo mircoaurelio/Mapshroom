@@ -25,6 +25,13 @@ import type {
   MidiFaderBinding,
   MidiTimelineTransportAction,
 } from '../lib/midi/types';
+import {
+  isTauri,
+  listenDesktopMidiMessages,
+  listDesktopMidiInputs,
+  startDesktopMidiListen,
+  stopDesktopMidiListen,
+} from '../lib/desktop';
 import type { ShaderUniformMap, ShaderUniformValue } from '../types';
 
 const MAX_EVENTS = 8;
@@ -71,6 +78,7 @@ export function useMidiController({
   const [errorMessage, setErrorMessage] = useState('');
   const accessRef = useRef<MIDIAccess | null>(null);
   const attachedInputIdsRef = useRef<Set<string>>(new Set());
+  const desktopMidiUnlistenRef = useRef<(() => void) | null>(null);
   const uniformDefinitionsRef = useRef(uniformDefinitions);
   const onUniformChangeRef = useRef(onUniformChange);
   const onModeChangeRef = useRef(onModeChange);
@@ -379,6 +387,12 @@ export function useMidiController({
   );
 
   const disconnect = useCallback(() => {
+    if (desktopMidiUnlistenRef.current) {
+      desktopMidiUnlistenRef.current();
+      desktopMidiUnlistenRef.current = null;
+    }
+    void stopDesktopMidiListen();
+
     void detachInputs().finally(() => {
       accessRef.current = null;
       setDevices([]);
@@ -389,6 +403,36 @@ export function useMidiController({
   }, [detachInputs]);
 
   const connect = useCallback(async () => {
+    if (isTauri()) {
+      try {
+        await detachInputs();
+        if (desktopMidiUnlistenRef.current) {
+          desktopMidiUnlistenRef.current();
+          desktopMidiUnlistenRef.current = null;
+        }
+        const devices = await listDesktopMidiInputs();
+        const selected = await startDesktopMidiListen(devices[0]?.id ?? null);
+        desktopMidiUnlistenRef.current = await listenDesktopMidiMessages((message) => {
+          handleMidiData(Uint8Array.from(message.bytes), message.deviceName);
+        });
+        setDevices(devices.map((device) => device.name));
+        setStatus('connected');
+        setErrorMessage(
+          devices.length === 0
+            ? 'Connected, but no MIDI inputs found. Plug in the mixer and toggle MIDI again.'
+            : selected.name
+              ? ''
+              : '',
+        );
+      } catch (error) {
+        setStatus('denied');
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Could not access desktop MIDI devices.',
+        );
+      }
+      return;
+    }
+
     if (!navigator.requestMIDIAccess) {
       setStatus('unsupported');
       setErrorMessage('Web MIDI is not available. Use Chrome or Edge on desktop.');
@@ -420,7 +464,7 @@ export function useMidiController({
       setStatus('denied');
       setErrorMessage(error instanceof Error ? error.message : 'Could not access MIDI devices.');
     }
-  }, [attachInput, detachInputs, refreshInputs]);
+  }, [attachInput, detachInputs, handleMidiData, refreshInputs]);
 
   const clearEvents = useCallback(() => {
     setEvents([]);

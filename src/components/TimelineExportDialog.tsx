@@ -9,6 +9,7 @@ import {
   normalizeOfficialShaderBody,
   OFFICIAL_SHADER_PROFILE,
 } from '../lib/shaderCompiler';
+import { saveBlobFile } from '../lib/desktop';
 import type {
   AssetRecord,
   PlaybackTransport,
@@ -90,12 +91,13 @@ function sanitizeFileName(value: string): string {
 }
 
 function downloadBlob(blob: Blob, fileName: string): void {
-  const downloadUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = fileName;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1_000);
+  void saveBlobFile({
+    defaultFileName: fileName,
+    blob,
+    filters: fileName.endsWith('.mp4')
+      ? [{ name: 'MP4 video', extensions: ['mp4'] }]
+      : [{ name: 'JSON', extensions: ['json'] }],
+  });
 }
 
 function waitForAnimationFrames(frameCount = 1): Promise<void> {

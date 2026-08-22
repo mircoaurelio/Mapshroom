@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
 import type { AudioCaptureSource } from '../lib/audioReactivity';
 import { InstallAppButton } from './InstallAppCallout';
+import { FeedbackDialog } from './FeedbackDialog';
 import {
   advanceAssetsFirstStepToImport,
   ASSETS_FIRST_STEP_DELAY_MS,
@@ -132,6 +133,7 @@ export function WorkspaceToolbar({
   onAssetsFirstStepAdvance,
 }: WorkspaceToolbarProps) {
   const [openMenu, setOpenMenu] = useState<ToolbarMenuKey | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [assetsFirstStepVisible, setAssetsFirstStepVisible] = useState(false);
   const [assetsFirstStepAdvanced, setAssetsFirstStepAdvanced] = useState(() =>
     isAssetsImportStepPending(),
@@ -523,7 +525,34 @@ export function WorkspaceToolbar({
                   className="toolbar-menu-item"
                   onClick={closeMenu}
                 >
-                  Install help
+                  Download / install
+                </Link>
+                <Link
+                  to="/profile"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Email profile
+                </Link>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    setFeedbackOpen(true);
+                    closeMenu();
+                  }}
+                >
+                  Send feedback
+                </button>
+                <Link
+                  to="/privacy"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={closeMenu}
+                >
+                  Privacy
                 </Link>
               </div>
             ) : null}
@@ -658,7 +687,7 @@ export function WorkspaceToolbar({
                   <span className="toolbar-audio-source-indicator" aria-hidden="true" />
                   <span className="toolbar-audio-source-copy">
                     <strong>Computer audio</strong>
-                    <small>Share a window or screen with audio</small>
+                    <small>Entire screen or a window, with audio</small>
                   </span>
                 </button>
                 {audioReactiveEnabled ? (
@@ -679,8 +708,8 @@ export function WorkspaceToolbar({
                   </>
                 ) : null}
                 <p className="toolbar-audio-source-note">
-                  Share a window or entire screen with audio. A Chrome tab adds a
-                  banner on Output.
+                  Choose Entire Screen or a Window and enable Share audio. Chrome
+                  tabs always add a sharing bar on Output and the workspace.
                 </p>
               </div>
             ) : null}
@@ -804,6 +833,7 @@ export function WorkspaceToolbar({
           </button>
         </div>
       </div>
+      <FeedbackDialog open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </header>
   );
 }

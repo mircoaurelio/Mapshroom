@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  assertWindowOrScreenAudioCapture,
   buildAudioReactiveBindings,
   createAudioReactiveRuntime,
   DEFAULT_AUDIO_REACTIVE_FRAME,
+  describeSystemAudioCapture,
   getAudioReactiveChannelName,
   getAudioReactiveStorageKey,
+  getCapturedDisplaySurface,
   loadAudioReactivePreferences,
   saveAudioReactivePreferences,
   type AudioBpmMode,
@@ -21,6 +24,13 @@ import {
   updateAudioSectionDetector,
   type AudioSectionDetectorState,
 } from '../lib/audioSectionDetection';
+import {
+  isTauri,
+  listenDesktopAudioFrames,
+  startDesktopAudioCapture,
+  stopDesktopAudioCapture,
+  type DesktopAudioFrame,
+} from '../lib/desktop';
 import type { ShaderUniformMap, ShaderUniformValueMap } from '../types';
 
 export type AudioReactiveStatus = 'idle' | 'starting' | 'listening' | 'error';
@@ -359,6 +369,7 @@ export function useAudioReactivity(
   const optionsRef = useRef(options);
   const loadedSessionRef = useRef<string | null>(sessionId);
   const engineRef = useRef<AudioEngine | null>(null);
+  const desktopUnlistenRef = useRef<(() => void) | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const tapTimesRef = useRef<number[]>([]);
   const [uiFrame, setUiFrame] = useState<AudioReactiveFrame>({
@@ -391,6 +402,12 @@ export function useAudioReactivity(
       runtimeRef.current.section ??
       DEFAULT_AUDIO_REACTIVE_FRAME.section;
     engineRef.current = null;
+
+    if (desktopUnlistenRef.current) {
+      desktopUnlistenRef.current();
+      desktopUnlistenRef.current = null;
+    }
+    void stopDesktopAudioCapture();
 
     if (engine) {
       engine.stopClock?.();
@@ -473,9 +490,9 @@ export function useAudioReactivity(
 
   const start = useCallback(
     async (requestedSource?: AudioCaptureSource) => {
-      if (!sessionId || !navigator.mediaDevices) {
+      if (!sessionId) {
         setStatus('error');
-        setErrorMessage('Audio capture is not available in this browser.');
+        setErrorMessage('Audio capture requires an active session.');
         return;
       }
 
@@ -484,6 +501,57 @@ export function useAudioReactivity(
       setPreferences((current) => ({ ...current, source }));
       setStatus('starting');
       setErrorMessage(null);
+
+      if (isTauri()) {
+        try {
+          await startDesktopAudioCapture(source);
+          desktopUnlistenRef.current = await listenDesktopAudioFrames(
+            (nativeFrame: DesktopAudioFrame) => {
+              const bpm =
+                preferencesRef.current.bpmMode === 'manual'
+                  ? preferencesRef.current.manualBpm
+                  : nativeFrame.bpm > 0
+                    ? nativeFrame.bpm
+                    : runtimeRef.current.bpm || 120;
+              const nextFrame: AudioReactiveFrame = {
+                active: true,
+                level: clamp(nativeFrame.rms * 2.2, 0, 1),
+                bass: clamp(nativeFrame.bass, 0, 1),
+                mid: clamp(nativeFrame.mid, 0, 1),
+                high: clamp(nativeFrame.treble, 0, 1),
+                beat: nativeFrame.beat ? 1 : Math.max(0, runtimeRef.current.beat * 0.85),
+                tempo: bpm / 60,
+                bpm,
+                updatedAt: performance.now(),
+                section: runtimeRef.current.section,
+              };
+              runtimeRef.current = nextFrame;
+              setUiFrame(nextFrame);
+              publish({ type: 'frame', frame: nextFrame });
+            },
+          );
+          setCaptureLabel(
+            source === 'system'
+              ? 'System audio (WASAPI loopback)'
+              : 'Microphone (desktop)',
+          );
+          setStatus('listening');
+        } catch (error) {
+          setStatus('error');
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'Unable to start desktop audio capture.',
+          );
+        }
+        return;
+      }
+
+      if (!navigator.mediaDevices) {
+        setStatus('error');
+        setErrorMessage('Audio capture is not available in this browser.');
+        return;
+      }
 
       let stream: MediaStream | null = null;
       try {
@@ -501,6 +569,9 @@ export function useAudioReactivity(
             : await navigator.mediaDevices.getDisplayMedia(
                 buildSystemAudioCaptureOptions(),
               );
+
+        const displaySurface = getCapturedDisplaySurface(stream);
+        assertWindowOrScreenAudioCapture(stream);
 
         const audioTrack = stream.getAudioTracks()[0];
         if (!audioTrack) {
@@ -571,7 +642,7 @@ export function useAudioReactivity(
 
         setCaptureLabel(
           source === 'system'
-            ? audioTrack.label || 'Browser tab / computer audio'
+            ? describeSystemAudioCapture(displaySurface, audioTrack.label)
             : audioTrack.label || 'Microphone',
         );
         setStatus('listening');

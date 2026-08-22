@@ -1,3 +1,5 @@
+import { isTauri, openExternalUrl } from './desktop';
+
 export type ExternalAiWindowResult = 'popup' | 'tab' | 'blocked';
 
 const DESKTOP_MIN_SCREEN_WIDTH = 1280;
@@ -111,6 +113,11 @@ export function alignExternalAiWindowToElement(element: HTMLElement): boolean {
 }
 
 export function openExternalAiWindow(url: string): ExternalAiWindowResult {
+  if (isTauri()) {
+    void openExternalUrl(url);
+    return 'tab';
+  }
+
   const hasDesktopPointer = window.matchMedia('(pointer: fine)').matches;
   const availableWidth = window.screen.availWidth;
   const availableHeight = window.screen.availHeight;

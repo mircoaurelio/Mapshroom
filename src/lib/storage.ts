@@ -17,6 +17,8 @@ import {
 } from './bundledProjects';
 import { restoreTransport, snapshotTransport } from './clock';
 import { normalizeProjectShaderSources } from './shaderProfile';
+import { saveTextFile } from './desktop';
+import { scrubApiKeysFromSettings } from './desktopSecrets';
 import type {
   ProjectDocument,
   ProjectLibraryEntry,
@@ -101,13 +103,11 @@ function reclaimRecoverableLocalStorage(keepSessionId?: string): void {
 }
 
 function downloadJsonFile(filename: string, contents: string): void {
-  const blob = new Blob([contents], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  void saveTextFile({
+    defaultFileName: filename,
+    contents,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
 }
 
 function sanitizeBackupFilename(value: string): string {
@@ -313,6 +313,10 @@ export function createProjectSnapshot(
     studio: {
       ...normalizedProject.studio,
       savedShaders: normalizedProject.studio.savedShaders,
+    },
+    ai: {
+      ...normalizedProject.ai,
+      settings: scrubApiKeysFromSettings(normalizedProject.ai.settings),
     },
   };
 }

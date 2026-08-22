@@ -1,10 +1,15 @@
 import { BROADCAST_PREFIX, PROJECT_STORAGE_PREFIX } from '../config';
 import { restoreTransport } from './clock';
+import { isTauri, listenDesktop } from './desktop/index.ts';
 import { createProjectSnapshot } from './storage';
 import type { ProjectDocument } from '../types';
 
 function getProjectStorageKey(sessionId: string): string {
   return `${PROJECT_STORAGE_PREFIX}${sessionId}`;
+}
+
+function getDesktopProjectEvent(sessionId: string): string {
+  return `project://sync/${sessionId}`;
 }
 
 export function createSessionSync(
@@ -15,6 +20,7 @@ export function createSessionSync(
   const broadcastChannel =
     typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel(channelName) : null;
   const shouldUseStorageFallback = broadcastChannel === null;
+  let unlistenDesktop: (() => void) | null = null;
 
   const handleStorage = (event: StorageEvent) => {
     if (event.key !== getProjectStorageKey(sessionId) || !event.newValue) {
@@ -35,17 +41,21 @@ export function createSessionSync(
     }
   };
 
+  const applyProject = (nextProject: ProjectDocument) => {
+    onProjectUpdate({
+      ...nextProject,
+      playback: {
+        ...nextProject.playback,
+        transport: restoreTransport(nextProject.playback.transport),
+      },
+    });
+  };
+
   const handleMessage = (event: MessageEvent<ProjectDocument>) => {
     if (!event.data) {
       return;
     }
-    onProjectUpdate({
-      ...event.data,
-      playback: {
-        ...event.data.playback,
-        transport: restoreTransport(event.data.playback.transport),
-      },
-    });
+    applyProject(event.data);
   };
 
   if (shouldUseStorageFallback) {
@@ -53,17 +63,29 @@ export function createSessionSync(
   }
   broadcastChannel?.addEventListener('message', handleMessage);
 
+  if (isTauri()) {
+    void listenDesktop<ProjectDocument>(getDesktopProjectEvent(sessionId), (payload) => {
+      if (payload) {
+        applyProject(payload);
+      }
+    }).then((unlisten) => {
+      unlistenDesktop = unlisten;
+    });
+  }
+
   return {
     publish(project: ProjectDocument) {
-      if (!broadcastChannel) {
-        return;
-      }
-
       const liveShaderIds = new Set([
         project.studio.activeShaderId,
         ...project.timeline.stub.shaderSequence.steps.map((step) => step.shaderId),
       ]);
-      broadcastChannel.postMessage(createProjectSnapshot(project, liveShaderIds));
+      const snapshot = createProjectSnapshot(project, liveShaderIds);
+      broadcastChannel?.postMessage(snapshot);
+      if (isTauri()) {
+        void import('@tauri-apps/api/event').then(({ emit }) => {
+          void emit(getDesktopProjectEvent(sessionId), snapshot);
+        });
+      }
     },
     destroy() {
       if (shouldUseStorageFallback) {
@@ -71,6 +93,8 @@ export function createSessionSync(
       }
       broadcastChannel?.removeEventListener('message', handleMessage);
       broadcastChannel?.close();
+      unlistenDesktop?.();
+      unlistenDesktop = null;
     },
   };
 }

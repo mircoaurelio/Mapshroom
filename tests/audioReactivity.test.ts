@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   analyzeAudioReactiveUniforms,
+  assertWindowOrScreenAudioCapture,
   buildAudioReactiveBindings,
+  describeSystemAudioCapture,
   getAudioReactiveStorageKey,
+  getCapturedDisplaySurface,
   loadAudioReactivePreferences,
+  SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE,
 } from '../src/lib/audioReactivity.ts';
 import type {
   ShaderUniformMap,
@@ -217,4 +221,40 @@ test('migrates persisted legacy audio binding names to GLSL 300 identifiers', ()
       Reflect.deleteProperty(globalThis, 'window');
     }
   }
+});
+
+function fakeDisplayStream(displaySurface?: string): MediaStream {
+  return {
+    getVideoTracks: () => [
+      {
+        getSettings: () => (displaySurface ? { displaySurface } : {}),
+      },
+    ],
+  } as unknown as MediaStream;
+}
+
+test('rejects Chrome tab capture because it paints a sharing bar on every tab', () => {
+  assert.equal(getCapturedDisplaySurface(fakeDisplayStream('browser')), 'browser');
+  assert.throws(
+    () => assertWindowOrScreenAudioCapture(fakeDisplayStream('browser')),
+    (error: unknown) =>
+      error instanceof Error && error.message === SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE,
+  );
+});
+
+test('allows window and entire-screen capture for computer audio', () => {
+  assert.doesNotThrow(() =>
+    assertWindowOrScreenAudioCapture(fakeDisplayStream('window')),
+  );
+  assert.doesNotThrow(() =>
+    assertWindowOrScreenAudioCapture(fakeDisplayStream('monitor')),
+  );
+  assert.doesNotThrow(() =>
+    assertWindowOrScreenAudioCapture(fakeDisplayStream()),
+  );
+  assert.equal(
+    describeSystemAudioCapture('monitor', ''),
+    'Entire screen audio',
+  );
+  assert.equal(describeSystemAudioCapture('window', 'YouTube'), 'YouTube');
 });

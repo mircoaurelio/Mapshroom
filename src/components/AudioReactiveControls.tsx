@@ -723,8 +723,8 @@ export function AudioReactivePanelControls({
 
       {preferences.source === 'system' && !isListening ? (
         <p className="audio-reactive-hint">
-          Share a window or entire screen and enable audio. Sharing a Chrome tab
-          draws a banner on every tab, including Output.
+          Choose Entire Screen or a Window and enable Share audio. A Chrome tab
+          always draws a sharing bar that cannot be hidden.
         </p>
       ) : null}
       {controller.errorMessage ? (

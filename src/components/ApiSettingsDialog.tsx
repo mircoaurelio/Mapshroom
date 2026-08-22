@@ -16,6 +16,10 @@ import {
   storeConfiguredLocalModel,
   type AiGenerationRoute,
 } from '../lib/aiRoute';
+import {
+  hasStoredCloudApiKey,
+  isDesktopKeyringSentinel,
+} from '../lib/desktopSecrets';
 import type { AiSettings, ShaderRuntime } from '../types';
 import { CloudModelIcon } from './CloudModelIcon';
 
@@ -128,6 +132,9 @@ export function ApiSettingsDialog({
   const [showCopyTooltip, setShowCopyTooltip] = useState(false);
   const [isApplyingChatResponse, setIsApplyingChatResponse] = useState(false);
   const [directHandoffPhase, setDirectHandoffPhase] = useState<DirectHandoffPhase>('opening');
+  const [openaiKeyDraft, setOpenaiKeyDraft] = useState('');
+  const [anthropicKeyDraft, setAnthropicKeyDraft] = useState('');
+  const [googleKeyDraft, setGoogleKeyDraft] = useState('');
   const dialogRef = useRef<HTMLElement>(null);
   const isSetup = variant === 'setup';
   const directHandoffActive =
@@ -136,6 +143,26 @@ export function ApiSettingsDialog({
     externalWindowMode !== null &&
     externalWindowMode !== 'blocked' &&
     (selectedPath === 'chatgpt' || selectedPath === 'perplexity');
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setOpenaiKeyDraft(
+      isDesktopKeyringSentinel(settings.openaiApiKey) ? '' : settings.openaiApiKey,
+    );
+    setAnthropicKeyDraft(
+      isDesktopKeyringSentinel(settings.anthropicApiKey) ? '' : settings.anthropicApiKey,
+    );
+    setGoogleKeyDraft(
+      isDesktopKeyringSentinel(settings.googleApiKey) ? '' : settings.googleApiKey,
+    );
+  }, [
+    open,
+    settings.openaiApiKey,
+    settings.anthropicApiKey,
+    settings.googleApiKey,
+  ]);
 
   useEffect(() => {
     if (!downloading) return;
@@ -231,10 +258,10 @@ export function ApiSettingsDialog({
   const ready = settings.localShaderModel ? isLocalModelReady(settings.localShaderModel, settings.visionEnabled) : false;
   const apiReady =
     settings.shaderProvider === 'openai'
-      ? Boolean(settings.openaiApiKey.trim() && settings.openaiShaderModel)
+      ? Boolean(hasStoredCloudApiKey(settings.openaiApiKey) && settings.openaiShaderModel)
       : settings.shaderProvider === 'anthropic'
-        ? Boolean(settings.anthropicApiKey.trim() && settings.anthropicShaderModel)
-        : Boolean(settings.googleApiKey.trim() && settings.googleShaderModel);
+        ? Boolean(hasStoredCloudApiKey(settings.anthropicApiKey) && settings.anthropicShaderModel)
+        : Boolean(hasStoredCloudApiKey(settings.googleApiKey) && settings.googleShaderModel);
   const handleDownload = async () => {
     if (!settings.localShaderModel) return;
     setDownloading(true);
@@ -997,10 +1024,35 @@ export function ApiSettingsDialog({
                         className="text-field"
                         type="password"
                         autoComplete="off"
-                        value={settings.openaiApiKey}
-                        onChange={(event) => onChange('openaiApiKey', event.target.value)}
-                        placeholder="sk-…"
+                        value={openaiKeyDraft}
+                        onChange={(event) => setOpenaiKeyDraft(event.target.value)}
+                        onBlur={() => {
+                          if (
+                            !openaiKeyDraft.trim() &&
+                            isDesktopKeyringSentinel(settings.openaiApiKey)
+                          ) {
+                            return;
+                          }
+                          onChange('openaiApiKey', openaiKeyDraft);
+                        }}
+                        placeholder={
+                          isDesktopKeyringSentinel(settings.openaiApiKey)
+                            ? 'Saved in Windows Credential Manager'
+                            : 'sk-…'
+                        }
                       />
+                      {isDesktopKeyringSentinel(settings.openaiApiKey) ? (
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => {
+                            setOpenaiKeyDraft('');
+                            onChange('openaiApiKey', '');
+                          }}
+                        >
+                          Remove saved key
+                        </button>
+                      ) : null}
                     </label>
                     <label className="field">
                       <span>OpenAI model</span>
@@ -1026,10 +1078,35 @@ export function ApiSettingsDialog({
                         className="text-field"
                         type="password"
                         autoComplete="off"
-                        value={settings.anthropicApiKey}
-                        onChange={(event) => onChange('anthropicApiKey', event.target.value)}
-                        placeholder="sk-ant-…"
+                        value={anthropicKeyDraft}
+                        onChange={(event) => setAnthropicKeyDraft(event.target.value)}
+                        onBlur={() => {
+                          if (
+                            !anthropicKeyDraft.trim() &&
+                            isDesktopKeyringSentinel(settings.anthropicApiKey)
+                          ) {
+                            return;
+                          }
+                          onChange('anthropicApiKey', anthropicKeyDraft);
+                        }}
+                        placeholder={
+                          isDesktopKeyringSentinel(settings.anthropicApiKey)
+                            ? 'Saved in Windows Credential Manager'
+                            : 'sk-ant-…'
+                        }
                       />
+                      {isDesktopKeyringSentinel(settings.anthropicApiKey) ? (
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => {
+                            setAnthropicKeyDraft('');
+                            onChange('anthropicApiKey', '');
+                          }}
+                        >
+                          Remove saved key
+                        </button>
+                      ) : null}
                     </label>
                     <label className="field">
                       <span>Claude model</span>
@@ -1055,10 +1132,35 @@ export function ApiSettingsDialog({
                         className="text-field"
                         type="password"
                         autoComplete="off"
-                        value={settings.googleApiKey}
-                        onChange={(event) => onChange('googleApiKey', event.target.value)}
-                        placeholder="AIza…"
+                        value={googleKeyDraft}
+                        onChange={(event) => setGoogleKeyDraft(event.target.value)}
+                        onBlur={() => {
+                          if (
+                            !googleKeyDraft.trim() &&
+                            isDesktopKeyringSentinel(settings.googleApiKey)
+                          ) {
+                            return;
+                          }
+                          onChange('googleApiKey', googleKeyDraft);
+                        }}
+                        placeholder={
+                          isDesktopKeyringSentinel(settings.googleApiKey)
+                            ? 'Saved in Windows Credential Manager'
+                            : 'AIza…'
+                        }
                       />
+                      {isDesktopKeyringSentinel(settings.googleApiKey) ? (
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => {
+                            setGoogleKeyDraft('');
+                            onChange('googleApiKey', '');
+                          }}
+                        >
+                          Remove saved key
+                        </button>
+                      ) : null}
                     </label>
                     <label className="field">
                       <span>Gemini model</span>

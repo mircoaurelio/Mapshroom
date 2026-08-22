@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { EmailCaptureForm } from './EmailCaptureForm';
 import { track } from '../lib/analytics';
 
 export type ProBetaSource =
@@ -35,10 +36,6 @@ export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
     return null;
   }
 
-  const handleJoin = () => {
-    track('pro_beta_join_requested', { source });
-    setHasRequestedAccess(true);
-  };
   const isMusicExportOffer = source === 'export_with_music';
 
   return (
@@ -79,37 +76,21 @@ export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
                   </svg>
                 </span>
                 <div>
-                  <span className="panel-eyebrow">Request registered</span>
+                  <span className="panel-eyebrow">Check your email</span>
                   <small>Mapshroom Pro · Private beta</small>
                 </div>
               </div>
 
               <div className="pro-beta-confirmation-main">
-                <span className="pro-beta-confirmation-kicker">Next access window</span>
-                <h3 id="pro-beta-title">Your beta window opens tomorrow</h3>
+                <span className="pro-beta-confirmation-kicker">Verification sent</span>
+                <h3 id="pro-beta-title">Confirm your email to join the waitlist</h3>
                 <p id="pro-beta-copy">
-                  Your interest is saved. We release a limited number of Pro seats each day to keep
-                  onboarding focused and support responsive. Return tomorrow to check availability.
+                  We saved your interest and emailed a verification link. Confirm it to lock your
+                  place on the Pro waitlist.
                 </p>
               </div>
 
-              <div className="pro-beta-confirmation-meta" aria-label="Beta request summary">
-                <article>
-                  <span>Availability</span>
-                  <strong>Tomorrow</strong>
-                </article>
-                <article>
-                  <span>Release</span>
-                  <strong>Limited seats</strong>
-                </article>
-                <article>
-                  <span>Request</span>
-                  <strong>Saved</strong>
-                </article>
-              </div>
-
               <div className="pro-beta-confirmation-footer">
-                <p>No additional action is required today.</p>
                 <button type="button" className="primary-button pro-beta-join" onClick={onClose}>
                   Return to workspace
                 </button>
@@ -118,38 +99,6 @@ export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
           </>
         ) : (
           <>
-            <div className="pro-beta-share-card" aria-hidden="true">
-              <div className="pro-beta-share-card-mark">
-                <img
-                  src={`${import.meta.env.BASE_URL}assets/icons/mapshroom-icon-transparent-512.png`}
-                  alt=""
-                />
-              </div>
-              <div className="pro-beta-share-card-copy">
-                <div className="pro-beta-share-card-name">
-                  <strong>Mapshroom</strong>
-                  <span>Pro</span>
-                </div>
-                <p>Projection mapping studio</p>
-                <i />
-                <small>
-                  {isMusicExportOffer
-                    ? 'Export motion and music in sync'
-                    : 'Create, animate and perform in one workspace'}
-                </small>
-              </div>
-              <div className="pro-beta-share-card-output">
-                <span className="pro-beta-share-card-wave">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <strong>Video + Audio</strong>
-              </div>
-            </div>
-
             <div className="pro-beta-intro">
               <span className="panel-eyebrow">Pro private beta</span>
               <h3 id="pro-beta-title">
@@ -162,43 +111,16 @@ export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
                   ? 'Join the Pro beta for synchronized video and music export, ready to present, share, or take to the stage.'
                   : 'Unlock audio-reactive creation, direct asset tools, and finished video exports with music in one focused workflow.'}
               </p>
-              <div className="pro-beta-value-line" aria-label="Pro beta availability">
-                <span aria-hidden="true" />
-                Limited private beta access
-              </div>
             </div>
 
-            <div className="pro-beta-feature-grid" aria-label="Mapshroom Pro beta features">
-              <article>
-                <span>01</span>
-                <strong>Move with the music</strong>
-                <small>Map bass, mids, highs, beats, and tempo to the visuals.</small>
-              </article>
-              <article>
-                <span>02</span>
-                <strong>Export video + music</strong>
-                <small>Deliver one synchronized performance file from your timeline.</small>
-              </article>
-              <article>
-                <span>03</span>
-                <strong>Keep the creative flow</strong>
-                <small>Generate, edit, map, and finish without switching tools.</small>
-              </article>
-            </div>
-
-            <div className="pro-beta-actions">
-              <button type="button" className="secondary-button" onClick={onClose}>
-                Not now
-              </button>
-              <button
-                type="button"
-                className="primary-button pro-beta-join"
-                onClick={handleJoin}
-                autoFocus
-              >
-                {isMusicExportOffer ? 'Unlock music export' : 'Join the beta'}
-              </button>
-            </div>
+            <EmailCaptureForm
+              source="pro_beta"
+              variant="plain"
+              onQueued={() => {
+                track('pro_beta_join_requested', { source });
+                setHasRequestedAccess(true);
+              }}
+            />
           </>
         )}
       </section>

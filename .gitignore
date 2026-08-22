@@ -42,3 +42,10 @@ tmp/
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+# Tauri / Windows packaging
+src-tauri/target
+windows/msix-stage
+windows/msix-out
+*.msix
+release-artifacts
