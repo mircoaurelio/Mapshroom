@@ -1,4 +1,16 @@
 import posthog from 'posthog-js';
+import {
+  canCollectAnalytics,
+  type AnalyticsSurface,
+} from './analyticsScope.ts';
+
+export {
+  ANALYTICS_CONSENT_LATER_KEY,
+  canCollectAnalytics,
+  isOfficialAnalyticsHost,
+  isPublicContentPath,
+  shouldOfferAnalyticsConsent,
+} from './analyticsScope.ts';
 
 export const ANALYTICS_CONSENT_STORAGE_KEY = 'mapshroom-v3:analytics-consent';
 export type AnalyticsConsent = 'granted' | 'denied';
@@ -47,12 +59,84 @@ function isAnalyticsConfigured() {
   return Boolean(getConfig().key);
 }
 
+function detectSurface(): AnalyticsSurface {
+  if (typeof window === 'undefined') {
+    return 'web';
+  }
+  if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+    return 'desktop';
+  }
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+  return standalone ? 'pwa' : 'web';
+}
+
+function readStoredUtm(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem('mapshroom-v3:utm');
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function captureUtmFromLocation() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const utm = {
+      utm_source: params.get('utm_source') || undefined,
+      utm_medium: params.get('utm_medium') || undefined,
+      utm_campaign: params.get('utm_campaign') || undefined,
+    };
+    if (utm.utm_source || utm.utm_medium || utm.utm_campaign) {
+      sessionStorage.setItem('mapshroom-v3:utm', JSON.stringify(utm));
+    }
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function baseEventProperties(): Record<string, string | number | boolean | null> {
+  const utm = readStoredUtm();
+  return {
+    surface: detectSurface(),
+    app_version: '3.0.0',
+    locale: typeof navigator !== 'undefined' ? navigator.language || 'en' : 'en',
+    utm_source: utm.utm_source ?? null,
+    utm_medium: utm.utm_medium ?? null,
+    utm_campaign: utm.utm_campaign ?? null,
+  };
+}
+
 export function getAnalyticsConsent(): AnalyticsConsent | null {
   return readConsent();
 }
 
+function currentCollectionAllowed() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return canCollectAnalytics({
+    hostname: window.location.hostname,
+    pathname: window.location.pathname,
+    hash: window.location.hash,
+    surface: detectSurface(),
+  });
+}
+
 export function isAnalyticsActive() {
-  return initialized && readConsent() === 'granted' && isAnalyticsConfigured();
+  return (
+    initialized &&
+    readConsent() === 'granted' &&
+    isAnalyticsConfigured() &&
+    currentCollectionAllowed()
+  );
 }
 
 function ensureInitialized() {
@@ -89,9 +173,10 @@ function ensureInitialized() {
   return true;
 }
 
-/** Call once on app boot. Does not send events until consent is granted. */
+/** Call on app boot and when the route changes. Does not send events until consent is granted. */
 export function initAnalytics() {
-  if (!isAnalyticsConfigured()) {
+  captureUtmFromLocation();
+  if (!isAnalyticsConfigured() || !currentCollectionAllowed()) {
     return;
   }
   ensureInitialized();
@@ -102,7 +187,7 @@ export function initAnalytics() {
 
 export function grantAnalyticsConsent() {
   writeConsent('granted');
-  if (!isAnalyticsConfigured()) {
+  if (!isAnalyticsConfigured() || !currentCollectionAllowed()) {
     return;
   }
   ensureInitialized();
@@ -125,7 +210,10 @@ export function track(event: string, properties?: Record<string, string | number
   if (!isAnalyticsActive()) {
     return;
   }
-  posthog.capture(event, properties);
+  posthog.capture(event, {
+    ...baseEventProperties(),
+    ...properties,
+  });
 }
 
 export function trackUiClick(name: string, properties?: Record<string, string | number | boolean | null>) {
@@ -168,4 +256,18 @@ export function trackAppOpen(extra?: Record<string, string | number | boolean | 
     path: window.location.hash || '#/',
     ...extra,
   });
+}
+
+/** Identify a verified growth profile by opaque ID only — never email. */
+export function identifyGrowthUser(userId: string) {
+  if (!isAnalyticsActive() || !userId) {
+    return;
+  }
+  posthog.identify(userId, {
+    has_verified_email_profile: true,
+  });
+}
+
+export function trackActivationMilestone(name: string) {
+  track('activation_milestone', { name });
 }

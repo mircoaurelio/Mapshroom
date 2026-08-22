@@ -1,16 +1,47 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
+  ANALYTICS_CONSENT_LATER_KEY,
   denyAnalyticsConsent,
   getAnalyticsConsent,
   grantAnalyticsConsent,
+  initAnalytics,
   ONBOARDING_COMPLETE_EVENT,
-  signalOnboardingComplete,
+  shouldOfferAnalyticsConsent,
 } from '../lib/analytics';
 import { ANALYTICS_CONSENT_COPY, resolveAppLocale } from '../lib/privacyCopy';
+import './AnalyticsConsentBanner.css';
 
 const CONSENT_APPEAR_DELAY_MS = 900;
-const NON_WORKSPACE_READY_DELAY_MS = 400;
+
+function readLaterDismissed() {
+  try {
+    return sessionStorage.getItem(ANALYTICS_CONSENT_LATER_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeLaterDismissed() {
+  try {
+    sessionStorage.setItem(ANALYTICS_CONSENT_LATER_KEY, '1');
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
+function detectSurface(): 'web' | 'pwa' | 'desktop' {
+  if (typeof window === 'undefined') {
+    return 'web';
+  }
+  if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+    return 'desktop';
+  }
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    ('standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+  return standalone ? 'pwa' : 'web';
+}
 
 export function AnalyticsConsentBanner() {
   const location = useLocation();
@@ -18,35 +49,34 @@ export function AnalyticsConsentBanner() {
   const [locale] = useState(() => resolveAppLocale());
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [laterDismissed, setLaterDismissed] = useState(() => readLaterDismissed());
   const copy = ANALYTICS_CONSENT_COPY[locale];
-  const isWorkspaceRoute = location.pathname === '/';
+  const offerConsent = shouldOfferAnalyticsConsent({
+    hostname: typeof window === 'undefined' ? '' : window.location.hostname,
+    pathname: location.pathname,
+    hash: `#${location.pathname}${location.search}`,
+    surface: detectSurface(),
+  });
 
   useEffect(() => {
-    if (consent !== null) {
+    initAnalytics();
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (consent !== null || !offerConsent || laterDismissed) {
       return;
     }
 
     const markReady = () => setOnboardingReady(true);
     window.addEventListener(ONBOARDING_COMPLETE_EVENT, markReady);
 
-    // Privacy / download / other routes have no onboarding flow.
-    let fallbackId = 0;
-    if (!isWorkspaceRoute) {
-      fallbackId = window.setTimeout(() => {
-        signalOnboardingComplete();
-      }, NON_WORKSPACE_READY_DELAY_MS);
-    }
-
     return () => {
       window.removeEventListener(ONBOARDING_COMPLETE_EVENT, markReady);
-      if (fallbackId) {
-        window.clearTimeout(fallbackId);
-      }
     };
-  }, [consent, isWorkspaceRoute]);
+  }, [consent, laterDismissed, offerConsent]);
 
   useEffect(() => {
-    if (consent !== null || !onboardingReady || visible) {
+    if (consent !== null || !offerConsent || !onboardingReady || laterDismissed || visible) {
       return;
     }
 
@@ -61,28 +91,22 @@ export function AnalyticsConsentBanner() {
     }, CONSENT_APPEAR_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [consent, onboardingReady, visible]);
+  }, [consent, laterDismissed, offerConsent, onboardingReady, visible]);
 
-  if (consent !== null || !onboardingReady) {
+  if (consent !== null || !offerConsent || !onboardingReady || laterDismissed) {
     return null;
   }
 
   return (
     <div
-      className={`analytics-consent-banner ${visible ? 'analytics-consent-banner-visible' : ''}`}
-      role="dialog"
+      className={`analytics-consent-banner analytics-consent-banner-compact ${visible ? 'analytics-consent-banner-visible' : ''}`}
+      role="region"
       aria-label={copy.dialogLabel}
       aria-hidden={!visible}
     >
       <div className="analytics-consent-copy">
         <strong>{copy.title}</strong>
         <p>{copy.lead}</p>
-        <p>{copy.ask}</p>
-        <ul className="analytics-consent-list">
-          {copy.bullets.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
         <p>
           {copy.privacyBeforeLink}
           <Link to="/privacy">{copy.privacyLink}</Link>
@@ -90,6 +114,16 @@ export function AnalyticsConsentBanner() {
         </p>
       </div>
       <div className="analytics-consent-actions">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => {
+            writeLaterDismissed();
+            setLaterDismissed(true);
+          }}
+        >
+          {copy.later}
+        </button>
         <button
           type="button"
           className="secondary-button"

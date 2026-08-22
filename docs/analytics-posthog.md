@@ -1,8 +1,10 @@
 # PostHog EU setup for Mapshroom
 
-Product analytics uses **PostHog Cloud EU** plus a **Cloudflare Worker** first-party proxy on `mapshroom.dev/a/*`. View KPIs in the PostHog dashboard — there is no in-app admin page.
+Product analytics uses **PostHog Cloud EU** plus a **Cloudflare Worker** first-party proxy on `mapshroom.dev/a/*`. View KPIs in the PostHog dashboard — there is no in-app analytics admin page (lead admin is separate under `/#/admin`).
 
 Lean by design: no session replay, surveys, heatmaps, web-vitals, feature flags, pageleave, or heartbeats. Only consented product events.
+
+Collection is limited to the official product on `mapshroom.dev` (and the desktop app). Tutorial, Why, Shader, and Creator Challenge pages never initialize PostHog and never show a consent prompt. First-time visitors are not blocked: the official workspace may show a compact, dismissible bar after onboarding; Decline, Later, or the Privacy page all leave the app fully usable.
 
 ## 1. Create the PostHog EU project
 
@@ -19,11 +21,12 @@ Set these for production (Cloudflare Pages / local `.env`):
 ```bash
 VITE_POSTHOG_KEY=phc_your_project_api_key
 VITE_ANALYTICS_HOST=https://mapshroom.dev/a
+VITE_TURNSTILE_SITE_KEY=your_turnstile_site_key
 ```
 
 Leave empty locally unless you intentionally want to test (each reload burns events).
 
-## 3. Deploy the Cloudflare Worker
+## 3. Deploy the Cloudflare Worker proxy
 
 ```bash
 cd workers/analytics
@@ -42,10 +45,13 @@ Route must be `mapshroom.dev/a/*` (not `a*`, which would steal `/assets`).
 | Unique users (7d / 30d) | Trends → `app_open` → Unique users |
 | Returning / retention | Insights → Retention → recurring `app_open` |
 | Top feature clicks | Trends → `ui_click` → Breakdown `name` |
+| Weekly Activated Creators | Unique users with `activation_milestone` in last 7 days |
+| Download funnel | `download_page_viewed` → `email_capture_submitted` → `email_verified` → `download_clicked` |
 | LLM ask rate | Unique users with `llm_request` ÷ unique with `app_open` |
 | API presence rate | `app_open` where `has_api_key` = true ÷ all `app_open` |
 | Exports / shares | Trends → `export_mp4`, `share_project` |
 | Location | `app_open` → Breakdown by Country |
+| Surface | Breakdown `surface` (`web` / `pwa` / `desktop`) |
 
 ### Events (lean set)
 
@@ -58,12 +64,32 @@ Route must be `mapshroom.dev/a/*` (not `a*`, which would steal `/assets`).
 | `export_mp4` | Timeline export completed |
 | `share_project` | Share link generated |
 | `onboarding_complete` / `onboarding_dismiss` | Guide finished or dismissed |
+| `download_page_viewed` | `/download` opened |
+| `email_capture_submitted` / `email_capture_queued` | Signup form submitted / accepted |
+| `email_verify_viewed` / `email_verified` | Verification page / confirm |
+| `download_ready` / `download_clicked` | Grant issued / installer clicked |
+| `pro_beta_join_requested` | Pro waitlist form queued |
+| `feedback_submitted` | In-app feedback sent |
+| `newsletter_preference_changed` | Profile marketing toggle |
+| `activation_milestone` | Meaningful creation milestone (`export_mp4`, `share_project`, …) |
 
-**Never** collected: prompts, shader source, API keys, project files.
+### Global properties (auto-attached)
 
-## 5. Verify + credit hygiene
+`surface`, `app_version`, `locale`, `utm_source`, `utm_medium`, `utm_campaign`.
 
-1. Open mapshroom.dev, Accept analytics.
+Verified users may be identified by **opaque profile id only** after analytics consent. **Never** send email addresses to PostHog.
+
+**Never** collected: prompts, shader source, API keys, project files, emails.
+
+## 5. North-star metric
+
+**Weekly Activated Creators** = unique users who hit at least one `activation_milestone` in the last 7 days.
+
+Secondary: verification rate, download conversion, D7/D30 retention, newsletter opt-in/unsubscribe, feedback themes, source/UTM conversion.
+
+## 6. Verify + credit hygiene
+
+1. Open mapshroom.dev workspace (not `/tutorial` or other content pages), Accept analytics. Tutorial and other public pages must stay banner-free.
 2. Network: requests to `mapshroom.dev/a/...` return 200 (no surveys/web-vitals scripts).
 3. PostHog Live events: only names from the table above.
 4. Billing: confirm event volume stays low (no per-minute heartbeats).

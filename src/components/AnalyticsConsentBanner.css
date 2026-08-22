@@ -1,0 +1,98 @@
+.analytics-consent-banner.analytics-consent-banner-compact {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  top: auto;
+  bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  z-index: 130;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.7rem;
+  max-width: 26rem;
+  max-height: min(38dvh, 16.5rem);
+  margin: 0 auto;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(9, 9, 11, 0.96);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition:
+    opacity 420ms ease,
+    transform 420ms ease;
+}
+
+.analytics-consent-banner.analytics-consent-banner-compact.analytics-consent-banner-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.analytics-consent-banner-compact .analytics-consent-copy {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.analytics-consent-banner-compact .analytics-consent-copy strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.analytics-consent-banner-compact .analytics-consent-copy p {
+  margin: 0 0 0.4rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.analytics-consent-banner-compact .analytics-consent-copy p:last-child {
+  margin-bottom: 0;
+}
+
+.analytics-consent-banner-compact .analytics-consent-copy a {
+  color: var(--accent);
+}
+
+.analytics-consent-banner-compact .analytics-consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 0.45rem;
+}
+
+.analytics-consent-banner-compact .analytics-consent-actions .secondary-button,
+.analytics-consent-banner-compact .analytics-consent-actions .primary-button {
+  min-height: 2.4rem;
+}
+
+@media (max-width: 640px) {
+  .analytics-consent-banner.analytics-consent-banner-compact {
+    left: 0.55rem;
+    right: 0.55rem;
+    top: auto;
+    bottom: max(0.55rem, env(safe-area-inset-bottom, 0px));
+    max-height: min(34dvh, 14.5rem);
+    padding: 0.75rem 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analytics-consent-banner.analytics-consent-banner-compact {
+    transition: none;
+    transform: none;
+  }
+}
