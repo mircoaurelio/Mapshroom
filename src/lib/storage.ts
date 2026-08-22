@@ -32,6 +32,7 @@ const SHADER_SLIDER_CACHE_PREFIX = 'mapshroom-v3:shader-sliders:';
 const MIDI_OUTPUT_STORAGE_PREFIX = 'mapshroom-v3:midi-output:';
 const OUTPUT_VIEWPORT_STORAGE_PREFIX = 'mapshroom-v3:output-viewport:';
 const APP_STORAGE_PREFIX = 'mapshroom-v3:';
+const LOCAL_PROJECT_FALLBACK_MAX_BYTES = 750_000;
 
 function getProjectStorageKey(sessionId: string): string {
   return `${PROJECT_STORAGE_PREFIX}${sessionId}`;
@@ -173,6 +174,50 @@ export async function hasPersistedProject(sessionId: string): Promise<boolean> {
   return readLocalStorage(getProjectStorageKey(sessionId)) !== null;
 }
 
+export function parseProjectBackupContents(raw: string): ProjectDocument | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && 'project' in parsed) {
+      return normalizePersistedProject((parsed as { project: unknown }).project);
+    }
+    return normalizePersistedProject(parsed);
+  } catch (error) {
+    console.warn('Unable to parse project file.', error);
+    return null;
+  }
+}
+
+export interface BrowserStorageUsage {
+  usageBytes: number | null;
+  quotaBytes: number | null;
+  persisted: boolean | null;
+}
+
+export async function readBrowserStorageUsage(): Promise<BrowserStorageUsage> {
+  try {
+    const estimate = await globalThis.navigator?.storage?.estimate?.();
+    const persisted = (await globalThis.navigator?.storage?.persisted?.()) ?? null;
+    return {
+      usageBytes: typeof estimate?.usage === 'number' ? estimate.usage : null,
+      quotaBytes: typeof estimate?.quota === 'number' ? estimate.quota : null,
+      persisted,
+    };
+  } catch {
+    return { usageBytes: null, quotaBytes: null, persisted: null };
+  }
+}
+
+export function browserStorageHasRoom(
+  usage: BrowserStorageUsage,
+  extraBytes: number,
+  reserveBytes = 8 * 1024 * 1024,
+): boolean {
+  if (usage.usageBytes == null || usage.quotaBytes == null || usage.quotaBytes <= 0) {
+    return true;
+  }
+  return usage.quotaBytes - usage.usageBytes - extraBytes > reserveBytes;
+}
+
 export function downloadProjectBackup(project: ProjectDocument): void {
   const snapshot = createProjectSnapshot(project);
   downloadJsonFile(
@@ -204,24 +249,27 @@ export async function loadProjectDocument(sessionId: string): Promise<ProjectDoc
   }
 
   const indexedProject = normalizePersistedProject(await getIndexedProjectDocument(sessionId));
-  if (indexedProject) {
-    return indexedProject;
-  }
-
   const localProject = readLocalStorageProject(sessionId);
-  if (!localProject) {
+  const chosenProject = pickPreferredPersistedProject(indexedProject, localProject);
+  if (!chosenProject) {
     return null;
   }
 
-  reclaimRecoverableLocalStorage(sessionId);
-  const migrated = await putIndexedProjectDocument(createProjectSnapshot(localProject));
-  if (migrated && (await getIndexedProjectDocument(sessionId))) {
-    removeLocalStorage(getProjectStorageKey(sessionId));
-    for (const key of getRecoverableSessionStorageKeys(sessionId)) {
-      removeLocalStorage(key);
+  if (chosenProject === localProject && localProject) {
+    reclaimRecoverableLocalStorage(sessionId);
+    const migrated = await putIndexedProjectDocument(createProjectSnapshot(localProject));
+    if (migrated && (await getIndexedProjectDocument(sessionId))) {
+      const raw = JSON.stringify(createProjectSnapshot(localProject));
+      if (raw.length > LOCAL_PROJECT_FALLBACK_MAX_BYTES) {
+        removeLocalStorage(getProjectStorageKey(sessionId));
+      }
+      for (const key of getRecoverableSessionStorageKeys(sessionId)) {
+        removeLocalStorage(key);
+      }
     }
   }
-  return localProject;
+
+  return chosenProject;
 }
 
 function sortSerializableValue(value: unknown): unknown {
@@ -345,7 +393,7 @@ function createEmergencyProjectSnapshot(project: ProjectDocument): ProjectDocume
   };
 }
 
-function isDestructiveProjectOverwrite(
+export function isDestructiveProjectOverwrite(
   existing: ProjectDocument,
   next: ProjectDocument,
 ): boolean {
@@ -359,7 +407,36 @@ function isDestructiveProjectOverwrite(
   );
 }
 
+export function pickPreferredPersistedProject(
+  indexedProject: ProjectDocument | null,
+  localProject: ProjectDocument | null,
+): ProjectDocument | null {
+  if (indexedProject && localProject) {
+    if (isDestructiveProjectOverwrite(localProject, indexedProject)) {
+      return localProject;
+    }
+    if (isDestructiveProjectOverwrite(indexedProject, localProject)) {
+      return indexedProject;
+    }
+    return indexedProject;
+  }
+
+  return indexedProject ?? localProject;
+}
+
+async function requestPersistentStorage(): Promise<void> {
+  try {
+    await globalThis.navigator?.storage?.persist?.();
+  } catch {
+    // Persistence is best-effort. A denied prompt must not block autosave.
+  }
+}
+
 export async function saveProjectDocument(project: ProjectDocument): Promise<boolean> {
+  if (isBundledProjectSessionId(project.sessionId)) {
+    return true;
+  }
+
   const storageKey = getProjectStorageKey(project.sessionId);
   const existing =
     normalizePersistedProject(await getIndexedProjectDocument(project.sessionId)) ??
@@ -376,10 +453,16 @@ export async function saveProjectDocument(project: ProjectDocument): Promise<boo
   if (await putIndexedProjectDocument(snapshot)) {
     const verified = await getIndexedProjectDocument(project.sessionId);
     if (verified) {
-      removeLocalStorage(storageKey);
+      const raw = JSON.stringify(snapshot);
+      if (raw.length <= LOCAL_PROJECT_FALLBACK_MAX_BYTES) {
+        writeLocalStorage(storageKey, raw);
+      } else {
+        removeLocalStorage(storageKey);
+      }
       for (const key of getRecoverableSessionStorageKeys(project.sessionId)) {
         removeLocalStorage(key);
       }
+      void requestPersistentStorage();
       return true;
     }
   }
@@ -411,7 +494,7 @@ export function loadProjectLibrary(): ProjectLibraryEntry[] {
   try {
     const parsed = JSON.parse(raw) as ProjectLibraryEntry[];
     if (!Array.isArray(parsed)) {
-      return [];
+      return BUNDLED_PROJECT_LIBRARY_ENTRIES;
     }
 
     const persistedEntries = parsed
@@ -435,7 +518,14 @@ export function loadProjectLibrary(): ProjectLibraryEntry[] {
 }
 
 function saveProjectLibrary(entries: ProjectLibraryEntry[]): void {
-  writeLocalStorage(PROJECT_LIBRARY_STORAGE_KEY, JSON.stringify(entries));
+  writeLocalStorage(
+    PROJECT_LIBRARY_STORAGE_KEY,
+    JSON.stringify(
+      entries.filter(
+        (entry) => !entry.bundled && !isBundledProjectSessionId(entry.sessionId),
+      ),
+    ),
+  );
 }
 
 export function saveProjectToLibrary(

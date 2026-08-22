@@ -1,7 +1,7 @@
 [package]
 name = "mapshroom"
 version = "3.0.0"
-description = "Mapshroom Vibe Projection Mapping"
+description = "Mapshroom"
 authors = ["Mapshroom"]
 edition = "2021"
 rust-version = "1.77.2"

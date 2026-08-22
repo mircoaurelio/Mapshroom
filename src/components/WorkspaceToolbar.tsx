@@ -27,6 +27,8 @@ interface WorkspaceToolbarProps {
   audioReactiveListening: boolean;
   audioReactiveSource: AudioCaptureSource;
   onOpenProjects: () => void;
+  onSaveProjectFile: () => void;
+  onOpenProjectFile: () => void;
   onOpenShare: () => void;
   onOpenExport: () => void;
   onOpenAssets: () => void;
@@ -108,6 +110,8 @@ export function WorkspaceToolbar({
   audioReactiveListening,
   audioReactiveSource,
   onOpenProjects,
+  onSaveProjectFile,
+  onOpenProjectFile,
   onOpenShare,
   onOpenExport,
   onOpenAssets,
@@ -352,6 +356,28 @@ export function WorkspaceToolbar({
 
             {openMenu === 'file' ? (
               <div className="toolbar-menu-panel" role="menu" aria-label="File options">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onOpenProjectFile();
+                    closeMenu();
+                  }}
+                >
+                  Open File
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="toolbar-menu-item"
+                  onClick={() => {
+                    onSaveProjectFile();
+                    closeMenu();
+                  }}
+                >
+                  Save File
+                </button>
                 <button
                   type="button"
                   role="menuitem"

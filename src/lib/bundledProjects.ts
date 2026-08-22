@@ -10,7 +10,6 @@ import type { ShaderPresetDefinition } from '../shaders/presets/types';
 import type { ProjectDocument, ProjectLibraryEntry } from '../types';
 import {
   BUNDLED_STATUE_ASSET_ID,
-  BUNDLED_STATUE_DEPTH_ASSET_ID,
   BUNDLED_STAGE_ASSET_ID,
   DEFAULT_BUNDLED_ASSETS,
 } from './bundledAssets';
@@ -53,6 +52,21 @@ export function pickRandomShaderPresets(
 
   const shuffled = shuffleInPlace([...source]);
   return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+/** Stable showcase timeline so a named bundled project does not reshuffle on every open. */
+export function pickStableShaderPresets(
+  count = STARTER_TIMELINE_SHADER_COUNT,
+  pool: ShaderPresetDefinition[] = shaderPresetList,
+): ShaderPresetDefinition[] {
+  const source = [...(pool.length > 0 ? pool : shaderPresetList)].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+  if (source.length === 0) {
+    throw new Error('Mapshroom requires at least one shader preset.');
+  }
+
+  return source.slice(0, Math.min(count, source.length));
 }
 
 export function createStarterTimelineSteps(
@@ -159,11 +173,9 @@ export function createWebgl2DepthLabProjectDocument(): ProjectDocument {
     name: 'WebGL2 Depth Lab · Statue',
     library: {
       assets: DEFAULT_BUNDLED_ASSETS.filter(
-        (asset) =>
-          asset.id === BUNDLED_STATUE_ASSET_ID ||
-          asset.id === BUNDLED_STATUE_DEPTH_ASSET_ID,
+        (asset) => asset.id === BUNDLED_STATUE_ASSET_ID,
       ),
-      activeAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
+      activeAssetId: BUNDLED_STATUE_ASSET_ID,
     },
     studio: {
       activeShaderId: activeShader.id,
@@ -173,7 +185,7 @@ export function createWebgl2DepthLabProjectDocument(): ProjectDocument {
       shaderVersions: [versions[0]!],
       savedShaders: presets.map((preset, index) => ({
         ...preset,
-        inputAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
+        inputAssetId: BUNDLED_STATUE_ASSET_ID,
         versions: [versions[index]!],
         lastValidCode: preset.code,
         lastValidUniformValues: preset.uniformValues ?? {},
@@ -196,7 +208,7 @@ export function createWebgl2DepthLabProjectDocument(): ProjectDocument {
       },
     },
     playback: {
-      activeAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
+      activeAssetId: BUNDLED_STATUE_ASSET_ID,
       transport: {
         isPlaying: true,
         currentTimeSeconds: 0,
@@ -435,9 +447,7 @@ function createProjectionAtelierProjectDocument(): ProjectDocument {
     name: 'Projection Atelier · Statue Depth Morphs',
     library: {
       assets: DEFAULT_BUNDLED_ASSETS.filter(
-        (asset) =>
-          asset.id === BUNDLED_STATUE_ASSET_ID ||
-          asset.id === BUNDLED_STATUE_DEPTH_ASSET_ID,
+        (asset) => asset.id === BUNDLED_STATUE_ASSET_ID,
       ),
       activeAssetId: BUNDLED_STATUE_ASSET_ID,
     },
@@ -448,7 +458,7 @@ function createProjectionAtelierProjectDocument(): ProjectDocument {
       shaderVersions: [activeShaderVersion],
       savedShaders: reviewedPresets.map((preset) => ({
         ...preset,
-        inputAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID,
+        inputAssetId: BUNDLED_STATUE_ASSET_ID,
         versions: [
           shaderVersions.find((version) => version.name === preset.name) ?? activeShaderVersion,
         ],
@@ -541,7 +551,7 @@ function createStatueProjectDocument(): ProjectDocument {
   const sculpturePool = shaderPresetList.filter((preset) =>
     (preset.templates ?? [preset.template]).includes('sculpture'),
   );
-  const starterPresets = pickRandomShaderPresets(
+  const starterPresets = pickStableShaderPresets(
     STARTER_TIMELINE_SHADER_COUNT,
     sculpturePool.length >= STARTER_TIMELINE_SHADER_COUNT ? sculpturePool : shaderPresetList,
   );

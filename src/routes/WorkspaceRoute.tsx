@@ -89,6 +89,7 @@ import {
 import {
   DEFAULT_BUNDLED_ASSET_ID,
   mergeBundledAssets,
+  resolveLiveBundledAssetId,
 } from '../lib/bundledAssets';
 import { isBundledProjectSessionId } from '../lib/bundledProjects';
 import {
@@ -197,7 +198,9 @@ import {
   loadUiPreferences,
   persistActiveSessionId,
   putAssetBlob,
-  removeProjectFromLibrary,
+  parseProjectBackupContents,
+  readBrowserStorageUsage,
+  browserStorageHasRoom,
   saveProjectToLibrary,
   saveProjectDocument,
   saveUiPreferences,
@@ -251,6 +254,12 @@ import type {
   UiPreferences,
   WorkspaceMode,
 } from '../types';
+
+function confirmReplaceCurrentWorkspace(actionLabel: string): boolean {
+  return window.confirm(
+    `${actionLabel} This replaces the current workspace. Save a file first if you want to keep this work.`,
+  );
+}
 
 function hasConfiguredShaderAi(settings: AiSettings): boolean {
   if (settings.shaderRuntime === 'local') {
@@ -352,7 +361,7 @@ const MOBILE_ONBOARDING_COPY = {
 } as const;
 const ONBOARDING_COPY = {
   en: {
-    welcomeEyebrow: 'Mapshroom Vibe Projection Mapping',
+    welcomeEyebrow: 'Mapshroom',
     welcomeTitle: 'How would you like to begin?',
     welcomeStartMapping: 'Open the workspace',
     welcomeLearnApp: 'Take the guided tour',
@@ -1496,10 +1505,11 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
   const uniformDefinitions = parseUniforms(normalizedActiveShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
   const mergedLibraryAssets = mergeBundledAssets(project.library?.assets ?? []);
-  const requestedActiveAssetId =
+  const requestedActiveAssetId = resolveLiveBundledAssetId(
     project.playback?.activeAssetId ??
-    project.library?.activeAssetId ??
-    DEFAULT_BUNDLED_ASSET_ID;
+      project.library?.activeAssetId ??
+      DEFAULT_BUNDLED_ASSET_ID,
+  );
   const normalizedActiveAssetId = mergedLibraryAssets.some(
     (asset) => asset.id === requestedActiveAssetId,
   )
@@ -1597,6 +1607,9 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
           ? Boolean(shader.hasUnreadAiResult)
           : false,
       compileError: defaultPreset ? undefined : shaderCompileError?.trim() ? shaderCompileError : undefined,
+      inputAssetId: shader.inputAssetId
+        ? resolveLiveBundledAssetId(shader.inputAssetId)
+        : shader.inputAssetId,
     };
     const existingIndex = collection.findIndex((item) => item.id === normalizedShader.id);
     if (existingIndex >= 0) {
@@ -2801,6 +2814,7 @@ export function WorkspaceRoute() {
   const isMobile = useIsMobile();
   const initialIsMobileRef = useRef(isMobile);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const projectFileInputRef = useRef<HTMLInputElement | null>(null);
   const mappingPositionInputRef = useRef<HTMLInputElement | null>(null);
   const filePickerSourceRef = useRef<FilePickerSource>('library');
   const timelineImportStepIdRef = useRef<string | null>(null);
@@ -2872,6 +2886,7 @@ export function WorkspaceRoute() {
   const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
   const [segmentationPanel, setSegmentationPanel] = useState<'refine' | 'depth'>('refine');
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [needsFileSave, setNeedsFileSave] = useState(true);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
@@ -2980,6 +2995,7 @@ export function WorkspaceRoute() {
   }, [project]);
 
   const updateProject = useCallback((updater: (currentProject: ProjectDocument) => ProjectDocument) => {
+    setNeedsFileSave(true);
     setProject((currentProject) => {
       if (!currentProject) {
         return currentProject;
@@ -3207,27 +3223,15 @@ export function WorkspaceRoute() {
 
       const sessionId =
         linkedProject?.sessionId ?? requestedProject?.sessionId ?? getOrCreateSessionId();
-      // Existing installs that still point at the huge bundled Statue timeline
-      // get a fresh starter project with a small random shader set.
-      if (isBundledProjectSessionId(sessionId) && !linkedProject && !requestedProject) {
-        const nextSessionId = crypto.randomUUID();
-        const starterProject = activateTimelineOnAppEntry(
-          normalizeProject(
-            createDefaultProject(nextSessionId, { isMobile: initialIsMobileRef.current }),
-          ),
-        );
-        persistActiveSessionId(nextSessionId);
-        await saveProjectDocument(starterProject);
-        setProject(starterProject);
-        return;
-      }
-
       const persisted = await hasPersistedProject(sessionId);
       const loadedProject =
         linkedProject ??
         requestedProject ??
         await loadProjectDocument(sessionId);
-      if (!loadedProject && persisted) {
+      const libraryEntry = loadProjectLibrary().find(
+        (entry) => entry.sessionId === sessionId && !entry.bundled,
+      );
+      if (!loadedProject && (persisted || libraryEntry) && !isBundledProjectSessionId(sessionId)) {
         downloadRawPersistedProject(sessionId);
         const nextSessionId = crypto.randomUUID();
         const recoveryProject = activateTimelineOnAppEntry(
@@ -3236,9 +3240,13 @@ export function WorkspaceRoute() {
           ),
         );
         persistActiveSessionId(nextSessionId);
+        await saveProjectDocument(recoveryProject);
+        saveProjectToLibrary(recoveryProject, recoveryProject.name);
         setProject(recoveryProject);
         setStatusMessage(
-          'Could not reopen the previous project without risking data loss. A raw backup was downloaded. Keep this tab open and delete unused saved projects.',
+          libraryEntry
+            ? `Could not restore "${libraryEntry.name}". A new starter was opened instead. Delete unused saved projects if browser storage is full.`
+            : 'Could not reopen the previous project without risking data loss. A raw backup was downloaded. Keep this tab open and delete unused saved projects.',
         );
         return;
       }
@@ -3247,6 +3255,12 @@ export function WorkspaceRoute() {
         loadedProject ??
         createDefaultProject(sessionId, { isMobile: initialIsMobileRef.current });
       persistActiveSessionId(sessionId);
+      if (!isBundledProjectSessionId(nextProject.sessionId)) {
+        if (!loadedProject) {
+          await saveProjectDocument(nextProject);
+        }
+        saveProjectToLibrary(nextProject, nextProject.name);
+      }
       const sliderCache = loadShaderSliderCache(sessionId);
       setProject(
         activateTimelineOnAppEntry(
@@ -3530,9 +3544,13 @@ export function WorkspaceRoute() {
 
     const timeoutId = window.setTimeout(() => {
       sessionSyncRef.current?.publish(project);
+      if (isBundledProjectSessionId(project.sessionId)) {
+        return;
+      }
       void saveProjectDocument(project).then((saved) => {
         if (saved) {
           autosaveBlockedSessionRef.current = null;
+          saveProjectToLibrary(project, project.name);
           return;
         }
         autosaveBlockedSessionRef.current = project.sessionId;
@@ -3589,7 +3607,7 @@ export function WorkspaceRoute() {
       }
       setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
       persistActiveSessionId(nextProject.sessionId);
-      setStatusMessage(`Saved "${trimmedName}" as a new project.`);
+      setStatusMessage(`Saved "${trimmedName}" in this browser. Also save a file if you want a copy you can reload.`);
       setIsProjectDialogOpen(false);
       trackUiClick('save_project', { mode: 'from_bundled' });
       return;
@@ -3607,7 +3625,7 @@ export function WorkspaceRoute() {
     }
     setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
     persistActiveSessionId(nextProject.sessionId);
-    setStatusMessage(`Saved project "${trimmedName}".`);
+    setStatusMessage(`Saved project "${trimmedName}" in this browser. Also save a file if you want a copy you can reload.`);
     setIsProjectDialogOpen(false);
     trackUiClick('save_project');
   }, [project]);
@@ -3631,16 +3649,13 @@ export function WorkspaceRoute() {
     }
     setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
     persistActiveSessionId(nextProject.sessionId);
-    setStatusMessage(`Saved "${trimmedName}" as a new project.`);
+    setStatusMessage(`Saved "${trimmedName}" in this browser. Also save a file if you want a copy you can reload.`);
     setIsProjectDialogOpen(false);
     trackUiClick('save_project_as');
   }, [project]);
 
   const handleCreateNewProject = useCallback(() => {
-    const confirmed = window.confirm(
-      'Create a new project? Unsaved changes in the current workspace will be lost unless you save first.',
-    );
-    if (!confirmed) {
+    if (!confirmReplaceCurrentWorkspace('Create a new random starter?')) {
       return;
     }
 
@@ -3655,15 +3670,13 @@ export function WorkspaceRoute() {
     setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
-    setStatusMessage('Created a new project.');
+    setStatusMessage('Created a new project. Save a file to keep it.');
+    setNeedsFileSave(true);
     trackUiClick('create_project');
   }, [isMobile]);
 
   const handleCreateEmptyProject = useCallback(() => {
-    const confirmed = window.confirm(
-      'Create a new empty project? Unsaved changes in the current workspace will be lost unless you save first.',
-    );
-    if (!confirmed) {
+    if (!confirmReplaceCurrentWorkspace('Create a new empty project?')) {
       return;
     }
 
@@ -3678,15 +3691,28 @@ export function WorkspaceRoute() {
     setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
-    setStatusMessage('Created a new empty project with a white canvas.');
+    setStatusMessage('Created a new empty project with a white canvas. Save a file to keep it.');
+    setNeedsFileSave(true);
     trackUiClick('create_empty_project');
   }, [isMobile]);
 
   const handleOpenSavedProject = useCallback(async (sessionId: string) => {
+    if (project && sessionId !== project.sessionId) {
+      const openingStarter = isBundledProjectSessionId(sessionId);
+      if (
+        !confirmReplaceCurrentWorkspace(
+          openingStarter ? 'Open this starter template?' : 'Open this browser copy?',
+        )
+      ) {
+        return;
+      }
+    }
+
     const loadedProject = await loadProjectDocument(sessionId);
     if (!loadedProject) {
-      setStatusMessage('That saved project is no longer available on this device.');
-      setSavedProjects(removeProjectFromLibrary(sessionId));
+      setStatusMessage(
+        'That project is no longer in this browser. It was not deleted. Save files going forward, or keep this card until you export it.',
+      );
       return;
     }
 
@@ -3697,10 +3723,15 @@ export function WorkspaceRoute() {
     );
     setProject(normalizedProject);
     persistActiveSessionId(sessionId);
+    setNeedsFileSave(true);
     setIsProjectDialogOpen(false);
-    setStatusMessage(`Opened project "${normalizedProject.name}".`);
+    setStatusMessage(
+      isBundledProjectSessionId(sessionId)
+        ? `Opened starter "${normalizedProject.name}". Save a file if you edit it.`
+        : `Opened "${normalizedProject.name}" from this browser. Save a file to keep a copy you can reload.`,
+    );
     trackUiClick('open_saved_project');
-  }, []);
+  }, [project]);
 
   const handleDeleteSavedProject = useCallback(async (sessionId: string) => {
     const entry = savedProjects.find((candidate) => candidate.sessionId === sessionId);
@@ -3717,9 +3748,91 @@ export function WorkspaceRoute() {
 
     setSavedProjects(await deletePersistedProject(sessionId));
     autosaveBlockedSessionRef.current = null;
-    setStatusMessage(`Deleted "${entry.name}" and freed its local browser storage.`);
+    setStatusMessage(`Deleted "${entry.name}" from this browser. A file copy was not removed.`);
     trackUiClick('delete_project');
   }, [project?.sessionId, savedProjects]);
+
+  const handleSaveProjectFile = useCallback(() => {
+    if (!project) {
+      return;
+    }
+    downloadProjectBackup(project);
+    setNeedsFileSave(false);
+    setStatusMessage(
+      `Saved "${project.name}" as a JSON file. Keep that file — the browser copy can disappear.`,
+    );
+    trackUiClick('save_project_file');
+  }, [project]);
+
+  const handleOpenProjectFilePicker = useCallback(() => {
+    if (project && !confirmReplaceCurrentWorkspace('Open a project file?')) {
+      return;
+    }
+    projectFileInputRef.current?.click();
+  }, [project]);
+
+  const handleProjectFileSelection = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+
+    let raw = '';
+    try {
+      raw = await file.text();
+    } catch {
+      setStatusMessage('Unable to read that project file.');
+      return;
+    }
+
+    const importedProject = parseProjectBackupContents(raw);
+    if (!importedProject) {
+      setStatusMessage('That file is not a Mapshroom project backup.');
+      return;
+    }
+
+    const nextSessionId = isBundledProjectSessionId(importedProject.sessionId)
+      ? crypto.randomUUID()
+      : importedProject.sessionId;
+    const nextProject = activateTimelineOnAppEntry(
+      normalizeProject({
+        ...importedProject,
+        sessionId: nextSessionId,
+      }),
+    );
+
+    if (!(await saveProjectDocument(nextProject))) {
+      setStatusMessage(
+        `Opened "${nextProject.name}" in memory, but browser storage is full. Keep the file — do not close this tab until you can save again.`,
+      );
+    } else {
+      setSavedProjects(saveProjectToLibrary(nextProject, nextProject.name));
+    }
+    persistActiveSessionId(nextProject.sessionId);
+    setProject(nextProject);
+    setNeedsFileSave(false);
+    setIsProjectDialogOpen(false);
+    setEditingTimelineStepId(null);
+    setPreviewShaderId(null);
+    setStudioPreviewOverride(false);
+    clearGeneratedShaderRetry();
+    setCompilerError('');
+    setStatusMessage(`Loaded "${nextProject.name}" from file.`);
+    trackUiClick('open_project_file');
+  }, []);
+
+  useEffect(() => {
+    if (!needsFileSave) {
+      return;
+    }
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [needsFileSave]);
 
   const handleGenerateShareLink = useCallback(async () => {
     if (!project) {
@@ -4198,7 +4311,9 @@ export function WorkspaceRoute() {
     }
 
     lastMissingAssetIdRef.current = activeAsset.id;
-    setStatusMessage(`Stored asset "${activeAsset.name}" could not be restored. Load it again.`);
+    setStatusMessage(
+      `Saved photo "${activeAsset.name}" is no longer stored on this device. Home-screen bookmarks can drop uploaded images. Load the file again.`,
+    );
   }, [activeAsset, activeAssetResolution.status]);
 
   const openFilePicker = (source: FilePickerSource = 'library', timelineStepId: string | null = null) => {
@@ -4231,10 +4346,17 @@ export function WorkspaceRoute() {
     }
 
     const uploadedAssets: AssetRecord[] = [];
+    let failedStorageCount = 0;
+    const storageUsage = await readBrowserStorageUsage();
 
     for (const file of files) {
       const kind = detectAssetKind(file);
       if (!kind) {
+        continue;
+      }
+
+      if (!browserStorageHasRoom(storageUsage, file.size)) {
+        failedStorageCount += 1;
         continue;
       }
 
@@ -4252,11 +4374,20 @@ export function WorkspaceRoute() {
       const saved = await putAssetBlob(assetRecord.id, file);
       if (saved) {
         uploadedAssets.push(assetRecord);
+        if (storageUsage.usageBytes != null) {
+          storageUsage.usageBytes += file.size;
+        }
+      } else {
+        failedStorageCount += 1;
       }
     }
 
     if (!uploadedAssets.length) {
-      setStatusMessage('No supported assets were added.');
+      setStatusMessage(
+        failedStorageCount
+          ? 'Browser storage is full, so the images were not added. The current project was left unchanged. Save a file, then retry with fewer or smaller images.'
+          : 'No supported assets were added.',
+      );
       event.target.value = '';
       return;
     }
@@ -4327,12 +4458,15 @@ export function WorkspaceRoute() {
       return assignment.project;
     });
 
-    setStatusMessage(
-      timelineAssignmentMessage
-        ? timelineAssignmentMessage
-        : filePickerSource === 'timeline-picker'
+    const storedMessage = timelineAssignmentMessage
+      ? timelineAssignmentMessage
+      : filePickerSource === 'timeline-picker'
         ? `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added to the library.`
-        : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`,
+        : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`;
+    setStatusMessage(
+        failedStorageCount
+        ? `${storedMessage} ${failedStorageCount} file${failedStorageCount > 1 ? 's' : ''} were skipped because browser storage is full. The existing project was not deleted.`
+        : storedMessage,
     );
     if (filePickerSource === 'library') {
       setHighlightAssetStartMapping(true);
@@ -4446,7 +4580,7 @@ export function WorkspaceRoute() {
     };
     const saved = await putAssetBlob(maskedAsset.id, blob);
     if (!saved) {
-      setStatusMessage('The masked asset could not be saved in this browser.');
+      setStatusMessage('Browser storage is full, so the masked image was not saved. The original asset was left unchanged.');
       return false;
     }
     updateProject((currentProject) => ({
@@ -8737,6 +8871,15 @@ ${errorSnapshot}`,
         onChange={handleFileSelection}
       />
       <input
+        ref={projectFileInputRef}
+        className="hidden-input"
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => {
+          void handleProjectFileSelection(event);
+        }}
+      />
+      <input
         ref={mappingPositionInputRef}
         className="hidden-input"
         type="file"
@@ -8771,6 +8914,8 @@ ${errorSnapshot}`,
             trackUiClick('open_projects');
             setIsProjectDialogOpen(true);
           }}
+          onSaveProjectFile={handleSaveProjectFile}
+          onOpenProjectFile={handleOpenProjectFilePicker}
           onOpenShare={() => {
             trackUiClick('open_share');
             handleOpenShareDialog();
@@ -9146,6 +9291,7 @@ ${errorSnapshot}`,
         currentProjectName={project.name}
         activeSessionId={project.sessionId}
         savedProjects={savedProjects}
+        needsFileSave={needsFileSave}
         onClose={() => setIsProjectDialogOpen(false)}
         onSaveProject={handleSaveProject}
         onSaveAsNewProject={handleSaveAsNewProject}
@@ -9153,13 +9299,8 @@ ${errorSnapshot}`,
         onCreateEmptyProject={handleCreateEmptyProject}
         onOpenProject={handleOpenSavedProject}
         onDeleteProject={handleDeleteSavedProject}
-        onDownloadBackup={() => {
-          if (!project) {
-            return;
-          }
-          downloadProjectBackup(project);
-          setStatusMessage(`Downloaded a backup of "${project.name}".`);
-        }}
+        onSaveFile={handleSaveProjectFile}
+        onOpenFile={handleOpenProjectFilePicker}
       />
 
       <ShareProjectDialog

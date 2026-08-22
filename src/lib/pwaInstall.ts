@@ -8,12 +8,6 @@ type BeforeInstallPromptEvent = Event & {
 const INSTALL_AVAILABLE_EVENT = 'mapshroom:install-available';
 const APP_INSTALLED_EVENT = 'mapshroom:app-installed';
 const INSTALLED_HINT_KEY = 'mapshroom:pwa-installed';
-const LEGACY_OFFLINE_CACHE_PREFIXES = [
-  'workbox-precache',
-  'mapshroom-runtime-assets',
-  'google-fonts-stylesheets',
-  'google-fonts-webfonts',
-];
 
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 let listenersRegistered = false;
@@ -55,13 +49,7 @@ export async function clearLegacyOfflineCaches(): Promise<void> {
   if ('caches' in window) {
     try {
       const cacheNames = await caches.keys();
-      await Promise.all(
-        cacheNames
-          .filter((cacheName) =>
-            LEGACY_OFFLINE_CACHE_PREFIXES.some((prefix) => cacheName.startsWith(prefix)),
-          )
-          .map((cacheName) => caches.delete(cacheName)),
-      );
+      await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
     } catch {
       // Cache cleanup is best-effort and must never block the online app.
     }

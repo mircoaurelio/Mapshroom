@@ -14565,6 +14565,10 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   line-height: 1.45;
 }
 
+.project-library-storage-hint-warning {
+  color: var(--text-bright);
+}
+
 .project-library-card-actions {
   display: flex;
   flex-shrink: 0;

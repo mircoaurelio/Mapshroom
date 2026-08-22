@@ -1,6 +1,6 @@
 {
-  "name": "Mapshroom Vibe Projection Mapping",
-  "short_name": "Mapshroom Vibe",
+  "name": "Mapshroom",
+  "short_name": "Mapshroom",
   "description": "Free forever, open-source, shader-based projection mapping with an automatic machine-learning workflow to map any 3D surface, painting, or structure.",
   "id": "/",
   "start_url": "/",

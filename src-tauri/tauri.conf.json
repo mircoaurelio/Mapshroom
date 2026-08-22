@@ -52,7 +52,7 @@
     "resources": [],
     "category": "Entertainment",
     "shortDescription": "Shader-based projection mapping",
-    "longDescription": "Mapshroom Vibe is an open-source shader-based projection mapping studio with audio reactivity, MIDI control, and local AI tools.",
+    "longDescription": "Mapshroom is an open-source shader-based projection mapping studio with audio reactivity, MIDI control, and local AI tools.",
     "publisher": "Mapshroom"
   },
   "plugins": {

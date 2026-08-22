@@ -339,7 +339,7 @@ async function runReview() {
           ? [
               {
                 label: 'Statue depth map',
-                url: '/assets/defaults-basestatue-depth.png',
+                url: '/assets/defaults-basestatue.png',
               },
               {
                 label: 'Statue surface',

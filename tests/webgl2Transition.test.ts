@@ -345,8 +345,8 @@ test('bundled project and visual eval are wired to the statue depth map', () => 
 
   assert.match(bundled, /BUNDLED_WEBGL2_DEPTH_LAB_PROJECT_SESSION_ID/);
   assert.match(bundled, /presets\.length !== 10/);
-  assert.match(bundled, /activeAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID/);
-  assert.match(bundled, /inputAssetId: BUNDLED_STATUE_DEPTH_ASSET_ID/);
+  assert.match(bundled, /activeAssetId: BUNDLED_STATUE_ASSET_ID/);
+  assert.match(bundled, /inputAssetId: BUNDLED_STATUE_ASSET_ID/);
   assert.match(evaluation, /__MAPSHROOM_DEPTH_LAB_EVAL__/);
   assert.match(evaluation, /BUNDLED_STATUE_DEPTH_ASSET_ID/);
   assert.match(evaluationPage, /project=bundled-webgl2-depth-lab-statue/);
