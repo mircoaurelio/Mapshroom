@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   analyzeAudioReactiveUniforms,
-  assertWindowOrScreenAudioCapture,
   buildAudioReactiveBindings,
+  buildSystemAudioCaptureOptions,
   describeSystemAudioCapture,
+  disableDisplayVideoTracks,
   getAudioReactiveStorageKey,
   getCapturedDisplaySurface,
   loadAudioReactivePreferences,
-  SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE,
 } from '../src/lib/audioReactivity.ts';
 import type {
   ShaderUniformMap,
@@ -233,25 +233,43 @@ function fakeDisplayStream(displaySurface?: string): MediaStream {
   } as unknown as MediaStream;
 }
 
-test('rejects Chrome tab capture because it paints a sharing bar on every tab', () => {
-  assert.equal(getCapturedDisplaySurface(fakeDisplayStream('browser')), 'browser');
-  assert.throws(
-    () => assertWindowOrScreenAudioCapture(fakeDisplayStream('browser')),
-    (error: unknown) =>
-      error instanceof Error && error.message === SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE,
-  );
+test('starts computer audio with an unconstrained mandatory video track', () => {
+  const options = buildSystemAudioCaptureOptions() as DisplayMediaStreamOptions & {
+    selfBrowserSurface?: string;
+    systemAudio?: string;
+    windowAudio?: string;
+  };
+
+  assert.equal(options.video, true);
+  assert.equal(options.audio, true);
+  assert.equal(options.selfBrowserSurface, 'exclude');
+  assert.equal(options.systemAudio, 'include');
+  assert.equal(options.windowAudio, 'system');
 });
 
-test('allows window and entire-screen capture for computer audio', () => {
-  assert.doesNotThrow(() =>
-    assertWindowOrScreenAudioCapture(fakeDisplayStream('window')),
-  );
-  assert.doesNotThrow(() =>
-    assertWindowOrScreenAudioCapture(fakeDisplayStream('monitor')),
-  );
-  assert.doesNotThrow(() =>
-    assertWindowOrScreenAudioCapture(fakeDisplayStream()),
-  );
+test('disables display video without ending the audio capture session', () => {
+  let stopped = false;
+  const videoTrack = {
+    enabled: true,
+    stop: () => {
+      stopped = true;
+    },
+  };
+  const stream = {
+    getVideoTracks: () => [videoTrack],
+  } as unknown as MediaStream;
+
+  disableDisplayVideoTracks(stream);
+
+  assert.equal(videoTrack.enabled, false);
+  assert.equal(stopped, false);
+});
+
+test('describes tab, window, and entire-screen computer audio sources', () => {
+  assert.equal(getCapturedDisplaySurface(fakeDisplayStream('browser')), 'browser');
+  assert.equal(getCapturedDisplaySurface(fakeDisplayStream('window')), 'window');
+  assert.equal(getCapturedDisplaySurface(fakeDisplayStream('monitor')), 'monitor');
+  assert.equal(describeSystemAudioCapture('browser', ''), 'Browser tab audio');
   assert.equal(
     describeSystemAudioCapture('monitor', ''),
     'Entire screen audio',

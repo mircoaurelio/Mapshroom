@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  assertWindowOrScreenAudioCapture,
   buildAudioReactiveBindings,
+  buildSystemAudioCaptureOptions,
   createAudioReactiveRuntime,
   DEFAULT_AUDIO_REACTIVE_FRAME,
   describeSystemAudioCapture,
+  disableDisplayVideoTracks,
   getAudioReactiveChannelName,
   getAudioReactiveStorageKey,
   getCapturedDisplaySurface,
@@ -243,13 +244,19 @@ function getAudioErrorMessage(error: unknown, source: AudioCaptureSource): strin
   if (error instanceof DOMException) {
     if (error.name === 'NotAllowedError') {
       return source === 'system'
-        ? 'Sharing was cancelled. Choose a window or entire screen and enable audio.'
+        ? 'Sharing was cancelled. Choose a tab, window, or entire screen and enable audio.'
         : 'Microphone access was not allowed.';
     }
     if (error.name === 'NotFoundError') {
       return source === 'system'
         ? 'No shareable audio source was found.'
         : 'No microphone is available.';
+    }
+    if (
+      source === 'system' &&
+      (error.name === 'AbortError' || error.name === 'NotReadableError')
+    ) {
+      return 'Chrome could not start computer-audio capture. Close any active screen share, then try again. If it continues, restart Chrome.';
     }
   }
 
@@ -260,52 +267,6 @@ function stopMediaStream(stream: MediaStream): void {
   for (const track of stream.getTracks()) {
     track.stop();
   }
-}
-
-function buildSystemAudioCaptureOptions(): DisplayMediaStreamOptions {
-  type CaptureControllerLike = {
-    setFocusBehavior?: (behavior: 'focus-captured-surface' | 'no-focus-change') => void;
-  };
-  const options: DisplayMediaStreamOptions & {
-    controller?: CaptureControllerLike;
-    monitorTypeSurfaces?: 'include' | 'exclude';
-    preferCurrentTab?: boolean;
-    selfBrowserSurface?: 'include' | 'exclude';
-    surfaceSwitching?: 'include' | 'exclude';
-    systemAudio?: 'include' | 'exclude';
-  } = {
-    video: {
-      displaySurface: 'monitor',
-      frameRate: 1,
-      height: 16,
-      width: 16,
-    },
-    audio: true,
-    // Tab capture paints Chrome's sharing HUD on every tab, including Output.
-    // Prefer a window or screen so the projector window stays clean.
-    preferCurrentTab: false,
-    selfBrowserSurface: 'exclude',
-    surfaceSwitching: 'exclude',
-    systemAudio: 'include',
-    monitorTypeSurfaces: 'include',
-  };
-
-  const CaptureControllerCtor = (
-    globalThis as typeof globalThis & {
-      CaptureController?: new () => CaptureControllerLike;
-    }
-  ).CaptureController;
-  if (typeof CaptureControllerCtor === 'function') {
-    const controller = new CaptureControllerCtor();
-    try {
-      controller.setFocusBehavior?.('no-focus-change');
-    } catch {
-      // Focus locking is optional; capture still succeeds without it.
-    }
-    options.controller = controller;
-  }
-
-  return options;
 }
 
 async function startAudioAnalysisClock(
@@ -571,20 +532,15 @@ export function useAudioReactivity(
               );
 
         const displaySurface = getCapturedDisplaySurface(stream);
-        assertWindowOrScreenAudioCapture(stream);
-
         const audioTrack = stream.getAudioTracks()[0];
         if (!audioTrack) {
           stopMediaStream(stream);
           throw new Error(
-            'No audio was received. Enable “Share audio” in the browser picker.',
+            'No audio was received. Enable “Share audio” in the picker (tab, window, or entire screen).',
           );
         }
 
-        for (const videoTrack of stream.getVideoTracks()) {
-          videoTrack.stop();
-          stream.removeTrack(videoTrack);
-        }
+        disableDisplayVideoTracks(stream);
 
         const context = new AudioContext({ latencyHint: 'interactive' });
         await context.resume();

@@ -794,8 +794,30 @@ export function prefixAudioReactiveBindingKeys({
   return prefixed;
 }
 
-export const SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE =
-  'Chrome cannot hide the sharing bar when a browser tab is captured. Choose Entire Screen or a Window, enable Share audio, then try again.';
+export function buildSystemAudioCaptureOptions(): DisplayMediaStreamOptions {
+  // getDisplayMedia always has to start a video source, even when Mapshroom
+  // only needs the accompanying audio. Keep that mandatory track
+  // unconstrained during startup: asking Chrome to initialize desktop capture
+  // directly at 16x16 / 1 fps can time out on otherwise valid sources.
+  return {
+    video: true,
+    audio: true,
+    preferCurrentTab: false,
+    selfBrowserSurface: 'exclude',
+    surfaceSwitching: 'exclude',
+    systemAudio: 'include',
+    monitorTypeSurfaces: 'include',
+    windowAudio: 'system',
+  } as DisplayMediaStreamOptions;
+}
+
+export function disableDisplayVideoTracks(stream: MediaStream): void {
+  // Stopping the display video track ends Chrome's capture session and can
+  // stop its audio track too. Disable the unused track but keep it alive.
+  for (const videoTrack of stream.getVideoTracks()) {
+    videoTrack.enabled = false;
+  }
+}
 
 export function getCapturedDisplaySurface(
   stream: MediaStream,
@@ -807,18 +829,15 @@ export function getCapturedDisplaySurface(
   return videoTrack.getSettings().displaySurface;
 }
 
-export function assertWindowOrScreenAudioCapture(stream: MediaStream): void {
-  if (getCapturedDisplaySurface(stream) === 'browser') {
-    throw new Error(SYSTEM_AUDIO_TAB_CAPTURE_MESSAGE);
-  }
-}
-
 export function describeSystemAudioCapture(
   displaySurface: string | undefined,
   audioLabel: string,
 ): string {
   if (audioLabel.trim()) {
     return audioLabel;
+  }
+  if (displaySurface === 'browser') {
+    return 'Browser tab audio';
   }
   if (displaySurface === 'monitor') {
     return 'Entire screen audio';

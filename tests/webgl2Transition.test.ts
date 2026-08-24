@@ -312,7 +312,7 @@ test('output receives migrated audio state and low-latency uniform updates', () 
   assert.match(audioRuntime, /normalizeOfficialShaderIdentifier\(uniformName\)/);
   assert.match(audioHook, /type: 'request-state'/);
   assert.match(audioHook, /message\.type === 'state'/);
-  assert.match(audioHook, /surfaceSwitching:\s*['"]exclude['"]/);
+  assert.match(audioRuntime, /surfaceSwitching:\s*['"]exclude['"]/);
   assert.match(audioHook, /startAudioAnalysisClock/);
   assert.match(audioHook, /audioWorklet/);
   assert.doesNotMatch(audioHook, /requestAnimationFrame\(analyze\)/);

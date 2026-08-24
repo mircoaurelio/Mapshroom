@@ -723,8 +723,8 @@ export function AudioReactivePanelControls({
 
       {preferences.source === 'system' && !isListening ? (
         <p className="audio-reactive-hint">
-          Choose Entire Screen or a Window and enable Share audio. A Chrome tab
-          always draws a sharing bar that cannot be hidden.
+          Share a music tab, a window, or Entire Screen and enable Share audio.
+          Avoid sharing Mapshroom itself so Output stays clean.
         </p>
       ) : null}
       {controller.errorMessage ? (

@@ -713,7 +713,7 @@ export function WorkspaceToolbar({
                   <span className="toolbar-audio-source-indicator" aria-hidden="true" />
                   <span className="toolbar-audio-source-copy">
                     <strong>Computer audio</strong>
-                    <small>Entire screen or a window, with audio</small>
+                    <small>A tab, window, or entire screen with audio</small>
                   </span>
                 </button>
                 {audioReactiveEnabled ? (
@@ -734,8 +734,8 @@ export function WorkspaceToolbar({
                   </>
                 ) : null}
                 <p className="toolbar-audio-source-note">
-                  Choose Entire Screen or a Window and enable Share audio. Chrome
-                  tabs always add a sharing bar on Output and the workspace.
+                  Share a music tab, a window, or Entire Screen and enable Share
+                  audio. Avoid sharing Mapshroom itself so Output stays clean.
                 </p>
               </div>
             ) : null}
