@@ -5058,6 +5058,45 @@ export function WorkspaceRoute() {
     }
   }, [editingTimelineStepId, project, selectTimelineStepForEditing, updateProject]);
 
+  const handleTimelineReorderSteps = useCallback((orderedStepIds: string[]) => {
+    updateProject((currentProject) => {
+      const currentSteps = currentProject.timeline.stub.shaderSequence.steps;
+      const stepMap = new Map(currentSteps.map((step) => [step.id, step]));
+      const nextSteps = orderedStepIds
+        .map((stepId) => stepMap.get(stepId))
+        .filter((step): step is (typeof currentSteps)[number] => Boolean(step));
+
+      if (nextSteps.length !== currentSteps.length) {
+        const seenIds = new Set(nextSteps.map((step) => step.id));
+        for (const step of currentSteps) {
+          if (!seenIds.has(step.id)) {
+            nextSteps.push(step);
+          }
+        }
+      }
+
+      if (
+        nextSteps.length !== currentSteps.length ||
+        nextSteps.every((step, index) => step.id === currentSteps[index]?.id)
+      ) {
+        return currentProject;
+      }
+
+      return {
+        ...currentProject,
+        timeline: {
+          stub: {
+            ...currentProject.timeline.stub,
+            shaderSequence: {
+              ...currentProject.timeline.stub.shaderSequence,
+              steps: nextSteps,
+            },
+          },
+        },
+      };
+    });
+  }, [updateProject]);
+
   const handleTimelineDuplicateStep = useCallback((stepId: string) => {
     let nextStatusMessage = '';
 
@@ -7335,6 +7374,12 @@ ${errorSnapshot}`,
     setIsPresetBrowserOpen(true);
   };
 
+  const handleMobileAddRandomShader = () => {
+    addRandomPresetShader();
+    setMobilePanel('studio');
+    updateMobileUiMode('full');
+  };
+
   const handleStageReveal = useCallback(() => {
     if (!isMobile || uiPreferences.mobileUiMode !== 'hidden') return;
     updateMobileUiMode('bar');
@@ -8467,8 +8512,10 @@ ${errorSnapshot}`,
         onAssetPickerRequestHandled={() => undefined}
         onDuplicateStep={handleTimelineDuplicateStep}
         onRemoveStep={handleTimelineRemoveStep}
+        onReorderSteps={handleTimelineReorderSteps}
         onEditStep={handleMobileShaderCardEdit}
         onAddStep={handleMobileAddShader}
+        onAddRandomStep={handleMobileAddRandomShader}
         mobileCardsOnly
       />
       {mobileShaderToolsPanel}

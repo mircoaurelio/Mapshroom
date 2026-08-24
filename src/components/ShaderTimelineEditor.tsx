@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
   clampTimelineStepDuration,
@@ -86,8 +86,66 @@ interface ShaderTimelineEditorProps {
   onEditStep: (stepId: string) => void;
   onAddStep?: () => void;
   onAddRandomStep?: () => void;
+  onReorderSteps?: (orderedStepIds: string[]) => void;
   scrollToStepRequest?: { stepId: string; token: number } | null;
   mobileCardsOnly?: boolean;
+}
+
+const MOBILE_SHADER_LONG_PRESS_MS = 420;
+const MOBILE_SHADER_PRESS_MOVE_PX = 12;
+
+function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= items.length ||
+    toIndex >= items.length
+  ) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  const [moved] = nextItems.splice(fromIndex, 1);
+  nextItems.splice(toIndex, 0, moved);
+  return nextItems;
+}
+
+function getMobileShaderDropIndex(
+  grid: HTMLElement,
+  clientX: number,
+  clientY: number,
+): number | null {
+  const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-timeline-step-id]'));
+  if (cards.length === 0) {
+    return null;
+  }
+
+  for (let index = 0; index < cards.length; index += 1) {
+    const bounds = cards[index].getBoundingClientRect();
+    if (
+      clientX >= bounds.left &&
+      clientX <= bounds.right &&
+      clientY >= bounds.top &&
+      clientY <= bounds.bottom
+    ) {
+      return index;
+    }
+  }
+
+  let nearestIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  cards.forEach((card, index) => {
+    const bounds = card.getBoundingClientRect();
+    const offsetX = clientX - (bounds.left + bounds.width / 2);
+    const offsetY = clientY - (bounds.top + bounds.height / 2);
+    const distance = offsetX * offsetX + offsetY * offsetY;
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  });
+  return nearestIndex;
 }
 
 function formatStepDuration(seconds: number): string {
@@ -169,6 +227,16 @@ function ErrorIcon() {
   );
 }
 
+function DragHandleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 5.25h10" />
+      <path d="M3 8h10" />
+      <path d="M3 10.75h10" />
+    </svg>
+  );
+}
+
 function StepperChevronIcon({ direction }: { direction: 'up' | 'down' }) {
   return (
     <svg viewBox="0 0 12 12" aria-hidden="true">
@@ -212,6 +280,7 @@ export function ShaderTimelineEditor({
   onEditStep,
   onAddStep,
   onAddRandomStep,
+  onReorderSteps,
   scrollToStepRequest = null,
   mobileCardsOnly = false,
 }: ShaderTimelineEditorProps) {
@@ -248,6 +317,20 @@ export function ShaderTimelineEditor({
   const [assetPickerPreviewAssetId, setAssetPickerPreviewAssetId] = useState<string | null>(null);
   const [shaderPickerStepId, setShaderPickerStepId] = useState<string | null>(null);
   const [isShuffleConfirmationOpen, setIsShuffleConfirmationOpen] = useState(false);
+  const [isMobileArranging, setIsMobileArranging] = useState(false);
+  const [isMobileAddOpen, setIsMobileAddOpen] = useState(false);
+  const [mobileDraggingStepId, setMobileDraggingStepId] = useState<string | null>(null);
+  const [mobileOrderedStepIds, setMobileOrderedStepIds] = useState<string[] | null>(null);
+  const mobilePressRef = useRef<{
+    pointerId: number;
+    stepId: string;
+    startX: number;
+    startY: number;
+    longPressTimer: number;
+    isDragging: boolean;
+    ignoreClick: boolean;
+  } | null>(null);
+  const mobileOrderedStepIdsRef = useRef<string[] | null>(null);
   const shaderMap = useMemo(
     () => new Map(savedShaders.map((shader) => [shader.id, shader])),
     [savedShaders],
@@ -783,18 +866,222 @@ export function ShaderTimelineEditor({
     };
   }, [scrollToStepRequest]);
 
+  useEffect(() => {
+    if (!mobileCardsOnly) {
+      setIsMobileArranging(false);
+      setIsMobileAddOpen(false);
+      setMobileDraggingStepId(null);
+      setMobileOrderedStepIds(null);
+      mobileOrderedStepIdsRef.current = null;
+    }
+  }, [mobileCardsOnly]);
+
+  useEffect(() => {
+    if (!isMobileArranging) {
+      setMobileDraggingStepId(null);
+      setMobileOrderedStepIds(null);
+      mobileOrderedStepIdsRef.current = null;
+      return;
+    }
+
+    const liveIds = sequence.steps.map((step) => step.id);
+    setMobileOrderedStepIds((current) => {
+      const nextIds = current
+        ? [
+            ...current.filter((id) => liveIds.includes(id)),
+            ...liveIds.filter((id) => !current.includes(id)),
+          ]
+        : liveIds;
+      if (
+        current &&
+        current.length === nextIds.length &&
+        current.every((id, index) => id === nextIds[index])
+      ) {
+        return current;
+      }
+      mobileOrderedStepIdsRef.current = nextIds;
+      return nextIds;
+    });
+  }, [isMobileArranging, sequence.steps]);
+
   if (mobileCardsOnly) {
+    const displaySteps = (
+      isMobileArranging && mobileOrderedStepIds
+        ? mobileOrderedStepIds
+        : sequence.steps.map((step) => step.id)
+    )
+      .map((stepId) => sequence.steps.find((step) => step.id === stepId) ?? null)
+      .filter((step): step is (typeof sequence.steps)[number] => step !== null);
+    const finishMobilePress = (event: ReactPointerEvent<HTMLElement>, triggerEdit: boolean) => {
+      const press = mobilePressRef.current;
+      if (!press || press.pointerId !== event.pointerId) {
+        return;
+      }
+
+      window.clearTimeout(press.longPressTimer);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+
+      const { isDragging, ignoreClick, stepId } = press;
+      mobilePressRef.current = null;
+      setMobileDraggingStepId(null);
+
+      if (isDragging) {
+        const orderedIds = mobileOrderedStepIdsRef.current;
+        if (orderedIds && onReorderSteps) {
+          onReorderSteps(orderedIds);
+        }
+        return;
+      }
+
+      if (triggerEdit && !isMobileArranging && !ignoreClick) {
+        onEditStep(stepId);
+      }
+    };
+    const handleCardPointerDown = (stepId: string, event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      const target = event.currentTarget;
+      const alreadyArranging = isMobileArranging;
+      mobilePressRef.current = {
+        pointerId: event.pointerId,
+        stepId,
+        startX: event.clientX,
+        startY: event.clientY,
+        longPressTimer: alreadyArranging
+          ? 0
+          : window.setTimeout(() => {
+              const press = mobilePressRef.current;
+              if (!press || press.stepId !== stepId) {
+                return;
+              }
+
+              const initialOrder = sequence.steps.map((step) => step.id);
+              mobileOrderedStepIdsRef.current = mobileOrderedStepIdsRef.current ?? initialOrder;
+              setMobileOrderedStepIds(mobileOrderedStepIdsRef.current);
+              setIsMobileArranging(true);
+          setIsMobileAddOpen(false);
+              press.isDragging = true;
+              press.ignoreClick = true;
+              setMobileDraggingStepId(stepId);
+              if (!target.hasPointerCapture(press.pointerId)) {
+                try {
+                  target.setPointerCapture(press.pointerId);
+                } catch {
+                  /* The pointer was already released. */
+                }
+              }
+              if (typeof navigator.vibrate === 'function') {
+                navigator.vibrate(12);
+              }
+            }, MOBILE_SHADER_LONG_PRESS_MS),
+        isDragging: alreadyArranging,
+        ignoreClick: alreadyArranging,
+      };
+
+      if (alreadyArranging) {
+        setMobileDraggingStepId(stepId);
+        try {
+          target.setPointerCapture(event.pointerId);
+        } catch {
+          /* The pointer was already released. */
+        }
+      }
+    };
+    const handleCardPointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+      const press = mobilePressRef.current;
+      if (!press || press.pointerId !== event.pointerId) {
+        return;
+      }
+
+      const distance = Math.hypot(event.clientX - press.startX, event.clientY - press.startY);
+      if (!press.isDragging && distance > MOBILE_SHADER_PRESS_MOVE_PX) {
+        window.clearTimeout(press.longPressTimer);
+        mobilePressRef.current = null;
+        return;
+      }
+
+      if (!press.isDragging) {
+        return;
+      }
+
+      event.preventDefault();
+      const grid = previewViewportRef.current;
+      if (!grid) {
+        return;
+      }
+
+      const dropIndex = getMobileShaderDropIndex(grid, event.clientX, event.clientY);
+      if (dropIndex === null) {
+        return;
+      }
+
+      const currentIds =
+        mobileOrderedStepIdsRef.current ?? sequence.steps.map((step) => step.id);
+      const fromIndex = currentIds.indexOf(press.stepId);
+      if (fromIndex < 0) {
+        return;
+      }
+
+      const nextIds = moveItem(currentIds, fromIndex, dropIndex);
+      if (nextIds === currentIds) {
+        return;
+      }
+
+      mobileOrderedStepIdsRef.current = nextIds;
+      setMobileOrderedStepIds(nextIds);
+    };
+
     return (
-      <section className="mobile-shader-sequence" aria-label="Timeline shaders">
+      <section
+        className={`mobile-shader-sequence ${
+          isMobileArranging ? 'mobile-shader-sequence-arranging' : ''
+        }`}
+        aria-label="Timeline shaders"
+      >
         <div className="mobile-shader-sequence-heading">
           <div>
-            <span>Timeline shaders</span>
+            <span>{isMobileArranging ? 'Arrange shaders' : 'Timeline shaders'}</span>
             <strong>{sequence.steps.length} cards</strong>
           </div>
-          <small>Tap a card to hold and edit it</small>
+          {isMobileArranging ? (
+            <button
+              type="button"
+              className="ghost-button mobile-shader-sequence-done"
+              onClick={() => {
+                const orderedIds = mobileOrderedStepIdsRef.current;
+                if (orderedIds && onReorderSteps) {
+                  onReorderSteps(orderedIds);
+                }
+                setIsMobileArranging(false);
+                setMobileDraggingStepId(null);
+                setMobileOrderedStepIds(null);
+                mobileOrderedStepIdsRef.current = null;
+              }}
+            >
+              Done
+            </button>
+          ) : isMobileAddOpen ? (
+            <button
+              type="button"
+              className="ghost-button mobile-shader-sequence-done"
+              onClick={() => setIsMobileAddOpen(false)}
+            >
+              Cancel
+            </button>
+          ) : (
+            <small>Tap to edit · hold to arrange</small>
+          )}
         </div>
-        <div ref={previewViewportRef} className="mobile-shader-card-grid" role="list">
-          {sequence.steps.map((step, index) => {
+        <div
+          ref={previewViewportRef}
+          className="mobile-shader-card-grid"
+          role="list"
+        >
+          {displaySteps.map((step, index) => {
             const shader = shaderMap.get(step.shaderId);
             const assignedPreview = shader?.inputAssetId
               ? loadedAssignedPreviews[shader.inputAssetId] ?? null
@@ -807,35 +1094,116 @@ export function ShaderTimelineEditor({
             const previewSrc = shader ? previewSources[previewKey] ?? null : null;
             const isEditing = step.id === editingStepId;
             const isCurrent = step.id === activeStepId;
+            const isDisabledStep = Boolean(step.disabled);
+            const deleteBlocked =
+              sequence.steps.length === 1 || (!isDisabledStep && enabledStepCount <= 1);
+            const isDragging = mobileDraggingStepId === step.id;
 
             return (
-              <button
+              <article
                 key={step.id}
-                type="button"
                 role="listitem"
+                data-timeline-step-id={step.id}
                 data-preview-shader-id={shader?.id}
-                className={`mobile-shader-sequence-card ${isEditing ? 'mobile-shader-sequence-card-editing' : ''} ${isCurrent ? 'mobile-shader-sequence-card-current' : ''}`}
+                className={`mobile-shader-sequence-card ${
+                  isEditing ? 'mobile-shader-sequence-card-editing' : ''
+                } ${isCurrent ? 'mobile-shader-sequence-card-current' : ''} ${
+                  isDragging ? 'mobile-shader-sequence-card-dragging' : ''
+                }`}
                 aria-pressed={isEditing}
-                onClick={() => onEditStep(step.id)}
+                onContextMenu={(event) => event.preventDefault()}
+                onPointerDown={(event) => handleCardPointerDown(step.id, event)}
+                onPointerMove={handleCardPointerMove}
+                onPointerUp={(event) => finishMobilePress(event, true)}
+                onPointerCancel={(event) => finishMobilePress(event, false)}
               >
                 <span className="mobile-shader-sequence-preview">
                   {previewSrc ? (
-                    <img src={previewSrc} alt="" loading="lazy" />
+                    <img src={previewSrc} alt="" draggable={false} loading="lazy" />
                   ) : (
                     <span className="mobile-shader-sequence-placeholder">{previewPlaceholder}</span>
                   )}
                   <span className="mobile-shader-sequence-index">{index + 1}</span>
-                  {isEditing ? <span className="mobile-shader-sequence-held">Editing</span> : null}
+                  {isEditing && !isMobileArranging ? (
+                    <span className="mobile-shader-sequence-held">Editing</span>
+                  ) : null}
+                  {isMobileArranging ? (
+                    <button
+                      type="button"
+                      className="mobile-shader-sequence-delete"
+                      aria-label={`Delete ${shader?.name ?? `shader ${index + 1}`}`}
+                      disabled={deleteBlocked}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRemoveStep(step.id);
+                      }}
+                    >
+                      <DeleteIcon />
+                    </button>
+                  ) : null}
                 </span>
                 <strong>{shader?.name ?? `Shader ${index + 1}`}</strong>
-              </button>
+                {isMobileArranging ? (
+                  <span className="mobile-shader-sequence-handle" aria-hidden="true">
+                    <DragHandleIcon />
+                  </span>
+                ) : null}
+              </article>
             );
           })}
-          {onAddStep ? (
-            <button type="button" className="mobile-shader-sequence-card mobile-shader-sequence-add" onClick={onAddStep}>
-              <span aria-hidden="true">+</span>
-              <strong>Add shader</strong>
-            </button>
+          {!isMobileArranging && (onAddStep || onAddRandomStep) ? (
+            isMobileAddOpen ? (
+              <div
+                className="mobile-shader-sequence-card mobile-shader-sequence-add mobile-shader-sequence-add-open"
+                role="group"
+                aria-label="Add shader"
+              >
+                {onAddRandomStep ? (
+                  <button
+                    type="button"
+                    className="mobile-shader-sequence-add-action"
+                    onClick={() => {
+                      setIsMobileAddOpen(false);
+                      onAddRandomStep();
+                    }}
+                  >
+                    <span className="mobile-shader-sequence-add-icon" aria-hidden="true">
+                      <ShuffleIcon />
+                    </span>
+                    <strong>Random</strong>
+                    <small>From library</small>
+                  </button>
+                ) : null}
+                {onAddStep ? (
+                  <button
+                    type="button"
+                    className="mobile-shader-sequence-add-action"
+                    onClick={() => {
+                      setIsMobileAddOpen(false);
+                      onAddStep();
+                    }}
+                  >
+                    <span className="mobile-shader-sequence-add-icon" aria-hidden="true">
+                      +
+                    </span>
+                    <strong>Select</strong>
+                    <small>From library</small>
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="mobile-shader-sequence-card mobile-shader-sequence-add"
+                onClick={() => setIsMobileAddOpen(true)}
+              >
+                <span className="mobile-shader-sequence-add-icon" aria-hidden="true">
+                  +
+                </span>
+                <strong>Add shader</strong>
+              </button>
+            )
           ) : null}
         </div>
       </section>

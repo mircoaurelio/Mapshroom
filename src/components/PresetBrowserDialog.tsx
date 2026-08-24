@@ -842,6 +842,7 @@ export function PresetBrowserDialog({
 }: PresetBrowserDialogProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeCategory, setActiveCategory] =
     useState<PresetBrowserCategory>('sculpture');
   const [loadedPreview, setLoadedPreview] = useState<{
@@ -866,6 +867,8 @@ export function PresetBrowserDialog({
     previewRequestsRef.current.clear();
     destroyPreviewRenderer(previewRendererRef.current);
     previewRendererRef.current = null;
+    setQuery('');
+    setIsSearchOpen(false);
   }, [open]);
 
   useEffect(
@@ -933,6 +936,8 @@ export function PresetBrowserDialog({
   const previewNamespace = assetUrl ?? '__no_asset__';
   const handleClose = () => {
     setPendingId(null);
+    setQuery('');
+    setIsSearchOpen(false);
     onPreviewEnd?.(activeShaderId);
     onClose();
   };
@@ -1118,9 +1123,28 @@ export function PresetBrowserDialog({
             <span className="panel-eyebrow">Presets</span>
             <h2 className="dialog-title">Shader Library</h2>
           </div>
-          <button type="button" className="ghost-button" onClick={handleClose}>
-            Close
-          </button>
+          <div className="preset-browser-header-actions">
+            <button
+              type="button"
+              className="ghost-button preset-browser-search-toggle"
+              aria-pressed={isSearchOpen}
+              aria-label={isSearchOpen ? 'Hide preset search' : 'Search presets'}
+              onClick={() => {
+                setIsSearchOpen((currentValue) => {
+                  const nextOpen = !currentValue;
+                  if (!nextOpen) {
+                    setQuery('');
+                  }
+                  return nextOpen;
+                });
+              }}
+            >
+              Search
+            </button>
+            <button type="button" className="ghost-button" onClick={handleClose}>
+              Close
+            </button>
+          </div>
         </header>
 
         <div className="dialog-body preset-browser-body">
@@ -1134,29 +1158,31 @@ export function PresetBrowserDialog({
                   : ` in ${PRESET_CATEGORY_LABELS[selectedCategory]}`}
               </small>
             </div>
-            <div className="preset-browser-search-shell">
-              <input
-                type="search"
-                className="text-field preset-browser-search"
-                placeholder="Type to search all presets..."
-                aria-label="Search shader presets automatically"
-                autoComplete="off"
-                autoFocus
-                value={query}
-                onInput={(event) => setQuery(event.currentTarget.value)}
-              />
-              {query ? (
-                <button
-                  type="button"
-                  className="preset-browser-search-clear"
-                  aria-label="Clear shader search"
-                  title="Clear search"
-                  onClick={() => setQuery('')}
-                >
-                  x
-                </button>
-              ) : null}
-            </div>
+            {isSearchOpen ? (
+              <div className="preset-browser-search-shell">
+                <input
+                  type="search"
+                  className="text-field preset-browser-search"
+                  placeholder="Type to search all presets..."
+                  aria-label="Search shader presets"
+                  autoComplete="off"
+                  autoFocus
+                  value={query}
+                  onInput={(event) => setQuery(event.currentTarget.value)}
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    className="preset-browser-search-clear"
+                    aria-label="Clear shader search"
+                    title="Clear search"
+                    onClick={() => setQuery('')}
+                  >
+                    x
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="preset-category-row" role="tablist" aria-label="Preset collections">
               {PRESET_CATEGORY_ORDER.map((category) => (
                 <button

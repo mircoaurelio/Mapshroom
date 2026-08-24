@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { createPortal } from 'react-dom';
 import type { ShaderUniformValue } from '../types';
 import { rgbToHex } from '../lib/shader';
 
@@ -73,7 +81,61 @@ function hsvToRgb(hue: number, saturation: number, value: number): [number, numb
 
 export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
   const rootRef = useRef<HTMLSpanElement | null>(null);
+  const popoverRef = useRef<HTMLSpanElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setPopoverStyle(null);
+      return;
+    }
+
+    const updatePlacement = () => {
+      const control = rootRef.current;
+      const popover = popoverRef.current;
+      if (!control || !popover) {
+        return;
+      }
+
+      const margin = 8;
+      const gap = 6;
+      const rect = control.getBoundingClientRect();
+      const popoverWidth = Math.min(
+        Math.max(rect.width, 242),
+        286,
+        Math.max(160, window.innerWidth - margin * 2),
+      );
+      const popoverHeight = popover.offsetHeight;
+      const spaceBelow = window.innerHeight - rect.bottom - gap - margin;
+      const spaceAbove = rect.top - gap - margin;
+      const openUp = spaceBelow < popoverHeight && spaceAbove > spaceBelow;
+      const left = Math.min(
+        Math.max(margin, rect.left),
+        Math.max(margin, window.innerWidth - popoverWidth - margin),
+      );
+      const top = openUp
+        ? Math.max(margin, rect.top - gap - popoverHeight)
+        : Math.min(rect.bottom + gap, Math.max(margin, window.innerHeight - popoverHeight - margin));
+
+      setPopoverStyle({
+        top,
+        left,
+        width: popoverWidth,
+      });
+    };
+
+    rootRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
+    updatePlacement();
+    const frameId = window.requestAnimationFrame(updatePlacement);
+    window.addEventListener('resize', updatePlacement);
+    window.addEventListener('scroll', updatePlacement, true);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener('resize', updatePlacement);
+      window.removeEventListener('scroll', updatePlacement, true);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -81,7 +143,8 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
     }
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (rootRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target) || popoverRef.current?.contains(target)) {
         return;
       }
 
@@ -142,7 +205,15 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
         type="button"
         className="color-picker-control"
         aria-expanded={isOpen}
-        onClick={() => setIsOpen((currentValue) => !currentValue)}
+        onClick={() => {
+          setIsOpen((currentValue) => {
+            const nextOpen = !currentValue;
+            if (nextOpen) {
+              rootRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
+            }
+            return nextOpen;
+          });
+        }}
       >
         <span className="color-picker-swatch" style={{ backgroundColor: hexValue }} />
         <span className="color-picker-copy">
@@ -151,54 +222,64 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
         </span>
       </button>
 
-      {isOpen ? (
-        <span className="color-picker-popover">
-          <span className="color-picker-spectrum-row">
+      {isOpen
+        ? createPortal(
             <span
-              className="color-picker-spectrum"
-              style={{ backgroundColor: hueColor }}
-              onPointerDown={setSaturationValueFromPointer}
-              onPointerMove={(event) => {
-                if (event.buttons === 1) {
-                  setSaturationValueFromPointer(event);
-                }
+              ref={popoverRef}
+              className="color-picker-popover"
+              style={{
+                ...(popoverStyle ?? { top: 0, left: 0 }),
+                visibility: popoverStyle ? 'visible' : 'hidden',
               }}
             >
-              <span
-                className="color-picker-spectrum-handle"
-                style={{
-                  left: `${hsvValue.saturation * 100}%`,
-                  top: `${(1 - hsvValue.value) * 100}%`,
-                }}
-              />
-            </span>
-            <label className="color-picker-hue-field">
-              <span>Hue</span>
-              <input
-                type="range"
-                min={0}
-                max={359}
-                step={1}
-                value={Math.round(hsvValue.hue)}
-                onChange={(event) => setHue(Number(event.target.value))}
-                aria-label="Color hue"
-              />
-            </label>
-          </span>
-          <span className="color-picker-preview-row">
-            <span className="color-picker-preview" style={{ backgroundColor: hexValue }} />
-            <span className="color-picker-rgb-value">RGB {rgbValues.join(' ')}</span>
-          </span>
-          <label className="color-picker-hex-field">
-            <span>Hex</span>
-            <input
-              className="text-field"
-              value={hexValue.toUpperCase()}
-              onChange={(event) => setHex(event.target.value)}
-            />
-          </label>
-        </span>
-      ) : null}
+              <span className="color-picker-spectrum-row">
+                <span
+                  className="color-picker-spectrum"
+                  style={{ backgroundColor: hueColor }}
+                  onPointerDown={setSaturationValueFromPointer}
+                  onPointerMove={(event) => {
+                    if (event.buttons === 1) {
+                      setSaturationValueFromPointer(event);
+                    }
+                  }}
+                >
+                  <span
+                    className="color-picker-spectrum-handle"
+                    style={{
+                      left: `${hsvValue.saturation * 100}%`,
+                      top: `${(1 - hsvValue.value) * 100}%`,
+                    }}
+                  />
+                </span>
+                <label className="color-picker-hue-field">
+                  <span>Hue</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={359}
+                    step={1}
+                    value={Math.round(hsvValue.hue)}
+                    onChange={(event) => setHue(Number(event.target.value))}
+                    aria-label="Color hue"
+                  />
+                </label>
+              </span>
+              <span className="color-picker-preview-row">
+                <span className="color-picker-preview" style={{ backgroundColor: hexValue }} />
+                <span className="color-picker-rgb-value">RGB {rgbValues.join(' ')}</span>
+              </span>
+              <label className="color-picker-hex-field">
+                <span>Hex</span>
+                <input
+                  className="text-field"
+                  value={hexValue.toUpperCase()}
+                  onChange={(event) => setHex(event.target.value)}
+                />
+              </label>
+            </span>,
+            document.body,
+          )
+        : null}
     </span>
   );
 }

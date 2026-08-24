@@ -316,6 +316,9 @@ function GlslCodeEditor({
         value={value}
         spellCheck={false}
         autoFocus={autoFocus}
+        wrap="off"
+        autoCapitalize="off"
+        autoCorrect="off"
         onScroll={handleScroll}
         onChange={(event) => onChange(event.target.value)}
       />
