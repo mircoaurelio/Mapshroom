@@ -1531,6 +1531,7 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
     const shaderLastValidUniformValues =
       'lastValidUniformValues' in shader ? shader.lastValidUniformValues : undefined;
     const shaderCompileError = 'compileError' in shader ? shader.compileError : undefined;
+    const shaderInputAssetId = 'inputAssetId' in shader ? shader.inputAssetId : undefined;
     const defaultPreset = DEFAULT_SHADERS[shader.id];
     const normalizedName = defaultPreset?.name ?? shader.name;
     const normalizedCode = normalizeOfficialShaderBody(shader.code);
@@ -1607,9 +1608,9 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
           ? Boolean(shader.hasUnreadAiResult)
           : false,
       compileError: defaultPreset ? undefined : shaderCompileError?.trim() ? shaderCompileError : undefined,
-      inputAssetId: shader.inputAssetId
-        ? resolveLiveBundledAssetId(shader.inputAssetId)
-        : shader.inputAssetId,
+      inputAssetId: shaderInputAssetId
+        ? resolveLiveBundledAssetId(shaderInputAssetId)
+        : shaderInputAssetId,
     };
     const existingIndex = collection.findIndex((item) => item.id === normalizedShader.id);
     if (existingIndex >= 0) {
