@@ -341,6 +341,14 @@ export function WorkspaceToolbar({
             onOpenProBeta={onOpenProBeta}
           />
 
+          <button
+            type="button"
+            className="secondary-button toolbar-menu-button"
+            onClick={onOpenProjects}
+          >
+            Project
+          </button>
+
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
             <button
               type="button"
