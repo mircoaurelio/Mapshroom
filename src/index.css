@@ -3079,11 +3079,9 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .audio-reactive-startup-copy > small {
-  overflow: hidden;
   color: var(--text-dim);
   font-size: 0.5rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
 }
 
 .audio-reactive-startup-code {

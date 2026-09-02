@@ -331,7 +331,7 @@ function AudioSignalVisualizer({
             </strong>
             <small>
               {source === 'system'
-                ? 'The Windows share dialog will appear shortly'
+                ? 'Choose Window, not Browser tab, and enable Share audio to keep the sharing bar out of Output'
                 : 'Waiting for microphone permission'}
             </small>
           </span>
@@ -723,8 +723,8 @@ export function AudioReactivePanelControls({
 
       {preferences.source === 'system' && !isListening ? (
         <p className="audio-reactive-hint">
-          Share a music tab, a window, or Entire Screen and enable Share audio.
-          Avoid sharing Mapshroom itself so Output stays clean.
+          Choose Window and share the whole browser window, not a Browser tab.
+          Enable Share audio to keep the sharing bar out of Output.
         </p>
       ) : null}
       {controller.errorMessage ? (
