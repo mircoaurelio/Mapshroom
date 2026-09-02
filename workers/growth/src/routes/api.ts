@@ -420,7 +420,7 @@ async function handleDownloadGrant(request: Request, env: GrowthEnv): Promise<Re
     return errorJson(400, 'invalid_grant', 'This download link expired. Request a new one.');
   }
 
-  const objectKey = (env.DESKTOP_OBJECT_KEY || 'Mapshroom_3.0.0_x64-setup.exe').trim();
+  const objectKey = (env.DESKTOP_OBJECT_KEY || 'Mapshroom_3.0.1_x64-setup.exe').trim();
   if (env.DESKTOP_BUCKET) {
     const object = await env.DESKTOP_BUCKET.get(objectKey);
     if (!object) {

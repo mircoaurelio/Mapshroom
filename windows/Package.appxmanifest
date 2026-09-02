@@ -11,7 +11,7 @@
   <Identity
     Name="mapshroom.mapshroom"
     Publisher="CN=F9E069E3-AF42-4141-BF2D-CF97EAB366D4"
-    Version="3.0.0.0" />
+    Version="3.0.1.0" />
   <Properties>
     <DisplayName>Mapshroom</DisplayName>
     <PublisherDisplayName>mapshroom</PublisherDisplayName>

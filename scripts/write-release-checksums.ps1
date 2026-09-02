@@ -9,8 +9,8 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 $files = @(
   (Join-Path $Release "mapshroom.exe"),
-  (Join-Path $Release "bundle\nsis\Mapshroom_3.0.0_x64-setup.exe"),
-  (Join-Path $Release "bundle\msi\Mapshroom_3.0.0_x64_en-US.msi")
+  (Join-Path $Release "bundle\nsis\Mapshroom_3.0.1_x64-setup.exe"),
+  (Join-Path $Release "bundle\msi\Mapshroom_3.0.1_x64_en-US.msi")
 ) | Where-Object { Test-Path $_ }
 
 if (-not $files) {

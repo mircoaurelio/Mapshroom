@@ -1,6 +1,6 @@
 [package]
 name = "mapshroom"
-version = "3.0.0"
+version = "3.0.1"
 description = "Mapshroom"
 authors = ["Mapshroom"]
 edition = "2021"
