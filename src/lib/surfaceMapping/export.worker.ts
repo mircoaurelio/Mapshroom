@@ -1,5 +1,4 @@
-import { exportLighting } from './lighting.js';
-import { exportRaster } from './algorithms.js';
+import { refineSurfaces, renderRefined } from './refinement.js';
 import type { LightingOptions, SurfaceOutput, SurfaceResult } from './types';
 
 self.onmessage = async ({ data }: MessageEvent<{
@@ -16,15 +15,8 @@ self.onmessage = async ({ data }: MessageEvent<{
     if (!context) throw new Error('The image canvas is unavailable.');
     context.drawImage(bitmap, 0, 0);
     const original = context.getImageData(0, 0, width, height).data;
-    const pixels = data.output === 'gradient' || data.output === 'field'
-      ? exportLighting(data.result, data.rgba, width, height, original, data.lighting, data.output === 'field')
-      : exportRaster(data.result, width, height, data.output === 'regions' ? 'palette' : data.output, data.selected);
-    // Keep all outputs inside the original silhouette, including full-size zone masks.
-    for (let i = 0; i < pixels.length; i += 4) {
-      if (original[i + 3] <= 127 || (data.lighting.black && Math.max(original[i], original[i + 1], original[i + 2]) <= data.lighting.black)) {
-        pixels[i] = pixels[i + 1] = pixels[i + 2] = 0;
-      }
-    }
+    const refined = refineSurfaces(data.result, data.rgba, width, height, original, data.lighting.black);
+    const pixels = renderRefined(data.result, data.rgba, refined, original, data.lighting, data.output, data.selected);
     context.putImageData(new ImageData(pixels, width, height), 0, 0);
     const blob = await canvas.convertToBlob({ type: 'image/png' });
     self.postMessage({ blob });

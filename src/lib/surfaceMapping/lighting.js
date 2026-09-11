@@ -57,14 +57,17 @@ export function renderLighting(result, rgba, options = {}, overlay = false, sele
   return out;
 }
 
-export function exportLighting(result, rgba, width, height, nativeRgba, options = {}, fieldOnly = false) {
+export function exportLighting(result, rgba, width, height, nativeRgba, options = {}, fieldOnly = false, refined) {
   if (width * height > 24e6) throw new Error('Esportazione limitata a 24 MP.');
-  const { values, alpha } = lightingFields(result, rgba, options), out = new Uint8ClampedArray(width * height * 4);
+  // Reconstruct the smooth field first, then apply texture from the ORIGINAL pixels.
+  // Upscaling already-textured analysis pixels would discard all high-frequency detail.
+  const { values, alpha } = lightingFields(result, rgba, { ...options, texture: 0 }), out = new Uint8ClampedArray(width * height * 4);
+  const texture = (options.texture ?? 10) / 100;
   const { labels, width: w, height: h } = result;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     const o = (y * width + x) * 4; out[o + 3] = 255;
-    const near = Math.min(h - 1, Math.floor(y * h / height)) * w + Math.min(w - 1, Math.floor(x * w / width)), id = labels[near];
-    if (!id || nativeRgba[o + 3] <= 127 || (options.black && Math.max(nativeRgba[o], nativeRgba[o + 1], nativeRgba[o + 2]) <= options.black)) continue;
+    const near = Math.min(h - 1, Math.floor(y * h / height)) * w + Math.min(w - 1, Math.floor(x * w / width)), id = refined ? refined.labels[y * width + x] : labels[near];
+    if (!id || !nativeRgba[o + 3] || (options.black && Math.max(nativeRgba[o], nativeRgba[o + 1], nativeRgba[o + 2]) <= options.black)) continue;
     const fx = Math.max(0, Math.min(w - 1, (x + .5) * w / width - .5)), fy = Math.max(0, Math.min(h - 1, (y + .5) * h / height - .5));
     const xx = Math.floor(fx), yy = Math.floor(fy), tx = fx - xx, ty = fy - yy;
     let value = 0, a = 0, total = 0;
@@ -73,9 +76,22 @@ export function exportLighting(result, rgba, width, height, nativeRgba, options 
       if (labels[p] !== id) continue;
       value += values[p] * weight; a += alpha[p] * weight; total += weight;
     }
-    if (!total) { value = values[near]; a = alpha[near]; total = 1; }
-    const color = fieldOnly ? [value / total * 255, value / total * 255, value / total * 255] : colorRamp(value / total, options.palette);
-    for (let c = 0; c < 3; c++) out[o + c] = color[c] * a / total;
+    if (!total) {
+      // A refined contour can move past the four bilinear taps. Find a tap with
+      // the SAME ID in the refinement footprint, never borrow a neighbor's light.
+      let nearest = -1, distance = Infinity;
+      for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) {
+        const px = Math.max(0, Math.min(w - 1, xx + dx)), py = Math.max(0, Math.min(h - 1, yy + dy)), p = py * w + px;
+        const d = (px - fx) ** 2 + (py - fy) ** 2;
+        if (labels[p] === id && d < distance) { nearest = p; distance = d; }
+      }
+      if (nearest < 0) continue;
+      value = values[nearest]; a = alpha[nearest]; total = 1;
+    }
+    const luminance = (.299 * nativeRgba[o] + .587 * nativeRgba[o + 1] + .114 * nativeRgba[o + 2]) / 255;
+    const shade = clamp(value / total + texture * (luminance - .4));
+    const color = fieldOnly ? [shade * 255, shade * 255, shade * 255] : colorRamp(shade, options.palette);
+    for (let c = 0; c < 3; c++) out[o + c] = color[c] * a / total * nativeRgba[o + 3] / 255;
   }
   return out;
 }

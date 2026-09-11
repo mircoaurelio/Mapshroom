@@ -13,9 +13,9 @@ interface Props {
   onClose: () => void;
 }
 interface Source { bitmap: ImageBitmap; blob: Blob }
-interface Analysis { result: SurfaceResult; rgba: Uint8ClampedArray<ArrayBuffer>; milliseconds: number }
-const defaults: SurfaceSettings = { zones: 12, smoothing: 65, black: 8, resolution: 640 };
-const initialLighting: LightingOptions = { style: 'radial', palette: 'thermal', angle: 90, texture: 10, feather: 1 };
+interface Analysis { result: SurfaceResult; rgba: Uint8ClampedArray<ArrayBuffer>; milliseconds: number; black: number }
+const defaults: SurfaceSettings = { zones: 12, smoothing: 65, black: 8, resolution: 960 };
+const initialLighting: LightingOptions = { style: 'radial', palette: 'thermal', angle: 90, texture: 100, feather: 1 };
 const methods: { id: SurfaceMethod; title: string; description: string }[] = [
   { id: 'shape', title: 'Shape', description: 'Leaves & isolated objects' },
   { id: 'graph', title: 'Color', description: 'Stages & patterned surfaces' },
@@ -36,6 +36,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
   const canvas = useRef<HTMLCanvasElement>(null);
   const exportWorker = useRef<Worker | null>(null);
   const previewQueue = useRef<ReturnType<typeof createPreviewQueue> | null>(null);
+  const previewZones = useRef<Pick<SurfaceResult, 'labels' | 'width' | 'height'> | null>(null);
   const alive = useRef(true);
   const savingRef = useRef(false);
   const closeRef = useRef(onClose);
@@ -56,6 +57,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
   const [retry, setRetry] = useState(0);
   const [previewPending, setPreviewPending] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  const [precisionOpen, setPrecisionOpen] = useState(true);
 
   useEffect(() => {
     alive.current = true;
@@ -115,6 +117,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
         scratch.width = width; scratch.height = height;
         const context = scratch.getContext('2d', { willReadFrequently: true });
         if (!context) throw new Error('Your browser could not prepare the preview.');
+        context.imageSmoothingQuality = 'high';
         context.drawImage(source.bitmap, 0, 0, width, height);
         const rgba = context.getImageData(0, 0, width, height).data;
         worker = new Worker(new URL('../lib/surfaceMapping/analysis.worker.js', import.meta.url), { type: 'module' });
@@ -123,7 +126,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
           if (data.type === 'progress') setStatus('Preparing the optional CNN and finding edges…');
           if (data.type === 'result') {
             const result = data.result as SurfaceResult;
-            setAnalysis({ result, rgba, milliseconds: data.metrics.analysisMs + data.metrics.inferenceMs });
+            setAnalysis({ result, rgba, milliseconds: data.metrics.analysisMs + data.metrics.inferenceMs, black: settings.black });
             setBusy(false);
             setStatus(result.count ? `${result.count} zones ready` : 'No subject found. Lower “Ignore dark background” or try another image.');
           }
@@ -146,7 +149,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
   }, [source, settings, method, retry]);
 
   useEffect(() => {
-    if (!analysis || !canvas.current) return;
+    if (!analysis || !source || !canvas.current) return;
     let worker: Worker;
     try {
       worker = new Worker(new URL('../lib/surfaceMapping/preview.worker.ts', import.meta.url), { type: 'module' });
@@ -162,15 +165,18 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
       context.putImageData(new ImageData(message.pixels, message.width, message.height), 0, 0);
     });
     previewQueue.current = queue;
-    worker.onmessage = ({ data }) => queue.complete(data);
+    worker.onmessage = ({ data }) => {
+      if (data.type === 'ready') previewZones.current = data;
+      else queue.complete(data);
+    };
     worker.onerror = event => {
       event.preventDefault(); queue.dispose(); previewQueue.current = null;
       setPreviewPending(false); setPreviewError('The preview stopped. Close and reopen this editor.');
     };
     // Send the source once per analysis. Dropdown changes send only their small settings object.
-    worker.postMessage({ type: 'source', result: analysis.result, rgba: analysis.rgba });
-    return () => { queue.dispose(); previewQueue.current = null; worker.terminate(); };
-  }, [analysis]);
+    worker.postMessage({ type: 'source', source: source.blob, result: analysis.result, rgba: analysis.rgba, black: analysis.black });
+    return () => { queue.dispose(); previewQueue.current = null; previewZones.current = null; worker.terminate(); };
+  }, [analysis, source]);
 
   useEffect(() => {
     if (!previewQueue.current) return;
@@ -238,8 +244,8 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
             <div className={`surface-preview-stage${busy ? ' is-processing' : ''}`} aria-busy={(busy || previewPending) && !missing && !error && !previewError}>
               <canvas ref={canvas} aria-label={original ? 'Original image' : `${output} preview. Select a zone using the menu below.`}
                 onClick={event => {
-                  if (!analysis || busy || saving || original) return;
-                  const bounds = event.currentTarget.getBoundingClientRect(), result = analysis.result;
+                  if (!previewZones.current || busy || previewPending || saving || original) return;
+                  const bounds = event.currentTarget.getBoundingClientRect(), result = previewZones.current;
                   const scale = Math.min(bounds.width / result.width, bounds.height / result.height);
                   const x = Math.floor((event.clientX - bounds.left - (bounds.width - result.width * scale) / 2) / scale);
                   const y = Math.floor((event.clientY - bounds.top - (bounds.height - result.height * scale) / 2) / scale);
@@ -251,6 +257,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
               {!analysis && !error && !missing && <span className="surface-preview-placeholder">{status}</span>}
               {original && <span className="surface-preview-badge">Original</span>}
               {busy && analysis && !error && <span className="surface-preview-badge">Updating surfaces…</span>}
+              {!busy && previewPending && !original && <span className="surface-preview-badge">Refining preview…</span>}
             </div>
             <div className="surface-preview-info">
               <span>{analysis ? `${analysis.result.count} zones · ${Math.round(analysis.milliseconds)} ms` : 'Automatic surface detection'}</span>
@@ -277,12 +284,13 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
               <Slider label="Photo texture" max={100} unit="%" value={lighting.texture} onChange={texture => updateLighting({ texture })} />
               <Slider label="Soften zone edges" max={10} value={lighting.feather} onChange={feather => updateLighting({ feather })} />
             </fieldset>
-            <details className="surface-advanced"><summary>Image & precision</summary><fieldset disabled={saving}>
+            <details className="surface-advanced" open={precisionOpen} onToggle={event => setPrecisionOpen(event.currentTarget.open)}><summary>Image & precision</summary><fieldset disabled={saving}>
               <AppSelect label="Analysis resolution" value={settings.resolution} disabled={saving} onChange={resolution => updateSettings({ resolution })} options={[{ value: 384, label: 'Fast · 384 px' }, { value: 640, label: 'Balanced · 640 px' }, { value: 960, label: 'Detailed · 960 px' }]} />
               <Slider label="Ignore dark background" max={64} value={settings.black} onChange={black => updateSettings({ black })} />
               <p>Best with an isolated subject on black or transparency. Use Remove background first for a busy scene.</p>
-              <p>PNG output: {source ? `${source.bitmap.width} × ${source.bitmap.height} px` : 'original size'}. Boundaries are estimated at the analysis resolution. These are surface proposals, not guaranteed object outlines.</p>
-              <button type="button" className="ghost-button" onClick={() => { setSettings(defaults); setLighting(initialLighting); setMethod('shape'); setOutput('gradient'); setOriginal(false); }}>Reset settings</button>
+              <p>Original-photo refinement is always on: sharper contours and photo detail, with no extra download.</p>
+              <p>PNG output: {source ? `${source.bitmap.width} × ${source.bitmap.height} px` : 'original size'}. Preview up to 2048 px; export uses the full-size photo. Zones are automatic estimates, not guaranteed object outlines.</p>
+              <button type="button" className="ghost-button" onClick={() => { setSettings(defaults); setLighting(initialLighting); setPrecisionOpen(true); setMethod('shape'); setOutput('gradient'); setOriginal(false); }}>Reset settings</button>
             </fieldset></details>
           </aside>
         </div>
