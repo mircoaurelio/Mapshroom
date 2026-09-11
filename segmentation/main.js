@@ -355,7 +355,12 @@ async function segment() {
   elements.busyDetail.textContent = 'First time is slower while the browser learns the spell. Later runs feel snappier.';
   elements.progress.style.width = '3%';
   elements.segment.disabled = true;
-  notifyMapshroom('processing', 'First load can be slow — then masking gets quicker.');
+  elements.generateDepth.disabled = true;
+  elements.generateDepth.setAttribute('aria-busy', 'true');
+  elements.generateDepth.querySelector('strong').textContent = 'Removing background first…';
+  notifyMapshroom('processing', embeddedStartPanel === 'depth'
+    ? 'Step 1 of 2: Removing the background. The depth map comes next.'
+    : 'First load can be slow — then masking gets quicker.');
   await runSegmentation(selectedDevice());
 }
 
@@ -430,11 +435,17 @@ worker.onmessage = ({ data }) => {
     setExportDisabled(false);
     elements.refine.classList.remove('disabled-panel');
     busy = false;
-    showToast('Artwork isolated. Refine the edge or export the PNG.');
-    notifyMapshroom('ready', 'Background removed. Refine the mask or use the asset.');
+    setDepthGenerating(false);
+    elements.depthStatus.textContent = 'Background removed. Step 2: click Generate depth map.';
+    const message = embeddedStartPanel === 'depth'
+      ? 'Background removed. Next, click Generate depth map.'
+      : 'Background removed. Refine the mask or use the asset.';
+    showToast(message);
+    notifyMapshroom('ready', message);
   }
   if (data.type === 'error') {
     busy = false;
+    setDepthGenerating(false);
     elements.busy.classList.add('hidden');
     if (data.job === 'sam') {
       elements.wandConfirm.disabled = wandPoints.length === 0;

@@ -33,6 +33,8 @@ export function AssetSegmentationDialog({
   const [statusMessage, setStatusMessage] = useState('Opening Mask Studio…');
   const [resultKind, setResultKind] = useState<'mask' | 'draw' | 'depth'>('mask');
   const [depthSaved, setDepthSaved] = useState(false);
+  const [confirmedDepthAssetId, setConfirmedDepthAssetId] = useState<string | null>(null);
+  const needsDepthConfirmation = Boolean(asset && initialPanel === 'depth' && confirmedDepthAssetId !== asset.id);
 
   useEffect(() => {
     onApplyRef.current = onApply;
@@ -40,13 +42,14 @@ export function AssetSegmentationDialog({
 
   useEffect(() => {
     if (!asset) {
+      setConfirmedDepthAssetId(null);
       editorReadyRef.current = false;
       sentAssetKeyRef.current = '';
       sendingAssetKeyRef.current = '';
       sendAssetRef.current = null;
       return undefined;
     }
-    if (!assetUrl) return undefined;
+    if (!assetUrl || needsDepthConfirmation) return undefined;
 
     const assetKey = `${asset.id}:${asset.size}:${asset.lastModified}`;
     let disposed = false;
@@ -147,9 +150,60 @@ export function AssetSegmentationDialog({
       window.removeEventListener('message', receiveMessage);
       if (sendAssetRef.current === sendAsset) sendAssetRef.current = null;
     };
-  }, [asset, assetUrl]);
+  }, [asset, assetUrl, needsDepthConfirmation]);
 
   if (!asset) return null;
+
+  if (needsDepthConfirmation) {
+    return (
+      <div className="dialog-backdrop asset-segmentation-backdrop" role="presentation">
+        <section
+          className="dialog-panel asset-segmentation-dialog asset-depth-preparation-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="depth-preparation-title"
+          aria-describedby="depth-preparation-copy"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              onClose();
+            } else if (event.key === 'Tab') {
+              const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button');
+              const first = buttons[0];
+              const last = buttons[buttons.length - 1];
+              if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last?.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first?.focus();
+              }
+            }
+          }}
+        >
+          <header className="dialog-header asset-segmentation-header">
+            <div>
+              <span className="panel-eyebrow">Create depth map</span>
+              <h2 id="depth-preparation-title" className="dialog-title">Remove the background first?</h2>
+              <small>{asset.name}</small>
+            </div>
+          </header>
+          <div className="asset-depth-preparation-body">
+            <p id="depth-preparation-copy">Depth maps need an isolated subject. Confirm to start background removal, then generate your depth map in the next step.</p>
+            <ol className="asset-depth-preparation-steps">
+              <li><strong>Remove the background</strong><span>We’ll prepare your image first. This can take a moment.</span></li>
+              <li><strong>Generate the depth map</strong><span>When removal finishes, click “Generate depth map”. The result saves to your media library automatically.</span></li>
+            </ol>
+            <p className="asset-depth-preparation-original">Your original image stays in the library.</p>
+          </div>
+          <footer className="dialog-footer asset-depth-preparation-actions">
+            <button type="button" className="ghost-button" autoFocus onClick={onClose}>Cancel</button>
+            <button type="button" className="primary-button" onClick={() => setConfirmedDepthAssetId(asset.id)}>Remove background first</button>
+          </footer>
+        </section>
+      </div>
+    );
+  }
 
   const applyMask = () => {
     setEditorStatus('processing');
@@ -171,7 +225,7 @@ export function AssetSegmentationDialog({
         <header className="dialog-header asset-segmentation-header">
           <div>
             <span className="panel-eyebrow">Media library</span>
-            <h2 id="asset-segmentation-title" className="dialog-title">Mask editor</h2>
+            <h2 id="asset-segmentation-title" className="dialog-title">{initialPanel === 'depth' ? 'Depth map editor' : 'Mask editor'}</h2>
             <small>{asset.name}</small>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>Close</button>
