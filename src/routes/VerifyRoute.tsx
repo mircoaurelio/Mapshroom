@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   growthConfirmVerify,
-  growthIssueDownloadGrant,
+  growthSession,
   growthPeekVerify,
 } from '../lib/growthApi';
 import { growthCopy } from '../lib/growthCopy';
 import { resolveAppLocale } from '../lib/privacyCopy';
 import { identifyGrowthUser, track } from '../lib/analytics';
+import { WindowsDownloadButton } from '../components/WindowsDownloadButton';
 
 type VerifyStatus = 'loading' | 'ready' | 'invalid' | 'expired' | 'consumed' | 'verified';
 
@@ -18,7 +19,7 @@ export function VerifyRoute() {
   const copy = growthCopy(locale);
   const [status, setStatus] = useState<VerifyStatus>(() => (token ? 'loading' : 'invalid'));
   const [busy, setBusy] = useState(false);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadGrant, setDownloadGrant] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,20 +28,32 @@ export function VerifyRoute() {
   }, []);
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
     let cancelled = false;
-    void growthPeekVerify(token).then((result) => {
+    void (async () => {
+      const result = token ? await growthPeekVerify(token) : null;
+      if (cancelled) return;
+      // A fresh link can verify a different address even if a session exists.
+      if (result?.ok && result.data.status === 'ready') {
+        setStatus('ready');
+        return;
+      }
+      const session = await growthSession();
+      if (cancelled) return;
+      if (session.ok && session.data.user?.verified) {
+        setStatus('verified');
+        return;
+      }
       if (cancelled) {
         return;
       }
-      if (!result.ok) {
+      if (!result?.ok) {
         setStatus('invalid');
         return;
       }
       setStatus(result.data.status);
       track('email_verify_viewed', { status: result.data.status });
+    })().catch(() => {
+      if (!cancelled) { setStatus('invalid'); setError('Unable to check this link. Please try again.'); }
     });
     return () => {
       cancelled = true;
@@ -50,7 +63,14 @@ export function VerifyRoute() {
   const handleConfirm = async () => {
     setBusy(true);
     setError(null);
-    const result = await growthConfirmVerify(token);
+    let result;
+    try {
+      result = await growthConfirmVerify(token);
+    } catch {
+      setBusy(false);
+      setError('Unable to verify right now. Please try again.');
+      return;
+    }
     setBusy(false);
     if (!result.ok) {
       setError(result.error.message);
@@ -63,13 +83,8 @@ export function VerifyRoute() {
     });
     setStatus('verified');
     if (result.data.downloadGrant) {
-      setDownloadUrl(`/api/download?grant=${encodeURIComponent(result.data.downloadGrant)}`);
+      setDownloadGrant(result.data.downloadGrant);
       track('download_ready', { source: result.data.user.source });
-    } else if (result.data.user.verified) {
-      const grant = await growthIssueDownloadGrant();
-      if (grant.ok) {
-        setDownloadUrl(grant.data.downloadUrl);
-      }
     }
   };
 
@@ -111,17 +126,9 @@ export function VerifyRoute() {
             </button>
           ) : null}
 
-          {status === 'verified' && downloadUrl ? (
-            <a
-              className="primary-button primary-button-hero download-install-button"
-              href={downloadUrl}
-              onClick={() => track('download_clicked', { surface: 'verify_page' })}
-            >
-              {copy.downloadCta}
-            </a>
-          ) : null}
+          {status === 'verified' ? <WindowsDownloadButton initialGrant={downloadGrant} /> : null}
 
-          {status === 'expired' || status === 'invalid' ? (
+          {status === 'expired' || status === 'invalid' || status === 'consumed' ? (
             <Link to="/download" className="secondary-button">
               Back to download
             </Link>

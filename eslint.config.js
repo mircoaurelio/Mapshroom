@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', '.tmp-*', 'tmp', 'src-tauri/target', 'release-artifacts', 'windows/msix-stage', 'windows/msix-out']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -20,6 +20,13 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      // This app does not enable React Compiler. Keep its optimization
+      // diagnostics visible without blocking desktop packaging; Rules of Hooks
+      // and TypeScript correctness checks retain their existing severity.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/purity': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {

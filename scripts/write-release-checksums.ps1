@@ -5,12 +5,13 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Release = Join-Path $Root "src-tauri\target\release"
 $OutDir = Join-Path $Root "release-artifacts"
+$Version = (Get-Content (Join-Path $Root "package.json") -Raw | ConvertFrom-Json).version
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 $files = @(
   (Join-Path $Release "mapshroom.exe"),
-  (Join-Path $Release "bundle\nsis\Mapshroom_3.0.1_x64-setup.exe"),
-  (Join-Path $Release "bundle\msi\Mapshroom_3.0.1_x64_en-US.msi")
+  (Join-Path $Release "bundle\nsis\Mapshroom_${Version}_x64-setup.exe"),
+  (Join-Path $Release "bundle\msi\Mapshroom_${Version}_x64_en-US.msi")
 ) | Where-Object { Test-Path $_ }
 
 if (-not $files) {

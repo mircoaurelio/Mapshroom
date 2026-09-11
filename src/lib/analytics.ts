@@ -105,7 +105,7 @@ function baseEventProperties(): Record<string, string | number | boolean | null>
   const utm = readStoredUtm();
   return {
     surface: detectSurface(),
-    app_version: '3.0.1',
+    app_version: '3.0.2',
     locale: typeof navigator !== 'undefined' ? navigator.language || 'en' : 'en',
     utm_source: utm.utm_source ?? null,
     utm_medium: utm.utm_medium ?? null,

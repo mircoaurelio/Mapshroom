@@ -52,7 +52,7 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
       rating,
       message,
       email: email || undefined,
-      appVersion: '3.0.1',
+      appVersion: '3.0.2',
       surface,
       route: window.location.hash || '#/',
       turnstileToken: token || undefined,

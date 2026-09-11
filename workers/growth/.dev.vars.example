@@ -11,6 +11,6 @@ DAILY_EMAIL_BUDGET=300
 BREVO_SENDER_EMAIL=download@mapshroom.dev
 BREVO_SENDER_NAME=Mapshroom
 BREVO_REPLY_TO=download@mapshroom.dev
-DESKTOP_OBJECT_KEY=Mapshroom_3.0.1_x64-setup.exe
+DESKTOP_OBJECT_KEY=Mapshroom_3.0.2_x64-setup.exe
 # Optional fallback if R2 binding is unavailable locally:
-# DESKTOP_DOWNLOAD_URL=https://example.com/Mapshroom_3.0.1_x64-setup.exe
+# DESKTOP_DOWNLOAD_URL=https://example.com/Mapshroom_3.0.2_x64-setup.exe

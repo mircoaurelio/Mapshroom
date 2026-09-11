@@ -5,6 +5,8 @@ import { EmailCaptureForm } from '../components/EmailCaptureForm';
 import { getAnalyticsConsent, track, trackAppOpen, trackUiClick } from '../lib/analytics';
 import { growthCopy } from '../lib/growthCopy';
 import { resolveAppLocale } from '../lib/privacyCopy';
+import { growthSession } from '../lib/growthApi';
+import { WindowsDownloadButton } from '../components/WindowsDownloadButton';
 
 type InstallPlatform = 'ios' | 'android' | 'desktop';
 type DesktopStep = 'cta' | 'email';
@@ -24,8 +26,17 @@ export function DownloadRoute() {
   const locale = useMemo(() => resolveAppLocale(), []);
   const copy = growthCopy(locale);
   const [desktopStep, setDesktopStep] = useState<DesktopStep>('cta');
+  const [verified, setVerified] = useState(false);
   const platform = detectPlatform();
   const isDesktop = platform === 'desktop';
+
+  useEffect(() => {
+    let cancelled = false;
+    void growthSession().then((result) => {
+      if (!cancelled) setVerified(result.ok && Boolean(result.data.user?.verified));
+    }).catch(() => { /* The email form remains available if the session check fails. */ });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('download-page-active');
@@ -60,7 +71,12 @@ export function DownloadRoute() {
 
         {isDesktop ? (
           <section className="download-actions growth-download-block" aria-label="Windows desktop beta">
-            {desktopStep === 'cta' ? (
+            {verified ? (
+              <>
+                <WindowsDownloadButton />
+                <Link to="/" className="ghost-button download-secondary-link">{copy.stayOnline}</Link>
+              </>
+            ) : desktopStep === 'cta' ? (
               <>
                 <button
                   type="button"
@@ -86,6 +102,9 @@ export function DownloadRoute() {
                 </button>
               </>
             )}
+            <p className="helper-copy">{locale === 'it'
+              ? 'Windows 10/11 · 64 bit. Beta non ancora firmata: Windows potrebbe mostrare un avviso sullo sviluppatore.'
+              : 'Windows 10/11 · 64 bit. This beta is not yet code-signed, so Windows may show a publisher warning.'}</p>
           </section>
         ) : (
           <section className="download-actions" aria-label="Open Mapshroom">

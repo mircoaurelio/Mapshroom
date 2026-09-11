@@ -6,6 +6,7 @@ import { enqueueEmail, processOutbox, syncBrevoMarketingContact } from '../lib/b
 import { templateForSource } from '../lib/emailTemplates';
 import { consumeRateLimit } from '../lib/rateLimit';
 import { verifyTurnstile } from '../lib/turnstile';
+import { desktopDownload } from '../lib/desktopDownload';
 import {
   asBool,
   clampText,
@@ -15,7 +16,8 @@ import {
   parseUtm,
 } from '../lib/validation';
 import {
-  consumeDownloadGrant,
+  readDownloadGrant,
+  recordDownload,
   consumeToken,
   findUserByEmail,
   findUserById,
@@ -403,7 +405,7 @@ async function handleFeedback(request: Request, env: GrowthEnv): Promise<Respons
 async function handleDownloadGrant(request: Request, env: GrowthEnv): Promise<Response> {
   const url = new URL(request.url);
   const grant = url.searchParams.get('grant');
-  if (!grant) {
+  if (url.pathname === '/api/download-grant') {
     const user = await currentUser(env, request);
     if (!user?.verified_at) {
       return errorJson(401, 'unauthorized', 'Verify your email before downloading.');
@@ -415,32 +417,18 @@ async function handleDownloadGrant(request: Request, env: GrowthEnv): Promise<Re
     });
   }
 
-  const user = await consumeDownloadGrant(env, grant);
-  if (!user) {
+  const user = (grant ? await readDownloadGrant(env, grant) : null) ?? await currentUser(env, request);
+  if (!user?.verified_at) {
     return errorJson(400, 'invalid_grant', 'This download link expired. Request a new one.');
   }
 
-  const objectKey = (env.DESKTOP_OBJECT_KEY || 'Mapshroom_3.0.1_x64-setup.exe').trim();
+  const objectKey = (env.DESKTOP_OBJECT_KEY || 'Mapshroom_3.0.2_x64-setup.exe').trim();
   if (env.DESKTOP_BUCKET) {
-    const object = await env.DESKTOP_BUCKET.get(objectKey);
-    if (!object) {
-      return errorJson(503, 'download_unavailable', 'Desktop installer is missing from storage.');
+    const response = await desktopDownload(request, env.DESKTOP_BUCKET, objectKey);
+    if (response.ok && request.method === 'GET') {
+      await recordDownload(env, user.id, grant);
     }
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set(
-      'Content-Type',
-      object.httpMetadata?.contentType || 'application/octet-stream',
-    );
-    headers.set(
-      'Content-Disposition',
-      `attachment; filename="${objectKey.includes('/') ? objectKey.split('/').pop() : objectKey}"`,
-    );
-    headers.set('Cache-Control', 'no-store');
-    if (object.httpEtag) {
-      headers.set('ETag', object.httpEtag);
-    }
-    return new Response(object.body, { status: 200, headers });
+    return response;
   }
 
   if (env.DESKTOP_DOWNLOAD_URL) {
@@ -582,7 +570,8 @@ export async function handleApiRequest(request: Request, env: GrowthEnv): Promis
   if (path === '/api/feedback' && request.method === 'POST') {
     return handleFeedback(request, env);
   }
-  if ((path === '/api/download' || path === '/api/download-grant') && request.method === 'GET') {
+  if ((path === '/api/download' && (request.method === 'GET' || request.method === 'HEAD')) ||
+      (path === '/api/download-grant' && request.method === 'GET')) {
     return handleDownloadGrant(request, env);
   }
   if (path === '/api/admin/users' && request.method === 'GET') {

@@ -1,6 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+test('production signup has its public Turnstile key even without build environment variables', async () => {
+  const { getTurnstileSiteKey } = await import('../src/lib/growthApi.ts');
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  try {
+    for (const hostname of ['mapshroom.dev', 'www.mapshroom.dev']) {
+      Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { hostname } } });
+      assert.equal(getTurnstileSiteKey(), '0x4AAAAAAEXkG-2KML7X6LiW');
+    }
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: { location: { hostname: 'localhost' } } });
+    assert.equal(getTurnstileSiteKey(), '');
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'window', original);
+    else Reflect.deleteProperty(globalThis, 'window');
+  }
+});
+
 test('growth API helpers export expected client surface', async () => {
   const api = await import('../src/lib/growthApi.ts');
   assert.equal(typeof api.growthSignup, 'function');

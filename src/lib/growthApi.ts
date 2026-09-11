@@ -185,5 +185,10 @@ export function readUtmFromLocation(search = window.location.search): {
 }
 
 export function getTurnstileSiteKey(): string {
-  return (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim() || '';
+  const configured = (import.meta.env?.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim();
+  if (configured) return configured;
+  // This is a public widget identifier, not the server secret. Keep production
+  // signup working when a GitHub/Cloudflare build has no local .env file.
+  return typeof window !== 'undefined' && /(^|\.)mapshroom\.dev$/.test(window.location.hostname)
+    ? '0x4AAAAAAEXkG-2KML7X6LiW' : '';
 }

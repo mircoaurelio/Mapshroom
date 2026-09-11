@@ -266,7 +266,7 @@ export async function issueDownloadGrant(env: GrowthEnv, userId: string): Promis
   return raw;
 }
 
-export async function consumeDownloadGrant(
+export async function readDownloadGrant(
   env: GrowthEnv,
   rawToken: string,
 ): Promise<UserRow | null> {
@@ -276,19 +276,25 @@ export async function consumeDownloadGrant(
   )
     .bind(tokenHash)
     .first<{ user_id: string; expires_at: string; consumed_at: string | null }>();
-  if (!row || row.consumed_at || new Date(row.expires_at).getTime() <= Date.now()) {
+  // A download manager may retry or request another byte range. The same grant
+  // remains valid until expiry; consumed_at records the first successful start.
+  if (!row || new Date(row.expires_at).getTime() <= Date.now()) {
     return null;
   }
+  const user = await findUserById(env, row.user_id);
+  return user?.verified_at ? user : null;
+}
+
+export async function recordDownload(env: GrowthEnv, userId: string, rawToken: string | null): Promise<void> {
   const stamp = nowIso();
-  await env.DB.prepare(
-    `UPDATE download_grants SET consumed_at = ? WHERE token_hash = ? AND consumed_at IS NULL`,
-  )
-    .bind(stamp, tokenHash)
-    .run();
+  if (rawToken) {
+    await env.DB.prepare(
+      `UPDATE download_grants SET consumed_at = ? WHERE token_hash = ? AND consumed_at IS NULL`,
+    ).bind(stamp, await sha256Hex(rawToken)).run();
+  }
   await env.DB.prepare(`UPDATE users SET last_download_at = ?, updated_at = ? WHERE id = ?`)
-    .bind(stamp, stamp, row.user_id)
+    .bind(stamp, stamp, userId)
     .run();
-  return findUserById(env, row.user_id);
 }
 
 export async function softDeleteUser(env: GrowthEnv, userId: string): Promise<void> {

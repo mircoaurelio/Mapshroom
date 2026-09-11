@@ -80,7 +80,7 @@ export function EmailCaptureForm({
       locale,
       turnstileToken: token || undefined,
       utm,
-    });
+    }).catch(() => ({ ok: false as const, error: { message: 'Unable to send the link. Check your connection and try again.' } }));
     setBusy(false);
     if (!result.ok) {
       setError(result.error.message);
@@ -88,6 +88,7 @@ export function EmailCaptureForm({
       return;
     }
     setQueued(true);
+    resetTurnstile();
     track('email_capture_queued', { source });
     onQueued?.();
   };
@@ -99,7 +100,7 @@ export function EmailCaptureForm({
       email,
       locale,
       turnstileToken: token || undefined,
-    });
+    }).catch(() => ({ ok: false as const, error: { message: 'Unable to resend the link. Check your connection and try again.' } }));
     setBusy(false);
     if (!result.ok) {
       setError(result.error.message);
@@ -115,11 +116,14 @@ export function EmailCaptureForm({
       <div className={`${shellClass} growth-form-success ${className ?? ''}`} role="status">
         <span className="download-link-label">{copy.successTitle}</span>
         <p className="helper-copy">{compact ? copy.successBodyCompact : copy.successBody}</p>
+        {siteKey ? (
+          <TurnstileWidget siteKey={siteKey} onToken={onToken} onReady={onReady} registerReset={registerReset} />
+        ) : null}
         <div className="download-link-actions">
           <button
             type="button"
             className="secondary-button"
-            disabled={busy}
+            disabled={busy || Boolean(siteKey && !token)}
             onClick={() => void handleResend()}
           >
             {copy.resend}
