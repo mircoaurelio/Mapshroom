@@ -5,12 +5,14 @@ import { createPreviewQueue } from '../lib/surfaceMapping/preview-queue.js';
 import type { LightingOptions, SurfaceMethod, SurfaceOutput, SurfaceResult, SurfaceSettings } from '../lib/surfaceMapping/types';
 import './AssetSurfacesDialog.css';
 
+export interface SurfaceEditorInitialOptions { method?: SurfaceMethod; settings?: Partial<SurfaceSettings>; output?: SurfaceOutput }
 interface Props {
   asset: AssetRecord;
   assetUrl: string | null;
   assetMissing: boolean;
   onApply: (blob: Blob, output: SurfaceOutput) => Promise<boolean>;
   onClose: () => void;
+  initialOptions?: SurfaceEditorInitialOptions;
 }
 interface Source { bitmap: ImageBitmap; blob: Blob }
 interface Analysis { result: SurfaceResult; rgba: Uint8ClampedArray<ArrayBuffer>; milliseconds: number; black: number }
@@ -31,7 +33,7 @@ function Slider({ label, value, min = 0, max, unit = '', onChange }: {
   </div>;
 }
 
-export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, onClose }: Props) {
+export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, onClose, initialOptions }: Props) {
   const dialog = useRef<HTMLElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const exportWorker = useRef<Worker | null>(null);
@@ -42,11 +44,11 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const [source, setSource] = useState<Source | null>(null);
-  const [method, setMethod] = useState<SurfaceMethod>('shape');
-  const [settings, setSettings] = useState(defaults);
+  const [method, setMethod] = useState<SurfaceMethod>(initialOptions?.method ?? 'shape');
+  const [settings, setSettings] = useState({ ...defaults, ...initialOptions?.settings });
   const [lighting, setLighting] = useState(initialLighting);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [output, setOutput] = useState<SurfaceOutput>('gradient');
+  const [output, setOutput] = useState<SurfaceOutput>(initialOptions?.output ?? 'gradient');
   const [selected, setSelected] = useState(0);
   const [original, setOriginal] = useState(false);
   const [busy, setBusy] = useState(true);

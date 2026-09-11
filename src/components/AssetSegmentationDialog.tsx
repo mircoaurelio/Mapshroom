@@ -4,12 +4,16 @@ import type { AssetRecord } from '../types';
 export interface SegmentationSaveOptions {
   automatic: boolean;
   outputAssetId?: string;
+  width?: number;
+  height?: number;
 }
 
 interface AssetSegmentationDialogProps {
   asset: AssetRecord | null;
   assetUrl: string | null;
   initialPanel?: 'refine' | 'depth';
+  originalAsset?: AssetRecord | null;
+  originalAssetUrl?: string | null;
   onApply: (blob: Blob, resultKind: 'mask' | 'draw' | 'depth', options: SegmentationSaveOptions) => Promise<boolean>;
   onClose: () => void;
 }
@@ -20,6 +24,8 @@ export function AssetSegmentationDialog({
   asset,
   assetUrl,
   initialPanel = 'refine',
+  originalAsset = null,
+  originalAssetUrl = null,
   onApply,
   onClose,
 }: AssetSegmentationDialogProps) {
@@ -33,31 +39,59 @@ export function AssetSegmentationDialog({
   const [statusMessage, setStatusMessage] = useState('Opening Mask Studio…');
   const [resultKind, setResultKind] = useState<'mask' | 'draw' | 'depth'>('mask');
   const [depthSaved, setDepthSaved] = useState(false);
-  const [confirmedDepthAssetId, setConfirmedDepthAssetId] = useState<string | null>(null);
-  const needsDepthConfirmation = Boolean(asset && initialPanel === 'depth' && confirmedDepthAssetId !== asset.id);
+  const mobile = /iPhone|iPad|Android|Mobile/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const assetId = asset?.id ?? null;
+  const assetName = asset?.name ?? '';
+  const assetMimeType = asset?.mimeType ?? 'image/png';
+  const assetRevision = asset ? `${asset.id}:${asset.size}:${asset.lastModified}` : '';
+  const savedDepth = initialPanel === 'depth' && asset?.derivation?.kind === 'depth';
+  const originalName = originalAsset?.name;
+  const needsOriginal = Boolean(originalAsset);
 
   useEffect(() => {
     onApplyRef.current = onApply;
   }, [onApply]);
 
   useEffect(() => {
-    if (!asset) {
-      setConfirmedDepthAssetId(null);
+    if (!assetId) {
       editorReadyRef.current = false;
       sentAssetKeyRef.current = '';
       sendingAssetKeyRef.current = '';
       sendAssetRef.current = null;
       return undefined;
     }
-    if (!assetUrl || needsDepthConfirmation) return undefined;
+    if (!assetUrl || (needsOriginal && !originalAssetUrl)) return undefined;
 
-    const assetKey = `${asset.id}:${asset.size}:${asset.lastModified}`;
+    const assetKey = `${assetRevision}:${savedDepth}:${assetName}:${originalAssetUrl ?? ''}`;
     let disposed = false;
     let saving = false;
+    let sendGeneration = 0;
     const depthAssetIds = new Map<string, string>();
-    setDepthSaved(false);
+    if (savedDepth) depthAssetIds.set(assetId, assetId);
+    setDepthSaved(savedDepth);
+    setResultKind(savedDepth ? 'depth' : 'mask');
     setEditorStatus('loading');
-    setStatusMessage('Loading image…');
+    setStatusMessage(savedDepth ? 'Opening saved depth map…' : 'Loading image…');
+
+    const loadImage = async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Image unavailable');
+      let blob = await response.blob();
+      if (mobile) {
+        const bitmap = await createImageBitmap(blob);
+        try {
+          const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height), Math.sqrt(1.5e6 / (bitmap.width * bitmap.height)));
+          if (scale < 1) {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+            canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Could not prepare mobile image')), 'image/png'));
+            canvas.width = canvas.height = 1;
+          }
+        } finally { bitmap.close(); }
+      }
+      return blob;
+    };
 
     const sendAsset = async () => {
       const frameWindow = frameRef.current?.contentWindow;
@@ -67,36 +101,43 @@ export function AssetSegmentationDialog({
         sentAssetKeyRef.current === assetKey ||
         sendingAssetKeyRef.current === assetKey
       ) return;
+      const generation = ++sendGeneration;
       sendingAssetKeyRef.current = assetKey;
       try {
-        const response = await fetch(assetUrl);
-        const blob = await response.blob();
+        const blob = await loadImage(assetUrl);
         const buffer = await blob.arrayBuffer();
-        if (disposed) return;
+        const originalBlob = savedDepth && originalAssetUrl ? await loadImage(originalAssetUrl) : null;
+        const originalBuffer = originalBlob ? await originalBlob.arrayBuffer() : null;
+        if (disposed || generation !== sendGeneration) return;
         frameWindow.postMessage(
           {
             type: 'mapshroom:load-image',
-            name: asset.name,
-            mimeType: blob.type || asset.mimeType || 'image/png',
+            name: assetName,
+            mimeType: blob.type || assetMimeType,
             buffer,
+            savedDepth: savedDepth ? { resultId: assetId, originalBuffer, originalName, originalMimeType: originalBlob?.type } : null,
           },
           window.location.origin,
-          [buffer],
+          originalBuffer ? [buffer, originalBuffer] : [buffer],
         );
         sentAssetKeyRef.current = assetKey;
       } catch {
-        if (disposed) return;
+        if (disposed || generation !== sendGeneration) return;
         setEditorStatus('error');
         setStatusMessage('The asset could not be opened in Mask Studio.');
       } finally {
-        if (sendingAssetKeyRef.current === assetKey) sendingAssetKeyRef.current = '';
+        if (generation === sendGeneration && sendingAssetKeyRef.current === assetKey) sendingAssetKeyRef.current = '';
       }
     };
 
     const receiveMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frameRef.current?.contentWindow) return;
-      const data = event.data as { type?: string; status?: EditorStatus; message?: string; buffer?: ArrayBuffer; mimeType?: string; resultKind?: 'mask' | 'draw' | 'depth'; resultId?: string; automatic?: boolean };
+      const data = event.data as { type?: string; status?: EditorStatus; message?: string; buffer?: ArrayBuffer; mimeType?: string; resultKind?: 'mask' | 'draw' | 'depth'; resultId?: string; automatic?: boolean; width?: number; height?: number };
       if (data.type === 'mapshroom:ready') {
+        // A reloaded iframe has a new editor state, even for the same asset.
+        sendGeneration += 1;
+        sentAssetKeyRef.current = '';
+        sendingAssetKeyRef.current = '';
         editorReadyRef.current = true;
         void sendAsset();
       } else if (data.type === 'mapshroom:status') {
@@ -121,7 +162,7 @@ export function AssetSegmentationDialog({
         void (async () => {
           let saved = false;
           try {
-            saved = await onApplyRef.current(blob, nextResultKind, { automatic, outputAssetId });
+            saved = await onApplyRef.current(blob, nextResultKind, { automatic, outputAssetId, width: data.width, height: data.height });
           } catch {
             // Keep the generated result available so a failed save can be retried.
           }
@@ -150,60 +191,9 @@ export function AssetSegmentationDialog({
       window.removeEventListener('message', receiveMessage);
       if (sendAssetRef.current === sendAsset) sendAssetRef.current = null;
     };
-  }, [asset, assetUrl, needsDepthConfirmation]);
+  }, [assetId, assetName, assetMimeType, assetRevision, assetUrl, mobile, savedDepth, originalName, originalAssetUrl, needsOriginal]);
 
   if (!asset) return null;
-
-  if (needsDepthConfirmation) {
-    return (
-      <div className="dialog-backdrop asset-segmentation-backdrop" role="presentation">
-        <section
-          className="dialog-panel asset-segmentation-dialog asset-depth-preparation-dialog"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="depth-preparation-title"
-          aria-describedby="depth-preparation-copy"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.stopPropagation();
-              onClose();
-            } else if (event.key === 'Tab') {
-              const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button');
-              const first = buttons[0];
-              const last = buttons[buttons.length - 1];
-              if (event.shiftKey && document.activeElement === first) {
-                event.preventDefault();
-                last?.focus();
-              } else if (!event.shiftKey && document.activeElement === last) {
-                event.preventDefault();
-                first?.focus();
-              }
-            }
-          }}
-        >
-          <header className="dialog-header asset-segmentation-header">
-            <div>
-              <span className="panel-eyebrow">Create depth map</span>
-              <h2 id="depth-preparation-title" className="dialog-title">Remove the background first?</h2>
-              <small>{asset.name}</small>
-            </div>
-          </header>
-          <div className="asset-depth-preparation-body">
-            <p id="depth-preparation-copy">Depth maps need an isolated subject. Confirm to start background removal, then generate your depth map in the next step.</p>
-            <ol className="asset-depth-preparation-steps">
-              <li><strong>Remove the background</strong><span>We’ll prepare your image first. This can take a moment.</span></li>
-              <li><strong>Generate the depth map</strong><span>When removal finishes, click “Generate depth map”. The result saves to your media library automatically.</span></li>
-            </ol>
-            <p className="asset-depth-preparation-original">Your original image stays in the library.</p>
-          </div>
-          <footer className="dialog-footer asset-depth-preparation-actions">
-            <button type="button" className="ghost-button" autoFocus onClick={onClose}>Cancel</button>
-            <button type="button" className="primary-button" onClick={() => setConfirmedDepthAssetId(asset.id)}>Remove background first</button>
-          </footer>
-        </section>
-      </div>
-    );
-  }
 
   const applyMask = () => {
     setEditorStatus('processing');
@@ -234,7 +224,7 @@ export function AssetSegmentationDialog({
           <iframe
             ref={frameRef}
             className="asset-segmentation-frame"
-            src={`${import.meta.env.BASE_URL}segmentation/?embed=1${initialPanel === 'depth' ? '&panel=depth' : ''}`}
+            src={`${import.meta.env.BASE_URL}segmentation/?embed=1&auto=0${mobile ? '&mobile=1' : ''}${initialPanel === 'depth' ? '&panel=depth' : ''}`}
             title="Mapshroom Mask Studio"
             onLoad={() => {
               editorReadyRef.current = true;
@@ -248,7 +238,7 @@ export function AssetSegmentationDialog({
             <span>{statusMessage}</span>
           </span>
           <div className="asset-segmentation-footer-actions">
-            <small>The original remains in your library.</small>
+            <small>{mobile ? 'Mobile working copy · Original preserved in the library.' : 'The original remains in your library.'}</small>
             <button
               type="button"
               className="primary-button"

@@ -13,6 +13,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
+import type { VariantResult } from '../lib/assetVariants';
 import {
   captureImageTransfer,
   fetchImageFile,
@@ -25,7 +26,7 @@ import {
 } from '../lib/imageTransfer';
 import { useImageDropTarget } from '../lib/useImageDropTarget';
 import { AssetSegmentationDialog, type SegmentationSaveOptions } from '../components/AssetSegmentationDialog';
-import { AssetSurfacesDialog } from '../components/AssetSurfacesDialog';
+import { AssetSurfacesDialog, type SurfaceEditorInitialOptions } from '../components/AssetSurfacesDialog';
 import type { SurfaceOutput } from '../lib/surfaceMapping/types';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
@@ -2903,8 +2904,11 @@ export function WorkspaceRoute() {
     isAssetsImportStepPending(),
   );
   const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
+  const assetVersionProjectRef = useRef(project);
+  assetVersionProjectRef.current = project;
   const [segmentationPanel, setSegmentationPanel] = useState<'refine' | 'depth'>('refine');
   const [surfaceAssetId, setSurfaceAssetId] = useState<string | null>(null);
+  const [surfaceInitialOptions, setSurfaceInitialOptions] = useState<SurfaceEditorInitialOptions>({});
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [needsFileSave, setNeedsFileSave] = useState(true);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -4265,6 +4269,10 @@ export function WorkspaceRoute() {
     return project.library.assets.find((asset) => asset.id === segmentationQueue[0]) ?? null;
   }, [project, segmentationQueue]);
   const segmentationAssetResolution = useAssetObjectUrl(segmentationAsset);
+  const segmentationOriginalAsset = useMemo(() => segmentationPanel === 'depth' && segmentationAsset?.derivation?.kind === 'depth'
+    ? project?.library.assets.find(asset => asset.id === segmentationAsset.derivation?.sourceAssetId) ?? null
+    : null, [project, segmentationAsset, segmentationPanel]);
+  const segmentationOriginalResolution = useAssetObjectUrl(segmentationOriginalAsset);
   const surfaceAsset = useMemo(() => project?.library.assets.find(asset => asset.id === surfaceAssetId) ?? null, [project, surfaceAssetId]);
   const surfaceAssetResolution = useAssetObjectUrl(surfaceAsset);
   const lastMissingAssetIdRef = useRef<string | null>(null);
@@ -4697,7 +4705,7 @@ export function WorkspaceRoute() {
       return false;
     }
     const existingDepthAsset = resultKind === 'depth' && options.outputAssetId
-      ? project?.library.assets.find((asset) => asset.id === options.outputAssetId && asset.id !== sourceAssetId)
+      ? project?.library.assets.find((asset) => asset.id === options.outputAssetId && asset.derivation?.kind === 'depth')
       : undefined;
     const outputSuffix = resultKind === 'depth' ? 'depth-map' : resultKind === 'draw' ? 'painted' : 'masked';
     const maskedAsset: AssetRecord = {
@@ -4709,6 +4717,7 @@ export function WorkspaceRoute() {
       lastModified: Math.max(Date.now(), (existingDepthAsset?.lastModified ?? 0) + 1),
       createdAt: existingDepthAsset?.createdAt ?? new Date().toISOString(),
       sourceType: 'uploaded',
+      derivation: { ...existingDepthAsset?.derivation, sourceAssetId: sourceAsset.derivation?.sourceAssetId ?? sourceAsset.id, kind: resultKind === 'depth' ? 'depth' : resultKind === 'draw' ? 'painted' : 'background', width: options.width, height: options.height },
     };
     const saved = await putAssetBlob(maskedAsset.id, blob);
     if (!saved) {
@@ -4731,9 +4740,9 @@ export function WorkspaceRoute() {
     return true;
   }, [project, segmentationQueue, updateProject]);
 
-  const handleAssetSurfacesOpen = useCallback((assetId: string) => {
+  const handleAssetSurfacesOpen = useCallback((assetId: string, options: SurfaceEditorInitialOptions = {}) => {
     const asset = project?.library.assets.find(item => item.id === assetId);
-    if (asset?.kind === 'image') setSurfaceAssetId(assetId);
+    if (asset?.kind === 'image') { setSurfaceInitialOptions(options); setSurfaceAssetId(assetId); }
   }, [project]);
 
   const handleAssetSurfacesApply = useCallback(async (blob: Blob, output: SurfaceOutput) => {
@@ -4744,6 +4753,7 @@ export function WorkspaceRoute() {
       name: `${surfaceAsset.name.replace(/\.[^.]+$/, '')}-surfaces-${output}.png`,
       mimeType: 'image/png', size: blob.size, lastModified: Date.now(),
       createdAt: new Date().toISOString(), sourceType: 'uploaded',
+      derivation: { sourceAssetId: surfaceAsset.derivation?.sourceAssetId ?? surfaceAsset.id, kind: output === 'regions' ? 'segmentation' : output },
     };
     if (!await putAssetBlob(outputAsset.id, blob)) return false;
     updateProject(current => current.sessionId !== project.sessionId ? current : ({
@@ -4754,6 +4764,25 @@ export function WorkspaceRoute() {
     setStatusMessage(`Surfaces image “${outputAsset.name}” added and selected.`);
     return true;
   }, [project, surfaceAsset, updateProject]);
+
+  const handleAssetVersionSave = useCallback(async (source: AssetRecord, result: VariantResult) => {
+    const sessionId = assetVersionProjectRef.current?.sessionId;
+    if (!sessionId || !assetVersionProjectRef.current?.library.assets.some(asset => asset.id === source.id)) return null;
+    const output: AssetRecord = {
+      ...source, id: crypto.randomUUID(), name: `${source.name.replace(/\.[^.]+$/, '')}-${result.kind}.png`,
+      mimeType: 'image/png', kind: 'image', size: result.blob.size, lastModified: Date.now(),
+      createdAt: new Date().toISOString(), sourceType: 'generated',
+      derivation: { sourceAssetId: source.id, kind: result.kind, width: result.width, height: result.height, method: result.method },
+    };
+    if (!await putAssetBlob(output.id, result.blob)) return null;
+    if (assetVersionProjectRef.current?.sessionId !== sessionId || !assetVersionProjectRef.current.library.assets.some(asset => asset.id === source.id)) {
+      await deleteAssetBlob(output.id); return null;
+    }
+    updateProject(current => current.sessionId !== sessionId ? current : ({
+      ...current, library: { ...current.library, assets: [...current.library.assets, output] },
+    }));
+    return output;
+  }, [updateProject]);
 
   const handleAssetRemove = (assetId: string) => {
     const removedAsset = project?.library.assets.find((asset) => asset.id === assetId) ?? null;
@@ -9297,6 +9326,7 @@ ${errorSnapshot}`,
       ) : null}
 
       <AssetLibraryDialog
+        key={project.sessionId}
         open={isAssetLibraryOpen}
         activeAsset={activeAsset}
         assetUrl={activeAssetUrl}
@@ -9311,6 +9341,8 @@ ${errorSnapshot}`,
         onRenameAsset={handleAssetRename}
         onEditMask={handleAssetMaskOpen}
         onEditSurfaces={handleAssetSurfacesOpen}
+        onSaveVariant={handleAssetVersionSave}
+        processingSuspended={Boolean(segmentationAsset || surfaceAsset)}
         onRemoveAsset={handleAssetRemove}
         onOpenProBeta={() => setProBetaSource('asset_generate')}
         onClose={() => {
@@ -9329,6 +9361,8 @@ ${errorSnapshot}`,
         asset={segmentationAsset}
         assetUrl={segmentationAssetResolution.url}
         initialPanel={segmentationPanel}
+        originalAsset={segmentationOriginalResolution.status === 'missing' ? null : segmentationOriginalAsset}
+        originalAssetUrl={segmentationOriginalResolution.url}
         onApply={handleAssetMaskApply}
         onClose={handleAssetMaskClose}
       />
@@ -9338,6 +9372,7 @@ ${errorSnapshot}`,
         asset={surfaceAsset}
         assetUrl={surfaceAssetResolution.url}
         assetMissing={surfaceAssetResolution.status === 'missing'}
+        initialOptions={surfaceInitialOptions}
         onApply={handleAssetSurfacesApply}
         onClose={() => setSurfaceAssetId(null)}
       />}

@@ -33,6 +33,7 @@ export interface AssetRecord {
   lastModified: number;
   createdAt: string;
   sourceType: AssetSourceType;
+  derivation?: import('./lib/assetVariants').AssetDerivation;
 }
 
 export interface ShaderVersion {

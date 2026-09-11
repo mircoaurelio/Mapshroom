@@ -228,8 +228,8 @@
             </section>
 
             <section id="depthPanel" class="panel disabled-panel depth-panel">
-              <div class="section-heading"><span class="step-number">07</span><div><p class="eyebrow">Depth output</p><h2>Create depth map</h2></div></div>
-              <p class="tool-description">First remove the background in Mask. Depth then analyzes only the isolated subject and keeps everything outside it black.</p>
+              <div class="section-heading"><span class="step-number">07</span><div><p class="eyebrow">Depth output</p><h2>Depth map</h2></div></div>
+              <p class="tool-description">Adjust the depth preview below. Generate a new map from the original photo when you need a fresh result.</p>
               <button id="generateDepth" class="depth-generate-button" type="button" disabled><span aria-hidden="true">◉</span><strong>Generate depth map</strong><small>Depth Anything · runs on this device</small></button>
               <div class="depth-view-actions" role="group" aria-label="Depth map color mode">
                 <button id="depthModeBw" class="depth-view-button active" type="button">Black &amp; white</button>
@@ -244,7 +244,7 @@
               <label class="range-label" for="depthGammaRange"><span>Gamma</span><output id="depthGammaValue">100%</output></label>
               <input id="depthGammaRange" type="range" min="40" max="180" value="100" />
               <label class="depth-option-row" for="depthInvert"><span><strong>Invert depth</strong><small>Swap near and far values</small></span><input id="depthInvert" type="checkbox" /></label>
-              <p id="depthStatus" class="depth-status">Finish the background mask, then generate depth.</p>
+              <p id="depthStatus" class="depth-status">Load an image or a saved depth map to begin.</p>
             </section>
 
           </div>

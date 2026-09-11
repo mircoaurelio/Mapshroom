@@ -1,6 +1,8 @@
 const $ = (selector) => document.querySelector(selector);
 const embeddedInMapshroom = new URLSearchParams(window.location.search).get('embed') === '1';
 const embeddedStartPanel = new URLSearchParams(window.location.search).get('panel') === 'depth' ? 'depth' : 'refine';
+const embeddedManualStart = new URLSearchParams(window.location.search).get('auto') === '0';
+const embeddedMobile = new URLSearchParams(window.location.search).get('mobile') === '1';
 
 const elements = {
   fileInput: $('#fileInput'), dropzone: $('#dropzone'), emptyUpload: $('#emptyUploadButton'), sample: $('#sampleButton'),
@@ -34,6 +36,14 @@ const modelInfo = {
   'onnx-community/BEN2-ONNX': ['LARGE MODEL', 'Maximum-quality matte; expect a substantial first download.'],
   'Xenova/modnet': ['FAST', 'A lightweight model tuned primarily for people and portraits.'],
 };
+
+if (embeddedManualStart) elements.autoSegment.checked = false;
+if (embeddedMobile) elements.model.value = 'manual';
+if (embeddedInMapshroom) {
+  for (const option of [...elements.model.options]) {
+    if (option.value.includes('BiRefNet') || option.value.includes('BEN2')) option.remove();
+  }
+}
 
 const FUNNY_LOAD_LINES = [
   'Bribing tiny browser elves with espresso…',
@@ -89,6 +99,10 @@ let depthMode = 'bw';
 let depthPreviewActive = false;
 let depthMaskAlpha = null;
 let depthResultId = null;
+let savedDepthPixels = null;
+let savedDepthMode = 'bw';
+let depthPreserveAlpha = false;
+let depthCanRegenerate = true;
 let exportingResult = false;
 let toastTimer;
 let undoStack = [];
@@ -264,7 +278,7 @@ async function redo() {
   showToast(`Redid ${target.label}.`);
 }
 
-async function openFile(file) {
+async function openFile(file, savedDepth = null) {
   if (!file?.type.startsWith('image/')) return showToast('Choose a JPG, PNG, or WEBP image.', true);
   if (file.size > 45 * 1024 * 1024) return showToast('This image is over the 45 MB browser limit.', true);
 
@@ -272,7 +286,7 @@ async function openFile(file) {
   sourceFile = file;
   sourceUrl = URL.createObjectURL(file);
   const image = new Image();
-  image.onload = () => {
+  image.onload = async () => {
     if (image.naturalWidth * image.naturalHeight > 24_000_000) {
       showToast('For this MVP, use an image up to 24 megapixels.', true);
       return;
@@ -304,6 +318,9 @@ async function openFile(file) {
     depthHeight = 0;
     depthMaskAlpha = null;
     depthResultId = null;
+    savedDepthPixels = null;
+    depthPreserveAlpha = false;
+    depthCanRegenerate = true;
     clearHistory();
     elements.canvas.width = imageWidth;
     elements.canvas.height = imageHeight;
@@ -318,18 +335,50 @@ async function openFile(file) {
     elements.depthPanel.classList.remove('disabled-panel');
     elements.generateDepth.disabled = false;
     elements.depthStatus.textContent = embeddedInMapshroom
-      ? 'Finish the background mask, then generate depth. The result saves automatically to your media library.'
-      : 'Finish the background mask, then generate depth.';
+      ? 'Generate depth from the original photo. The result saves automatically to your media library.'
+      : 'Generate depth from the original photo.';
     setExportDisabled(false);
     renderMask();
     cropRect = { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
     setCropActive(false);
     requestAnimationFrame(fitStage);
-    notifyMapshroom('ready', 'Image loaded. Adjust the mask or wait for automatic removal.');
-    if (elements.autoSegment.checked && elements.model.value !== 'manual') {
+    if (savedDepth) {
+      try {
+        restoreSavedDepth(sourcePixels, imageWidth, imageHeight, savedDepth.resultId);
+        depthCanRegenerate = false;
+        if (savedDepth.originalBuffer instanceof ArrayBuffer) {
+          const originalFile = new File([savedDepth.originalBuffer], savedDepth.originalName || 'original.png', { type: savedDepth.originalMimeType || 'image/png' });
+          const bitmap = await createImageBitmap(originalFile);
+          try {
+            sourceContext.clearRect(0, 0, imageWidth, imageHeight);
+            sourceContext.drawImage(bitmap, 0, 0, imageWidth, imageHeight);
+            sourcePixels = sourceContext.getImageData(0, 0, imageWidth, imageHeight).data;
+            basePixels = pixelsWithAlpha(sourcePixels, depthMaskAlpha);
+            maskBaseline = new Uint8ClampedArray(basePixels);
+            sourceFile = originalFile;
+            URL.revokeObjectURL(sourceUrl);
+            sourceUrl = URL.createObjectURL(originalFile);
+            elements.original.src = sourceUrl;
+            depthCanRegenerate = true;
+          } finally { bitmap.close(); }
+        }
+        setDepthGenerating(false);
+        selectEmbeddedPanel('depth');
+        elements.depthStatus.textContent = depthCanRegenerate
+          ? 'Saved depth map loaded. Adjust it, then save your changes.'
+          : 'Saved depth map loaded. The original is unavailable for regeneration.';
+        notifyMapshroom('ready', elements.depthStatus.textContent, 'depth');
+      } catch {
+        notifyMapshroom('error', 'The saved depth map could not be opened. Close the editor and try again.', 'depth');
+      }
+    } else {
+      notifyMapshroom('ready', 'Image loaded. Adjust the mask or generate depth.', 'mask');
+    }
+    if (!savedDepth && elements.autoSegment.checked && elements.model.value !== 'manual') {
       setTimeout(() => segment(), 0);
     }
   };
+  image.onerror = () => notifyMapshroom('error', 'The image could not be opened.');
   image.src = sourceUrl;
 }
 
@@ -533,6 +582,37 @@ function depthColor(value) {
   return [Math.round((red + match) * 255), Math.round((green + match) * 255), Math.round((blue + match) * 255)];
 }
 
+function restoreSavedDepth(pixels, width, height, resultId) {
+  savedDepthPixels = new Uint8ClampedArray(pixels);
+  depthWidth = width;
+  depthHeight = height;
+  depthData = new Uint8Array(width * height);
+  depthMaskAlpha = alphaChannel(pixels);
+  depthPreserveAlpha = true;
+  depthResultId = resultId;
+  // Our editor can also export the RGB palette. Retain the exact saved raster at
+  // neutral settings, and recover its hue-based field for further adjustments.
+  savedDepthMode = pixels.some((value, index) => index % 4 === 0 && pixels[index + 3] > 0 && (value !== pixels[index + 1] || value !== pixels[index + 2])) ? 'rgb' : 'bw';
+  depthMode = savedDepthMode;
+  for (let i = 0; i < depthData.length; i += 1) {
+    const j = i * 4, red = pixels[j] / 255, green = pixels[j + 1] / 255, blue = pixels[j + 2] / 255;
+    const max = Math.max(red, green, blue), min = Math.min(red, green, blue), chroma = max - min;
+    if (savedDepthMode === 'bw' || chroma === 0) depthData[i] = pixels[j];
+    else {
+      const sector = max === red ? (green - blue) / chroma : max === green ? (blue - red) / chroma + 2 : (red - green) / chroma + 4;
+      const hue = ((sector / 6) + 1) % 1;
+      depthData[i] = Math.round(Math.max(0, Math.min(1, 1 - hue / .72)) * 255);
+    }
+  }
+  for (const [name, value] of [['Strength', 100], ['Definition', 0], ['Contrast', 100], ['Gamma', 100]]) {
+    elements[`depth${name}`].value = String(value);
+    $(`#depth${name}Value`).textContent = `${value}%`;
+  }
+  elements.depthInvert.checked = false;
+  elements.depthModeBw.classList.toggle('active', depthMode === 'bw');
+  elements.depthModeRgb.classList.toggle('active', depthMode === 'rgb');
+}
+
 function buildDepthPixels() {
   if (!depthData?.length) return null;
   const pixels = new Uint8ClampedArray(imageWidth * imageHeight * 4);
@@ -540,6 +620,9 @@ function buildDepthPixels() {
   const definition = Number(elements.depthDefinition.value) / 100;
   const contrast = Number(elements.depthContrast.value) / 100;
   const gamma = Math.max(.2, Number(elements.depthGamma.value) / 100);
+  if (savedDepthPixels && depthMode === savedDepthMode && strength === 1 && definition === 0 && contrast === 1 && gamma === 1 && !elements.depthInvert.checked) {
+    return new Uint8ClampedArray(savedDepthPixels);
+  }
   for (let y = 0; y < imageHeight; y += 1) {
     for (let x = 0; x < imageWidth; x += 1) {
       let depth = sampleDepthValue(x, y);
@@ -551,11 +634,12 @@ function buildDepthPixels() {
       depth = Math.pow(depth, 1 / gamma);
       const [red, green, blue] = depthColor(depth);
       const index = (y * imageWidth + x) * 4;
-      const kept = !depthMaskAlpha || depthMaskAlpha[y * imageWidth + x] >= 128;
+      const alpha = depthMaskAlpha ? depthMaskAlpha[y * imageWidth + x] : 255;
+      const kept = depthPreserveAlpha ? alpha > 0 : alpha >= 128;
       pixels[index] = kept ? red : 0;
       pixels[index + 1] = kept ? green : 0;
       pixels[index + 2] = kept ? blue : 0;
-      pixels[index + 3] = 255;
+      pixels[index + 3] = depthPreserveAlpha ? alpha : 255;
     }
   }
   return pixels;
@@ -581,26 +665,18 @@ function setDepthPreviewActive(active) {
 }
 
 async function generateDepthMap() {
-  if (!sourceFile || busy || exportingResult) return;
+  if (!sourceFile || busy || exportingResult || !depthCanRegenerate) return;
   renderMask();
   const maskedPixels = new Uint8ClampedArray(imageWidth * imageHeight * 4);
   const nextDepthMaskAlpha = new Uint8ClampedArray(imageWidth * imageHeight);
-  let hasRemovedBackground = false;
   for (let pixel = 0; pixel < imageWidth * imageHeight; pixel += 1) {
     const index = pixel * 4;
     const kept = renderedPixels[index + 3] >= 128;
     nextDepthMaskAlpha[pixel] = kept ? 255 : 0;
-    if (!kept) hasRemovedBackground = true;
-    maskedPixels[index] = kept ? renderedPixels[index] : 0;
-    maskedPixels[index + 1] = kept ? renderedPixels[index + 1] : 0;
-    maskedPixels[index + 2] = kept ? renderedPixels[index + 2] : 0;
+    maskedPixels[index] = sourcePixels[index];
+    maskedPixels[index + 1] = sourcePixels[index + 1];
+    maskedPixels[index + 2] = sourcePixels[index + 2];
     maskedPixels[index + 3] = 255;
-  }
-  if (!hasRemovedBackground) {
-    elements.depthStatus.textContent = 'Remove the background in Mask before generating depth.';
-    showToast('Remove the background first, then create the depth map.', true);
-    notifyMapshroom('ready', 'Depth needs a finished background mask first.', 'mask');
-    return;
   }
   const maskedCanvas = document.createElement('canvas');
   maskedCanvas.width = imageWidth;
@@ -616,20 +692,22 @@ async function generateDepthMap() {
     return;
   }
   depthMaskAlpha = nextDepthMaskAlpha;
+  savedDepthPixels = null;
+  depthPreserveAlpha = false;
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Teaching the mushroom to see in 3D…';
   elements.busyDetail.textContent = 'First depth pass can crawl; later ones usually sprint.';
   elements.progress.style.width = '3%';
-  elements.depthStatus.textContent = 'Generating depth from the isolated subject…';
+  elements.depthStatus.textContent = 'Generating depth from the original photo…';
   notifyMapshroom('processing', 'Depth first-run is slower — hang tight.', 'depth');
   const buffer = await maskedBlob.arrayBuffer();
   depthWorker.postMessage({ type: 'estimate', buffer, mimeType: 'image/png', model: 'onnx-community/depth-anything-v2-small', device: 'wasm' }, [buffer]);
 }
 
 function setDepthGenerating(generating) {
-  elements.generateDepth.disabled = generating;
+  elements.generateDepth.disabled = generating || !depthCanRegenerate;
   elements.generateDepth.setAttribute('aria-busy', String(generating));
-  elements.generateDepth.querySelector('strong').textContent = generating ? 'Generating depth map…' : 'Generate depth map';
+  elements.generateDepth.querySelector('strong').textContent = generating ? 'Generating depth map…' : depthData?.length ? 'Regenerate depth map' : 'Generate depth map';
 }
 
 depthWorker.onmessage = async ({ data }) => {
@@ -1217,6 +1295,8 @@ async function sendCompositeToMapshroom({ automatic = false } = {}) {
         resultKind,
         resultId: resultKind === 'depth' ? depthResultId : null,
         automatic,
+        width: imageWidth,
+        height: imageHeight,
         buffer,
       },
       window.location.origin,
@@ -1439,7 +1519,7 @@ window.addEventListener('message', (event) => {
       event.data.name || 'mapshroom-asset.png',
       { type: event.data.mimeType || 'image/png' },
     );
-    void openFile(file);
+    void openFile(file, event.data.savedDepth?.resultId ? event.data.savedDepth : null);
   } else if (event.data?.type === 'mapshroom:request-segmentation-result') {
     void sendCompositeToMapshroom();
   } else if (event.data?.type === 'mapshroom:segmentation-saved') {
