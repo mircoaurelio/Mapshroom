@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EmailCaptureForm } from './EmailCaptureForm';
 import { track } from '../lib/analytics';
 
@@ -31,6 +31,36 @@ function ProBrandLockup() {
 
 export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
   const [hasRequestedAccess, setHasRequestedAccess] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onCloseRef.current();
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    const focusFrame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [open]);
 
   if (!open) {
     return null;
@@ -56,6 +86,7 @@ export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
         aria-describedby="pro-beta-copy"
       >
         <button
+          ref={closeButtonRef}
           type="button"
           className="pro-beta-close"
           onClick={onClose}
@@ -121,6 +152,11 @@ export function ProBetaDialog({ open, source, onClose }: ProBetaDialogProps) {
                 setHasRequestedAccess(true);
               }}
             />
+            <div className="pro-beta-dismiss">
+              <button type="button" className="secondary-button" onClick={onClose}>
+                Return to workspace
+              </button>
+            </div>
           </>
         )}
       </section>

@@ -11502,6 +11502,8 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   background: rgba(9, 9, 11, .36);
   color: #ddd6fe;
   font: 300 1.2rem/1 sans-serif;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .pro-beta-close:hover,
@@ -11509,6 +11511,17 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   border-color: #c4b5fd;
   background: rgba(76, 29, 149, .48);
   outline: none;
+}
+
+.pro-beta-dismiss {
+  display: flex;
+  justify-content: center;
+  margin-top: .75rem;
+}
+
+.pro-beta-dismiss .secondary-button {
+  min-height: 36px;
+  color: #ddd6fe;
 }
 
 .pro-beta-brand-lockup {
