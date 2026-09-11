@@ -12,6 +12,22 @@ import type {
   TimelineTransitionEffect,
 } from '../types';
 
+export function activateAudioReactiveTimeline(
+  sequence: TimelineStub['shaderSequence'],
+): TimelineStub['shaderSequence'] {
+  return {
+    ...sequence,
+    mode: 'audioReactive',
+    stagePreviewMode: 'timeline',
+    singleStepLoopEnabled: false,
+    manualSelectionTransition: 'mix',
+    sharedSectionDurationSeconds: Math.max(
+      1,
+      clampTimelineStepDuration(sequence.sharedSectionDurationSeconds),
+    ),
+  };
+}
+
 function getStepStartSeconds(
   steps: TimelineStub['shaderSequence']['steps'],
   stepIndex: number,
@@ -68,7 +84,7 @@ export function resolveAudioReactiveTimelineState({
   }
 
   const requestedTransitionDurationSeconds = clampTransitionDuration(
-    clampTimelineStepDuration(targetStep.durationSeconds),
+    600,
     transitionDurationSeconds,
   );
   const changedAtEpochMs = Math.max(0, section?.changedAtEpochMs ?? 0);

@@ -5,6 +5,7 @@ import './AppSelect.css';
 interface Option<T extends string | number> { value: T; label: string }
 interface Props<T extends string | number> {
   label: string;
+  className?: string;
   value: T;
   options: readonly Option<T>[];
   disabled?: boolean;
@@ -12,7 +13,7 @@ interface Props<T extends string | number> {
 }
 
 /** The app's dark menu treatment, with keyboard selection and no operating-system popup. */
-export function AppSelect<T extends string | number>({ label, value, options, disabled, onChange }: Props<T>) {
+export function AppSelect<T extends string | number>({ label, className, value, options, disabled, onChange }: Props<T>) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -84,7 +85,7 @@ export function AppSelect<T extends string | number>({ label, value, options, di
     </div>)}
   </div> : null;
 
-  return <div className="app-select">
+  return <div className={className ? `app-select ${className}` : 'app-select'}>
     <span id={`${id}-label`} className="app-select-label">{label}</span>
     <button ref={trigger} type="button" role="combobox" className="app-select-trigger" disabled={disabled}
       aria-labelledby={`${id}-label`} aria-haspopup="listbox" aria-expanded={open && !disabled}

@@ -162,7 +162,7 @@ import {
   shouldUseSharedTransition,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
-import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
+import { activateAudioReactiveTimeline, resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
 import { normalizeTimelineStepAssetSettings } from '../lib/timelineAssetSettings';
 import {
   buildExternalChatShaderPrompt,
@@ -2853,8 +2853,10 @@ export function WorkspaceRoute() {
   const audioReactivity = useAudioReactivity(project?.sessionId ?? null, {
     sectionDetectionEnabled:
       project?.timeline.stub.shaderSequence.mode === 'audioReactive',
-    minimumSectionSeconds:
+    minimumSectionSeconds: Math.max(
       project?.timeline.stub.shaderSequence.sharedSectionDurationSeconds ?? 8,
+      project?.timeline.stub.shaderSequence.sharedTransitionDurationSeconds ?? 0,
+    ),
   });
   const configureAudioShaderBindings = audioReactivity.configureShaderBindings;
   const seedAudioShaderBindings = audioReactivity.seedShaderBindings;
@@ -4807,24 +4809,22 @@ export function WorkspaceRoute() {
   }, [updateProject]);
 
   const handleTimelineSequenceModeChange = useCallback((mode: ProjectDocument['timeline']['stub']['shaderSequence']['mode']) => {
+    if (mode === 'audioReactive') {
+      setEditingTimelineStepId(null);
+      setStudioPreviewOverride(false);
+      setPendingTimelineRepeatExit(null);
+      setRepeatFocusFirstStepVisible(false);
+      setPreviewShaderId(null);
+      setMidiManualMixArmed(false);
+    }
     updateProject((currentProject) => ({
       ...currentProject,
       timeline: {
         stub: {
           ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            mode,
-            sharedSectionDurationSeconds:
-              mode === 'audioReactive'
-                ? Math.max(
-                    1,
-                    currentProject.timeline.stub.shaderSequence
-                      .sharedSectionDurationSeconds,
-                  )
-                : currentProject.timeline.stub.shaderSequence
-                    .sharedSectionDurationSeconds,
-          },
+          shaderSequence: mode === 'audioReactive'
+            ? activateAudioReactiveTimeline(currentProject.timeline.stub.shaderSequence)
+            : { ...currentProject.timeline.stub.shaderSequence, mode },
         },
       },
     }));
@@ -4887,43 +4887,11 @@ export function WorkspaceRoute() {
   }, [updateProject]);
 
   const handleTimelineMixDurationChange = useCallback((mixDurationSeconds: number) => {
-    updateProject((currentProject) => {
-      const shaderSequence = currentProject.timeline.stub.shaderSequence;
-      const nextSteps = applyMixDurationToTimelineSteps(shaderSequence.steps, mixDurationSeconds);
-      const smallestStepDurationSeconds = nextSteps.reduce((shortestDuration, step) => {
-        if (!isTimelineStepEnabled(step)) {
-          return shortestDuration;
-        }
-
-        return Math.min(shortestDuration, clampTimelineStepDuration(step.durationSeconds));
-      }, Number.POSITIVE_INFINITY);
-      const usesSharedTransition = shouldUseSharedTransition(
-        shaderSequence.mode,
-        shaderSequence.sharedTransitionEnabled,
-      );
-
-      return {
-        ...currentProject,
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...shaderSequence,
-              sharedTransitionDurationSeconds: usesSharedTransition
-                ? clampTransitionDuration(
-                    Number.isFinite(smallestStepDurationSeconds)
-                      ? smallestStepDurationSeconds
-                      : 600,
-                    mixDurationSeconds,
-                  )
-                : shaderSequence.sharedTransitionDurationSeconds,
-              steps: nextSteps,
-            },
-          },
-        },
-      };
+    handleTimelineSharedTransitionChange({
+      sharedTransitionEnabled: true,
+      sharedTransitionDurationSeconds: mixDurationSeconds,
     });
-  }, [updateProject]);
+  }, [handleTimelineSharedTransitionChange]);
 
   const handleTimelineStepChange = useCallback((
     stepId: string,
@@ -5796,7 +5764,7 @@ export function WorkspaceRoute() {
     return () => window.clearTimeout(timeoutId);
   }, [commitActiveUniformValues, project?.studio.uniformValues]);
 
-  const selectTimelineStepByIndex = useCallback((stepIndex: number) => {
+  const selectTimelineStepByIndex = useCallback((stepIndex: number, cut = false) => {
     const step = project?.timeline.stub.shaderSequence.steps[stepIndex];
     if (!step) {
       return;
@@ -5804,6 +5772,7 @@ export function WorkspaceRoute() {
 
     void selectTimelineStepForEditing(step.id, {
       stagePreviewMode: 'focused',
+      selectionTransition: cut ? 'cut' : 'mix',
     });
     setTimelineScrollToStepRequest({
       stepId: step.id,
@@ -5843,7 +5812,7 @@ export function WorkspaceRoute() {
     }
 
     if (mode === 'cut' || targetIndex === 0) {
-      selectTimelineStepByIndex(targetIndex);
+      selectTimelineStepByIndex(targetIndex, true);
       setStatusMessage(`MIDI cut to timeline step ${targetIndex + 1}.`);
       return;
     }
@@ -7642,6 +7611,7 @@ ${errorSnapshot}`,
       stagePreviewMode?: TimelineStagePreviewMode;
       seekTimeSeconds?: number | null;
       preserveRenderTimeOnSeek?: boolean;
+      selectionTransition?: 'mix' | 'cut';
     },
   ) {
     let nextStatusMessage = '';
@@ -7737,6 +7707,7 @@ ${errorSnapshot}`,
                 stagePreviewMode: nextStagePreviewMode,
                 focusedStepId: stepId,
                 singleStepLoopEnabled: nextStagePreviewMode === 'focused',
+                manualSelectionTransition: options?.selectionTransition ?? 'mix',
                 steps: nextSteps,
               },
             },
@@ -8659,7 +8630,6 @@ ${errorSnapshot}`,
         totalDurationSeconds={timelineDurationSeconds}
         onModeChange={handleTimelineSequenceModeChange}
         onSharedTransitionChange={handleTimelineSharedTransitionChange}
-        onMixDurationChange={handleTimelineMixDurationChange}
         onStepChange={handleTimelineStepChange}
         onPinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignStepAsset={handleTimelineAssignStepAsset}
@@ -8793,7 +8763,6 @@ ${errorSnapshot}`,
       onPlayToggle={handlePlayToggle}
       onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
-      onSequenceMixDurationChange={handleTimelineMixDurationChange}
       onSequenceStepChange={handleTimelineStepChange}
       hasSequenceShuffleUndo={hasTimelineShaderShuffleUndo}
       onRandomizeSequenceShaders={handleRandomizeTimelineShaders}
@@ -9433,7 +9402,6 @@ ${errorSnapshot}`,
         onPlayToggle={handlePlayToggle}
         onSequenceModeChange={handleTimelineSequenceModeChange}
         onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
-        onSequenceMixDurationChange={handleTimelineMixDurationChange}
         onSequenceStepChange={handleTimelineStepChange}
         hasSequenceShuffleUndo={hasTimelineShaderShuffleUndo}
         onRandomizeSequenceShaders={handleRandomizeTimelineShaders}

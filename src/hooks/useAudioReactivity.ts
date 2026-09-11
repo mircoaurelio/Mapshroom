@@ -466,8 +466,39 @@ export function useAudioReactivity(
       if (isTauri()) {
         try {
           await startDesktopAudioCapture(source);
+          let sectionDetector: AudioSectionDetectorState | null = null;
+          let lastSectionAnalysisAt = 0;
           desktopUnlistenRef.current = await listenDesktopAudioFrames(
             (nativeFrame: DesktopAudioFrame) => {
+              const now = performance.now();
+              const level = clamp(nativeFrame.rms * 2.2, 0, 1);
+              const sectionOptions = optionsRef.current;
+              if (!sectionOptions.sectionDetectionEnabled) {
+                sectionDetector = null;
+                lastSectionAnalysisAt = 0;
+              } else if (!sectionDetector) {
+                sectionDetector = createAudioSectionDetector(
+                  crypto.randomUUID(),
+                  now,
+                  Date.now(),
+                );
+                lastSectionAnalysisAt = now;
+              } else if (now - lastSectionAnalysisAt >= 100) {
+                lastSectionAnalysisAt = now;
+                sectionDetector = updateAudioSectionDetector(
+                  sectionDetector,
+                  {
+                    atMs: now,
+                    epochMs: Date.now(),
+                    features: [level, nativeFrame.bass, nativeFrame.mid, nativeFrame.treble],
+                    level,
+                    beat: nativeFrame.beat ? 1 : 0,
+                  },
+                  {
+                    minSectionMs: clamp(sectionOptions.minimumSectionSeconds ?? 8, 1, 600) * 1_000,
+                  },
+                ).state;
+              }
               const bpm =
                 preferencesRef.current.bpmMode === 'manual'
                   ? preferencesRef.current.manualBpm
@@ -476,15 +507,15 @@ export function useAudioReactivity(
                     : runtimeRef.current.bpm || 120;
               const nextFrame: AudioReactiveFrame = {
                 active: true,
-                level: clamp(nativeFrame.rms * 2.2, 0, 1),
+                level,
                 bass: clamp(nativeFrame.bass, 0, 1),
                 mid: clamp(nativeFrame.mid, 0, 1),
                 high: clamp(nativeFrame.treble, 0, 1),
                 beat: nativeFrame.beat ? 1 : Math.max(0, runtimeRef.current.beat * 0.85),
                 tempo: bpm / 60,
                 bpm,
-                updatedAt: performance.now(),
-                section: runtimeRef.current.section,
+                updatedAt: now,
+                section: sectionDetector?.snapshot ?? DEFAULT_AUDIO_REACTIVE_FRAME.section,
               };
               runtimeRef.current = nextFrame;
               setUiFrame(nextFrame);

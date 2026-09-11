@@ -10,6 +10,7 @@ export interface AudioSectionDetectorState {
   snapshot: AudioSectionSnapshot;
   sectionStartedAtMs: number;
   candidateStartedAtMs: number | null;
+  pendingChange: { confidence: number; novelty: number } | null;
   changeArmed: boolean;
   samples: Array<{
     atMs: number;
@@ -131,6 +132,7 @@ export function createAudioSectionDetector(
     },
     sectionStartedAtMs: startedAtMs,
     candidateStartedAtMs: null,
+    pendingChange: null,
     changeArmed: true,
     samples: [],
     noveltyHistory: [],
@@ -198,16 +200,17 @@ export function updateAudioSectionDetector(
   const minimumSectionElapsed =
     sample.atMs - currentState.sectionStartedAtMs >=
     Math.max(1_000, options.minSectionMs);
+  const audible = sample.level >= SILENCE_LEVEL;
+  const pendingChange = audible ? currentState.pendingChange : null;
   const changeArmed =
-    currentState.changeArmed || novelty < threshold * 0.72;
+    !pendingChange && (currentState.changeArmed || novelty < threshold * 0.72);
   const isCandidate =
     changeArmed &&
-    minimumSectionElapsed &&
-    sample.level >= SILENCE_LEVEL &&
+    audible &&
     novelty >= threshold;
   const candidateStartedAtMs = isCandidate
     ? currentState.candidateStartedAtMs ?? sample.atMs
-    : novelty < threshold * 0.72
+    : !audible || pendingChange || novelty < threshold * 0.72
       ? null
       : currentState.candidateStartedAtMs;
   const candidateElapsedMs =
@@ -218,14 +221,18 @@ export function updateAudioSectionDetector(
     candidateElapsedMs >= CANDIDATE_SUSTAIN_MS &&
     (sample.beat >= 0.55 || candidateElapsedMs >= CANDIDATE_BEAT_WAIT_MS);
 
-  if (!shouldConfirm) {
+  // Keep a confirmed musical change through the minimum hold, even once the
+  // rolling baseline has adapted to the new section. Silence cancels it.
+  const confirmedChange = pendingChange ?? (shouldConfirm ? { confidence, novelty } : null);
+  if (!confirmedChange || !minimumSectionElapsed) {
     return {
       state: {
         ...currentState,
         samples,
         noveltyHistory,
-        candidateStartedAtMs,
-        changeArmed,
+        candidateStartedAtMs: confirmedChange ? null : candidateStartedAtMs,
+        pendingChange: confirmedChange,
+        changeArmed: confirmedChange ? false : changeArmed,
         snapshot: {
           ...currentState.snapshot,
           confidence,
@@ -243,13 +250,14 @@ export function updateAudioSectionDetector(
       noveltyHistory,
       sectionStartedAtMs: sample.atMs,
       candidateStartedAtMs: null,
+      pendingChange: null,
       changeArmed: false,
       snapshot: {
         ...currentState.snapshot,
         revision: currentState.snapshot.revision + 1,
         changedAtEpochMs: sample.epochMs,
-        confidence,
-        novelty,
+        confidence: confirmedChange.confidence,
+        novelty: confirmedChange.novelty,
       },
     },
     sectionChanged: true,

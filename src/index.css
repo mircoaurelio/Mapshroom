@@ -7872,8 +7872,8 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-sequence-toolbar-actions {
-  --timeline-toolbar-control-height: 38px;
-  align-items: flex-end;
+  --timeline-toolbar-control-height: 30px;
+  align-items: center;
 }
 
 .timeline-bar-desktop .timeline-sequence-toolbar,
@@ -7900,21 +7900,21 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field-section {
-  width: 184px;
+  width: 126px;
   min-width: 0;
-  flex: 0 0 184px;
+  flex: 0 0 126px;
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field-fx {
-  width: 102px;
-  min-width: 0;
-  flex: 0 0 102px;
-}
-
-.timeline-bar-desktop .timeline-shared-transition-field-mix {
   width: 142px;
   min-width: 0;
   flex: 0 0 142px;
+}
+
+.timeline-bar-desktop .timeline-shared-transition-field-mix {
+  width: 112px;
+  min-width: 0;
+  flex: 0 0 112px;
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field .text-field,
@@ -7946,8 +7946,8 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   }
 
   .timeline-bar-desktop .timeline-shared-transition-toolbar {
-    width: 100%;
-    flex: 1 1 100%;
+    width: auto;
+    flex: 0 1 auto;
   }
 
   .timeline-bar-desktop .timeline-mode-switch {
@@ -8301,18 +8301,46 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-shared-transition-field-section {
+  --timeline-field-label-space: 2.8rem;
+  min-width: 126px;
+}
+
+.timeline-shared-transition-field-section:has(input[aria-label="Minimum audio section hold in seconds"]) {
   --timeline-field-label-space: 5.8rem;
   min-width: 184px;
+  flex-basis: 184px;
 }
 
 .timeline-shared-transition-field-fx {
-  --timeline-field-label-space: 2.2rem;
-  min-width: 102px;
+  --timeline-field-label-space: 2.5rem;
+  min-width: 142px;
+}
+
+.timeline-mix-select {
+  justify-content: stretch;
+}
+
+.timeline-mix-select > .app-select-label {
+  text-transform: uppercase;
+}
+
+.timeline-mix-select .app-select-trigger {
+  height: 100%;
+  min-height: var(--timeline-toolbar-control-height, 38px);
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.35rem var(--timeline-field-label-space);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.timeline-mix-select .app-select-trigger > span {
+  flex: 1;
+  text-align: right;
 }
 
 .timeline-shared-transition-field-mix {
-  --timeline-field-label-space: 5rem;
-  min-width: 142px;
+  --timeline-field-label-space: 2.8rem;
+  min-width: 112px;
 }
 
 .timeline-shared-transition-field > span {
@@ -8336,13 +8364,7 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-shared-transition-field > span::before {
-  width: 3px;
-  height: 3px;
-  flex: 0 0 3px;
-  border-radius: 50%;
-  background: rgba(var(--accent-rgb), 0.64);
-  box-shadow: 0 0 7px rgba(var(--accent-rgb), 0.32);
-  content: '';
+  content: none;
 }
 
 .timeline-shared-transition-field .text-field,
@@ -8367,7 +8389,7 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-shared-transition-field .timeline-number-stepper .text-field {
-  padding-right: 2.7rem;
+  padding-right: 2rem;
   appearance: textfield;
 }
 

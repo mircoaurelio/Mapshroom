@@ -67,7 +67,6 @@ interface TimelineBarProps {
     sharedTransitionDurationSeconds?: number;
     sharedSectionDurationSeconds?: number;
   }) => void;
-  onSequenceMixDurationChange: (mixDurationSeconds: number) => void;
   onSequenceStepChange: (
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
@@ -331,7 +330,6 @@ export function TimelineBar({
   onRepeatSectionSelect,
   onSequenceModeChange,
   onSequenceSharedTransitionChange,
-  onSequenceMixDurationChange,
   onSequenceStepChange,
   hasSequenceShuffleUndo,
   onRandomizeSequenceShaders,
@@ -1186,7 +1184,6 @@ export function TimelineBar({
         audioReactiveListening={audioReactiveListening}
         onModeChange={onSequenceModeChange}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
-        onMixDurationChange={onSequenceMixDurationChange}
         onStepChange={onSequenceStepChange}
         hasShuffleUndo={hasSequenceShuffleUndo}
         onRandomizeShaders={onRandomizeSequenceShaders}

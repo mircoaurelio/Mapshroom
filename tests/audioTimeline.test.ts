@@ -5,7 +5,7 @@ import {
   updateAudioSectionDetector,
   type AudioSectionDetectorState,
 } from '../src/lib/audioSectionDetection.ts';
-import { resolveAudioReactiveTimelineState } from '../src/lib/audioTimeline.ts';
+import { activateAudioReactiveTimeline, resolveAudioReactiveTimelineState } from '../src/lib/audioTimeline.ts';
 import { normalizeTimelineStepAssetSettings } from '../src/lib/timelineAssetSettings.ts';
 import type { SavedShader, TimelineStub } from '../src/types.ts';
 
@@ -16,11 +16,15 @@ function advanceDetector(
     count,
     features,
     beat = 0,
+    minSectionMs = 1_000,
+    level = 0.5,
   }: {
     fromMs: number;
     count: number;
     features: number[];
     beat?: number;
+    minSectionMs?: number;
+    level?: number;
   },
 ): AudioSectionDetectorState {
   let nextState = state;
@@ -33,11 +37,11 @@ function advanceDetector(
         atMs,
         epochMs: 1_700_000_000_000 + atMs,
         features,
-        level: 0.5,
+        level,
         beat,
       },
       {
-        minSectionMs: 1_000,
+        minSectionMs,
       },
     ).state;
   }
@@ -66,6 +70,66 @@ const SHADERS: SavedShader[] = [
   { id: 'shader-b', name: 'B', code: 'void main() {}' },
   { id: 'shader-c', name: 'C', code: 'void main() {}' },
 ];
+
+test('selecting Audio Reactive in the timeline releases the previous focused repeat', () => {
+  const sequence = activateAudioReactiveTimeline({
+    enabled: true, mode: 'randomMix', editorView: 'advanced', stagePreviewMode: 'focused',
+    focusedStepId: 'step-b', pinnedStepId: null, randomSeedToken: 'seed',
+    singleStepLoopEnabled: true, randomChoiceEnabled: false, manualSelectionTransition: 'cut',
+    sharedTransitionEnabled: true, sharedTransitionEffect: 'radial',
+    sharedTransitionDurationSeconds: 2, sharedSectionDurationSeconds: 8,
+    steps: [createStep('step-a', 'shader-a'), createStep('step-b', 'shader-b')],
+  });
+  assert.equal(sequence.mode, 'audioReactive');
+  assert.equal(sequence.stagePreviewMode, 'timeline');
+  assert.equal(sequence.singleStepLoopEnabled, false);
+  assert.equal(sequence.sharedTransitionEffect, 'radial');
+  assert.equal(sequence.sharedTransitionDurationSeconds, 2);
+});
+
+test('a sustained music change during minimum hold is played when the hold expires', () => {
+  let state = createAudioSectionDetector('hold', 0, 1_700_000_000_000);
+  state = advanceDetector(state, {
+    fromMs: 0, count: 40, features: [0.18, 0.24, 0.16, 0.21], minSectionMs: 8_000,
+  });
+  state = advanceDetector(state, {
+    fromMs: 4_000, count: 40, features: [0.4, 0.48, 0.4, 0.51], beat: 1, minSectionMs: 8_000,
+  });
+  assert.equal(state.snapshot.revision, 0);
+  state = advanceDetector(state, {
+    fromMs: 8_000, count: 40, features: [0.4, 0.48, 0.4, 0.51], beat: 1, minSectionMs: 8_000,
+  });
+  assert.equal(state.snapshot.revision, 1);
+  assert.ok(state.snapshot.changedAtEpochMs >= 1_700_000_008_000);
+});
+
+test('silence cancels a queued music change instead of advancing an idle timeline', () => {
+  let state = createAudioSectionDetector('silence', 0, 1_700_000_000_000);
+  state = advanceDetector(state, {
+    fromMs: 0, count: 40, features: [0.1, 0.15, 0.2], minSectionMs: 8_000,
+  });
+  state = advanceDetector(state, {
+    fromMs: 4_000, count: 20, features: [0.5, 0.6, 0.7], beat: 1, minSectionMs: 8_000,
+  });
+  state = advanceDetector(state, {
+    fromMs: 6_000, count: 60, features: [0, 0, 0], level: 0, minSectionMs: 8_000,
+  });
+  assert.equal(state.snapshot.revision, 0);
+});
+
+test('audio-driven mixes use the requested duration independently of timeline card length', () => {
+  const resolution = resolveAudioReactiveTimelineState({
+    shaders: SHADERS,
+    steps: [createStep('step-a', 'shader-a'), createStep('step-b', 'shader-b')],
+    section: { runId: 'mix', revision: 1, changedAtEpochMs: 10_000, confidence: 1, novelty: 1 },
+    nowEpochMs: 19_000,
+    transitionEffect: 'radial', transitionDurationSeconds: 12,
+  });
+  assert.equal(resolution?.isTransitioning, true);
+  assert.equal(resolution?.transitionEffect, 'radial');
+  assert.equal(resolution?.transitionProgress, 0.75);
+  assert.equal(resolution?.transitionDurationSeconds, 12);
+});
 
 test('section detector ignores a short transient but confirms a sustained music change', () => {
   let state = createAudioSectionDetector('run-1', 0, 1_700_000_000_000);

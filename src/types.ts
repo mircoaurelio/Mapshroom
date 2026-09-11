@@ -179,6 +179,8 @@ export interface TimelineStub {
     pinnedStepId: string | null;
     randomSeedToken: string;
     singleStepLoopEnabled: boolean;
+    /** Explicit MIDI cuts bypass the usual mix on a manual selection. */
+    manualSelectionTransition?: 'mix' | 'cut';
     randomChoiceEnabled: boolean;
     sharedTransitionEnabled: boolean;
     sharedTransitionEffect: TimelineTransitionEffect;

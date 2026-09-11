@@ -1,4 +1,5 @@
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { advanceManualShaderMix, type ManualShaderMix, type ManualShaderMixState } from '../lib/manualShaderMix';
 import { getTransportTimeSeconds } from '../lib/clock';
 import { parseUniforms, syncUniformValues } from '../lib/shader';
 import {
@@ -212,6 +213,35 @@ function easeTransitionProgress(progress: number): number {
   return clamped * clamped * (3 - 2 * clamped);
 }
 
+function buildManualMixLayer(mix: ManualShaderMix<TimelineRenderLayer>): TimelineRenderLayer {
+  const { from, to } = mix;
+  return {
+    kind: 'transition',
+    shaderCode: buildTimelineTransitionShaderCode({
+      fromCode: from.shaderCode,
+      toCode: to.shaderCode,
+      effect: mix.effect,
+    }),
+    uniformValues: {
+      u_transition_progress: easeTransitionProgress(mix.progress),
+      u_transition_seed: getTimelineTransitionSeed('manual', mix.targetKey),
+      u_transition_duration: mix.durationSeconds,
+      // Child layers already include their overlays; preserve their samplers below.
+      u_timeline_from_has_overlay: false,
+      u_timeline_to_has_overlay: false,
+      ...prefixUniformValueKeys({ sourceValues: from.uniformValues, namespace: 'timeline_from' }),
+      ...prefixUniformValueKeys({ sourceValues: to.uniformValues, namespace: 'timeline_to' }),
+    },
+    audioBindings: {
+      ...prefixAudioReactiveBindingKeys({ bindings: from.audioBindings, namespace: 'timeline_from' }),
+      ...prefixAudioReactiveBindingKeys({ bindings: to.audioBindings, namespace: 'timeline_to' }),
+    },
+    usedFallback: from.usedFallback || to.usedFallback,
+    transitionInputSources: { from: from.inputSource ?? null, to: to.inputSource ?? null },
+    samplerSources: collectNestedTimelineSamplerSources(from, to),
+  };
+}
+
 function getDoubleAutomataBalancedProgress(timeSeconds: number): number {
   const cyclePosition = ((timeSeconds / DOUBLE_AUTOMATA_MOTION_SECONDS) % 1 + 1) % 1;
   const wave = Math.sin(cyclePosition * Math.PI * 2);
@@ -401,6 +431,8 @@ export function TimelineStageRenderer({
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
   const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
   const [modeTransitionNowMs, setModeTransitionNowMs] = useState(() => performance.now());
+  const [manualMixNowMs, setManualMixNowMs] = useState(() => performance.now());
+  const manualMixSnapshotRef = useRef<ManualShaderMixState<TimelineRenderLayer> | null>(null);
   const pinLayerTransitionRef = useRef<PinLayerTransitionState | null>(null);
   const modeLayerTransitionRef = useRef<ModeLayerTransitionState | null>(null);
   const previousSequenceModeRef = useRef<TimelineSequenceMode | null>(null);
@@ -1783,7 +1815,63 @@ export function TimelineStageRenderer({
     decodedAssetVersion,
     workspaceFocusedPreviewEnabled,
   ]);
-  const visibleTimelineRenderLayers = visibleTimelineRenderState.baseLayers;
+  const manualSelectionKey =
+    !midiManualMix?.enabled &&
+    shaderSequence.manualSelectionTransition !== 'cut' &&
+    (workspaceFocusedPreviewEnabled || shaderSequence.singleStepLoopEnabled)
+      ? effectiveFocusedStepId
+      : null;
+  const manualMixState = useMemo(() => advanceManualShaderMix(manualMixSnapshotRef.current, {
+    selectionKey: manualSelectionKey,
+    layer: visibleTimelineRenderState.baseLayers[0],
+    effect: shaderSequence.sharedTransitionEffect ?? 'mix',
+    durationSeconds: shaderSequence.sharedTransitionDurationSeconds ?? 0.75,
+    nowMs: performance.now(),
+    isReady: (mix) => {
+      const targetStep = shaderSequence.steps.find((step) => step.id === mix.targetKey);
+      const targetShader = targetStep ? availableShaderById.get(targetStep.shaderId) : null;
+      return isTimelineStepMediaResolved(targetShader, resolvedInputSources) &&
+        compiledShaderCodes.has(mix.to.shaderCode) &&
+        compiledShaderCodes.has(buildManualMixLayer(mix).shaderCode);
+    },
+  }), [
+    manualSelectionKey,
+    manualMixNowMs,
+    visibleTimelineRenderState.baseLayers,
+    shaderSequence.sharedTransitionEffect,
+    shaderSequence.sharedTransitionDurationSeconds,
+    shaderSequence.steps,
+    availableShaderById,
+    resolvedInputSources,
+    compiledShaderCodes,
+    decodedAssetVersion,
+  ]);
+  useLayoutEffect(() => {
+    manualMixSnapshotRef.current = manualMixState;
+  }, [manualMixState]);
+  const manualMixActive = manualMixState.mix !== null;
+  useEffect(() => {
+    if (!manualMixActive) return;
+    let frameId = 0;
+    let lastUpdateAt = 0;
+    const tick = (nowMs: number) => {
+      if (nowMs - lastUpdateAt >= 1000 / 30) {
+        lastUpdateAt = nowMs;
+        setManualMixNowMs(nowMs);
+      }
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [manualMixActive]);
+  const manualMixLayer = useMemo(
+    () => manualMixState.mix ? buildManualMixLayer(manualMixState.mix) : null,
+    [manualMixState.mix],
+  );
+  const visibleTimelineRenderLayers = useMemo(() => manualMixState.mix
+    ? [manualMixState.mix.startedAtMs === null ? manualMixState.layer : manualMixLayer!]
+    : visibleTimelineRenderState.baseLayers,
+  [manualMixState, manualMixLayer, visibleTimelineRenderState.baseLayers]);
   const pinnedTimelineRenderLayer = visibleTimelineRenderState.pinnedLayer;
   const pinnedTimelineRenderLayerKey = visibleTimelineRenderState.pinnedLayerKey;
   const currentSequenceMode = shaderSequence.mode ?? 'sequence';
@@ -2180,11 +2268,17 @@ export function TimelineStageRenderer({
   );
 
   const preloadStageLayers = useMemo<StageRenderLayer[]>(() => {
+    const manualPreloads = manualMixLayer && manualMixState.mix
+      ? [
+          createStageRenderLayer(manualMixLayer, 1),
+          createStageRenderLayer(manualMixState.mix.to, 1),
+        ]
+      : [];
     if (workspaceFocusedPreviewEnabled || !timelineState) {
-      return [];
+      return manualPreloads;
     }
 
-    const preloadCandidates: Array<StageRenderLayer | null> = [];
+    const preloadCandidates: Array<StageRenderLayer | null> = [...manualPreloads];
     const activeModeLayerTransition = modeLayerTransitionRef.current;
     if (activeModeLayerTransition) {
       for (const layer of activeModeLayerTransition.toLayers) {
@@ -2271,6 +2365,8 @@ export function TimelineStageRenderer({
     createStageRenderLayer,
     focusExitTimelineState,
     midiManualLookaheadTimelineState,
+    manualMixLayer,
+    manualMixState.mix,
     modeTransitionNowMs,
     primaryLookaheadTimelineStates,
     secondaryLookaheadTimelineStates,

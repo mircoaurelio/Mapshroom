@@ -3,7 +3,6 @@ import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
   clampTimelineStepDuration,
   roundTimelineSeconds,
-  shouldUseSharedTransition,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
@@ -26,6 +25,7 @@ import {
 } from '../lib/shaderState';
 import { getBundledAssetUrl } from '../lib/bundledAssets';
 import { ShuffleIcon } from './ShuffleIcon';
+import { AppSelect } from './AppSelect';
 import type {
   AssetRecord,
   AssetKind,
@@ -68,7 +68,6 @@ interface ShaderTimelineEditorProps {
     sharedTransitionDurationSeconds?: number;
     sharedSectionDurationSeconds?: number;
   }) => void;
-  onMixDurationChange: (mixDurationSeconds: number) => void;
   onStepChange: (
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
@@ -266,7 +265,6 @@ export function ShaderTimelineEditor({
   audioReactiveListening = false,
   onModeChange,
   onSharedTransitionChange,
-  onMixDurationChange,
   onStepChange,
   hasShuffleUndo = false,
   onRandomizeShaders,
@@ -374,22 +372,12 @@ export function ShaderTimelineEditor({
     [referencedAssignedAssetIds],
   );
   const isAdvancedView = true;
-  const usesSharedTransition = shouldUseSharedTransition(
-    sequence.mode,
-    sequence.sharedTransitionEnabled,
-  );
   const usesSharedSectionDuration =
     sequence.mode === 'random' ||
     sequence.mode === 'randomMix' ||
     sequence.mode === 'double' ||
     sequence.mode === 'audioReactive' ||
     sequence.randomChoiceEnabled;
-  const showMixTimeControls =
-    !sequence.singleStepLoopEnabled &&
-    (usesSharedTransition || sequence.mode === 'sequence');
-  const displayedMixDurationSeconds = usesSharedTransition
-    ? sequence.sharedTransitionDurationSeconds
-    : sequence.steps.find((step) => !step.disabled)?.transitionDurationSeconds ?? 0.75;
 
   useEffect(
     () => () => {
@@ -1285,125 +1273,108 @@ export function ShaderTimelineEditor({
             >
               <span>{midiManualMixArmed ? 'MIDI Slider On' : 'MIDI Slider Off'}</span>
             </div>
-          ) : (
-            <div className="timeline-shared-transition-toolbar">
-              {usesSharedSectionDuration ? (
-                <div className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
-                  <span>
-                    {sequence.mode === 'audioReactive'
-                      ? 'Minimum Hold'
-                      : 'Section Time'}
-                  </span>
-                  <div className="timeline-number-stepper">
-                    <input
-                      className="text-field"
-                      type="number"
-                      aria-label={
-                        sequence.mode === 'audioReactive'
-                          ? 'Minimum audio section hold in seconds'
-                          : 'Section time in seconds'
-                      }
-                      min={sequence.mode === 'audioReactive' ? 1 : 0.5}
-                      max={600}
-                      step={0.5}
-                      value={sequence.sharedSectionDurationSeconds}
-                      onChange={(event) =>
+          ) : null}
+          <div className="timeline-shared-transition-toolbar">
+            {usesSharedSectionDuration ? (
+              <div className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
+                <span>
+                  {sequence.mode === 'audioReactive'
+                    ? 'Minimum Hold'
+                    : 'Hold'}
+                </span>
+                <div className="timeline-number-stepper">
+                  <input
+                    className="text-field"
+                    type="number"
+                    aria-label={
+                      sequence.mode === 'audioReactive'
+                        ? 'Minimum audio section hold in seconds'
+                        : 'Section time in seconds'
+                    }
+                    min={sequence.mode === 'audioReactive' ? 1 : 0.5}
+                    max={600}
+                    step={0.5}
+                    value={sequence.sharedSectionDurationSeconds}
+                    onChange={(event) =>
+                      onSharedTransitionChange({
+                        sharedSectionDurationSeconds: Number(event.target.value),
+                      })
+                    }
+                  />
+                  <div className="timeline-number-stepper-controls">
+                    <button
+                      type="button"
+                      aria-label="Increase section time"
+                      title="Increase section time"
+                      disabled={sequence.sharedSectionDurationSeconds >= 600}
+                      onClick={() =>
                         onSharedTransitionChange({
-                          sharedSectionDurationSeconds: Number(event.target.value),
+                          sharedSectionDurationSeconds: clampTimelineStepDuration(
+                            sequence.sharedSectionDurationSeconds + 0.5,
+                          ),
                         })
                       }
-                    />
-                    <div className="timeline-number-stepper-controls">
-                      <button
-                        type="button"
-                        aria-label="Increase section time"
-                        title="Increase section time"
-                        disabled={sequence.sharedSectionDurationSeconds >= 600}
-                        onClick={() =>
-                          onSharedTransitionChange({
-                            sharedSectionDurationSeconds: clampTimelineStepDuration(
-                              sequence.sharedSectionDurationSeconds + 0.5,
+                    >
+                      <StepperChevronIcon direction="up" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Decrease section time"
+                      title="Decrease section time"
+                      disabled={
+                        sequence.sharedSectionDurationSeconds <=
+                        (sequence.mode === 'audioReactive' ? 1 : 0.5)
+                      }
+                      onClick={() =>
+                        onSharedTransitionChange({
+                          sharedSectionDurationSeconds: clampTimelineStepDuration(
+                            Math.max(
+                              sequence.mode === 'audioReactive' ? 1 : 0.5,
+                              sequence.sharedSectionDurationSeconds - 0.5,
                             ),
-                          })
-                        }
-                      >
-                        <StepperChevronIcon direction="up" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="Decrease section time"
-                        title="Decrease section time"
-                        disabled={
-                          sequence.sharedSectionDurationSeconds <=
-                          (sequence.mode === 'audioReactive' ? 1 : 0.5)
-                        }
-                        onClick={() =>
-                          onSharedTransitionChange({
-                            sharedSectionDurationSeconds: clampTimelineStepDuration(
-                              Math.max(
-                                sequence.mode === 'audioReactive' ? 1 : 0.5,
-                                sequence.sharedSectionDurationSeconds - 0.5,
-                              ),
-                            ),
-                          })
-                        }
-                      >
-                        <StepperChevronIcon direction="down" />
-                      </button>
-                    </div>
+                          ),
+                        })
+                      }
+                    >
+                      <StepperChevronIcon direction="down" />
+                    </button>
                   </div>
                 </div>
-              ) : null}
+              </div>
+            ) : null}
 
-              {showMixTimeControls ? (
-                <>
-                  {usesSharedTransition ? (
-                    <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-fx">
-                      <span>Fx</span>
-                      <select
-                        className="select-field"
-                        value={sequence.sharedTransitionEffect}
-                        onChange={(event) =>
-                          onSharedTransitionChange({
-                            sharedTransitionEffect:
-                              event.target.value as TimelineStub['shaderSequence']['sharedTransitionEffect'],
-                          })
-                        }
-                      >
-                        {TIMELINE_TRANSITION_EFFECT_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : null}
+            <AppSelect
+              className="timeline-shared-transition-field timeline-shared-transition-field-fx timeline-mix-select"
+              label="Mix"
+              value={sequence.sharedTransitionEffect}
+              options={TIMELINE_TRANSITION_EFFECT_OPTIONS}
+              onChange={(effect) =>
+                onSharedTransitionChange({
+                  sharedTransitionEnabled: true,
+                  sharedTransitionEffect: effect,
+                })
+              }
+            />
 
-                  <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-mix">
-                    <span>Mix Time</span>
-                    <input
-                      className="text-field"
-                      type="number"
-                      min={0}
-                      step={0.05}
-                      value={displayedMixDurationSeconds}
-                      onChange={(event) => {
-                        const nextDurationSeconds = Number(event.target.value);
-                        if (usesSharedTransition) {
-                          onSharedTransitionChange({
-                            sharedTransitionDurationSeconds: nextDurationSeconds,
-                          });
-                          return;
-                        }
-
-                        onMixDurationChange(nextDurationSeconds);
-                      }}
-                    />
-                  </label>
-                </>
-              ) : null}
-            </div>
-          )}
+            <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-mix">
+              <span>Time</span>
+              <input
+                className="text-field"
+                type="number"
+                aria-label="Mix time in seconds"
+                min={0}
+                max={600}
+                step={0.05}
+                value={sequence.sharedTransitionDurationSeconds}
+                onChange={(event) =>
+                  onSharedTransitionChange({
+                    sharedTransitionEnabled: true,
+                    sharedTransitionDurationSeconds: Number(event.target.value),
+                  })
+                }
+              />
+            </label>
+          </div>
 
           <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
             {TIMELINE_SEQUENCE_MODE_OPTIONS.filter(
