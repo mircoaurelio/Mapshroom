@@ -25,7 +25,7 @@
     "tauri:build": "tauri build",
     "icons:tauri": "node ./scripts/generate-tauri-icons.mjs",
     "pack:msix": "powershell -ExecutionPolicy Bypass -File ./scripts/pack-msix.ps1",
-    "release:checksums": "powershell -ExecutionPolicy Bypass -File ./scripts/write-release-checksums.ps1"
+    "release:checksums": "node ./scripts/write-release-checksums.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.48.0",
