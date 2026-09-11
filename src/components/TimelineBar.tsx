@@ -33,6 +33,7 @@ import type {
   TimelineTransitionEffect,
 } from '../types';
 import { ShaderTimelineEditor } from './ShaderTimelineEditor';
+import type { ImageTransfer } from '../lib/imageTransfer';
 
 type TimelineBarVariant = 'desktop' | 'dialog';
 
@@ -78,6 +79,7 @@ interface TimelineBarProps {
   onSequencePinnedStepToggle: (stepId: string) => void;
   onAssignSequenceStepAsset: (stepId: string, assetId: string | null) => void;
   onImportSequenceAsset: (stepId: string) => void;
+  onDropSequenceImage: (transfer: ImageTransfer, stepId: string) => void;
   assetPickerRequestStepId: string | null;
   assetPickerRequestToken: number;
   onAssetPickerRequestHandled: () => void;
@@ -338,6 +340,7 @@ export function TimelineBar({
   onSequencePinnedStepToggle,
   onAssignSequenceStepAsset,
   onImportSequenceAsset,
+  onDropSequenceImage,
   assetPickerRequestStepId,
   assetPickerRequestToken,
   onAssetPickerRequestHandled,
@@ -1192,6 +1195,7 @@ export function TimelineBar({
         onPinnedStepToggle={onSequencePinnedStepToggle}
         onAssignStepAsset={onAssignSequenceStepAsset}
         onImportAsset={onImportSequenceAsset}
+        onDropImage={onDropSequenceImage}
         assetPickerRequestStepId={assetPickerRequestStepId}
         assetPickerRequestToken={assetPickerRequestToken}
         onAssetPickerRequestHandled={onAssetPickerRequestHandled}

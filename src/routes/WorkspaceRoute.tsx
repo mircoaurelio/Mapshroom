@@ -13,6 +13,17 @@ import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
+import {
+  captureImageTransfer,
+  fetchImageFile,
+  getTransferredImageUrl,
+  hasImageTransfer,
+  imageFileType,
+  readClipboardImages,
+  validateImageFile,
+  type ImageTransfer,
+} from '../lib/imageTransfer';
+import { useImageDropTarget } from '../lib/useImageDropTarget';
 import { AssetSegmentationDialog } from '../components/AssetSegmentationDialog';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
@@ -2819,6 +2830,9 @@ export function WorkspaceRoute() {
   const mappingPositionInputRef = useRef<HTMLInputElement | null>(null);
   const filePickerSourceRef = useRef<FilePickerSource>('library');
   const timelineImportStepIdRef = useRef<string | null>(null);
+  const imageImportBusyRef = useRef(false);
+  const [imageImporting, setImageImporting] = useState(false);
+  const [imageImportMessage, setImageImportMessage] = useState('');
   const stageViewportRef = useRef<HTMLElement | null>(null);
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
@@ -4336,14 +4350,13 @@ export function WorkspaceRoute() {
     document.body.style.userSelect = 'none';
   };
 
-  const handleFileSelection = async (event: ChangeEvent<HTMLInputElement>) => {
-    const filePickerSource = filePickerSourceRef.current;
-    const timelineImportStepId = timelineImportStepIdRef.current;
-    filePickerSourceRef.current = 'library';
-    timelineImportStepIdRef.current = null;
-    const files = Array.from(event.target.files ?? []);
+  const importAssetFiles = useCallback(async (
+    files: File[],
+    filePickerSource: FilePickerSource = 'library',
+    timelineImportStepId: string | null = null,
+  ) => {
     if (!files.length) {
-      return;
+      return false;
     }
 
     const uploadedAssets: AssetRecord[] = [];
@@ -4384,18 +4397,18 @@ export function WorkspaceRoute() {
     }
 
     if (!uploadedAssets.length) {
-      setStatusMessage(
-        failedStorageCount
+      const message = failedStorageCount
           ? 'Browser storage is full, so the images were not added. The current project was left unchanged. Save a file, then retry with fewer or smaller images.'
-          : 'No supported assets were added.',
-      );
-      event.target.value = '';
-      return;
+          : 'No supported assets were added.';
+      setStatusMessage(message);
+      setImageImportMessage(message);
+      return false;
     }
 
     let timelineAssignmentMessage = '';
 
     updateProject((currentProject) => {
+      if (currentProject.sessionId !== project?.sessionId) return currentProject;
       const nextAssets = [...currentProject.library.assets, ...uploadedAssets];
       const currentActiveId =
         currentProject.playback.activeAssetId ?? currentProject.library.activeAssetId;
@@ -4464,16 +4477,124 @@ export function WorkspaceRoute() {
       : filePickerSource === 'timeline-picker'
         ? `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added to the library.`
         : `${uploadedAssets.length} asset${uploadedAssets.length > 1 ? 's' : ''} added.`;
-    setStatusMessage(
-        failedStorageCount
+    const importMessage = failedStorageCount
         ? `${storedMessage} ${failedStorageCount} file${failedStorageCount > 1 ? 's' : ''} were skipped because browser storage is full. The existing project was not deleted.`
-        : storedMessage,
-    );
+        : storedMessage;
+    setStatusMessage(importMessage);
+    setImageImportMessage(importMessage);
     if (filePickerSource === 'library') {
       setHighlightAssetStartMapping(true);
     }
+    return true;
+  }, [editingTimelineStepId, project?.sessionId, updateProject]);
+
+  const handleFileSelection = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    const source = filePickerSourceRef.current;
+    const stepId = timelineImportStepIdRef.current;
     event.target.value = '';
+    filePickerSourceRef.current = 'library';
+    timelineImportStepIdRef.current = null;
+    await importAssetFiles(files, source, stepId);
   };
+
+  const handleImageTransfer = useCallback(async (
+    source: ImageTransfer | (() => Promise<ImageTransfer>),
+    stepId: string | null = null,
+  ) => {
+    if (!project || imageImportBusyRef.current) return;
+    imageImportBusyRef.current = true;
+    setImageImporting(true);
+    setImageImportMessage('Adding image…');
+    setStatusMessage('Adding image…');
+    try {
+      const transfer = typeof source === 'function' ? await source() : source;
+      if (transfer.assetId) {
+        const asset = project.library.assets.find((item) => item.id === transfer.assetId && item.kind === 'image');
+        if (!asset) throw new Error('This image is no longer in this project. Import the original file again.');
+        updateProject((currentProject) => {
+          if (currentProject.sessionId !== project.sessionId) return currentProject;
+          if (stepId) {
+            return assignTimelineStepAssetToProject(currentProject, stepId, asset.id, editingTimelineStepId === stepId).project;
+          }
+          return {
+            ...currentProject,
+            library: { ...currentProject.library, activeAssetId: asset.id },
+            playback: { ...currentProject.playback, activeAssetId: asset.id },
+          };
+        });
+        const message = stepId ? `Assigned “${asset.name}” to this shader step.` : `“${asset.name}” is now the canvas image.`;
+        setStatusMessage(message);
+        setImageImportMessage(message);
+        setIsAssetLibraryOpen(false);
+      } else {
+        const candidates = transfer.files.filter((file) => imageFileType(file));
+        if (!candidates.length) {
+          const url = getTransferredImageUrl(transfer);
+          if (url) candidates.push(await fetchImageFile(url));
+        }
+        if (!candidates.length) throw new Error('No image found. Copy an image or screenshot, paste a direct image URL, or drag an image file here.');
+        const files: File[] = [];
+        const failures: string[] = [];
+        for (const file of candidates) {
+          try { files.push(await validateImageFile(file)); }
+          catch (error) { failures.push(error instanceof Error ? error.message : 'An image could not be opened.'); }
+        }
+        if (!files.length) throw new Error(failures[0]);
+        const added = await importAssetFiles(files, stepId ? 'timeline-picker' : 'library', stepId);
+        if (!added) return;
+        if (failures.length || transfer.files.length > candidates.length) {
+          const skipped = failures.length + Math.max(0, transfer.files.length - candidates.length);
+          const suffix = ` ${skipped} unreadable or unsupported file${skipped === 1 ? ' was' : 's were'} skipped.`;
+          setStatusMessage((message) => message + suffix);
+          setImageImportMessage((message) => message + suffix);
+        }
+      }
+      if (!stepId) {
+        dismissAssetsFirstStepPermanently();
+        setShowAssetImportFirstStep(false);
+        setHighlightAssetStartMapping(true);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The image could not be added. Please try again.';
+      setStatusMessage(message);
+      setImageImportMessage(message);
+    } finally {
+      imageImportBusyRef.current = false;
+      setImageImporting(false);
+    }
+  }, [project, editingTimelineStepId, importAssetFiles, updateProject]);
+
+  const { dropProps: stageImageDropProps } = useImageDropTarget((transfer) => {
+    void handleImageTransfer(transfer);
+  });
+
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const target = event.target;
+      if (event.defaultPrevented || !event.clipboardData) return;
+      if (target instanceof Element && target.closest('input, textarea, [contenteditable=""], [contenteditable="true"], [role="textbox"]')) return;
+      // Leave shader code, project dialogs, and other editing flows in control of paste.
+      if (document.querySelector('.dialog-backdrop:not(.asset-browser-backdrop)')) return;
+      const transfer = captureImageTransfer(event.clipboardData);
+      if (!hasImageTransfer(transfer)) return;
+      event.preventDefault();
+      void handleImageTransfer(transfer);
+    };
+    const preventFileNavigation = (event: DragEvent) => {
+      if (event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files')) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    window.addEventListener('dragover', preventFileNavigation);
+    window.addEventListener('drop', preventFileNavigation);
+    return () => {
+      window.removeEventListener('paste', onPaste);
+      window.removeEventListener('dragover', preventFileNavigation);
+      window.removeEventListener('drop', preventFileNavigation);
+    };
+  }, [handleImageTransfer]);
 
   const handlePlayToggle = () => {
     updateProject((currentProject) => {
@@ -8508,6 +8629,7 @@ ${errorSnapshot}`,
         onPinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignStepAsset={handleTimelineAssignStepAsset}
         onImportAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
+        onDropImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
         assetPickerRequestStepId={null}
         assetPickerRequestToken={0}
         onAssetPickerRequestHandled={() => undefined}
@@ -8645,6 +8767,7 @@ ${errorSnapshot}`,
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
       onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
+      onDropSequenceImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
       assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
       assetPickerRequestToken={timelineAssetPickerRequest.token}
       onAssetPickerRequestHandled={() =>
@@ -8688,6 +8811,7 @@ ${errorSnapshot}`,
       aria-keyshortcuts={isMobile ? undefined : 'ArrowLeft ArrowRight'}
       onClick={handleStageReveal}
       onPointerDown={handleStageViewportPointerDown}
+      {...stageImageDropProps()}
     >
       <TimelineStageRenderer
         asset={activeAsset}
@@ -8894,6 +9018,12 @@ ${errorSnapshot}`,
       <div className="sr-only" aria-live="polite">
         {statusMessage}
       </div>
+      {imageImportMessage && !isAssetLibraryOpen ? (
+        <div className="image-import-notice" role="status">
+          <span>{imageImportMessage}</span>
+          <button type="button" aria-label="Dismiss image import message" onClick={() => setImageImportMessage('')}>×</button>
+        </div>
+      ) : null}
 
       {!isMobile && midiEnabled && midiPanelVisible ? (
         <MidiControllerPanel
@@ -9169,6 +9299,10 @@ ${errorSnapshot}`,
         assets={project.library.assets}
         activeAssetId={activeAsset?.id ?? null}
         onLoadAsset={() => openFilePicker('library')}
+        onPasteImage={() => { void handleImageTransfer(readClipboardImages); }}
+        onDropImage={(transfer) => { void handleImageTransfer(transfer); }}
+        imageImporting={imageImporting}
+        imageImportMessage={imageImportMessage}
         onSelectAsset={handleAssetSelect}
         onRenameAsset={handleAssetRename}
         onEditMask={handleAssetMaskOpen}
@@ -9263,6 +9397,7 @@ ${errorSnapshot}`,
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
         onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
         onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
+        onDropSequenceImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
         assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
         assetPickerRequestToken={timelineAssetPickerRequest.token}
         onAssetPickerRequestHandled={() =>
