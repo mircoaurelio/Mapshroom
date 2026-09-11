@@ -24,7 +24,7 @@ import {
   type ImageTransfer,
 } from '../lib/imageTransfer';
 import { useImageDropTarget } from '../lib/useImageDropTarget';
-import { AssetSegmentationDialog } from '../components/AssetSegmentationDialog';
+import { AssetSegmentationDialog, type SegmentationSaveOptions } from '../components/AssetSegmentationDialog';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
@@ -4682,40 +4682,45 @@ export function WorkspaceRoute() {
     setSegmentationQueue((current) => current.slice(1));
   }, []);
 
-  const handleAssetMaskApply = useCallback(async (blob: Blob, resultKind: 'mask' | 'draw' | 'depth') => {
+  const handleAssetMaskApply = useCallback(async (blob: Blob, resultKind: 'mask' | 'draw' | 'depth', options: SegmentationSaveOptions) => {
     const sourceAssetId = segmentationQueue[0];
     const sourceAsset = project?.library.assets.find((asset) => asset.id === sourceAssetId);
     if (!sourceAsset) {
       setSegmentationQueue((current) => current.slice(1));
       return false;
     }
+    const existingDepthAsset = resultKind === 'depth' && options.outputAssetId
+      ? project?.library.assets.find((asset) => asset.id === options.outputAssetId && asset.id !== sourceAssetId)
+      : undefined;
     const outputSuffix = resultKind === 'depth' ? 'depth-map' : resultKind === 'draw' ? 'painted' : 'masked';
     const maskedAsset: AssetRecord = {
       ...sourceAsset,
-      id: crypto.randomUUID(),
-      name: `${sourceAsset.name.replace(/\.[^.]+$/, '')}-${outputSuffix}.png`,
+      id: resultKind === 'depth' ? options.outputAssetId ?? crypto.randomUUID() : crypto.randomUUID(),
+      name: existingDepthAsset?.name ?? `${sourceAsset.name.replace(/\.[^.]+$/, '')}-${outputSuffix}.png`,
       mimeType: 'image/png',
       size: blob.size,
-      lastModified: Date.now(),
-      createdAt: new Date().toISOString(),
+      lastModified: Math.max(Date.now(), (existingDepthAsset?.lastModified ?? 0) + 1),
+      createdAt: existingDepthAsset?.createdAt ?? new Date().toISOString(),
       sourceType: 'uploaded',
     };
     const saved = await putAssetBlob(maskedAsset.id, blob);
     if (!saved) {
-      setStatusMessage('Browser storage is full, so the masked image was not saved. The original asset was left unchanged.');
+      setStatusMessage('Browser storage is full, so the image was not saved. The original asset was left unchanged.');
       return false;
     }
     updateProject((currentProject) => ({
       ...currentProject,
       library: {
         ...currentProject.library,
-        assets: [...currentProject.library.assets, maskedAsset],
+        assets: currentProject.library.assets.some((asset) => asset.id === maskedAsset.id)
+          ? currentProject.library.assets.map((asset) => asset.id === maskedAsset.id ? maskedAsset : asset)
+          : [...currentProject.library.assets, maskedAsset],
         activeAssetId: maskedAsset.id,
       },
       playback: { ...currentProject.playback, activeAssetId: maskedAsset.id },
     }));
-    setStatusMessage(`${resultKind === 'depth' ? 'Depth map' : resultKind === 'draw' ? 'Painted asset' : 'Masked asset'} “${maskedAsset.name}” added and selected.`);
-    setSegmentationQueue((current) => current.slice(1));
+    setStatusMessage(`${resultKind === 'depth' ? 'Depth map' : resultKind === 'draw' ? 'Painted asset' : 'Masked asset'} “${maskedAsset.name}” ${existingDepthAsset ? 'updated' : 'added and selected'}.`);
+    if (!options.automatic) setSegmentationQueue((current) => current.slice(1));
     return true;
   }, [project, segmentationQueue, updateProject]);
 

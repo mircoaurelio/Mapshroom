@@ -4,6 +4,7 @@ import { getBundledAssetUrl } from './bundledAssets';
 import { getAssetBlob } from './storage';
 
 const assetPreviewUrlCache = new Map<string, string>();
+const previewKey = (asset: AssetRecord) => `${asset.id}:${asset.size}:${asset.lastModified}`;
 
 export function useAssetPreviewUrls(
   assets: AssetRecord[],
@@ -12,13 +13,15 @@ export function useAssetPreviewUrls(
   activeAssetUrl: string | null,
 ) {
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const activeAsset = assets.find((asset) => asset.id === activeAssetId);
+  const activeAssetKey = activeAsset ? previewKey(activeAsset) : null;
 
   useEffect(() => {
-    if (!activeAssetId || !activeAssetUrl) {
+    if (!activeAssetId || !activeAssetKey || !activeAssetUrl) {
       return;
     }
 
-    assetPreviewUrlCache.set(activeAssetId, activeAssetUrl);
+    assetPreviewUrlCache.set(activeAssetKey, activeAssetUrl);
     setPreviewUrls((currentValue) =>
       currentValue[activeAssetId] === activeAssetUrl
         ? currentValue
@@ -27,12 +30,12 @@ export function useAssetPreviewUrls(
             [activeAssetId]: activeAssetUrl,
           },
     );
-  }, [activeAssetId, activeAssetUrl]);
+  }, [activeAssetId, activeAssetKey, activeAssetUrl]);
 
   useEffect(() => {
     const assetIds = new Set(assets.map((asset) => asset.id));
     const cachedUrls = assets.reduce<Record<string, string>>((collection, asset) => {
-      const cachedUrl = getBundledAssetUrl(asset.id) ?? assetPreviewUrlCache.get(asset.id);
+      const cachedUrl = getBundledAssetUrl(asset.id) ?? assetPreviewUrlCache.get(previewKey(asset));
       if (cachedUrl) {
         collection[asset.id] = cachedUrl;
       }
@@ -69,7 +72,7 @@ export function useAssetPreviewUrls(
 
     let disposed = false;
     const missingAssets = assets.filter(
-      (asset) => !getBundledAssetUrl(asset.id) && !assetPreviewUrlCache.has(asset.id),
+      (asset) => !getBundledAssetUrl(asset.id) && !assetPreviewUrlCache.has(previewKey(asset)),
     );
     if (!missingAssets.length) {
       return;
@@ -78,12 +81,12 @@ export function useAssetPreviewUrls(
     void Promise.all(
       missingAssets.map(async (asset) => {
         const blob = await getAssetBlob(asset.id);
-        if (!blob) {
+        if (!blob || disposed) {
           return null;
         }
 
         const objectUrl = URL.createObjectURL(blob);
-        assetPreviewUrlCache.set(asset.id, objectUrl);
+        assetPreviewUrlCache.set(previewKey(asset), objectUrl);
         return [asset.id, objectUrl] as const;
       }),
     ).then((resolvedAssets) => {

@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AssetRecord } from '../types';
 
+export interface SegmentationSaveOptions {
+  automatic: boolean;
+  outputAssetId?: string;
+}
+
 interface AssetSegmentationDialogProps {
   asset: AssetRecord | null;
   assetUrl: string | null;
   initialPanel?: 'refine' | 'depth';
-  onApply: (blob: Blob, resultKind: 'mask' | 'draw' | 'depth') => Promise<boolean>;
+  onApply: (blob: Blob, resultKind: 'mask' | 'draw' | 'depth', options: SegmentationSaveOptions) => Promise<boolean>;
   onClose: () => void;
 }
 
@@ -27,6 +32,7 @@ export function AssetSegmentationDialog({
   const [editorStatus, setEditorStatus] = useState<EditorStatus>('loading');
   const [statusMessage, setStatusMessage] = useState('Opening Mask Studio…');
   const [resultKind, setResultKind] = useState<'mask' | 'draw' | 'depth'>('mask');
+  const [depthSaved, setDepthSaved] = useState(false);
 
   useEffect(() => {
     onApplyRef.current = onApply;
@@ -44,6 +50,9 @@ export function AssetSegmentationDialog({
 
     const assetKey = `${asset.id}:${asset.size}:${asset.lastModified}`;
     let disposed = false;
+    let saving = false;
+    const depthAssetIds = new Map<string, string>();
+    setDepthSaved(false);
     setEditorStatus('loading');
     setStatusMessage('Loading image…');
 
@@ -83,25 +92,50 @@ export function AssetSegmentationDialog({
 
     const receiveMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frameRef.current?.contentWindow) return;
-      const data = event.data as { type?: string; status?: EditorStatus; message?: string; buffer?: ArrayBuffer; mimeType?: string; resultKind?: 'mask' | 'draw' | 'depth' };
+      const data = event.data as { type?: string; status?: EditorStatus; message?: string; buffer?: ArrayBuffer; mimeType?: string; resultKind?: 'mask' | 'draw' | 'depth'; resultId?: string; automatic?: boolean };
       if (data.type === 'mapshroom:ready') {
         editorReadyRef.current = true;
         void sendAsset();
       } else if (data.type === 'mapshroom:status') {
+        if (saving) return;
         setEditorStatus(data.status ?? 'ready');
         setStatusMessage(data.message ?? 'Mask Studio ready.');
         if (data.resultKind) setResultKind(data.resultKind);
-      } else if (data.type === 'mapshroom:segmentation-result' && data.buffer) {
+      } else if (data.type === 'mapshroom:segmentation-result' && data.buffer instanceof ArrayBuffer) {
+        if (saving) return;
+        saving = true;
         setEditorStatus('processing');
-        setStatusMessage('Saving masked copy…');
         const nextResultKind = data.resultKind ?? 'mask';
+        const automatic = nextResultKind === 'depth' && data.automatic === true;
+        let outputAssetId: string | undefined;
+        if (nextResultKind === 'depth' && data.resultId) {
+          outputAssetId = depthAssetIds.get(data.resultId) ?? crypto.randomUUID();
+          depthAssetIds.set(data.resultId, outputAssetId);
+        }
+        setStatusMessage(nextResultKind === 'depth' ? 'Saving depth map to your media library…' : 'Saving image…');
         setResultKind(nextResultKind);
-        void onApplyRef.current(new Blob([data.buffer], { type: data.mimeType || 'image/png' }), nextResultKind).then((saved) => {
-          if (!saved) {
-            setEditorStatus('error');
-            setStatusMessage('The masked copy could not be saved. Try again.');
+        const blob = new Blob([data.buffer], { type: data.mimeType || 'image/png' });
+        void (async () => {
+          let saved = false;
+          try {
+            saved = await onApplyRef.current(blob, nextResultKind, { automatic, outputAssetId });
+          } catch {
+            // Keep the generated result available so a failed save can be retried.
           }
-        });
+          if (disposed) return;
+          saving = false;
+          frameRef.current?.contentWindow?.postMessage(
+            { type: 'mapshroom:segmentation-saved', saved, resultKind: nextResultKind },
+            window.location.origin,
+          );
+          if (nextResultKind === 'depth') setDepthSaved(saved);
+          setEditorStatus('ready');
+          setStatusMessage(saved
+            ? nextResultKind === 'depth'
+              ? 'Depth map saved to your media library. Adjust it, then save your changes.'
+              : 'Image saved to your media library.'
+            : 'The image could not be saved. Use Save to try again.');
+        })();
       }
     };
 
@@ -119,7 +153,7 @@ export function AssetSegmentationDialog({
 
   const applyMask = () => {
     setEditorStatus('processing');
-    setStatusMessage('Building the full-resolution masked asset…');
+    setStatusMessage(resultKind === 'depth' ? 'Saving depth changes…' : 'Building the full-resolution image…');
     frameRef.current?.contentWindow?.postMessage(
       { type: 'mapshroom:request-segmentation-result' },
       window.location.origin,
@@ -167,7 +201,7 @@ export function AssetSegmentationDialog({
               onClick={applyMask}
               disabled={editorStatus !== 'ready'}
             >
-              {resultKind === 'depth' ? 'Save depth map' : resultKind === 'draw' ? 'Save painted copy' : 'Save masked copy'}
+              {resultKind === 'depth' ? depthSaved ? 'Save depth changes' : 'Save depth map' : resultKind === 'draw' ? 'Save painted copy' : 'Save masked copy'}
             </button>
           </div>
         </footer>

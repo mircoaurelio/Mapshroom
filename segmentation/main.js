@@ -88,6 +88,8 @@ let depthHeight = 0;
 let depthMode = 'bw';
 let depthPreviewActive = false;
 let depthMaskAlpha = null;
+let depthResultId = null;
+let exportingResult = false;
 let toastTimer;
 let undoStack = [];
 let redoStack = [];
@@ -301,6 +303,7 @@ async function openFile(file) {
     depthWidth = 0;
     depthHeight = 0;
     depthMaskAlpha = null;
+    depthResultId = null;
     clearHistory();
     elements.canvas.width = imageWidth;
     elements.canvas.height = imageHeight;
@@ -314,7 +317,9 @@ async function openFile(file) {
     elements.drawPanel.classList.remove('disabled-panel');
     elements.depthPanel.classList.remove('disabled-panel');
     elements.generateDepth.disabled = false;
-    elements.depthStatus.textContent = 'Finish the background mask, then generate depth.';
+    elements.depthStatus.textContent = embeddedInMapshroom
+      ? 'Finish the background mask, then generate depth. The result saves automatically to your media library.'
+      : 'Finish the background mask, then generate depth.';
     setExportDisabled(false);
     renderMask();
     cropRect = { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
@@ -517,8 +522,8 @@ function depthColor(value) {
   return [Math.round((red + match) * 255), Math.round((green + match) * 255), Math.round((blue + match) * 255)];
 }
 
-function renderDepthPreview() {
-  if (!depthData?.length) return;
+function buildDepthPixels() {
+  if (!depthData?.length) return null;
   const pixels = new Uint8ClampedArray(imageWidth * imageHeight * 4);
   const strength = Number(elements.depthStrength.value) / 100;
   const definition = Number(elements.depthDefinition.value) / 100;
@@ -542,6 +547,12 @@ function renderDepthPreview() {
       pixels[index + 3] = 255;
     }
   }
+  return pixels;
+}
+
+function renderDepthPreview() {
+  const pixels = buildDepthPixels();
+  if (!pixels) return;
   renderedPixels = pixels;
   elements.canvas.getContext('2d').putImageData(new ImageData(pixels, imageWidth, imageHeight), 0, 0);
   elements.compare.value = '0';
@@ -559,7 +570,7 @@ function setDepthPreviewActive(active) {
 }
 
 async function generateDepthMap() {
-  if (!sourceFile || busy) return;
+  if (!sourceFile || busy || exportingResult) return;
   renderMask();
   const maskedPixels = new Uint8ClampedArray(imageWidth * imageHeight * 4);
   const nextDepthMaskAlpha = new Uint8ClampedArray(imageWidth * imageHeight);
@@ -584,25 +595,33 @@ async function generateDepthMap() {
   maskedCanvas.width = imageWidth;
   maskedCanvas.height = imageHeight;
   maskedCanvas.getContext('2d').putImageData(new ImageData(maskedPixels, imageWidth, imageHeight), 0, 0);
+  busy = true;
+  setDepthGenerating(true);
   const maskedBlob = await new Promise((resolve) => maskedCanvas.toBlob(resolve, 'image/png'));
   if (!maskedBlob) {
+    busy = false;
+    setDepthGenerating(false);
     showToast('The masked depth input could not be prepared.', true);
     return;
   }
   depthMaskAlpha = nextDepthMaskAlpha;
-  busy = true;
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Teaching the mushroom to see in 3D…';
   elements.busyDetail.textContent = 'First depth pass can crawl; later ones usually sprint.';
   elements.progress.style.width = '3%';
-  elements.generateDepth.disabled = true;
   elements.depthStatus.textContent = 'Generating depth from the isolated subject…';
   notifyMapshroom('processing', 'Depth first-run is slower — hang tight.', 'depth');
   const buffer = await maskedBlob.arrayBuffer();
   depthWorker.postMessage({ type: 'estimate', buffer, mimeType: 'image/png', model: 'onnx-community/depth-anything-v2-small', device: 'wasm' }, [buffer]);
 }
 
-depthWorker.onmessage = ({ data }) => {
+function setDepthGenerating(generating) {
+  elements.generateDepth.disabled = generating;
+  elements.generateDepth.setAttribute('aria-busy', String(generating));
+  elements.generateDepth.querySelector('strong').textContent = generating ? 'Generating depth map…' : 'Generate depth map';
+}
+
+depthWorker.onmessage = async ({ data }) => {
   if (data.type === 'progress') {
     elements.progress.style.width = `${Math.max(3, data.percent || 0)}%`;
     if (data.status === 'progress') elements.busyDetail.textContent = funnyLoadDetail(data.percent || 0);
@@ -613,20 +632,24 @@ depthWorker.onmessage = ({ data }) => {
     depthData = new Uint8Array(data.pixels);
     depthWidth = data.width;
     depthHeight = data.height;
+    depthResultId = crypto.randomUUID();
     depthPreviewActive = document.body.dataset.editorPanel === 'depth';
     busy = false;
-    elements.generateDepth.disabled = false;
+    setDepthGenerating(false);
     elements.progress.style.width = '100%';
     elements.depthStatus.textContent = `Depth map ready · ${depthWidth} × ${depthHeight} analysis`;
     setTimeout(() => elements.busy.classList.add('hidden'), 300);
     if (depthPreviewActive) renderDepthPreview();
     else renderMask();
-    showToast('Depth map ready. Adjust it, then save a new depth asset.');
-    notifyMapshroom('ready', 'Depth map ready. Adjust it or save a depth copy.', 'depth');
+    if (embeddedInMapshroom) {
+      await sendCompositeToMapshroom({ automatic: true });
+    } else {
+      showToast('Depth map ready. Adjust it, then download the result.');
+    }
   } else if (data.type === 'error') {
     busy = false;
     elements.busy.classList.add('hidden');
-    elements.generateDepth.disabled = false;
+    setDepthGenerating(false);
     elements.depthStatus.textContent = 'Depth generation failed. The other tools are still available.';
     showToast(`Depth map failed: ${data.message}`, true);
     notifyMapshroom('ready', 'Depth generation failed; Mask and Draw remain available.', 'mask');
@@ -711,6 +734,7 @@ async function applyCrop() {
   depthWidth = 0;
   depthHeight = 0;
   depthMaskAlpha = null;
+  depthResultId = null;
   depthPreviewActive = false;
   elements.depthStatus.textContent = 'Crop applied. Generate depth from the updated mask.';
   elements.canvas.width = width;
@@ -1145,32 +1169,53 @@ function downloadComposite() {
   if (canvas) downloadCanvas(canvas, 'original-black-mask');
 }
 
-async function sendCompositeToMapshroom() {
+async function sendCompositeToMapshroom({ automatic = false } = {}) {
+  if (exportingResult) return;
   if (!embeddedInMapshroom || busy) {
     notifyMapshroom(busy ? 'processing' : 'error', busy ? 'Wait for the current AI operation to finish.' : 'Mask Studio is unavailable.');
     return;
   }
-  const canvas = buildBinaryExport('composite');
+  const resultKind = automatic || (depthPreviewActive && depthData?.length) ? 'depth' : drawBaselinePixels ? 'draw' : 'mask';
+  let canvas;
+  if (resultKind === 'depth') {
+    // Export depth even if the user switched panels while inference was running.
+    const pixels = buildDepthPixels();
+    if (pixels) {
+      canvas = document.createElement('canvas');
+      canvas.width = imageWidth;
+      canvas.height = imageHeight;
+      canvas.getContext('2d').putImageData(new ImageData(pixels, imageWidth, imageHeight), 0, 0);
+    }
+  } else {
+    canvas = buildBinaryExport('composite');
+  }
   if (!canvas) {
     notifyMapshroom('error', 'Load an image before applying the mask.');
     return;
   }
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-  if (!blob) {
-    notifyMapshroom('error', 'The masked image could not be created.');
-    return;
+  exportingResult = true;
+  notifyMapshroom('processing', automatic ? 'Saving depth map to your media library…' : 'Saving image…', resultKind);
+  try {
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('The image could not be created.');
+    const buffer = await blob.arrayBuffer();
+    window.parent.postMessage(
+      {
+        type: 'mapshroom:segmentation-result',
+        mimeType: 'image/png',
+        resultKind,
+        resultId: resultKind === 'depth' ? depthResultId : null,
+        automatic,
+        buffer,
+      },
+      window.location.origin,
+      [buffer],
+    );
+  } catch {
+    exportingResult = false;
+    notifyMapshroom('ready', 'The image could not be saved. Use Save to try again.', resultKind);
+    showToast('The image could not be saved. Use Save to try again.', true);
   }
-  const buffer = await blob.arrayBuffer();
-  window.parent.postMessage(
-    {
-      type: 'mapshroom:segmentation-result',
-      mimeType: 'image/png',
-      resultKind: depthPreviewActive && depthData?.length ? 'depth' : drawBaselinePixels ? 'draw' : 'mask',
-      buffer,
-    },
-    window.location.origin,
-    [buffer],
-  );
 }
 
 function openPicker() { elements.fileInput.click(); }
@@ -1386,6 +1431,14 @@ window.addEventListener('message', (event) => {
     void openFile(file);
   } else if (event.data?.type === 'mapshroom:request-segmentation-result') {
     void sendCompositeToMapshroom();
+  } else if (event.data?.type === 'mapshroom:segmentation-saved') {
+    exportingResult = false;
+    if (event.data.resultKind === 'depth') {
+      elements.depthStatus.textContent = event.data.saved
+        ? 'Saved to your media library. Save depth changes after adjusting.'
+        : 'Depth map could not be saved. Use Save depth map to retry.';
+      showToast(elements.depthStatus.textContent, !event.data.saved);
+    }
   }
 });
 

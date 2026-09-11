@@ -10929,7 +10929,9 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   animation-name: asset-browser-shine-sweep-reverse;
   animation-duration: 9.6s;
   animation-delay: 4.8s;
-  background: linear-gradient(
+  background:
+    radial-gradient(circle, rgba(224, 242, 254, .92) 0 1.1px, transparent 1.4px) 0 0 / 7px 7px,
+    linear-gradient(
     -105deg,
     transparent 36%,
     rgba(186, 230, 253, .08) 44%,
@@ -10937,6 +10939,14 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
     rgba(125, 211, 252, .12) 56%,
     transparent 64%
   );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asset-browser-depth-map.asset-browser-shine::after {
+    animation: none;
+    transform: none;
+    opacity: .25;
+  }
 }
 
 @keyframes asset-browser-shine-sweep {

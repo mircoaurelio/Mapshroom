@@ -161,6 +161,28 @@ select:focus { border-color: #657244; }
 .depth-generate-button { width: 100%; min-height: 54px; display: grid; grid-template-columns: 30px 1fr; grid-template-rows: auto auto; align-items: center; padding: 8px 10px; border: 1px solid rgba(56,189,248,.4); border-radius: 4px; background: rgba(14,116,144,.09); color: var(--ink); text-align: left; }
 .depth-generate-button > span { grid-row: 1 / 3; color: #38bdf8; font-size: 18px; }.depth-generate-button strong { font-size: 10px; }.depth-generate-button small { color: var(--dim); font-size: 8px; }
 .depth-generate-button:hover:not(:disabled) { border-color: #38bdf8; background: rgba(14,116,144,.16); }
+.depth-generate-button { position: relative; overflow: hidden; isolation: isolate; }
+.depth-generate-button > * { position: relative; z-index: 1; }
+.depth-generate-button:not(:disabled)::after,
+.depth-generate-button[aria-busy='true']::after {
+  content: ''; position: absolute; inset: -45% -70%; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle, rgba(224,242,254,.92) 0 1.1px, transparent 1.4px) 0 0 / 7px 7px,
+    linear-gradient(105deg, transparent 36%, rgba(186,230,253,.08) 44%, rgba(255,255,255,.42) 50%, rgba(125,211,252,.12) 56%, transparent 64%);
+  -webkit-mask-image: linear-gradient(105deg, transparent 35%, #000 45%, #000 55%, transparent 65%);
+  mask-image: linear-gradient(105deg, transparent 35%, #000 45%, #000 55%, transparent 65%);
+  animation: depth-button-shine 8.8s ease-in-out infinite;
+}
+.depth-generate-button[aria-busy='true'] { opacity: 1; border-color: #38bdf8; cursor: progress; }
+.depth-generate-button[aria-busy='true']::after { animation-duration: 1.8s; }
+@keyframes depth-button-shine {
+  0%, 18% { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+  28% { opacity: 1; }
+  48% { transform: translateX(130%) skewX(-18deg); opacity: .85; }
+  58%, 100% { transform: translateX(130%) skewX(-18deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .depth-generate-button::after { animation: none !important; transform: none; opacity: .25; }
+}
 .depth-view-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
 .depth-view-button { min-height: 34px; padding: 0 8px; border: 1px solid #3f3f46; border-radius: 4px; background: #0d0d10; color: var(--muted); font-size: 9px; }
 .depth-view-button.active { border-color: #38bdf8; background: rgba(14,116,144,.14); color: #bae6fd; }

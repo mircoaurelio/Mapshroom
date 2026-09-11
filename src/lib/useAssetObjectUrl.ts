@@ -16,22 +16,23 @@ interface AssetObjectUrlResult {
 
 export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResult {
   const [resolvedAsset, setResolvedAsset] = useState<{
-    assetId: string | null;
+    assetKey: string | null;
     url: string | null;
   }>({
-    assetId: null,
+    assetKey: null,
     url: null,
   });
   const assetId = asset?.id ?? null;
+  const assetKey = asset ? `${asset.id}:${asset.size}:${asset.lastModified}` : null;
   const assetKind = asset?.kind ?? null;
   const bundledUrl = assetId ? getBundledAssetUrl(assetId) : null;
-  const cachedUrl = assetId ? assetObjectUrlCache.get(assetId) ?? null : null;
+  const cachedUrl = assetKey ? assetObjectUrlCache.get(assetKey) ?? null : null;
 
   useEffect(() => {
     let disposed = false;
     let retryTimeoutId: number | null = null;
 
-    if (!assetId || !assetKind || bundledUrl || cachedUrl) {
+    if (!assetId || !assetKey || !assetKind || bundledUrl || cachedUrl) {
       return undefined;
     }
 
@@ -43,9 +44,9 @@ export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResu
 
       if (blob) {
         const localObjectUrl = URL.createObjectURL(blob);
-        assetObjectUrlCache.set(assetId, localObjectUrl);
+        assetObjectUrlCache.set(assetKey, localObjectUrl);
         setResolvedAsset({
-          assetId,
+          assetKey,
           url: localObjectUrl,
         });
         return;
@@ -60,7 +61,7 @@ export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResu
       }
 
       setResolvedAsset({
-        assetId,
+        assetKey,
         url: null,
       });
     };
@@ -73,7 +74,7 @@ export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResu
         window.clearTimeout(retryTimeoutId);
       }
     };
-  }, [assetId, assetKind, bundledUrl, cachedUrl]);
+  }, [assetId, assetKey, assetKind, bundledUrl, cachedUrl]);
 
   if (!assetId || !assetKind) {
     return {
@@ -96,7 +97,7 @@ export function useAssetObjectUrl(asset: AssetRecord | null): AssetObjectUrlResu
     };
   }
 
-  if (resolvedAsset.assetId !== assetId) {
+  if (resolvedAsset.assetKey !== assetKey) {
     return {
       url: null,
       status: 'loading',
