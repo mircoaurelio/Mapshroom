@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { startAssetImageDrag, type ImageTransfer } from '../lib/imageTransfer';
+import { useImageDropTarget } from '../lib/useImageDropTarget';
 import { isInternalCanvasAssetId } from '../lib/bundledAssets';
 import { useAssetPreviewUrls } from '../lib/useAssetPreviewUrls';
 import type { AssetRecord } from '../types';
@@ -55,6 +57,10 @@ interface AssetLibraryDialogProps {
   assets: AssetRecord[];
   activeAssetId: string | null;
   onLoadAsset: () => void;
+  onPasteImage: () => void;
+  onDropImage: (transfer: ImageTransfer) => void;
+  imageImporting: boolean;
+  imageImportMessage: string;
   onSelectAsset: (assetId: string) => void;
   onRenameAsset: (assetId: string, name: string) => void;
   onEditMask: (assetId: string, panel?: 'refine' | 'depth') => void;
@@ -73,6 +79,10 @@ export function AssetLibraryDialog({
   assets,
   activeAssetId,
   onLoadAsset,
+  onPasteImage,
+  onDropImage,
+  imageImporting,
+  imageImportMessage,
   onSelectAsset,
   onRenameAsset,
   onEditMask,
@@ -95,6 +105,22 @@ export function AssetLibraryDialog({
   );
   const orderedAssets = [...visibleAssets].reverse();
   const [pendingDeleteAsset, setPendingDeleteAsset] = useState<AssetRecord | null>(null);
+  const [draggingAsset, setDraggingAsset] = useState(false);
+  const dragRevealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { dropProps } = useImageDropTarget(onDropImage);
+  useEffect(() => {
+    const stop = () => {
+      if (dragRevealTimer.current) clearTimeout(dragRevealTimer.current);
+      setDraggingAsset(false);
+    };
+    window.addEventListener('dragend', stop);
+    window.addEventListener('drop', stop, true);
+    return () => {
+      if (dragRevealTimer.current) clearTimeout(dragRevealTimer.current);
+      window.removeEventListener('dragend', stop);
+      window.removeEventListener('drop', stop, true);
+    };
+  }, []);
 
   if (!open) {
     return null;
@@ -115,7 +141,7 @@ export function AssetLibraryDialog({
 
   return (
     <div
-      className="dialog-backdrop asset-browser-backdrop"
+      className={`dialog-backdrop asset-browser-backdrop ${draggingAsset ? 'asset-browser-dragging' : ''}`}
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
@@ -128,6 +154,7 @@ export function AssetLibraryDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="asset-browser-title"
+        {...dropProps()}
       >
         <header className="dialog-header">
           <div>
@@ -148,6 +175,19 @@ export function AssetLibraryDialog({
             <span>Start Mapping</span>
           </button>
           <div className="asset-browser-header-actions">
+            <button
+              type="button"
+              className="secondary-button asset-browser-paste"
+              onClick={onPasteImage}
+              disabled={imageImporting}
+              title="Paste an image from the clipboard (Ctrl+V / ⌘V)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="8" y="3" width="8" height="4" rx="1" />
+                <path d="M8 5H5v16h14V5h-3M8 12h8m-8 4h5" />
+              </svg>
+              <span>{imageImporting ? 'Adding…' : 'Paste'}</span>
+            </button>
             <div className="asset-browser-import-shell">
               <button
                 type="button"
@@ -202,6 +242,10 @@ export function AssetLibraryDialog({
           </div>
         </header>
 
+        <p className="asset-browser-import-status" role="status" aria-live="polite">
+          {imageImportMessage || 'Paste an image or drop images here. Drag an asset onto a timeline card to use it for that shader.'}
+        </p>
+
         <div className="dialog-body asset-browser-dialog-body">
           <div className="asset-browser-gallery-shell">
               <div className="field-inline-label">
@@ -231,6 +275,13 @@ export function AssetLibraryDialog({
                           className="asset-browser-preview-card-main"
                           onClick={() => onSelectAsset(asset.id)}
                           aria-label={`Select ${asset.name}`}
+                          draggable={asset.kind === 'image'}
+                          onDragStart={(event) => {
+                            if (asset.kind !== 'image') return;
+                            startAssetImageDrag(event.dataTransfer, asset.id);
+                            // Let the browser capture the drag image before revealing the workspace.
+                            dragRevealTimer.current = setTimeout(() => setDraggingAsset(true), 0);
+                          }}
                         >
                           <div className="asset-browser-preview-card-media-shell">
                           {previewUrl ? (
@@ -247,6 +298,7 @@ export function AssetLibraryDialog({
                                 className="asset-browser-preview-card-media"
                                 src={previewUrl}
                                 alt={asset.name}
+                                draggable={false}
                               />
                             )
                           ) : (

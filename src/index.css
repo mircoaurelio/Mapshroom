@@ -10679,6 +10679,54 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .asset-browser-header-actions { display: flex; align-items: center; gap: .55rem; }
+.asset-browser-paste {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  min-height: 34px;
+  padding: 0 .8rem;
+  white-space: nowrap;
+}
+.asset-browser-paste svg { width: 15px; height: 15px; flex: none; }
+.asset-browser-import-status {
+  flex-shrink: 0;
+  margin: 0;
+  padding: .5rem 1rem;
+  color: var(--text-muted);
+  font-size: .875rem;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--line);
+}
+[data-image-drop-active="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+  box-shadow: inset 0 0 28px rgba(var(--accent-rgb), .2);
+}
+.asset-browser-dragging {
+  pointer-events: none;
+  backdrop-filter: none;
+  background: transparent;
+}
+.asset-browser-dragging > .asset-browser-dialog { pointer-events: none; opacity: .15; }
+.image-import-notice {
+  position: fixed;
+  z-index: 60;
+  right: max(1rem, var(--safe-right));
+  bottom: max(1rem, var(--safe-bottom));
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  max-width: min(440px, calc(100vw - 2rem));
+  padding: .8rem 1rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow);
+  font-size: .875rem;
+  line-height: 1.4;
+}
+.image-import-notice button { flex: none; color: inherit; background: none; border: 0; cursor: pointer; }
 .asset-browser-import-shell {
   position: relative;
   display: inline-flex;
@@ -16559,4 +16607,15 @@ a.download-link-open-app {
   border-color: #e9d5ff;
   background: linear-gradient(135deg, #8b5cf6, #d946ef);
   color: #fff;
+}
+
+@media (max-width: 440px) {
+  .asset-browser-dialog .dialog-header {
+    grid-template-areas: "title mapping" "actions actions";
+  }
+  .asset-browser-dialog .asset-browser-start-mapping { justify-self: end; }
+  .asset-browser-dialog .asset-browser-header-actions {
+    justify-self: stretch;
+    justify-content: flex-end;
+  }
 }

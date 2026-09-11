@@ -14,6 +14,8 @@ import {
   type ShaderPreviewRenderer,
 } from '../lib/shaderPreview';
 import { getAssetBlob } from '../lib/storage';
+import type { ImageTransfer } from '../lib/imageTransfer';
+import { useImageDropTarget } from '../lib/useImageDropTarget';
 import {
   useAssetPreviewUrls,
 } from '../lib/useAssetPreviewUrls';
@@ -78,6 +80,7 @@ interface ShaderTimelineEditorProps {
   onPinnedStepToggle: (stepId: string) => void;
   onAssignStepAsset: (stepId: string, assetId: string | null) => void;
   onImportAsset: (stepId: string) => void;
+  onDropImage: (transfer: ImageTransfer, stepId: string) => void;
   assetPickerRequestStepId: string | null;
   assetPickerRequestToken: number;
   onAssetPickerRequestHandled: () => void;
@@ -283,7 +286,9 @@ export function ShaderTimelineEditor({
   onReorderSteps,
   scrollToStepRequest = null,
   mobileCardsOnly = false,
+  onDropImage,
 }: ShaderTimelineEditorProps) {
+  const { dropProps } = useImageDropTarget(onDropImage);
   const flowStripRef = useRef<HTMLDivElement>(null);
   const previewViewportRef = useRef<HTMLDivElement>(null);
   const title =
@@ -1105,6 +1110,7 @@ export function ShaderTimelineEditor({
                 role="listitem"
                 data-timeline-step-id={step.id}
                 data-preview-shader-id={shader?.id}
+                {...dropProps(step.id)}
                 className={`mobile-shader-sequence-card ${
                   isEditing ? 'mobile-shader-sequence-card-editing' : ''
                 } ${isCurrent ? 'mobile-shader-sequence-card-current' : ''} ${
@@ -1478,6 +1484,7 @@ export function ShaderTimelineEditor({
                 }`}
                 data-timeline-step-id={step.id}
                 data-preview-shader-id={shader?.id}
+                {...dropProps(step.id)}
                 role="button"
                 tabIndex={0}
                 aria-pressed={step.id === editingStepId}
@@ -1497,6 +1504,7 @@ export function ShaderTimelineEditor({
                       className="timeline-step-preview-image"
                       src={previewSrc}
                       alt={`${shader?.name ?? 'Shader'} preview`}
+                      draggable={false}
                       loading="lazy"
                     />
                   ) : (
