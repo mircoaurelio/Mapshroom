@@ -64,6 +64,7 @@ interface AssetLibraryDialogProps {
   onSelectAsset: (assetId: string) => void;
   onRenameAsset: (assetId: string, name: string) => void;
   onEditMask: (assetId: string, panel?: 'refine' | 'depth') => void;
+  onEditSurfaces: (assetId: string) => void;
   onRemoveAsset: (assetId: string) => void;
   onOpenProBeta: () => void;
   onClose: () => void;
@@ -86,6 +87,7 @@ export function AssetLibraryDialog({
   onSelectAsset,
   onRenameAsset,
   onEditMask,
+  onEditSurfaces,
   onRemoveAsset,
   onOpenProBeta,
   onClose,
@@ -364,6 +366,10 @@ export function AssetLibraryDialog({
                     >
                       <DepthMapIcon />
                       <span>Depth map</span>
+                    </button>
+                    <button type="button" className="asset-browser-surfaces" onClick={() => onEditSurfaces(visibleActiveAsset.id)} title="Create surfaces and gradients">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="m3 6 8-3 10 4-7 5L3 6Zm0 0v11l11 4V12m7-5v10l-7 4M3 12l11 5 7-5" /></svg>
+                      <span>Surfaces & gradients</span>
                     </button>
                     <a className="asset-browser-preview-action" href={visibleAssetUrl} download={visibleActiveAsset.name} aria-label={`Download ${visibleActiveAsset.name}`} title="Download image">
                       <DownloadIcon />

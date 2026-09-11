@@ -1,0 +1,67 @@
+.asset-browser-preview-action-tools { flex-wrap: wrap; }
+.asset-browser-surfaces {
+  display: inline-flex; align-items: center; gap: .45rem; min-height: 36px;
+  flex-shrink: 0; padding: 0 .8rem; border: 1px solid rgba(var(--accent-rgb), .42);
+  border-radius: 999px; background: rgba(9, 9, 11, .88); color: var(--accent-pale);
+  font-size: .68rem; font-weight: 600; backdrop-filter: blur(10px);
+}
+.asset-browser-surfaces svg { width: 17px; height: 17px; color: var(--accent-secondary); }
+.asset-browser-surfaces:hover { background: rgba(var(--accent-deep-rgb), .88); border-color: var(--accent); }
+.asset-browser-surfaces:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.asset-surfaces-backdrop { z-index: 120; padding: .75rem; background: rgba(0,0,0,.82); backdrop-filter: blur(8px); }
+.asset-surfaces-dialog {
+  width: min(1280px, calc(100vw - 1.5rem)); height: min(880px, calc(100dvh - 1.5rem));
+  max-height: none; display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  border-color: var(--line-strong); overflow: hidden; outline: none;
+}
+.surface-editor-body { display: grid; grid-template-columns: minmax(0, 1fr) 310px; min-height: 0; }
+.surface-preview { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; background: var(--bg-stage); }
+.surface-preview-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .65rem; padding: .75rem; border-bottom: 1px solid var(--line); background: var(--bg-panel-soft); }
+.surface-preview-toolbar .app-select { grid-template-columns: auto minmax(180px, 1fr); align-items: center; gap: .65rem; }
+.surface-preview-stage { position: relative; overflow: hidden; min-height: 0; padding: 1rem; display: grid; place-items: center; background: #000; }
+.surface-preview-stage canvas { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; cursor: crosshair; }
+.surface-preview-stage.is-processing canvas { opacity: .45; cursor: progress; }
+.surface-preview-placeholder { position: absolute; padding: 2rem; color: var(--text-muted); text-align: center; }
+.surface-preview-badge { position: absolute; top: .75rem; left: .75rem; padding: .4rem .65rem; background: var(--bg-panel-raised); border: 1px solid var(--line-strong); border-radius: var(--radius-sm); font-size: .72rem; pointer-events: none; }
+.surface-preview-info { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; min-height: 44px; padding: .6rem .8rem; border-top: 1px solid var(--line); color: var(--text-muted); font-size: .75rem; }
+.surface-preview-info .app-select { grid-template-columns: auto minmax(140px, 1fr); align-items: center; gap: .6rem; }
+.surface-controls { min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-left: 1px solid var(--line); padding: 1rem; background: var(--bg-panel); }
+.surface-controls fieldset { margin: 0 0 1.1rem; padding: 0 0 1rem; border: 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.surface-controls fieldset:disabled { opacity: .5; }
+.surface-controls legend { padding: 0; margin-bottom: .55rem; font-weight: 600; color: var(--text-bright); font-size: .9375rem; }
+.surface-controls p { margin: 0 0 .8rem; font-size: .75rem; line-height: 1.55; color: var(--text-muted); }
+.surface-methods { display: grid; gap: .45rem; margin-bottom: 1rem; }
+.surface-methods button { display: grid; gap: .15rem; text-align: left; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--bg-panel-soft); color: var(--text); }
+.surface-methods button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.surface-methods strong { font-weight: 600; font-size: .875rem; }
+.surface-methods small { font-size: .75rem; color: var(--text-muted); }
+.surface-method-note { padding: .65rem; background: var(--bg-panel-raised); border-radius: var(--radius-sm); }
+.surface-method-note a { color: var(--accent-secondary); }
+.surface-slider { margin: .85rem 0; }
+.surface-slider label { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .875rem; }
+.surface-slider output { color: var(--accent-secondary); font-variant-numeric: tabular-nums; }
+.surface-slider input { width: 100%; margin: .55rem 0 0; }
+.surface-controls .app-select { margin: .8rem 0; }
+.asset-surfaces-dialog :is(button, input, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.surface-preview-toolbar button[aria-pressed="true"] { color: var(--accent-pale); border-color: var(--accent); background: var(--accent-soft); }
+.surface-advanced summary { padding: .1rem 0 .7rem; cursor: pointer; font-size: .875rem; color: var(--text-bright); }
+.surface-advanced fieldset { margin: 0; border: 0; padding-bottom: 0; }
+.surface-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .75rem; padding: .75rem .85rem; }
+.surface-footer-status { display: flex; align-items: center; gap: .65rem; flex: 1 1 230px; color: var(--text-muted); font-size: .875rem; line-height: 1.4; }
+.surface-footer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .7rem; }
+.surface-footer-actions small { max-width: 190px; font-size: .75rem; line-height: 1.45; color: var(--text-muted); }
+.surface-footer .surface-error { color: var(--error); }
+@media (max-width: 760px) {
+  .asset-surfaces-backdrop { padding: 0; }
+  .asset-surfaces-dialog { width: 100vw; height: 100dvh; max-width: none; border-radius: 0; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+  .surface-editor-body { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .surface-preview { height: min(58dvh, 530px); min-height: 290px; }
+  .surface-controls { overflow: visible; border-left: 0; border-top: 1px solid var(--line); }
+  .surface-methods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .surface-methods button { padding: .65rem .5rem; }
+  .surface-preview-toolbar { gap: .5rem; }
+  .surface-preview-toolbar .app-select { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+  .surface-footer-actions { width: 100%; justify-content: space-between; }
+  .surface-footer-actions small { max-width: 200px; }
+  .surface-footer .primary-button { min-height: 42px; }
+}

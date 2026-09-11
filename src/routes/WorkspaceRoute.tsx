@@ -25,6 +25,8 @@ import {
 } from '../lib/imageTransfer';
 import { useImageDropTarget } from '../lib/useImageDropTarget';
 import { AssetSegmentationDialog, type SegmentationSaveOptions } from '../components/AssetSegmentationDialog';
+import { AssetSurfacesDialog } from '../components/AssetSurfacesDialog';
+import type { SurfaceOutput } from '../lib/surfaceMapping/types';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
@@ -2900,6 +2902,7 @@ export function WorkspaceRoute() {
   );
   const [segmentationQueue, setSegmentationQueue] = useState<string[]>([]);
   const [segmentationPanel, setSegmentationPanel] = useState<'refine' | 'depth'>('refine');
+  const [surfaceAssetId, setSurfaceAssetId] = useState<string | null>(null);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
   const [needsFileSave, setNeedsFileSave] = useState(true);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -4260,6 +4263,8 @@ export function WorkspaceRoute() {
     return project.library.assets.find((asset) => asset.id === segmentationQueue[0]) ?? null;
   }, [project, segmentationQueue]);
   const segmentationAssetResolution = useAssetObjectUrl(segmentationAsset);
+  const surfaceAsset = useMemo(() => project?.library.assets.find(asset => asset.id === surfaceAssetId) ?? null, [project, surfaceAssetId]);
+  const surfaceAssetResolution = useAssetObjectUrl(surfaceAsset);
   const lastMissingAssetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -4723,6 +4728,30 @@ export function WorkspaceRoute() {
     if (!options.automatic) setSegmentationQueue((current) => current.slice(1));
     return true;
   }, [project, segmentationQueue, updateProject]);
+
+  const handleAssetSurfacesOpen = useCallback((assetId: string) => {
+    const asset = project?.library.assets.find(item => item.id === assetId);
+    if (asset?.kind === 'image') setSurfaceAssetId(assetId);
+  }, [project]);
+
+  const handleAssetSurfacesApply = useCallback(async (blob: Blob, output: SurfaceOutput) => {
+    if (!surfaceAsset || !project) return false;
+    const outputAsset: AssetRecord = {
+      ...surfaceAsset,
+      id: crypto.randomUUID(),
+      name: `${surfaceAsset.name.replace(/\.[^.]+$/, '')}-surfaces-${output}.png`,
+      mimeType: 'image/png', size: blob.size, lastModified: Date.now(),
+      createdAt: new Date().toISOString(), sourceType: 'uploaded',
+    };
+    if (!await putAssetBlob(outputAsset.id, blob)) return false;
+    updateProject(current => current.sessionId !== project.sessionId ? current : ({
+      ...current,
+      library: { ...current.library, assets: [...current.library.assets, outputAsset], activeAssetId: outputAsset.id },
+      playback: { ...current.playback, activeAssetId: outputAsset.id },
+    }));
+    setStatusMessage(`Surfaces image “${outputAsset.name}” added and selected.`);
+    return true;
+  }, [project, surfaceAsset, updateProject]);
 
   const handleAssetRemove = (assetId: string) => {
     const removedAsset = project?.library.assets.find((asset) => asset.id === assetId) ?? null;
@@ -6384,6 +6413,7 @@ export function WorkspaceRoute() {
     !isMobile &&
     (isApiSettingsOpen ||
       isAssetLibraryOpen ||
+      !!surfaceAsset ||
       isProjectDialogOpen ||
       isShareDialogOpen ||
       isPresetBrowserOpen ||
@@ -9311,6 +9341,7 @@ ${errorSnapshot}`,
         onSelectAsset={handleAssetSelect}
         onRenameAsset={handleAssetRename}
         onEditMask={handleAssetMaskOpen}
+        onEditSurfaces={handleAssetSurfacesOpen}
         onRemoveAsset={handleAssetRemove}
         onOpenProBeta={() => setProBetaSource('asset_generate')}
         onClose={() => {
@@ -9332,6 +9363,15 @@ ${errorSnapshot}`,
         onApply={handleAssetMaskApply}
         onClose={handleAssetMaskClose}
       />
+
+      {surfaceAsset && <AssetSurfacesDialog
+        key={surfaceAsset.id}
+        asset={surfaceAsset}
+        assetUrl={surfaceAssetResolution.url}
+        assetMissing={surfaceAssetResolution.status === 'missing'}
+        onApply={handleAssetSurfacesApply}
+        onClose={() => setSurfaceAssetId(null)}
+      />}
 
       {isMobile && mobileChromeVisible ? (
         <MobileChrome

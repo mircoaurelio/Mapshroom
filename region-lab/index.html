@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#101210" />
+  <meta name="description" content="Confronta segmentazione e bordi su una foto, localmente nel browser." />
+  <title>Mapshroom · Region Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23ccff85'/%3E%3Cpath d='M10 29V11l10 12 10-12v18' stroke='%23101210' stroke-width='4' fill='none'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./surface.css" />
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="./"><span class="brand-icon">M</span> MAPSHROOM <span class="brand-divider">/</span> <span class="brand-lab">Region Lab</span></a><span class="local-badge"><i></i> Elaborazione locale</span></header>
+  <main class="workspace">
+    <aside class="sidebar">
+      <div class="section-caption">01 / LA TUA FOTO</div>
+      <label class="upload" id="dropzone" tabindex="0">
+        <input type="file" id="photoInput" accept="image/png,image/jpeg,image/webp" hidden />
+        <span class="upload-icon">↥</span><strong>Carica una foto</strong><span>oppure trascinala qui</span><small>JPG, PNG, WebP · massimo 24 MP</small>
+      </label>
+      <div class="sample-buttons"><button class="sample-button" id="sampleButton">Pianta</button><button class="sample-button" id="stageButton">Palco</button></div>
+      <div class="source-preview" id="sourcePreview" hidden><img id="sourceThumb" alt="Foto originale caricata" /><div><strong id="sourceName"></strong><small id="sourceSize"></small></div></div>
+      <div class="section-caption section-gap">02 / CONFRONTO</div>
+      <label class="field">Cosa vuoi separare?<select id="profile"><option value="surface" selected>Superfici ampie</option><option value="detail">Dettagli · confronto precedente</option></select></label>
+      <div id="surfaceControls">
+        <label class="field" for="zones">Zone desiderate <output id="zonesValue">12</output><input id="zones" type="range" min="2" max="40" value="12" /><small>Obiettivo massimo. Parti scollegate restano separate.</small></label>
+        <label class="field" for="smoothing">Ignora texture <output id="smoothingValue">65</output><input id="smoothing" type="range" min="0" max="100" value="65" /><span class="range-ends"><small>Più dettagli</small><small>Superfici più pulite</small></span></label>
+      </div>
+      <label class="field">Risoluzione di analisi<select id="resolution"><option value="384">384 px · veloce</option><option value="640" selected>640 px · bilanciata</option><option value="1024">1024 px · più dettagli</option></select></label>
+      <label class="field" for="detail" id="detailControl" hidden>Dettaglio <output id="detailValue">50</output><input id="detail" type="range" min="0" max="100" value="50" /><span class="range-ends"><small>Poche aree</small><small>Piccoli frammenti</small></span></label>
+      <label class="field" for="black">Escludi quasi nero <output id="blackValue">8 / 255</output><input id="black" type="range" min="0" max="60" value="8" /><small>0 include anche il nero. Può escludere dettagli scuri.</small></label>
+      <label class="cnn-option"><input id="includeCnn" type="checkbox" /><span><strong id="cnnLabel">Includi PiDiNet</strong><small id="cnnSize">Pesi 3 MB + motore condiviso 11,2 MB, in cache.</small></span></label>
+      <button class="primary-button" id="runButton" disabled>Confronta i metodi <span>→</span></button>
+      <button class="cancel-button" id="cancelButton" hidden>Interrompi elaborazione</button>
+      <p class="status" id="status" role="status" aria-live="polite">Carica una foto o usa l’esempio.</p>
+      <p class="export-ready" id="reportDownload" hidden></p>
+      <p class="dirty-note" id="dirtyNote" hidden>Impostazioni modificate. Premi Confronta per aggiornare.</p>
+      <details class="notes"><summary>Cosa sto confrontando?</summary><p>Superfici ampie confronta la forma della sagoma, il colore semplificato e, se attivata, una CNN per i bordi. Le piccole regioni confinanti vengono riunite. Nessun nuovo modello da scaricare.</p><p>Il gradiente viene costruito dentro ogni zona: non è una mappa di profondità. La texture modifica solo la sfumatura. Gli algoritmi non riconoscono con certezza foglie o pannelli del palco.</p><p>Dettagli conserva il confronto originale. L’export a risoluzione originale non ricrea contorni persi nell’analisi.</p><p>PiDiNet è incluso per valutazione locale: la licenza originale richiede di contattare gli autori per l’uso commerciale.</p><a href="./SOURCES.md" target="_blank" rel="noopener">Fonti, pesi e licenze ↗</a></details>
+    </aside>
+    <section class="results-area">
+      <div class="heading-row"><div><p class="eyebrow">PROJECTION MAPPING / REGION LAB</p><h1>Superfici e gradienti.</h1><p class="intro">Prima separa le zone. Poi scegli come illuminarle.</p></div><span class="run-meta" id="runMeta">Nessuna analisi</span></div>
+      <div class="view-toolbar"><div class="view-modes" role="group" aria-label="Visualizzazione risultati"><button data-view="gradient" class="active" aria-pressed="true">Gradienti</button><button data-view="regions" aria-pressed="false">Zone</button><button data-view="edges" aria-pressed="false">Bordi</button><button data-view="overlay" aria-pressed="false">Sull’originale</button></div><label class="opacity-field">Intensità <input id="opacity" type="range" min="10" max="100" value="65" aria-label="Intensità sovrapposizione" /></label><button class="text-button" id="exportReport" disabled>Report ↓</button></div>
+      <div class="lighting-controls" id="lightingControls">
+        <label>Sfumatura<select id="gradientStyle"><option value="radial">Dal bordo al centro</option><option value="linear">Lineare in ogni zona</option><option value="global">Lineare su tutta la foto</option></select></label>
+        <label>Palette<select id="palette"><option value="thermal">Termica</option><option value="cool">Blu / ciano</option></select></label>
+        <label for="angle">Direzione <output id="angleValue">90°</output><input type="range" id="angle" min="0" max="360" value="90" /></label>
+        <label for="texture">Texture foto <output id="textureValue">10%</output><input type="range" id="texture" min="0" max="50" value="10" /></label>
+        <label for="feather">Bordi morbidi <output id="featherValue">1 px</output><input type="range" id="feather" min="0" max="5" value="1" step="0.5" /></label>
+      </div>
+      <div class="method-grid" id="methodGrid"></div>
+      <p class="results-footnote">La vista Zone serve a valutare la separazione; i suoi colori sono identificativi. In Gradienti, la foto aggiunge texture senza frammentare le maschere. Cambiare luce non richiede una nuova analisi.</p>
+    </section>
+  </main>
+  <dialog id="inspectDialog">
+    <header class="dialog-header"><div><p class="eyebrow">CONFRONTO CON L’ORIGINALE</p><h2 id="inspectTitle"></h2></div><button id="closeDialog" aria-label="Chiudi confronto">✕</button></header>
+    <div class="inspect-toolbar"><label>Zoom <select id="zoom"><option value="1">Adatta</option><option value="2">2×</option><option value="4">4×</option></select></label><span id="regionInfo">Clicca sul risultato per ispezionare una regione.</span></div>
+    <div class="inspect-viewport" id="inspectViewport"><div class="inspect-images" id="inspectImages"><canvas id="inspectResult"></canvas><div id="inspectOriginalClip"><canvas id="inspectOriginal"></canvas></div><div class="split-line" id="splitLine"></div></div></div>
+    <label class="compare-control">Originale <input id="compare" type="range" min="0" max="100" value="50" aria-label="Confronta foto originale e risultato" /> Risultato</label>
+    <footer class="dialog-footer"><span id="inspectSize"></span><div class="download-buttons"><button id="downloadGradient">Gradiente PNG ↓</button><button id="downloadField">Campo grigio PNG ↓</button><button id="downloadPalette">Zone a colori ↓</button><button id="downloadRegions" title="Mappa numerica per il software: può apparire quasi nera in un visualizzatore.">Mappa ID PNG ↓</button><button id="downloadEdges">Bordi PNG ↓</button><button id="downloadMask" disabled>Maschera selezionata ↓</button></div><p class="export-ready" id="imageDownload" role="status" hidden></p></footer>
+  </dialog>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
