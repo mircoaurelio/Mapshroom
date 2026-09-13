@@ -23,6 +23,7 @@ export interface ManualShaderMixState<T> {
 export function advanceManualShaderMix<T>(
   previous: ManualShaderMixState<T> | null,
   request: {
+    enabled?: boolean;
     selectionKey: string | null;
     layer: T;
     effect: TimelineTransitionEffect;
@@ -36,7 +37,7 @@ export function advanceManualShaderMix<T>(
     ? Math.max(0, Math.min(600, request.durationSeconds))
     : 0;
   const settled = { selectionKey, layer, mix: null };
-  if (!previous || selectionKey === null || durationSeconds === 0) return settled;
+  if (request.enabled === false || !previous || selectionKey === null || durationSeconds === 0) return settled;
 
   let mix = previous.mix;
   let from = previous.layer;

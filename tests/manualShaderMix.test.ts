@@ -9,9 +9,10 @@ function select(
   ready = true,
   durationSeconds = 2,
   layer = key ?? 'timeline',
+  enabled = true,
 ) {
   return advanceManualShaderMix(previous, {
-    selectionKey: key, layer, nowMs, durationSeconds, effect: 'radial', isReady: () => ready,
+    enabled, selectionKey: key, layer, nowMs, durationSeconds, effect: 'radial', isReady: () => ready,
   });
 }
 
@@ -27,6 +28,32 @@ test('manual selection enters with the configured radial mix for the full two se
   assert.equal(held.layer, 'B');
   assert.equal(held.mix, null);
   assert.equal(select(held, 'B', 12100).mix, null);
+});
+
+test('the editing canvas cuts immediately while the output keeps its long mix', () => {
+  const previous = select(null, 'A', 0);
+  const canvas = select(previous, 'B', 100, false, 120, 'B', false);
+  assert.equal(canvas.layer, 'B');
+  assert.equal(canvas.mix, null, 'the canvas does not wait for a transition program');
+  const nextClick = select(canvas, 'C', 200, false, 120, 'C', false);
+  assert.equal(nextClick.layer, 'C');
+  assert.equal(nextClick.mix, null);
+
+  const output = select(previous, 'B', 100, true, 120);
+  assert.equal(output.layer, 'A');
+  assert.equal(output.mix?.durationSeconds, 120);
+  assert.equal(select(output, 'B', 60100, true, 120).mix?.progress, 0.5);
+  assert.equal(select(output, 'B', 120100, true, 120).layer, 'B');
+});
+
+test('disabling selection fades drops any pending or active mix immediately', () => {
+  const previous = select(null, 'A', 0);
+  for (const ready of [false, true]) {
+    const mixing = select(previous, 'B', 100, ready, 120);
+    const canvas = select(mixing, 'C', 500, false, 120, 'C', false);
+    assert.equal(canvas.layer, 'C');
+    assert.equal(canvas.mix, null);
+  }
 });
 
 test('shader compilation and media loading do not consume the mix duration', () => {

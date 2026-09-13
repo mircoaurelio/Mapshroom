@@ -1822,6 +1822,8 @@ export function TimelineStageRenderer({
       ? effectiveFocusedStepId
       : null;
   const manualMixState = useMemo(() => advanceManualShaderMix(manualMixSnapshotRef.current, {
+    // Manual selection fades belong to the output; the editing canvas cuts immediately.
+    enabled: isOutputOnly === true,
     selectionKey: manualSelectionKey,
     layer: visibleTimelineRenderState.baseLayers[0],
     effect: shaderSequence.sharedTransitionEffect ?? 'mix',
@@ -1836,6 +1838,7 @@ export function TimelineStageRenderer({
     },
   }), [
     manualSelectionKey,
+    isOutputOnly,
     manualMixNowMs,
     visibleTimelineRenderState.baseLayers,
     shaderSequence.sharedTransitionEffect,
