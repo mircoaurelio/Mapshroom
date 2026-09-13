@@ -20,6 +20,7 @@ interface Props {
   onSaveVariant: SaveAssetVariant; processingSuspended: boolean;
   onRemoveAsset: (id: string) => void; onOpenProBeta: () => void; onClose: () => void;
   showImportFirstStep: boolean; highlightStartMapping: boolean; onImportFirstStepDismiss: () => void;
+  timelineAssignment?: { shaderName: string; onUseLiveStage: () => void };
 }
 function Icon({ name }: { name: 'plus' | 'paste' | 'close' | 'download' | 'check' | 'adjust' | 'depth' | 'image' | 'info' | 'expand' }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -66,9 +67,9 @@ export function AssetLibraryDialog(props: Props) {
   const displayedDimensions = displayed?.derivation?.width ? displayed.derivation : dimensions?.id === displayed?.id ? dimensions : null;
   useEffect(() => {
     const active = visible.find(asset => asset.id === activeAssetId);
-    if (active) { setSourceId(sourceForAsset(active, visible)?.id ?? null); setSelectedKind(null); setCompare(false); }
+    if (open && active) { setSourceId(sourceForAsset(active, visible)?.id ?? null); setSelectedKind(null); setExtraVersionId(active.derivation ? active.id : null); setCompare(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAssetId]);
+  }, [activeAssetId, open]);
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -82,7 +83,7 @@ export function AssetLibraryDialog(props: Props) {
     window.addEventListener('dragend', end); window.addEventListener('drop', end, true);
     return () => { if (dragTimer.current) clearTimeout(dragTimer.current); window.removeEventListener('dragend', end); window.removeEventListener('drop', end, true); };
   }, []);
-  useEffect(() => { setRename(false); setExtraVersionId(null); }, [source?.id]);
+  useEffect(() => { setRename(false); }, [source?.id]);
   const sourceThumbnail = source ? thumbnails[source.id] : null;
   const suggestionSourceId = source?.kind === 'image' ? source.id : null;
   useEffect(() => {
@@ -137,7 +138,7 @@ export function AssetLibraryDialog(props: Props) {
         else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { event.preventDefault(); first?.focus(); }
       }
     }}>
-      <header className="ml-header" inert={expandedPreview || !!pendingDelete}><div className="ml-brand"><span>MAPSHROOM</span></div><h2 id="asset-browser-title">Media Library</h2><div className="ml-header-actions">
+      <header className="ml-header" inert={expandedPreview || !!pendingDelete}><div className="ml-brand"><span>MAPSHROOM</span></div><h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : 'Media Library'}</h2><div className="ml-header-actions">
         <button className="secondary-button ml-paste" type="button" onClick={props.onPasteImage} disabled={props.imageImporting}><Icon name="paste" />Paste</button>
         <button className="primary-button" type="button" onClick={() => { props.onImportFirstStepDismiss(); props.onLoadAsset(); }} disabled={props.imageImporting}><Icon name="plus" />{props.imageImporting ? 'Importing…' : 'Import'}</button>
         <button className="ml-icon-button" type="button" onClick={close} aria-label="Close asset library"><Icon name="close" /></button>
@@ -209,7 +210,7 @@ export function AssetLibraryDialog(props: Props) {
           <div className="ml-device-note"><span className="ml-device-dot" aria-hidden="true" /><span>{queue.profile.label} · {queue.profile.mobile ? 'Smaller working images · Original preserved' : 'Refined against the original photo'}</span></div>
         </section> : <div className="ml-video-tools" inert={expandedPreview || !!pendingDelete}><p>Videos are ready to use directly in the timeline.</p><button className="secondary-button" onClick={() => { setExpandedPreview(true); setDraftName(source.name); setRename(true); }}>Rename</button><button className="ghost-button ml-danger" onClick={() => setPendingDelete(source)}>Delete video…</button></div>}
       </> : <div className="ml-empty-main"><Icon name="image" /><h3>Add your first image or video</h3><p>Import, paste or drop a file here.</p><button className="primary-button" onClick={props.onLoadAsset}><Icon name="plus" />Import media</button></div>}</main></div>
-      <footer className="ml-footer" inert={expandedPreview || !!pendingDelete}>{automation}<div className="ml-footer-status" role="status">{queue.busy ? <><Spinner /><span>Processing on this device</span><button className="ghost-button" onClick={queue.cancel}>Cancel</button></> : null}</div><div className="ml-footer-actions"><button className="ghost-button" type="button" onClick={close}>{queue.busy ? 'Continue mapping' : 'Start mapping'}</button><button className="primary-button" type="button" disabled={!(selectedVersion ?? source) || resolution.status !== 'ready'} onClick={() => { const selected = selectedVersion ?? source; if (selected) use(selected); }}>Use {selectedVersion ? 'selected' : 'original'} <span aria-hidden="true">→</span></button></div></footer>
+      <footer className="ml-footer" inert={expandedPreview || !!pendingDelete}>{automation}<div className="ml-footer-status" role="status">{queue.busy ? <><Spinner /><span>Processing on this device</span><button className="ghost-button" onClick={queue.cancel}>Cancel</button></> : props.timelineAssignment ? <span title={props.timelineAssignment.shaderName}>Assign to {props.timelineAssignment.shaderName}</span> : null}</div><div className="ml-footer-actions">{props.timelineAssignment ? <button className="ghost-button" type="button" onClick={() => { props.timelineAssignment?.onUseLiveStage(); close(); }}>Use Live Stage Asset</button> : <button className="ghost-button" type="button" onClick={close}>{queue.busy ? 'Continue mapping' : 'Start mapping'}</button>}<button className="primary-button" type="button" disabled={!(selectedVersion ?? source) || resolution.status !== 'ready'} onClick={() => { const selected = selectedVersion ?? source; if (selected) use(selected); }}>Use {selectedVersion ? 'selected' : 'original'} <span aria-hidden="true">→</span></button></div></footer>
       {pendingDelete && <div className="ml-confirm-backdrop"><section className="ml-confirm" role="alertdialog" aria-modal="true" aria-labelledby="ml-delete-title"><h3 id="ml-delete-title">Delete {pendingDelete.derivation ? 'this version' : 'this asset'}?</h3><p><strong>{pendingDelete.name}</strong> will be removed from the project. {pendingDelete.derivation ? 'The original will stay.' : 'Generated versions will stay available.'}</p><div><button autoFocus className="secondary-button" onClick={() => setPendingDelete(null)}>Keep asset</button><button className="secondary-button ml-danger" onClick={() => { props.onRemoveAsset(pendingDelete.id); setPendingDelete(null); setSelectedKind(null); }}>Delete</button></div></section></div>}
     </section>
   </div>;

@@ -1,3 +1,4 @@
+import { preserveShaderVersion } from '../lib/shaderHistory';
 import {
   type CSSProperties,
   type ChangeEvent,
@@ -2269,6 +2270,18 @@ function applyPastedShaderCodeToProject(
     currentProject.studio.uniformValues,
   );
   const nextShaderVersion = createShaderVersion('Pasted shader', nextName, nextCode);
+  const previousVersions = preserveShaderVersion(
+    currentProject.studio.shaderVersions.length ? currentProject.studio.shaderVersions : getShaderVersionTrail(currentActiveShader, {
+      fallbackVersions: currentProject.studio.shaderVersions,
+      fallbackName: currentProject.studio.activeShaderName,
+      fallbackCode: currentProject.studio.activeShaderCode,
+    }),
+    createShaderVersion(
+      'Before paste',
+      currentProject.studio.activeShaderName,
+      currentProject.studio.activeShaderCode,
+    ),
+  );
   const savedShader = createSavedShaderRecord(
     nextName,
     nextCode,
@@ -2282,7 +2295,7 @@ function applyPastedShaderCodeToProject(
       isDirty: false,
       lastValidCode: nextCode,
       lastValidUniformValues: nextUniformValues,
-      versions: [nextShaderVersion],
+      versions: [...previousVersions, nextShaderVersion],
     },
   );
   const timelineStep = timelineStepId
@@ -2301,7 +2314,7 @@ function applyPastedShaderCodeToProject(
         ownerTimelineStepId: timelineStep.id,
         lastValidCode: nextCode,
         lastValidUniformValues: nextUniformValues,
-        versions: cloneShaderVersionsWithName(savedShader.versions, nextName),
+        versions: savedShader.versions,
       })
     : null;
   const activeShader = timelineDraft ?? savedShader;
@@ -2899,6 +2912,7 @@ export function WorkspaceRoute() {
   } | null>(null);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
+  const [assetLibraryStepId, setAssetLibraryStepId] = useState<string | null>(null);
   const [highlightAssetStartMapping, setHighlightAssetStartMapping] = useState(false);
   const [showAssetImportFirstStep, setShowAssetImportFirstStep] = useState(() =>
     isAssetsImportStepPending(),
@@ -2918,13 +2932,6 @@ export function WorkspaceRoute() {
   const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
   const [studioPreviewOverride, setStudioPreviewOverride] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
-  const [timelineAssetPickerRequest, setTimelineAssetPickerRequest] = useState<{
-    stepId: string | null;
-    token: number;
-  }>({
-    stepId: null,
-    token: 0,
-  });
   const [desktopStageKeyboardArmed, setDesktopStageKeyboardArmed] = useState(false);
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
   const [pendingTimelineRepeatExit, setPendingTimelineRepeatExit] =
@@ -6704,6 +6711,14 @@ export function WorkspaceRoute() {
       applyActiveShaderPatch(currentProject, {
         activeShaderCode: version.code,
         activeShaderName: version.name,
+        shaderVersions: preserveShaderVersion(
+          currentProject.studio.shaderVersions,
+          createShaderVersion(
+            'Before restore',
+            currentProject.studio.activeShaderName,
+            currentProject.studio.activeShaderCode,
+          ),
+        ),
       }),
     );
     setStatusMessage(`Restored "${version.name}".`);
@@ -7608,16 +7623,9 @@ ${errorSnapshot}`,
   };
 
   const requestTimelineAssetPicker = useCallback((stepId: string) => {
-    if (isMobile) {
-      updateMobileUiMode('full');
-      setIsMobileTimelineOpen(true);
-    }
-
-    setTimelineAssetPickerRequest((currentValue) => ({
-      stepId,
-      token: currentValue.token + 1,
-    }));
-  }, [isMobile, updateMobileUiMode]);
+    setAssetLibraryStepId(stepId);
+    setIsAssetLibraryOpen(true);
+  }, []);
 
   const closeMobileShaderDialog = () => {
     if (!isMobile) {
@@ -8641,6 +8649,13 @@ ${errorSnapshot}`,
     />
   );
 
+  const assetLibraryStep = assetLibraryStepId
+    ? timelineStub.shaderSequence.steps.find(step => step.id === assetLibraryStepId) ?? null
+    : null;
+  const assetLibraryShader = assetLibraryStep
+    ? project.studio.savedShaders.find(shader => shader.id === assetLibraryStep.shaderId) ?? null
+    : null;
+
   const mobileShaderPanel = (
     <div className="mobile-shader-workspace">
       <ShaderTimelineEditor
@@ -8661,12 +8676,8 @@ ${errorSnapshot}`,
         onSharedTransitionChange={handleTimelineSharedTransitionChange}
         onStepChange={handleTimelineStepChange}
         onPinnedStepToggle={handleTimelinePinnedStepToggle}
-        onAssignStepAsset={handleTimelineAssignStepAsset}
-        onImportAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
+        onBrowseAssets={requestTimelineAssetPicker}
         onDropImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
-        assetPickerRequestStepId={null}
-        assetPickerRequestToken={0}
-        onAssetPickerRequestHandled={() => undefined}
         onDuplicateStep={handleTimelineDuplicateStep}
         onRemoveStep={handleTimelineRemoveStep}
         onReorderSteps={handleTimelineReorderSteps}
@@ -8798,16 +8809,8 @@ ${errorSnapshot}`,
       onRestoreSequenceShaders={handleRestoreTimelineShaders}
       onDismissSequenceShuffleUndo={handleDismissTimelineShaderRestore}
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
-      onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
-      onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
+      onBrowseSequenceAssets={requestTimelineAssetPicker}
       onDropSequenceImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
-      assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
-      assetPickerRequestToken={timelineAssetPickerRequest.token}
-      onAssetPickerRequestHandled={() =>
-        setTimelineAssetPickerRequest((currentValue) =>
-          currentValue.stepId === null ? currentValue : { ...currentValue, stepId: null },
-        )
-      }
       onSequenceDurationChange={handleTimelineDurationChange}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
       onRemoveSequenceStep={handleTimelineRemoveStep}
@@ -9137,6 +9140,7 @@ ${errorSnapshot}`,
           }}
           onOpenAssets={() => {
             trackUiClick('open_assets');
+            setAssetLibraryStepId(null);
             setIsAssetLibraryOpen(true);
           }}
           onOpenSettings={() => {
@@ -9331,13 +9335,21 @@ ${errorSnapshot}`,
         activeAsset={activeAsset}
         assetUrl={activeAssetUrl}
         assets={project.library.assets}
-        activeAssetId={activeAsset?.id ?? null}
-        onLoadAsset={() => openFilePicker('library')}
-        onPasteImage={() => { void handleImageTransfer(readClipboardImages); }}
-        onDropImage={(transfer) => { void handleImageTransfer(transfer); }}
+        activeAssetId={assetLibraryShader?.inputAssetId ?? activeAsset?.id ?? null}
+        timelineAssignment={assetLibraryStep && assetLibraryShader ? {
+          shaderName: assetLibraryShader.name,
+          onUseLiveStage: () => handleTimelineAssignStepAsset(assetLibraryStep.id, null),
+        } : undefined}
+        onLoadAsset={() => assetLibraryStep
+          ? openFilePicker('timeline-picker', assetLibraryStep.id)
+          : openFilePicker('library')}
+        onPasteImage={() => { void handleImageTransfer(readClipboardImages, assetLibraryStep?.id); }}
+        onDropImage={(transfer) => { void handleImageTransfer(transfer, assetLibraryStep?.id); }}
         imageImporting={imageImporting}
         imageImportMessage={imageImportMessage}
-        onSelectAsset={handleAssetSelect}
+        onSelectAsset={(assetId) => assetLibraryStep
+          ? handleTimelineAssignStepAsset(assetLibraryStep.id, assetId)
+          : handleAssetSelect(assetId)}
         onRenameAsset={handleAssetRename}
         onEditMask={handleAssetMaskOpen}
         onEditSurfaces={handleAssetSurfacesOpen}
@@ -9348,6 +9360,7 @@ ${errorSnapshot}`,
         onClose={() => {
           setHighlightAssetStartMapping(false);
           setIsAssetLibraryOpen(false);
+          setAssetLibraryStepId(null);
         }}
         showImportFirstStep={showAssetImportFirstStep}
         highlightStartMapping={highlightAssetStartMapping}
@@ -9394,6 +9407,7 @@ ${errorSnapshot}`,
           }}
           onOpenAssets={() => {
             trackUiClick('open_assets');
+            setAssetLibraryStepId(null);
             setIsAssetLibraryOpen(true);
           }}
           onOpenSettings={() => {
@@ -9443,16 +9457,8 @@ ${errorSnapshot}`,
         onRestoreSequenceShaders={handleRestoreTimelineShaders}
         onDismissSequenceShuffleUndo={handleDismissTimelineShaderRestore}
         onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
-        onAssignSequenceStepAsset={handleTimelineAssignStepAsset}
-        onImportSequenceAsset={(stepId) => openFilePicker('timeline-picker', stepId)}
+        onBrowseSequenceAssets={requestTimelineAssetPicker}
         onDropSequenceImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
-        assetPickerRequestStepId={timelineAssetPickerRequest.stepId}
-        assetPickerRequestToken={timelineAssetPickerRequest.token}
-        onAssetPickerRequestHandled={() =>
-          setTimelineAssetPickerRequest((currentValue) =>
-            currentValue.stepId === null ? currentValue : { ...currentValue, stepId: null },
-          )
-        }
         onSequenceDurationChange={handleTimelineDurationChange}
         onMobileEqualDurationChange={handleMobileEqualDurationChange}
         onDuplicateSequenceStep={handleTimelineDuplicateStep}

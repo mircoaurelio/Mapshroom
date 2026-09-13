@@ -76,12 +76,8 @@ interface TimelineBarProps {
   onRestoreSequenceShaders: () => void;
   onDismissSequenceShuffleUndo: () => void;
   onSequencePinnedStepToggle: (stepId: string) => void;
-  onAssignSequenceStepAsset: (stepId: string, assetId: string | null) => void;
-  onImportSequenceAsset: (stepId: string) => void;
+  onBrowseSequenceAssets: (stepId: string) => void;
   onDropSequenceImage: (transfer: ImageTransfer, stepId: string) => void;
-  assetPickerRequestStepId: string | null;
-  assetPickerRequestToken: number;
-  onAssetPickerRequestHandled: () => void;
   onSequenceDurationChange: (durationSeconds: number) => void;
   onDuplicateSequenceStep: (stepId: string) => void;
   onRemoveSequenceStep: (stepId: string) => void;
@@ -336,12 +332,8 @@ export function TimelineBar({
   onRestoreSequenceShaders,
   onDismissSequenceShuffleUndo,
   onSequencePinnedStepToggle,
-  onAssignSequenceStepAsset,
-  onImportSequenceAsset,
+  onBrowseSequenceAssets,
   onDropSequenceImage,
-  assetPickerRequestStepId,
-  assetPickerRequestToken,
-  onAssetPickerRequestHandled,
   onSequenceDurationChange,
   onDuplicateSequenceStep,
   onRemoveSequenceStep,
@@ -1190,12 +1182,8 @@ export function TimelineBar({
         onRestoreShaders={onRestoreSequenceShaders}
         onDismissShuffleUndo={onDismissSequenceShuffleUndo}
         onPinnedStepToggle={onSequencePinnedStepToggle}
-        onAssignStepAsset={onAssignSequenceStepAsset}
-        onImportAsset={onImportSequenceAsset}
+        onBrowseAssets={onBrowseSequenceAssets}
         onDropImage={onDropSequenceImage}
-        assetPickerRequestStepId={assetPickerRequestStepId}
-        assetPickerRequestToken={assetPickerRequestToken}
-        onAssetPickerRequestHandled={onAssetPickerRequestHandled}
         onDuplicateStep={onDuplicateSequenceStep}
         onRemoveStep={onRemoveSequenceStep}
         onEditStep={onEditSequenceStep}
