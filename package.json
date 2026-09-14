@@ -7,6 +7,7 @@
   "scripts": {
     "check:secrets": "node ./scripts/check-no-secrets.mjs",
     "check:shaders": "node ./scripts/check-shader-presets.mjs",
+    "generate:thumbnails": "node ./scripts/generate-shader-thumbnails.mjs",
     "dev": "vite",
     "dev:regions": "vite --config vite.region-lab.config.ts",
     "build:regions": "vite build --config vite.region-lab.config.ts",

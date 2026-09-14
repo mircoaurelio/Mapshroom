@@ -4885,85 +4885,6 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
 }
 
-.shader-word-builder {
-  position: relative;
-  display: grid;
-  gap: 0.48rem;
-  padding: 0.42rem 0.62rem 0.58rem;
-  border-top: 1px solid rgba(113, 113, 122, 0.12);
-  background: rgba(var(--accent-rgb), 0.018);
-}
-
-.shader-word-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.32rem;
-}
-
-.shader-word-tag {
-  flex: 0 0 auto;
-  min-height: 26px;
-  padding: 0.3rem 0.52rem;
-  border: 1px solid rgba(161, 161, 170, 0.2);
-  border-radius: 999px;
-  background: rgba(113, 113, 122, 0.07);
-  color: #d4d4d8;
-  font: 650 0.6rem/1.1 'IBM Plex Mono', monospace;
-  white-space: nowrap;
-  transition: border-color 140ms ease, background 140ms ease, color 140ms ease,
-    transform 140ms ease;
-}
-
-.shader-word-options-measure {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.32rem;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.shader-word-tag:hover,
-.shader-word-tag:focus-visible {
-  border-color: rgba(var(--accent-rgb), 0.48);
-  background: rgba(var(--accent-rgb), 0.11);
-  color: var(--text-bright);
-  outline: none;
-  transform: translateY(-1px);
-}
-
-.shader-word-tag.is-selected {
-  border-color: rgba(var(--accent-rgb), 0.62);
-  background: rgba(var(--accent-rgb), 0.18);
-  color: var(--accent-pale);
-}
-
-.shader-word-reset-button {
-  display: grid;
-  width: 30px;
-  min-width: 30px;
-  height: 30px;
-  place-items: center;
-  padding: 0;
-  border: 1px solid rgba(161, 161, 170, 0.18);
-  border-radius: 999px;
-  background: rgba(113, 113, 122, 0.06);
-  color: var(--text-muted);
-  font-size: 0.78rem;
-}
-
-.shader-word-reset-button:hover,
-.shader-word-reset-button:focus-visible {
-  border-color: rgba(212, 212, 216, 0.34);
-  background: rgba(113, 113, 122, 0.14);
-  color: var(--text-bright);
-  outline: none;
-}
-
 .code-editor {
   min-height: 176px;
   padding: 0.75rem;
@@ -12400,7 +12321,10 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-asset-preview-shell {
-  min-height: 300px;
+  /* Hover previews must not recenter the dialog beneath a pending click. */
+  height: clamp(180px, 40dvh, 360px);
+  min-height: 0;
+  flex-shrink: 0;
 }
 
 .timeline-asset-preview-grid {

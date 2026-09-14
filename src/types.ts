@@ -91,6 +91,8 @@ export interface SavedShader {
 }
 
 export interface StageTransform {
+  /** Canvas proportions retained when replacing media after mapping. */
+  referenceAspectRatio?: number;
   offsetX: number;
   offsetY: number;
   widthAdjust: number;

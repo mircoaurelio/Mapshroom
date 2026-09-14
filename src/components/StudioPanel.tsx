@@ -15,7 +15,6 @@ import type { AudioReactivityController } from '../hooks/useAudioReactivity';
 interface ShaderStudioControlsSectionProps {
   savedShaders: SavedShader[];
   activeShaderId: string;
-  onSaveShader: () => void;
   onBrowsePresets: () => void;
   timelineSelection?: TimelineSelectionInfo;
   hideCurrentShader?: boolean;
@@ -117,24 +116,6 @@ function PresetIcon() {
       <rect x="12" y="4" width="5" height="5" rx="1" fill="currentColor" />
       <rect x="3" y="11" width="5" height="5" rx="1" fill="currentColor" />
       <rect x="12" y="11" width="5" height="5" rx="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function SaveIcon() {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3h8.38L17 6.12V15.5A1.5 1.5 0 0 1 15.5 17h-10A1.5 1.5 0 0 1 4 15.5Z" />
-      <path d="M7 3.75v4.5h5.5v-4.5" />
-      <path d="M7.25 17v-4.75h5.5V17" />
     </svg>
   );
 }
@@ -339,12 +320,10 @@ function CollapseIcon({ collapsed }: { collapsed: boolean }) {
 }
 
 export function ShaderStudioControlsSection({
-  onSaveShader,
   onBrowsePresets,
-  timelineSelection,
 }: ShaderStudioControlsSectionProps) {
   return (
-    <PanelSection title="Shader Studio">
+    <PanelSection>
       <div className="stack gap-md">
         <div className="stack gap-sm">
           <div className="button-row shader-studio-action-row">
@@ -355,14 +334,6 @@ export function ShaderStudioControlsSection({
             >
               <PresetIcon />
               <span>Preset List</span>
-            </button>
-            <button
-              type="button"
-              className="primary-button shader-studio-action-button"
-              onClick={onSaveShader}
-            >
-              <SaveIcon />
-              <span>{timelineSelection?.isLinked ? 'Save To Library' : 'Save'}</span>
             </button>
           </div>
         </div>
@@ -411,7 +382,7 @@ export function ShaderCodeSection({
 }: ShaderCodeSectionProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const [pasteState, setPasteState] = useState<'idle' | 'pasted' | 'error'>('idle');
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [isExpandedEditorOpen, setIsExpandedEditorOpen] = useState(false);
   const copyLabel =
     copyState === 'copied' ? 'Code copied' : copyState === 'error' ? 'Copy failed' : 'Copy code';
@@ -545,7 +516,7 @@ export function ShaderCodeSection({
       }
     >
       {collapsed ? (
-        <div className="code-collapsed-note">Code editor collapsed.</div>
+        null
       ) : (
         <div className="stack gap-md">
           <GlslCodeEditor value={shaderCode} onChange={onShaderCodeChange} />
@@ -657,7 +628,6 @@ export function ShaderCodeSection({
 export function StudioPanel({
   savedShaders,
   activeShaderId,
-  onSaveShader,
   randomizationKey,
   audioShaderId,
   audioShaderCode,
@@ -691,7 +661,6 @@ export function StudioPanel({
       <ShaderStudioControlsSection
         savedShaders={savedShaders}
         activeShaderId={activeShaderId}
-        onSaveShader={onSaveShader}
         onBrowsePresets={onBrowsePresets}
         timelineSelection={timelineSelection}
         hideCurrentShader

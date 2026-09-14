@@ -15,6 +15,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
+import { preserveStageFrame, readStageFrameAspectRatio, replaceStageAsset } from '../lib/assetReplacement';
 import type { VariantResult } from '../lib/assetVariants';
 import {
   captureImageTransfer,
@@ -2696,6 +2697,7 @@ function assignTimelineStepAssetToProject(
   stepId: string,
   assetId: string | null,
   shouldSyncActiveShader: boolean,
+  referenceAspectRatio?: number,
 ): { project: ProjectDocument; statusMessage: string } {
   const nextInputAssetId = assetId?.trim() || null;
   const step = currentProject.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
@@ -2747,22 +2749,13 @@ function assignTimelineStepAssetToProject(
   const assignedAsset = nextInputAssetId
     ? currentProject.library.assets.find((assetRecord) => assetRecord.id === nextInputAssetId) ?? null
     : null;
-  const shouldApplyInitialImageFit =
-    assignedAsset?.kind === 'image' && !sourceShader.inputAssetId;
   const nextSteps = currentProject.timeline.stub.shaderSequence.steps.map((item) =>
     item.id === stepId
       ? {
           ...item,
           shaderId: editableShader.id,
-          ...(nextInputAssetId && shouldApplyInitialImageFit
-            ? {
-                assetSettings: normalizeTimelineStepAssetSettings({
-                  ...item.assetSettings,
-                  fitMode: 'contain',
-                }),
-              }
-            : nextInputAssetId
-              ? {}
+          ...(nextInputAssetId
+            ? {}
             : {
                 assetSettings: normalizeTimelineStepAssetSettings({
                   ...item.assetSettings,
@@ -2780,6 +2773,10 @@ function assignTimelineStepAssetToProject(
   return {
     project: pruneTemporaryTimelineShaders({
       ...currentProject,
+      mapping: {
+        ...currentProject.mapping,
+        stageTransform: preserveStageFrame(currentProject.mapping.stageTransform, referenceAspectRatio),
+      },
       studio: {
         ...currentProject.studio,
         activeShaderId: shouldSyncActiveShader
@@ -2949,7 +2946,6 @@ export function WorkspaceRoute() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
   const [isPresetBrowserOpen, setIsPresetBrowserOpen] = useState(false);
-  const [previewShaderId, setPreviewShaderId] = useState<string | null>(null);
   const [studioPreviewOverride, setStudioPreviewOverride] = useState(false);
   const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState(false);
   const [desktopStageKeyboardArmed, setDesktopStageKeyboardArmed] = useState(false);
@@ -3751,7 +3747,6 @@ export function WorkspaceRoute() {
     persistActiveSessionId(nextSessionId);
     setIsProjectDialogOpen(false);
     setEditingTimelineStepId(null);
-    setPreviewShaderId(null);
     setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
@@ -3769,7 +3764,6 @@ export function WorkspaceRoute() {
     persistActiveSessionId(nextSessionId);
     setIsProjectDialogOpen(false);
     setEditingTimelineStepId(null);
-    setPreviewShaderId(null);
     setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
@@ -3884,7 +3878,6 @@ export function WorkspaceRoute() {
     setProject(nextProject);
     setIsProjectDialogOpen(false);
     setEditingTimelineStepId(null);
-    setPreviewShaderId(null);
     setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
@@ -4455,6 +4448,7 @@ export function WorkspaceRoute() {
     }
 
     let timelineAssignmentMessage = '';
+    const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
 
     updateProject((currentProject) => {
       if (currentProject.sessionId !== project?.sessionId) return currentProject;
@@ -4485,9 +4479,8 @@ export function WorkspaceRoute() {
             : currentProject.playback.transport,
         },
         mapping: {
-          stageTransform: {
-            ...currentProject.mapping.stageTransform,
-          },
+          ...currentProject.mapping,
+          stageTransform: preserveStageFrame(currentProject.mapping.stageTransform, referenceAspectRatio),
         },
       };
 
@@ -4516,6 +4509,7 @@ export function WorkspaceRoute() {
         timelineImportStepId,
         importedAssetId,
         shouldSyncActiveShader,
+        referenceAspectRatio,
       );
       timelineAssignmentMessage = assignment.statusMessage;
       return assignment.project;
@@ -4561,16 +4555,13 @@ export function WorkspaceRoute() {
       if (transfer.assetId) {
         const asset = project.library.assets.find((item) => item.id === transfer.assetId && item.kind === 'image');
         if (!asset) throw new Error('This image is no longer in this project. Import the original file again.');
+        const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
         updateProject((currentProject) => {
           if (currentProject.sessionId !== project.sessionId) return currentProject;
           if (stepId) {
-            return assignTimelineStepAssetToProject(currentProject, stepId, asset.id, editingTimelineStepId === stepId).project;
+            return assignTimelineStepAssetToProject(currentProject, stepId, asset.id, editingTimelineStepId === stepId, referenceAspectRatio).project;
           }
-          return {
-            ...currentProject,
-            library: { ...currentProject.library, activeAssetId: asset.id },
-            playback: { ...currentProject.playback, activeAssetId: asset.id },
-          };
+          return replaceStageAsset(currentProject, asset.id, referenceAspectRatio);
         });
         const message = stepId ? `Assigned “${asset.name}” to this shader step.` : `“${asset.name}” is now the canvas image.`;
         setStatusMessage(message);
@@ -4688,17 +4679,8 @@ export function WorkspaceRoute() {
   };
 
   const handleAssetSelect = (assetId: string) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      library: {
-        ...currentProject.library,
-        activeAssetId: assetId,
-      },
-      playback: {
-        ...currentProject.playback,
-        activeAssetId: assetId,
-      },
-    }));
+    const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
+    updateProject(currentProject => replaceStageAsset(currentProject, assetId, referenceAspectRatio));
   };
 
   const handleAssetRename = (assetId: string, name: string) => {
@@ -4758,17 +4740,16 @@ export function WorkspaceRoute() {
       setStatusMessage('Browser storage is full, so the image was not saved. The original asset was left unchanged.');
       return false;
     }
-    updateProject((currentProject) => ({
+    const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
+    updateProject((currentProject) => replaceStageAsset({
       ...currentProject,
       library: {
         ...currentProject.library,
         assets: currentProject.library.assets.some((asset) => asset.id === maskedAsset.id)
           ? currentProject.library.assets.map((asset) => asset.id === maskedAsset.id ? maskedAsset : asset)
           : [...currentProject.library.assets, maskedAsset],
-        activeAssetId: maskedAsset.id,
       },
-      playback: { ...currentProject.playback, activeAssetId: maskedAsset.id },
-    }));
+    }, maskedAsset.id, referenceAspectRatio));
     setStatusMessage(`${resultKind === 'depth' ? 'Depth map' : resultKind === 'draw' ? 'Painted asset' : 'Masked asset'} “${maskedAsset.name}” ${existingDepthAsset ? 'updated' : 'added and selected'}.`);
     if (!options.automatic) setSegmentationQueue((current) => current.slice(1));
     return true;
@@ -4790,11 +4771,11 @@ export function WorkspaceRoute() {
       derivation: { sourceAssetId: surfaceAsset.derivation?.sourceAssetId ?? surfaceAsset.id, kind: output === 'regions' ? 'segmentation' : output },
     };
     if (!await putAssetBlob(outputAsset.id, blob)) return false;
-    updateProject(current => current.sessionId !== project.sessionId ? current : ({
+    const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
+    updateProject(current => current.sessionId !== project.sessionId ? current : replaceStageAsset({
       ...current,
-      library: { ...current.library, assets: [...current.library.assets, outputAsset], activeAssetId: outputAsset.id },
-      playback: { ...current.playback, activeAssetId: outputAsset.id },
-    }));
+      library: { ...current.library, assets: [...current.library.assets, outputAsset] },
+    }, outputAsset.id, referenceAspectRatio));
     setStatusMessage(`Surfaces image “${outputAsset.name}” added and selected.`);
     return true;
   }, [project, surfaceAsset, updateProject]);
@@ -4820,6 +4801,7 @@ export function WorkspaceRoute() {
 
   const handleAssetRemove = (assetId: string) => {
     const removedAsset = project?.library.assets.find((asset) => asset.id === assetId) ?? null;
+    const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
     void deleteAssetBlob(assetId);
     updateProject((currentProject) => {
       const nextAssets = currentProject.library.assets.filter((asset) => asset.id !== assetId);
@@ -4827,6 +4809,9 @@ export function WorkspaceRoute() {
       const nextActiveId = removedWasActive ? nextAssets.at(-1)?.id ?? null : currentProject.library.activeAssetId;
       return {
         ...currentProject,
+        mapping: removedWasActive
+          ? { ...currentProject.mapping, stageTransform: preserveStageFrame(currentProject.mapping.stageTransform, referenceAspectRatio) }
+          : currentProject.mapping,
         library: { ...currentProject.library, assets: nextAssets, activeAssetId: nextActiveId },
         playback: {
           ...currentProject.playback,
@@ -4877,7 +4862,6 @@ export function WorkspaceRoute() {
       setStudioPreviewOverride(false);
       setPendingTimelineRepeatExit(null);
       setRepeatFocusFirstStepVisible(false);
-      setPreviewShaderId(null);
       setMidiManualMixArmed(false);
     }
     updateProject((currentProject) => ({
@@ -5143,6 +5127,7 @@ export function WorkspaceRoute() {
   const handleTimelineAssignStepAsset = useCallback((stepId: string, assetId: string | null) => {
     const nextInputAssetId = assetId?.trim() || null;
     let nextStatusMessage = '';
+    const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
 
     updateProject((currentProject) => {
       const step = currentProject.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
@@ -5157,6 +5142,7 @@ export function WorkspaceRoute() {
         stepId,
         nextInputAssetId,
         shouldSyncActiveShader,
+        referenceAspectRatio,
       );
       nextStatusMessage = assignment.statusMessage;
       return assignment.project;
@@ -6278,7 +6264,6 @@ export function WorkspaceRoute() {
       };
     });
     setEditingTimelineStepId(nextEditingStepId);
-    setPreviewShaderId(null);
     setStudioPreviewOverride(!shouldAddToTimeline && !shader.isTemporary);
     clearGeneratedShaderRetry();
     setStatusMessage(
@@ -6402,7 +6387,6 @@ export function WorkspaceRoute() {
         preset.audioReactiveBindings,
       );
     }
-    setPreviewShaderId(null);
     setStudioPreviewOverride(false);
     setPendingTimelineRepeatExit(null);
     clearGeneratedShaderRetry();
@@ -6578,90 +6562,6 @@ export function WorkspaceRoute() {
     window.requestAnimationFrame(() => {
       stageElement.focus();
     });
-  };
-
-  const saveCurrentShader = () => {
-    if (!project) {
-      return;
-    }
-
-    const label =
-      window.prompt('Name this shader node', project.studio.activeShaderName || 'Mapshroom Shader')
-        ?.trim() || '';
-
-    if (!label) {
-      return;
-    }
-
-    updateProject((currentProject) => {
-      const nextUniformValues = getSyncedShaderUniformValues(
-        currentProject.studio.activeShaderCode,
-        currentProject.studio.uniformValues,
-      );
-      const activeShader = currentProject.studio.savedShaders.find(
-        (shader) => shader.id === currentProject.studio.activeShaderId,
-      );
-
-      if (activeShader?.isTemporary) {
-        return {
-          ...currentProject,
-          studio: {
-            ...currentProject.studio,
-            activeShaderName: label,
-            savedShaders: currentProject.studio.savedShaders.map((shader) =>
-              shader.id === activeShader.id
-                ? {
-                    ...shader,
-                    name: label,
-                    code: currentProject.studio.activeShaderCode,
-                    versions: currentProject.studio.shaderVersions,
-                    uniformValues: nextUniformValues,
-                    description: 'Saved from the timeline editor.',
-                    group: 'Saved',
-                    isTemporary: false,
-                    isDirty: false,
-                    sourceShaderId: undefined,
-                    ownerTimelineStepId: undefined,
-                    hasUnreadAiResult: false,
-                    lastValidCode: shader.lastValidCode,
-                    lastValidUniformValues: shader.lastValidUniformValues,
-                    compileError: shader.compileError,
-                  }
-                : shader,
-            ),
-          },
-        };
-      }
-
-      const savedShader = createSavedShaderRecord(
-        label,
-        currentProject.studio.activeShaderCode,
-        nextUniformValues,
-        {
-          description: activeShader?.description ?? 'Saved from the current workspace state.',
-          template: activeShader?.template ?? 'stage',
-          group: activeShader?.group ?? 'Saved',
-          inputAssetId: activeShader?.inputAssetId ?? null,
-          versions: currentProject.studio.shaderVersions,
-        },
-      );
-
-      return {
-        ...currentProject,
-        studio: {
-          ...currentProject.studio,
-          savedShaders: [...currentProject.studio.savedShaders, savedShader],
-          activeShaderId: savedShader.id,
-          activeShaderName: label,
-          shaderVersions: currentProject.studio.shaderVersions,
-        },
-      };
-    });
-    setStatusMessage(
-      activeTimelineDraft
-        ? `Saved linked timeline shader "${label}" to the library.`
-        : `Saved shader "${label}" to the library.`,
-    );
   };
 
   const createNewShader = () => {
@@ -7572,7 +7472,6 @@ ${errorSnapshot}`,
   };
 
   const handleMobileAddShader = () => {
-    setPreviewShaderId(null);
     setMobilePanel(null);
     setIsMobileTimelineOpen(false);
     setIsPresetBrowserOpen(true);
@@ -8048,6 +7947,7 @@ ${errorSnapshot}`,
     ? stageTransform
     : {
         ...DEFAULT_STAGE_TRANSFORM,
+        referenceAspectRatio: stageTransform.referenceAspectRatio,
         distortion: stageTransform.distortion,
         distortMode: stageTransform.distortMode,
       };
@@ -8061,14 +7961,11 @@ ${errorSnapshot}`,
   const hasTimelineShaderShuffleUndo =
     timelineShaderShuffleUndo?.sessionId === project.sessionId;
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
-  const previewShader =
-    previewShaderId ? project.studio.savedShaders.find((shader) => shader.id === previewShaderId) ?? null : null;
   const timelineFocusedPreviewActive =
     timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
     (isMobile ? editingTimelineStepId !== null : timelineSequenceEnabled);
   const workspaceStageMirrorsOutput =
     outputWindowOpen && !isMobile && !timelineFocusedPreviewActive;
-  const workspaceStagePreviewShader = workspaceStageMirrorsOutput ? null : previewShader;
   const desktopTimelineFocusedPreviewActive =
     !isMobile &&
     !workspaceStageMirrorsOutput &&
@@ -8474,7 +8371,6 @@ ${errorSnapshot}`,
           timelineStepId,
         }),
       );
-      setPreviewShaderId(null);
       setStudioPreviewOverride(false);
       if (!timelineStepId) {
         setEditingTimelineStepId(null);
@@ -8603,7 +8499,6 @@ ${errorSnapshot}`,
     <StudioPanel
       savedShaders={project.studio.savedShaders}
       activeShaderId={project.studio.activeShaderId}
-      onSaveShader={saveCurrentShader}
       randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
       audioShaderId={project.studio.activeShaderId}
       audioShaderCode={project.studio.activeShaderCode}
@@ -8666,7 +8561,6 @@ ${errorSnapshot}`,
     <ShaderStudioControlsSection
       savedShaders={project.studio.savedShaders}
       activeShaderId={project.studio.activeShaderId}
-      onSaveShader={saveCurrentShader}
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
       timelineSelection={timelineSelectionInfo}
     />
@@ -8676,7 +8570,6 @@ ${errorSnapshot}`,
     <ShaderStudioControlsSection
       savedShaders={project.studio.savedShaders}
       activeShaderId={project.studio.activeShaderId}
-      onSaveShader={saveCurrentShader}
       onBrowsePresets={() => setIsPresetBrowserOpen(true)}
       timelineSelection={timelineSelectionInfo}
       hideCurrentShader
@@ -8888,17 +8781,10 @@ ${errorSnapshot}`,
         assets={project.library.assets}
         assetUrl={activeAssetUrl}
         assetUrlStatus={activeAssetResolution.status}
-        activeShaderId={workspaceStagePreviewShader?.id ?? project.studio.activeShaderId}
-        activeShaderName={workspaceStagePreviewShader?.name ?? project.studio.activeShaderName}
-        activeShaderCode={workspaceStagePreviewShader?.code ?? project.studio.activeShaderCode}
-        activeUniformValues={
-          workspaceStagePreviewShader
-            ? getSyncedShaderUniformValues(
-                workspaceStagePreviewShader.code,
-                workspaceStagePreviewShader.uniformValues,
-              )
-            : project.studio.uniformValues
-        }
+        activeShaderId={project.studio.activeShaderId}
+        activeShaderName={project.studio.activeShaderName}
+        activeShaderCode={project.studio.activeShaderCode}
+        activeUniformValues={project.studio.uniformValues}
         audioBindingsByShaderId={
           audioReactivity.preferences.modeEnabled
             ? audioReactivity.preferences.bindingsByShaderId
@@ -8913,8 +8799,7 @@ ${errorSnapshot}`,
         transport={project.playback.transport}
         forceActiveShaderPreview={
           !workspaceStageMirrorsOutput &&
-          (Boolean(workspaceStagePreviewShader) ||
-            studioPreviewOverride)
+          studioPreviewOverride
         }
         focusedPreviewStepId={editingTimelineStepId}
         focusedPreviewIndicatorActive={desktopTimelineFocusedPreviewActive}
@@ -9646,15 +9531,8 @@ ${errorSnapshot}`,
         assetUrl={activeAssetUrl}
         currentShaderName={presetReplacementShaderName}
         canReplaceCurrent={Boolean(presetReplacementStep)}
-        onPreviewStart={(shaderId) => setPreviewShaderId(shaderId)}
-        onPreviewEnd={(shaderId) =>
-          setPreviewShaderId((currentShaderId) =>
-            !shaderId || currentShaderId === shaderId ? null : currentShaderId,
-          )
-        }
         onSelect={applyPresetSelection}
         onClose={() => {
-          setPreviewShaderId(null);
           setIsPresetBrowserOpen(false);
         }}
       />

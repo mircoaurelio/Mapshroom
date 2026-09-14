@@ -295,15 +295,19 @@ export async function renderShaderPreviewToDataUrl(
   image: HTMLCanvasElement,
   overlayImage: HTMLCanvasElement | null,
   rendererRef: { current: ShaderPreviewRenderer | null },
+  options: { timeSeconds?: number; isActive?: () => boolean; strict?: boolean } = {},
 ) {
   const renderer = getShaderPreviewRenderer(rendererRef);
   if (!renderer) {
+    if (options.strict) throw new Error('Preview unavailable');
     return createPreviewMessageDataUrl('Preview unavailable');
   }
 
   const { gl, canvas: renderCanvas, quadBuffer, texture } = renderer;
   const previewProgram = await getShaderPreviewProgram(renderer, shaderCode);
+  if (options.isActive && !options.isActive()) return null;
   if (!previewProgram) {
+    if (options.strict) throw new Error('Shader preview failed to compile');
     return createPreviewMessageDataUrl('Shader error');
   }
   const { program, positionLocation: posLoc } = previewProgram;
@@ -328,7 +332,7 @@ export async function renderShaderPreviewToDataUrl(
 
   const timeLoc = gl.getUniformLocation(program, 'u_time');
   if (timeLoc !== null) {
-    gl.uniform1f(timeLoc, 1);
+    gl.uniform1f(timeLoc, options.timeSeconds ?? 1.6);
   }
 
   const resolutionLoc = gl.getUniformLocation(program, 'u_resolution');

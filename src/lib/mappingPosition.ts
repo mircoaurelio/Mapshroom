@@ -1,8 +1,9 @@
 import type { StageDistortion, StageTransform } from '../types';
+import { validStageAspectRatio } from './assetReplacement.ts';
 import {
   DEFAULT_STAGE_DISTORTION,
   normalizeStageDistortion,
-} from './distortion';
+} from './distortion.ts';
 
 export const MAPPING_POSITION_FORMAT = 'mapshroom-position';
 export const MAPPING_POSITION_VERSION = 2;
@@ -12,6 +13,7 @@ export const MIN_MAPPING_ROTATION = -20;
 export const MAX_MAPPING_ROTATION = 20;
 
 export interface MappingPositionValues {
+  referenceAspectRatio?: number;
   offsetX: number;
   offsetY: number;
   widthAdjust: number;
@@ -63,8 +65,10 @@ export function normalizeMappingPosition(
     candidate: number | undefined,
     fallbackValue: number,
   ) => (typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : fallbackValue);
+  const referenceAspectRatio = validStageAspectRatio(value?.referenceAspectRatio) ?? validStageAspectRatio(fallback.referenceAspectRatio);
 
   return {
+    ...(referenceAspectRatio ? { referenceAspectRatio } : {}),
     offsetX: finiteOrFallback(value?.offsetX, fallback.offsetX),
     offsetY: finiteOrFallback(value?.offsetY, fallback.offsetY),
     widthAdjust: finiteOrFallback(value?.widthAdjust, fallback.widthAdjust),
@@ -92,6 +96,7 @@ export function createMappingPositionFile(
     version: MAPPING_POSITION_VERSION,
     exportedAt: new Date().toISOString(),
     position: {
+      ...(validStageAspectRatio(stageTransform.referenceAspectRatio) ? { referenceAspectRatio: stageTransform.referenceAspectRatio } : {}),
       offsetX: stageTransform.offsetX,
       offsetY: stageTransform.offsetY,
       widthAdjust: stageTransform.widthAdjust,
@@ -131,6 +136,7 @@ export function parseMappingPositionFile(source: string): MappingPositionValues 
 
   return normalizeMappingPosition(
     {
+      referenceAspectRatio: typeof position.referenceAspectRatio === 'number' ? position.referenceAspectRatio : undefined,
       offsetX: readFiniteNumber(position, 'offsetX'),
       offsetY: readFiniteNumber(position, 'offsetY'),
       widthAdjust: readFiniteNumber(position, 'widthAdjust'),

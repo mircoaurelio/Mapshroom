@@ -1,3 +1,4 @@
+import { validStageAspectRatio } from '../lib/assetReplacement';
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -1300,9 +1301,9 @@ export function StageRenderer({
       const surfaceWidth = Math.max(1, surface.clientWidth);
       const surfaceHeight = Math.max(1, surface.clientHeight);
       const nextAspectRatio =
-        mediaAspectRatioRef.current && mediaAspectRatioRef.current > 0
-          ? mediaAspectRatioRef.current
-          : surfaceWidth / surfaceHeight;
+        validStageAspectRatio(stageTransform.referenceAspectRatio) ??
+        validStageAspectRatio(mediaAspectRatioRef.current) ??
+        surfaceWidth / surfaceHeight;
       const containerAspectRatio = surfaceWidth / surfaceHeight;
       const targetWidth =
         nextAspectRatio > containerAspectRatio
@@ -1356,7 +1357,7 @@ export function StageRenderer({
       resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
-  }, [glContextGeneration, isOutputOnly, adaptiveQuality, mediaAspectRatio]);
+  }, [glContextGeneration, isOutputOnly, adaptiveQuality, mediaAspectRatio, stageTransform.referenceAspectRatio]);
 
   useEffect(() => {
     const gl = glRef.current;

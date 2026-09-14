@@ -191,9 +191,9 @@ test('autosave and WebGL previews keep background work out of the interaction pa
   assert.doesNotMatch(snapshotBody, /normalizeProjectShaderSources\(project\)/);
   assert.match(snapshotBody, /project\.studio\.activeShaderId/);
   assert.match(snapshotBody, /shaderSequence\.steps\.map/);
-  assert.match(timelinePreview, /requestIdleCallback/);
+  assert.match(timelinePreview, /<ShaderThumbnail shader=\{shader\}/);
   assert.match(timelinePreview, /data-preview-shader-id/);
-  assert.match(timelinePreview, /IntersectionObserver/);
+  assert.doesNotMatch(timelinePreview, /renderShaderPreviewToDataUrl|loadShaderPreviewSource/);
   assert.match(stageRenderer, /requestAnimationFrame/);
   assert.match(stageRenderer, /COMPILE_AFTER_INTERACTION_QUIET_MS/);
   assert.match(stageRenderer, /hasVisibleProgramWork/);
@@ -217,7 +217,8 @@ test('autosave and WebGL previews keep background work out of the interaction pa
   assert.doesNotMatch(previewRenderer, /gl\.finish\(\)/);
   assert.doesNotMatch(presetPreview, /gl\.finish\(\)/);
   assert.match(previewRenderer, /programCache/);
-  assert.match(presetPreview, /programCache/);
+  assert.match(presetPreview, /<ShaderThumbnail shader=\{preset\}/);
+  assert.doesNotMatch(presetPreview, /onPointerEnter|onPreviewStart|requestAnimationFrame|programCache/);
 });
 
 test('live uniform controls avoid catalog churn and background GPU work', () => {
