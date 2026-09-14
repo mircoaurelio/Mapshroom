@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type { ShaderChatTurn, ShaderVersion } from '../types';
 import { getShaderChatResults } from '../lib/shaderChatResults';
+import { getShaderChatSuggestions } from '../lib/shaderChatSuggestions';
 import { ShaderThumbnail } from './ShaderThumbnail';
 import { ShaderChatIcon } from './ShaderChatIcon';
 import './ShaderChatWorkspace.css';
@@ -32,16 +33,18 @@ export function ShaderChatWorkspace({
   const [hiddenVersions, setHiddenVersions] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
   const [copyError, setCopyError] = useState('');
+  const [suggestions] = useState(getShaderChatSuggestions);
   const scrollRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const id = useId();
   const shownVersions = getShaderChatResults(versions, chatHistory).filter(version => !hiddenVersions.includes(version.id)).slice(-20);
+  const showWelcome = shownVersions.length === 0 && !pendingPrompt && !handoff && !loading && !feedback;
 
   useEffect(() => {
     if (tab === 'chat' && followRef.current && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTop = showWelcome ? 0 : scrollRef.current.scrollHeight;
     }
-  }, [versions, pendingPrompt, feedback, loading, tab]);
+  }, [versions, pendingPrompt, feedback, loading, tab, showWelcome]);
 
   useEffect(() => {
     if (!copied) return;
@@ -95,6 +98,12 @@ export function ShaderChatWorkspace({
             const node = event.currentTarget;
             followRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
           }}>
+          {showWelcome ? <div className="shader-chat-welcome">
+            <p className="shader-chat-greeting">Ciao! Che cosa ti piacerebbe creare? Raccontami la tua idea oppure scegli uno spunto qui sotto.</p>
+            <div className="shader-chat-starters" role="group" aria-label="Spunti per iniziare">
+              {suggestions.map(text => <button key={text} type="button" onClick={() => onSuggest(text)}>{text}</button>)}
+            </div>
+          </div> : null}
           {shownVersions.map(version => {
             const isCurrent = version.code === shaderCode;
             return <div className="shader-chat-exchange" key={version.id}>
@@ -125,9 +134,6 @@ export function ShaderChatWorkspace({
           {copyError ? <p className="shader-chat-copy-error" role="alert">{copyError}</p> : null}
         </div>
         <div className="shader-chat-compose-area">
-          {!loading && !pendingPrompt ? <div className="shader-chat-suggestions" aria-label="Suggested changes">
-            {['Slow down the motion', 'Use warmer colors'].map(text => <button key={text} type="button" onClick={() => onSuggest(text)}>{text}</button>)}
-          </div> : null}
           {composer}
           <small className="shader-chat-keyboard-hint">Enter to send · Shift + Enter for a new line</small>
         </div>

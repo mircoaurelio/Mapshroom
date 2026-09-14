@@ -24,6 +24,7 @@ interface ShaderStudioControlsSectionProps {
 interface ShaderVersionTrailSectionProps {
   versions: ShaderVersion[];
   onRestoreVersion: (versionId: string) => void;
+  hideTitle?: boolean;
 }
 
 interface ShaderCodeSectionProps {
@@ -350,9 +351,10 @@ export function ShaderStudioControlsSection({
 export function ShaderVersionTrailSection({
   versions,
   onRestoreVersion,
+  hideTitle = false,
 }: ShaderVersionTrailSectionProps) {
   return (
-    <PanelSection title="History">
+    <PanelSection title={hideTitle ? undefined : 'History'}>
       <div className="version-list">
         {[...versions].reverse().map((version) => (
           <article className="version-card" key={version.id}>

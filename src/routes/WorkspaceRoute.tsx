@@ -8503,7 +8503,7 @@ ${errorSnapshot}`,
         onPasteCode={handlePasteShaderFromClipboard}
         pasteCodeSuggested={Boolean(externalChatPasteSource)}
         pasteCodeSource={externalChatPasteSource}
-      />, <ShaderVersionTrailSection versions={project.studio.shaderVersions} onRestoreVersion={restoreShaderVersion} />)}
+      />, <ShaderVersionTrailSection hideTitle versions={project.studio.shaderVersions} onRestoreVersion={restoreShaderVersion} />)}
     </div>
   );
 
@@ -8524,6 +8524,7 @@ ${errorSnapshot}`,
 
   const desktopHistoryPanel = (
     <ShaderVersionTrailSection
+      hideTitle
       versions={project.studio.shaderVersions}
       onRestoreVersion={restoreShaderVersion}
     />
