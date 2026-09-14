@@ -2094,7 +2094,7 @@ type FilePickerSource = 'library' | 'timeline-picker';
 
 const DESKTOP_PANE_MIN_WIDTH = 180;
 const DESKTOP_PANE_MAX_WIDTH = 520;
-const DESKTOP_TIMELINE_MIN_HEIGHT = 220;
+const DESKTOP_TIMELINE_MIN_HEIGHT = 180;
 const DESKTOP_TIMELINE_MAX_HEIGHT = 520;
 
 function createShaderVersion(
@@ -4384,14 +4384,14 @@ export function WorkspaceRoute() {
     fileInputRef.current?.click();
   };
 
-  const beginDesktopResize = (target: DesktopResizeTarget, clientX: number, clientY: number) => {
+  const beginDesktopResize = (target: DesktopResizeTarget, clientX: number, clientY: number, timelineHeight = desktopLayout.timelineHeight) => {
     resizeStateRef.current = {
       target,
       startX: clientX,
       startY: clientY,
       leftSidebarWidth: desktopLayout.leftSidebarWidth,
       rightSidebarWidth: desktopLayout.rightSidebarWidth,
-      timelineHeight: desktopLayout.timelineHeight,
+      timelineHeight,
     };
     document.body.style.cursor = target === 'timeline' ? 'row-resize' : 'col-resize';
     document.body.style.userSelect = 'none';
@@ -8950,7 +8950,7 @@ ${errorSnapshot}`,
           <>
             <section
               className="workspace-desktop-main"
-              style={{ gridTemplateRows: `minmax(0, 1fr) 10px ${desktopLayout.timelineHeight}px` }}
+              style={{ gridTemplateRows: `minmax(0, 1fr) 10px minmax(var(--desktop-timeline-min-height), ${desktopLayout.timelineHeight}px)` }}
             >
               <div
                 className="workspace-desktop-top"
@@ -9009,7 +9009,7 @@ ${errorSnapshot}`,
                 role="presentation"
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  beginDesktopResize('timeline', event.clientX, event.clientY);
+                  beginDesktopResize('timeline', event.clientX, event.clientY, event.currentTarget.nextElementSibling?.getBoundingClientRect().height);
                 }}
               />
 
