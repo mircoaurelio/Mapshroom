@@ -5150,17 +5150,6 @@ export function WorkspaceRoute() {
   }, [editingTimelineStepId, updateProject]);
 
   const handleTimelineRemoveStep = useCallback((stepId: string) => {
-    const targetStep = project?.timeline.stub.shaderSequence.steps.find((step) => step.id === stepId);
-    const targetShaderName =
-      targetStep
-        ? project?.studio.savedShaders.find((shader) => shader.id === targetStep.shaderId)?.name ??
-          'this shader'
-        : 'this shader';
-    const confirmed = window.confirm(`Remove "${targetShaderName}" from the timeline?`);
-    if (!confirmed) {
-      return;
-    }
-
     let nextSelectedStepId: string | null = null;
     let nextStatusMessage = '';
 
@@ -5225,7 +5214,7 @@ export function WorkspaceRoute() {
     if (nextStatusMessage) {
       setStatusMessage(nextStatusMessage);
     }
-  }, [editingTimelineStepId, project, selectTimelineStepForEditing, updateProject]);
+  }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
   const handleTimelineReorderSteps = useCallback((orderedStepIds: string[]) => {
     updateProject((currentProject) => {

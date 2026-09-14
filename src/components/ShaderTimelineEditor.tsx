@@ -10,6 +10,8 @@ import type { ImageTransfer } from '../lib/imageTransfer';
 import { useImageDropTarget } from '../lib/useImageDropTarget';
 import { hasShaderCompileError } from '../lib/shaderState';
 import { ShaderThumbnail } from './ShaderThumbnail';
+import { TimelineStepOverflowActions } from './TimelineStepOverflowActions';
+import { TimelineDeleteConfirmation, type TimelineDeleteRequest } from './TimelineDeleteConfirmation';
 import { ShuffleIcon } from './ShuffleIcon';
 import { AppSelect } from './AppSelect';
 import type {
@@ -240,6 +242,9 @@ function DisabledShaderCard({ shader, stepId, onEnable }: {
             <span>Off</span>
           </span>
         </span>
+        <span className="timeline-step-caption">
+          <strong className="timeline-step-name">{shader?.name ?? 'Shader'}</strong>
+        </span>
       </button>
     </article>
   );
@@ -291,6 +296,7 @@ export function ShaderTimelineEditor({
         : 'Shader Sequence';
   const [isMobileArranging, setIsMobileArranging] = useState(false);
   const [isMobileAddOpen, setIsMobileAddOpen] = useState(false);
+  const [deleteRequest, setDeleteRequest] = useState<TimelineDeleteRequest | null>(null);
   const [mobileDraggingStepId, setMobileDraggingStepId] = useState<string | null>(null);
   const [mobileOrderedStepIds, setMobileOrderedStepIds] = useState<string[] | null>(null);
   const mobilePressRef = useRef<{
@@ -320,6 +326,18 @@ export function ShaderTimelineEditor({
     sequence.randomChoiceEnabled;
 
   const enabledStepCount = sequence.steps.filter((step) => !step.disabled).length;
+  const requestDelete = (stepId: string, trigger: HTMLButtonElement) => {
+    const step = sequence.steps.find((item) => item.id === stepId);
+    if (!step) return;
+    setDeleteRequest({ stepId, trigger, bounds: trigger.getBoundingClientRect(),
+      shaderName: shaderMap.get(step.shaderId)?.name ?? 'Shader' });
+  };
+  const deleteConfirmation = deleteRequest ? <TimelineDeleteConfirmation request={deleteRequest}
+    onCancel={() => setDeleteRequest(null)} onConfirm={() => {
+      const stepId = deleteRequest.stepId;
+      setDeleteRequest(null);
+      onRemoveStep(stepId);
+    }} /> : null;
   const enableStep = (stepId: string) => {
     onStepChange(stepId, { disabled: false });
     requestAnimationFrame(() => {
@@ -638,7 +656,7 @@ export function ShaderTimelineEditor({
                       onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
                         event.stopPropagation();
-                        onRemoveStep(step.id);
+                        requestDelete(step.id, event.currentTarget);
                       }}
                     >
                       <DeleteIcon />
@@ -708,6 +726,7 @@ export function ShaderTimelineEditor({
             )
           ) : null}
         </div>
+        {deleteConfirmation}
       </section>
     );
   }
@@ -1026,64 +1045,24 @@ export function ShaderTimelineEditor({
                     <ImageAssetIcon />
                   </button>
 
-                  <button
-                    type="button"
-                    className="icon-button timeline-step-action-button"
-                    aria-label="Disable shader step"
-                    title="Disable step"
-                    disabled={disableToggleBlocked}
-                    onClick={(event) => {
-                      event.stopPropagation();
+                  <TimelineStepOverflowActions shaderName={shader?.name ?? 'shader'} actions={[
+                    { label: 'Disable', accessibleLabel: 'Disable shader step', icon: <BlockIcon />,
+                      disabled: disableToggleBlocked, onSelect: () => {
                       onStepChange(step.id, { disabled: true });
                       requestAnimationFrame(() => {
                         flowStripRef.current?.querySelector<HTMLButtonElement>(
                           `[data-timeline-step-id="${step.id}"] .timeline-step-restore`,
                         )?.focus();
                       });
-                    }}
-                  >
-                    <BlockIcon />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="icon-button timeline-step-action-button"
-                    aria-label="Duplicate shader step"
-                    title="Duplicate"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDuplicateStep(step.id);
-                    }}
-                  >
-                    <DuplicateIcon />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="icon-button timeline-step-action-button"
-                    aria-label="Replace with random shader"
-                    title="Replace with a random preset"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onRandomizeStep(step.id);
-                    }}
-                  >
-                    <ShuffleIcon />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="icon-button timeline-step-action-button timeline-step-action-button-danger"
-                    aria-label="Delete shader step"
-                    title="Delete"
-                    disabled={sequence.steps.length === 1 || enabledStepCount <= 1}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onRemoveStep(step.id);
-                    }}
-                  >
-                    <DeleteIcon />
-                  </button>
+                    } },
+                    { label: 'Duplicate', accessibleLabel: 'Duplicate shader step', icon: <DuplicateIcon />,
+                      onSelect: () => onDuplicateStep(step.id) },
+                    { label: 'Randomize', accessibleLabel: 'Replace with random shader', icon: <ShuffleIcon />,
+                      onSelect: () => onRandomizeStep(step.id) },
+                    { label: 'Delete', accessibleLabel: 'Delete shader step', icon: <DeleteIcon />, danger: true,
+                      disabled: sequence.steps.length === 1 || enabledStepCount <= 1,
+                      onSelect: (trigger) => requestDelete(step.id, trigger) },
+                  ]} />
                 </div>
               </article>
             </div>
@@ -1131,6 +1110,7 @@ export function ShaderTimelineEditor({
           </div>
         ) : null}
       </div>
+      {deleteConfirmation}
     </section>
   );
 }

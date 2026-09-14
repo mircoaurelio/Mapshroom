@@ -7203,6 +7203,7 @@ a {
 }
 
 .timeline-step-card {
+  container: shaderCard / inline-size;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -7376,15 +7377,28 @@ a {
 }
 
 .timeline-flow-node.timeline-flow-node-disabled {
-  flex: 0 0 32px;
-  width: 32px;
-  min-width: 32px;
-  height: 80px;
+  flex: 0 0 auto;
+  width: calc(var(--timeline-card-width, 160px) * .85);
+  min-width: 0;
+  height: auto;
   min-height: 0;
   aspect-ratio: auto;
 }
 
 .workspace-pane-timeline .timeline-flow-node.timeline-flow-node-disabled {
+  width: auto;
+  min-width: 68px;
+  height: calc(100% - var(--timeline-card-caption-height));
+  min-height: 80px;
+  aspect-ratio: .85;
+}
+
+.workspace-pane-timeline .timeline-flow-node-disabled .timeline-step-card-disabled {
+  height: calc(100% + var(--timeline-card-caption-height));
+}
+
+.mobile-shader-card-grid .timeline-flow-node-disabled {
+  width: 85%;
   height: 100%;
 }
 
@@ -7401,35 +7415,44 @@ a {
 
 .timeline-step-card-disabled .timeline-step-restore {
   height: 100%;
-  padding: 2px;
+  padding: 4px;
+  min-height: 0;
+  flex: 1;
 }
 
 .timeline-step-card-disabled .timeline-step-preview-shell {
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
   aspect-ratio: auto;
 }
 
 .timeline-step-card-disabled .shader-thumbnail {
-  filter: grayscale(0.85);
-  opacity: 0.28;
+  filter: grayscale(0.35);
+  opacity: 0.7;
   transition: opacity 120ms ease;
 }
 
+.timeline-step-card-disabled .shader-thumbnail > img { object-fit: cover; }
+
 .timeline-step-card-disabled:hover .shader-thumbnail,
 .timeline-step-card-disabled:focus-within .shader-thumbnail {
-  opacity: 0.42;
+  opacity: 0.85;
 }
 
 .timeline-step-restore-indicator {
   position: absolute;
-  inset: 0;
+  top: 4px;
+  left: 4px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  color: var(--text-muted);
-  font: 500 7px/1 'IBM Plex Mono', monospace;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 3px;
+  background: rgba(9, 9, 11, .9);
+  color: var(--text-bright);
+  font: 500 8px/1 'IBM Plex Mono', monospace;
   text-transform: uppercase;
   pointer-events: none;
 }
@@ -7496,24 +7519,22 @@ a {
   left: 5px;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 20px));
-  gap: 1px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 2px;
   align-content: center;
   justify-content: center;
-  padding: 1px;
+  padding: 2px;
   border-radius: 2px 2px 0 0;
   background: rgba(9, 9, 11, 0.9);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 120ms ease, visibility 0s 120ms;
 }
 
 .timeline-step-card-actions .timeline-step-action-button {
   width: 100%;
   min-width: 0;
-  height: auto;
-  aspect-ratio: 1;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 2px;
@@ -7523,29 +7544,26 @@ a {
 }
 
 .timeline-step-action-button svg {
-  width: 80%;
-  height: 80%;
-  max-width: 11px;
-  max-height: 11px;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
 }
 
 .timeline-step-action-button:disabled svg {
   opacity: 0.3;
 }
 
-.timeline-step-card:hover .timeline-step-card-actions {
+.timeline-step-card:hover .timeline-step-card-actions,
+.timeline-step-card:has(.timeline-step-overflow-trigger[aria-expanded="true"]) .timeline-step-card-actions {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  /* Let a quick click select the preview before tools appear beneath the pointer. */
-  transition-delay: 180ms;
 }
 
 .timeline-step-card:has(:focus-visible) .timeline-step-card-actions {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transition-delay: 0s;
 }
 
 .timeline-step-card:hover .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom),
@@ -7558,11 +7576,112 @@ a {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    transition-delay: 0s;
   }
 
-  .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom) { top: 26px; }
+  .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom) { top: 36px; }
 }
+
+.timeline-step-card-actions .timeline-step-overflow-trigger { display: none; }
+.timeline-step-more-icon { fill: currentColor; stroke: none; }
+
+@container shaderCard (max-width: 167px) {
+  .timeline-step-card-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .timeline-step-card-actions .timeline-step-action-secondary { display: none; }
+  .timeline-step-card-actions .timeline-step-overflow-trigger { display: inline-flex; }
+}
+
+.timeline-step-overflow-menu {
+  position: fixed;
+  z-index: 2000;
+  width: 180px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-raised);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .6);
+}
+
+.timeline-step-overflow-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-bright);
+  font: 500 12px/1 'IBM Plex Sans', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline-step-overflow-menu svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.timeline-step-overflow-menu button:hover:not(:disabled),
+.timeline-step-overflow-menu button:focus-visible {
+  outline: none;
+  background: var(--accent-soft);
+  color: var(--accent-pale);
+}
+
+.timeline-step-overflow-menu button:disabled { opacity: .35; cursor: default; }
+.timeline-step-overflow-menu .timeline-step-menu-danger { color: #fca5a5; }
+.timeline-step-overflow-menu .timeline-step-menu-danger:hover:not(:disabled),
+.timeline-step-overflow-menu .timeline-step-menu-danger:focus-visible {
+  background: rgba(127, 29, 29, .5);
+  color: #fecaca;
+}
+
+.timeline-delete-confirmation {
+  position: fixed;
+  z-index: 2100;
+  width: 196px;
+  max-width: calc(100vw - 16px);
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-raised);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .6);
+  color: var(--text-bright);
+  font: 12px/1.2 'IBM Plex Sans', sans-serif;
+}
+
+.timeline-delete-shader-name {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.timeline-delete-choices { display: flex; gap: 6px; margin-top: 8px; }
+.timeline-delete-choices button {
+  flex: 1;
+  min-height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--bg-panel-soft);
+  color: var(--text-bright);
+  font: inherit;
+  cursor: pointer;
+}
+.timeline-delete-choices .timeline-delete-yes { border-color: #a33a3a; background: #552020; color: #fecaca; }
+.timeline-delete-choices button:hover { filter: brightness(1.25); }
+.timeline-delete-choices button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .timeline-step-card-actions .timeline-step-action-button:hover:not(:disabled),
 .timeline-step-card-actions .timeline-step-action-button:focus-visible {
