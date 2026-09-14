@@ -6567,6 +6567,11 @@ a {
 
 .workspace-pane-timeline .timeline-flow-strip {
   container-type: size;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  /* Add rows as the panel grows, using the height left below the toolbar. */
+  grid-template-rows: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
   flex: 1;
   min-height: 0;
   /* Size against the scrollable height, including space used by its scrollbar. */
