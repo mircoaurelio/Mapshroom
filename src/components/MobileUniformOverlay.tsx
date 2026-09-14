@@ -2,6 +2,7 @@ import { useRangeHoverPreview } from '../hooks/useRangeHoverPreview';
 import { useLiveUniformValues } from '../hooks/useLiveUniformValues';
 import type { UniformRuntime } from '../lib/uniformRuntime';
 import { RangeInput } from './RangeInput';
+import { EditableShaderName } from './EditableShaderName';
 import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
 import { useUniformRandomization } from '../hooks/useUniformRandomization';
@@ -18,6 +19,7 @@ import type { AudioReactivityController } from '../hooks/useAudioReactivity';
 
 interface MobileUniformOverlayProps {
   shaderName: string;
+  onShaderNameChange: (name: string) => void;
   randomizationKey: string;
   audioShaderId?: string;
   audioShaderCode?: string;
@@ -33,6 +35,7 @@ interface MobileUniformOverlayProps {
 
 export function MobileUniformOverlay({
   shaderName,
+  onShaderNameChange,
   randomizationKey,
   audioShaderId,
   audioShaderCode,
@@ -88,8 +91,7 @@ export function MobileUniformOverlay({
       <div className="mobile-uniform-overlay-inner">
         <header className="mobile-uniform-overlay-header">
           <div className="mobile-uniform-overlay-copy">
-            <span>Sliders</span>
-            <strong>{shaderName}</strong>
+            <EditableShaderName key={randomizationKey} name={shaderName} onChange={onShaderNameChange} />
           </div>
           <div className="mobile-uniform-header-actions">
             {audioReactivity && audioShaderId ? (
@@ -122,8 +124,8 @@ export function MobileUniformOverlay({
               type="button"
               className="uniform-randomize-button mobile-uniform-randomize-button"
               disabled={randomizableCount === 0}
-              aria-label="Randomize unlocked sliders"
-              title="Randomize unlocked sliders"
+              aria-label="Randomize unlocked parameters"
+              title="Randomize unlocked parameters"
               onPointerDown={handlePointerDown}
               onFocus={handleFocus}
               onClick={randomizeUniforms}
@@ -165,12 +167,13 @@ export function MobileUniformOverlay({
 
               const isNumeric = definition.type === 'float' || definition.type === 'int';
               const hoverValue = preview?.name === name ? preview.value : null;
-              const isLocked = isNumeric && isUniformLocked(name);
+              const isRandomizable = isNumeric || definition.type === 'vec3';
+              const isLocked = isRandomizable && isUniformLocked(name);
 
               return (
                 <div
                   className={`mobile-uniform-field ${
-                    isNumeric ? 'uniform-random-field' : ''
+                    isRandomizable ? 'uniform-random-field' : ''
                   } ${isLocked ? 'uniform-random-field-locked' : ''} ${
                     isNumeric && audioModeEnabled ? 'audio-reactive-field' : ''
                   }`}
@@ -179,7 +182,7 @@ export function MobileUniformOverlay({
                   <span className="mobile-uniform-field-label">
                     <span>{name}</span>
                     <span className="uniform-field-meta">
-                      {isNumeric ? (
+                      {isRandomizable ? (
                         <span className="uniform-field-actions">
                           <button
                             type="button"
@@ -196,7 +199,7 @@ export function MobileUniformOverlay({
                           >
                             <ShuffleIcon blocked={isLocked} />
                           </button>
-                          {audioReactivity && audioShaderId && audioModeEnabled ? (
+                          {isNumeric && audioReactivity && audioShaderId && audioModeEnabled ? (
                             <AudioReactiveUniformToggle
                               controller={audioReactivity}
                               shaderId={audioShaderId}

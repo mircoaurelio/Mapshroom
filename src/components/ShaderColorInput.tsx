@@ -82,6 +82,7 @@ function hsvToRgb(hue: number, saturation: number, value: number): [number, numb
 
 export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedHue, setSelectedHue] = useState(0);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
   const rootRef = useRef<HTMLSpanElement | null>(null);
   const popoverRef = useRef<HTMLSpanElement | null>(null);
@@ -167,7 +168,9 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
   ];
   const hexValue = rgbToHex(normalizedValue);
   const hsvValue = rgbToHsv(normalizedValue[0], normalizedValue[1], normalizedValue[2]);
-  const hueColor = rgbToHex(hsvToRgb(hsvValue.hue, 1, 1));
+  // Achromatic RGB values have no hue; retain the user's hue for their next color edit.
+  const hue = hsvValue.saturation > 0 ? hsvValue.hue % 360 : selectedHue;
+  const hueColor = rgbToHex(hsvToRgb(hue, 1, 1));
   const rgbValues: [number, number, number] = [
     Math.round(normalizedValue[0] * 255),
     Math.round(normalizedValue[1] * 255),
@@ -180,6 +183,7 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
     onChange(hsvToRgb(hue, clamp01(saturation), clamp01(nextValue)));
   };
   const setHue = (nextHue: number) => {
+    setSelectedHue(nextHue);
     commitHsv(nextHue, hsvValue.saturation, hsvValue.value);
   };
   const setSaturationValueFromPointer = (event: ReactPointerEvent<HTMLSpanElement>) => {
@@ -187,7 +191,8 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
     const saturation = (event.clientX - bounds.left) / bounds.width;
     const nextValue = 1 - (event.clientY - bounds.top) / bounds.height;
     event.currentTarget.setPointerCapture(event.pointerId);
-    commitHsv(hsvValue.hue, saturation, nextValue);
+    setSelectedHue(hue);
+    commitHsv(hue, saturation, nextValue);
   };
   const setHex = (nextHex: string) => {
     if (!/^#[0-9a-fA-F]{6}$/.test(nextHex)) {
@@ -258,7 +263,7 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
                     min={0}
                     max={359}
                     step={1}
-                    value={Math.round(hsvValue.hue)}
+                    value={Math.round(hue)}
                     onChange={(event) => setHue(Number(event.target.value))}
                     aria-label="Color hue"
                   />

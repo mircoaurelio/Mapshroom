@@ -108,8 +108,8 @@ input[type='color'] {
 }
 
 input[type='range'] {
-  --range-track-height: 20px;
-  --range-thumb-height: 18px;
+  --range-track-height: 14px;
+  --range-thumb-height: 12px;
   --range-fill: #505054;
   --range-rest: #29292d;
   --range-hover-background: linear-gradient(var(--range-hover-angle, 90deg),
@@ -119,7 +119,7 @@ input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 30px;
+  height: 24px;
   margin: 0;
   background: transparent;
   cursor: default;
@@ -1930,23 +1930,7 @@ a {
 .mobile-uniform-overlay-copy {
   min-width: 0;
   display: grid;
-  gap: .2rem;
-}
-
-.mobile-uniform-overlay-copy > span {
-  color: rgba(244, 244, 245, 0.92);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.mobile-uniform-overlay-header strong {
-  overflow: hidden;
-  color: var(--text-bright);
   font-size: .9rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .mobile-uniform-header-actions {
@@ -2217,6 +2201,30 @@ a {
   color: var(--text-bright);
 }
 
+.panel-title:has(.shader-name-input) {
+  flex: 1;
+}
+
+.shader-name-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-bright);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-overflow: ellipsis;
+}
+
+.shader-name-input:focus {
+  outline: none;
+  box-shadow: 0 1px #71717a;
+}
+
 .stack {
   display: flex;
   flex-direction: column;
@@ -2238,16 +2246,15 @@ a {
 
 /* Keep shader controls dense enough to expose more parameters without scrolling. */
 .uniform-control-stack {
-  gap: 0.5rem;
+  gap: 0;
 }
 
 .uniform-control-stack > .field {
-  gap: 0.28rem;
+  gap: 0;
 }
 
 .uniform-range {
   display: block;
-  margin-top: -0.2rem;
 }
 
 .field:focus-within,
@@ -2272,6 +2279,7 @@ a {
 .field span,
 .field-inline-label {
   color: #e4e4e7;
+  align-items: flex-end;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.68rem;
   letter-spacing: 0.12em;
@@ -2282,7 +2290,6 @@ a {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
-  align-items: center;
 }
 
 .field-inline-label small {
@@ -3617,16 +3624,16 @@ a {
 
 .audio-uniform-range-stack {
   position: relative;
-  height: 25px;
+  height: 24px;
 }
 
 .audio-uniform-control-active .audio-uniform-range-stack::before {
   content: '';
   position: absolute;
-  top: 2.5px;
+  top: 5px;
   right: 0;
   left: 0;
-  height: 20px;
+  height: 14px;
   border: 0;
   border-radius: 2px;
   background: #29292d;
@@ -3637,14 +3644,14 @@ a {
   position: absolute;
   inset: 0;
   margin: 0;
-  height: 25px;
+  height: 24px;
 }
 
 .audio-uniform-active-zone {
   position: absolute;
-  top: 3.5px;
+  top: 6px;
   z-index: 1;
-  height: 18px;
+  height: 12px;
   border: 0;
   background: #505054;
   pointer-events: none;
@@ -4032,6 +4039,7 @@ a {
 }
 
 .color-picker-hue-field input[type='range'] {
+  --range-hue-background: linear-gradient(0deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
   width: 24px;
   height: 100%;
   min-height: 132px;
@@ -4043,17 +4051,13 @@ a {
 .color-picker-hue-field input[type='range']::-webkit-slider-runnable-track {
   width: 20px;
   height: 100%;
-  background: var(--range-hover-background), linear-gradient(0deg,
-    var(--range-fill) 0 var(--range-fill-position, 0%),
-    var(--range-rest) var(--range-fill-position, 0%) 100%);
+  background: var(--range-hover-background), var(--range-hue-background);
 }
 
 .color-picker-hue-field input[type='range']::-moz-range-track {
   width: 20px;
   height: 100%;
-  background: var(--range-hover-background), linear-gradient(0deg,
-    var(--range-fill) 0 var(--range-fill-position, 0%),
-    var(--range-rest) var(--range-fill-position, 0%) 100%);
+  background: var(--range-hover-background), var(--range-hue-background);
 }
 
 .color-picker-hue-field input[type='range']::-webkit-slider-thumb {

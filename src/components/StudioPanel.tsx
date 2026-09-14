@@ -58,6 +58,7 @@ interface StudioPanelProps
   onQuickAddUniform: () => void;
   showUniformPanel?: boolean;
   uniformPanelTitle?: string;
+  onShaderNameChange?: (name: string) => void;
   timelineSelection?: TimelineSelectionInfo;
 }
 
@@ -660,6 +661,7 @@ export function StudioPanel({
   onRestoreVersion,
   showUniformPanel = true,
   uniformPanelTitle,
+  onShaderNameChange,
   timelineSelection,
 }: StudioPanelProps) {
   return (
@@ -675,6 +677,7 @@ export function StudioPanel({
       {showUniformPanel ? (
         <UniformPanel
           title={uniformPanelTitle}
+          onTitleChange={onShaderNameChange}
           randomizationKey={randomizationKey}
           audioShaderId={audioShaderId}
           audioShaderCode={audioShaderCode}
