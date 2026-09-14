@@ -1,4 +1,5 @@
 import { preserveShaderVersion } from '../lib/shaderHistory';
+import { chooseRandomShaderReplacement } from '../lib/randomShader';
 import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import {
   type CSSProperties,
@@ -1977,14 +1978,6 @@ interface TimelineRepeatExitPlan {
   resumeTimelineTimeSeconds: number;
 }
 
-interface TimelineShaderShuffleUndo {
-  sessionId: string;
-  assignments: Array<{
-    stepId: string;
-    shaderId: string;
-  }>;
-}
-
 function getTimelineRepeatExitPlan(
   project: ProjectDocument,
   nowMs = performance.now(),
@@ -2951,8 +2944,6 @@ export function WorkspaceRoute() {
   const [editingTimelineStepId, setEditingTimelineStepId] = useState<string | null>(null);
   const [pendingTimelineRepeatExit, setPendingTimelineRepeatExit] =
     useState<TimelineRepeatExitPlan | null>(null);
-  const [timelineShaderShuffleUndo, setTimelineShaderShuffleUndo] =
-    useState<TimelineShaderShuffleUndo | null>(null);
   const [timelineScrollToStepRequest, setTimelineScrollToStepRequest] = useState<{
     stepId: string;
     token: number;
@@ -4987,99 +4978,73 @@ export function WorkspaceRoute() {
     }
   }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
 
-  const handleRandomizeTimelineShaders = useCallback(() => {
+  const handleRandomizeTimelineStep = (stepId: string) => {
     if (!project) {
       return;
     }
 
-    const shaderIds = project.studio.savedShaders
-      .filter((shader) => !shader.isTemporary)
-      .map((shader) => shader.id);
-    const steps = project.timeline.stub.shaderSequence.steps;
-    if (shaderIds.length === 0 || steps.length === 0) {
-      setStatusMessage('Add shaders to the app before using Get Me Crazy.');
+    const step = project.timeline.stub.shaderSequence.steps.find((item) => item.id === stepId);
+    if (!step) {
+      return;
+    }
+    const previousShader = project.studio.savedShaders.find((shader) => shader.id === step.shaderId);
+    const preset = chooseRandomShaderReplacement(
+      project.studio.savedShaders.filter((shader) => Boolean(DEFAULT_SHADERS[shader.id])),
+      previousShader,
+    );
+    if (!preset) {
+      setStatusMessage('No different shader preset is available.');
       return;
     }
 
-    const assignments = steps.map((step) => {
-      const differentShaderIds = shaderIds.filter((shaderId) => shaderId !== step.shaderId);
-      const candidates = differentShaderIds.length > 0 ? differentShaderIds : shaderIds;
-      return {
-        stepId: step.id,
-        shaderId: candidates[Math.floor(Math.random() * candidates.length)] ?? step.shaderId,
-      };
+    const editableShader = createSavedShaderRecord(preset.name, preset.code, preset.uniformValues, {
+      ...preset,
+      group: 'Timeline',
+      inputAssetId: previousShader?.inputAssetId ?? null,
+      isTemporary: true,
+      isDirty: false,
+      sourceShaderId: preset.sourceShaderId ?? preset.id,
+      ownerTimelineStepId: stepId,
+      versions: cloneShaderVersionsWithName(preset.versions, preset.name),
     });
-    const assignmentMap = new Map(
-      assignments.map((assignment) => [assignment.stepId, assignment.shaderId]),
-    );
+    const isEditingStep = editingTimelineStepId === stepId;
 
-    setTimelineShaderShuffleUndo({
-      sessionId: project.sessionId,
-      assignments: steps.map((step) => ({
-        stepId: step.id,
-        shaderId: step.shaderId,
-      })),
-    });
-    setPendingTimelineRepeatExit(null);
-    updateProject((currentProject) => ({
+    updateProject((currentProject) => pruneTemporaryTimelineShaders({
       ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        ...(isEditingStep ? {
+          activeShaderId: editableShader.id,
+          activeShaderName: editableShader.name,
+          activeShaderCode: editableShader.code,
+          uniformValues: editableShader.uniformValues ?? {},
+          shaderChatHistory: [],
+          shaderVersions: getShaderVersionTrail(editableShader),
+        } : {}),
+        savedShaders: [...currentProject.studio.savedShaders, editableShader],
+      },
       timeline: {
         stub: {
           ...currentProject.timeline.stub,
           shaderSequence: {
             ...currentProject.timeline.stub.shaderSequence,
-            randomSeedToken: createTimelineRandomSeedToken(),
-            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => ({
-              ...step,
-              shaderId: assignmentMap.get(step.id) ?? step.shaderId,
-            })),
+            steps: currentProject.timeline.stub.shaderSequence.steps.map((item) =>
+              item.id === stepId ? { ...item, shaderId: editableShader.id } : item,
+            ),
           },
         },
       },
     }));
-    setStatusMessage('Timeline shaders randomized. Use Go Back to restore the previous set.');
-  }, [project, updateProject]);
-
-  const handleRestoreTimelineShaders = useCallback(() => {
-    if (!timelineShaderShuffleUndo || !project) {
-      return;
+    if (preset.audioReactiveBindings) {
+      seedAudioShaderBindings(editableShader.id, preset.audioReactiveBindings);
     }
-
-    if (timelineShaderShuffleUndo.sessionId !== project.sessionId) {
-      setTimelineShaderShuffleUndo(null);
-      return;
+    if (isEditingStep) {
+      clearGeneratedShaderRetry();
+      setPreferLiveShaderCompilePreview(false);
+      setCompilerError('');
     }
-
-    const assignmentMap = new Map(
-      timelineShaderShuffleUndo.assignments.map((assignment) => [
-        assignment.stepId,
-        assignment.shaderId,
-      ]),
-    );
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            randomSeedToken: createTimelineRandomSeedToken(),
-            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => ({
-              ...step,
-              shaderId: assignmentMap.get(step.id) ?? step.shaderId,
-            })),
-          },
-        },
-      },
-    }));
-    setTimelineShaderShuffleUndo(null);
-    setStatusMessage('Previous timeline shaders restored.');
-  }, [project, timelineShaderShuffleUndo, updateProject]);
-
-  const handleDismissTimelineShaderRestore = useCallback(() => {
-    setTimelineShaderShuffleUndo(null);
-    setStatusMessage('Randomized timeline shaders kept.');
-  }, []);
+    setStatusMessage('Replaced this timeline shader with "' + preset.name + '".');
+  };
 
   const handleTimelinePinnedStepToggle = useCallback((stepId: string) => {
     if (!project) {
@@ -7828,8 +7793,6 @@ ${errorSnapshot}`,
     : uiPreferences.chromeVisible && stageTransform.moveMode;
   const timelineStub = project.timeline.stub;
   const timelineSelectableShaders = getProjectTimelineShaders(project);
-  const hasTimelineShaderShuffleUndo =
-    timelineShaderShuffleUndo?.sessionId === project.sessionId;
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
   const timelineFocusedPreviewActive =
     timelineStub.shaderSequence.stagePreviewMode === 'focused' &&
@@ -8398,15 +8361,6 @@ ${errorSnapshot}`,
   );
   const desktopSlidersPanel = desktopSliderPanel;
 
-  const desktopShaderToolsPanel = (
-    <ShaderStudioControlsSection
-      savedShaders={project.studio.savedShaders}
-      activeShaderId={project.studio.activeShaderId}
-      onBrowsePresets={() => setIsPresetBrowserOpen(true)}
-      timelineSelection={timelineSelectionInfo}
-    />
-  );
-
   const mobileShaderToolsPanel = (
     <ShaderStudioControlsSection
       savedShaders={project.studio.savedShaders}
@@ -8443,6 +8397,7 @@ ${errorSnapshot}`,
         onModeChange={handleTimelineSequenceModeChange}
         onSharedTransitionChange={handleTimelineSharedTransitionChange}
         onStepChange={handleTimelineStepChange}
+        onRandomizeStep={handleRandomizeTimelineStep}
         onPinnedStepToggle={handleTimelinePinnedStepToggle}
         onBrowseAssets={requestTimelineAssetPicker}
         onDropImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
@@ -8569,10 +8524,7 @@ ${errorSnapshot}`,
       onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
       onSequenceStepChange={handleTimelineStepChange}
-      hasSequenceShuffleUndo={hasTimelineShaderShuffleUndo}
-      onRandomizeSequenceShaders={handleRandomizeTimelineShaders}
-      onRestoreSequenceShaders={handleRestoreTimelineShaders}
-      onDismissSequenceShuffleUndo={handleDismissTimelineShaderRestore}
+      onRandomizeSequenceStep={handleRandomizeTimelineStep}
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onBrowseSequenceAssets={requestTimelineAssetPicker}
       onDropSequenceImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
@@ -9038,7 +8990,6 @@ ${errorSnapshot}`,
                 >
                   <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
                     {aiPanel}
-                    {desktopShaderToolsPanel}
                     {desktopCodePanel}
                     {desktopHistoryPanel}
                   </div>

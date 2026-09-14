@@ -48,10 +48,7 @@ interface ShaderTimelineEditorProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
-  hasShuffleUndo?: boolean;
-  onRandomizeShaders?: () => void;
-  onRestoreShaders?: () => void;
-  onDismissShuffleUndo?: () => void;
+  onRandomizeStep: (stepId: string) => void;
   onPinnedStepToggle: (stepId: string) => void;
   onBrowseAssets: (stepId: string) => void;
   onDropImage: (transfer: ImageTransfer, stepId: string) => void;
@@ -227,10 +224,7 @@ export function ShaderTimelineEditor({
   onModeChange,
   onSharedTransitionChange,
   onStepChange,
-  hasShuffleUndo = false,
-  onRandomizeShaders,
-  onRestoreShaders,
-  onDismissShuffleUndo,
+  onRandomizeStep,
   onPinnedStepToggle,
   onBrowseAssets,
   onDuplicateStep,
@@ -256,7 +250,6 @@ export function ShaderTimelineEditor({
       : sequence.mode === 'random'
         ? 'Random Shader Flow'
         : 'Shader Sequence';
-  const [isShuffleConfirmationOpen, setIsShuffleConfirmationOpen] = useState(false);
   const [isMobileArranging, setIsMobileArranging] = useState(false);
   const [isMobileAddOpen, setIsMobileAddOpen] = useState(false);
   const [mobileDraggingStepId, setMobileDraggingStepId] = useState<string | null>(null);
@@ -288,21 +281,6 @@ export function ShaderTimelineEditor({
     sequence.randomChoiceEnabled;
 
   const enabledStepCount = sequence.steps.filter((step) => !step.disabled).length;
-  useEffect(() => {
-    if (!isShuffleConfirmationOpen) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsShuffleConfirmationOpen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isShuffleConfirmationOpen]);
-
   useEffect(() => {
     const strip = flowStripRef.current;
     if (!strip) {
@@ -691,50 +669,6 @@ export function ShaderTimelineEditor({
               {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
               {formatStepDuration(totalDurationSeconds)}
             </strong>
-
-            {onRandomizeShaders && onRestoreShaders && onDismissShuffleUndo ? (
-              <div
-                className={`timeline-crazy-slot ${
-                  hasShuffleUndo ? 'timeline-crazy-slot-active' : ''
-                }`}
-              >
-                {hasShuffleUndo ? (
-                  <div className="timeline-crazy-undo" role="status">
-                    <button
-                      type="button"
-                      className="timeline-crazy-undo-button"
-                      onClick={onRestoreShaders}
-                    >
-                      Go Back
-                    </button>
-                    <button
-                      type="button"
-                      className="timeline-crazy-dismiss"
-                      aria-label="Dismiss shader restore"
-                      title="Keep randomized shaders"
-                      onClick={onDismissShuffleUndo}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="timeline-crazy-button"
-                    disabled={sequence.steps.length === 0 || savedShaders.length === 0}
-                    aria-label="Shuffle timeline shaders with Get Me Crazy"
-                    title="Randomize every shader in this timeline"
-                    onClick={() => setIsShuffleConfirmationOpen(true)}
-                  >
-                    <ShuffleIcon />
-                    <span>
-                      <small>Shuffle shaders</small>
-                      <strong>Get Me Crazy</strong>
-                    </span>
-                  </button>
-                )}
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -1019,6 +953,19 @@ export function ShaderTimelineEditor({
 
                     <button
                       type="button"
+                      className="icon-button timeline-step-overlay-button"
+                      aria-label="Replace with random shader"
+                      title="Replace with a random preset"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRandomizeStep(step.id);
+                      }}
+                    >
+                      <ShuffleIcon />
+                    </button>
+
+                    <button
+                      type="button"
                       className="icon-button timeline-step-overlay-button timeline-step-overlay-button-danger"
                       aria-label="Delete shader step"
                       title="Delete"
@@ -1148,69 +1095,6 @@ export function ShaderTimelineEditor({
           </div>
         ) : null}
       </div>
-
-      {isShuffleConfirmationOpen ? (
-        <div
-          className="dialog-backdrop timeline-crazy-dialog-backdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsShuffleConfirmationOpen(false);
-            }
-          }}
-        >
-          <section
-            className="dialog-panel timeline-crazy-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="timeline-crazy-dialog-title"
-            aria-describedby="timeline-crazy-dialog-copy"
-          >
-            <header className="dialog-header">
-              <div>
-                <span className="panel-eyebrow">Timeline Shuffle</span>
-                <h2 id="timeline-crazy-dialog-title" className="dialog-title">
-                  Get Me Crazy?
-                </h2>
-              </div>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setIsShuffleConfirmationOpen(false)}
-              >
-                Close
-              </button>
-            </header>
-            <div className="dialog-body timeline-crazy-dialog-body">
-              <p id="timeline-crazy-dialog-copy">
-                Are you sure you want to do this? Every shader in the timeline will be
-                randomized using shaders already available in the app.
-              </p>
-              <small>You can restore the current shaders once with Go Back.</small>
-            </div>
-            <footer className="dialog-footer">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => setIsShuffleConfirmationOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="primary-button timeline-crazy-confirm"
-                onClick={() => {
-                  onRandomizeShaders?.();
-                  setIsShuffleConfirmationOpen(false);
-                }}
-              >
-                Yes, Get Me Crazy
-              </button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
-
     </section>
   );
 }

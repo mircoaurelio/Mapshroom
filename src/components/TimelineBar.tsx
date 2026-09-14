@@ -36,10 +36,7 @@ interface TimelineBarProps {
     stepId: string,
     patch: Partial<TimelineStub['shaderSequence']['steps'][number]>,
   ) => void;
-  hasSequenceShuffleUndo: boolean;
-  onRandomizeSequenceShaders: () => void;
-  onRestoreSequenceShaders: () => void;
-  onDismissSequenceShuffleUndo: () => void;
+  onRandomizeSequenceStep: (stepId: string) => void;
   onSequencePinnedStepToggle: (stepId: string) => void;
   onBrowseSequenceAssets: (stepId: string) => void;
   onDropSequenceImage: (transfer: ImageTransfer, stepId: string) => void;
@@ -90,10 +87,7 @@ export function TimelineBar({
   onSequenceModeChange,
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
-  hasSequenceShuffleUndo,
-  onRandomizeSequenceShaders,
-  onRestoreSequenceShaders,
-  onDismissSequenceShuffleUndo,
+  onRandomizeSequenceStep,
   onSequencePinnedStepToggle,
   onBrowseSequenceAssets,
   onDropSequenceImage,
@@ -210,10 +204,7 @@ export function TimelineBar({
         onModeChange={onSequenceModeChange}
         onSharedTransitionChange={onSequenceSharedTransitionChange}
         onStepChange={onSequenceStepChange}
-        hasShuffleUndo={hasSequenceShuffleUndo}
-        onRandomizeShaders={onRandomizeSequenceShaders}
-        onRestoreShaders={onRestoreSequenceShaders}
-        onDismissShuffleUndo={onDismissSequenceShuffleUndo}
+        onRandomizeStep={onRandomizeSequenceStep}
         onPinnedStepToggle={onSequencePinnedStepToggle}
         onBrowseAssets={onBrowseSequenceAssets}
         onDropImage={onDropSequenceImage}
