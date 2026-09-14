@@ -1,13 +1,15 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import type { ShaderVersion } from '../types';
+import type { ShaderChatTurn, ShaderVersion } from '../types';
+import { getShaderChatResults } from '../lib/shaderChatResults';
 import { ShaderThumbnail } from './ShaderThumbnail';
+import { ShaderChatIcon } from './ShaderChatIcon';
 import './ShaderChatWorkspace.css';
 
 type ChatTab = 'chat' | 'code' | 'history';
 interface ShaderChatWorkspaceProps {
-  shaderName: string;
   shaderCode: string;
   versions: ShaderVersion[];
+  chatHistory: ShaderChatTurn[];
   pendingPrompt?: string;
   loading: boolean;
   feedback: string;
@@ -22,7 +24,7 @@ interface ShaderChatWorkspaceProps {
 }
 
 export function ShaderChatWorkspace({
-  shaderName, shaderCode, versions, pendingPrompt, loading, feedback, feedbackTone,
+  shaderCode, versions, chatHistory, pendingPrompt, loading, feedback, feedbackTone,
   composer, codePanel, historyPanel, onRestore, onNewChat, onSuggest, onRetry,
 }: ShaderChatWorkspaceProps) {
   const [tab, setTab] = useState<ChatTab>('chat');
@@ -32,7 +34,7 @@ export function ShaderChatWorkspace({
   const scrollRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const id = useId();
-  const shownVersions = versions.filter(version => !hiddenVersions.includes(version.id)).slice(-20);
+  const shownVersions = getShaderChatResults(versions, chatHistory).filter(version => !hiddenVersions.includes(version.id)).slice(-20);
 
   useEffect(() => {
     if (tab === 'chat' && followRef.current && scrollRef.current) {
@@ -87,35 +89,30 @@ export function ShaderChatWorkspace({
         </button>
       </div>
       <div id={`${id}-chat`} role="tabpanel" aria-labelledby={`${id}-chat-tab`} hidden={tab !== 'chat'} className="shader-chat-panel">
-        <div className="shader-chat-context" title={shaderName}><span aria-hidden="true">◈</span><span>Editing · {shaderName}</span></div>
         <div className="shader-chat-messages" ref={scrollRef} role="log" aria-label="Shader conversation" aria-live="polite" aria-relevant="additions text"
           onScroll={event => {
             const node = event.currentTarget;
             followRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
           }}>
-          {shownVersions.length === 0 && !pendingPrompt ? (
-            <div className="shader-chat-empty"><strong>What would you like to create?</strong><p>Describe an effect or a change to your shader.</p></div>
-          ) : null}
           {shownVersions.map(version => {
             const isCurrent = version.code === shaderCode;
-            const hasUserPrompt = !/^(base node source|initial shader|bundled .+ preset|before restore)$/i.test(version.prompt.trim());
             return <div className="shader-chat-exchange" key={version.id}>
-              {hasUserPrompt && version.prompt ? <article className="shader-chat-user"><small>You</small><p>{version.prompt}</p></article> : null}
+              {version.prompt ? <article className="shader-chat-user"><small>You</small><p>{version.prompt}</p></article> : null}
               <article className="shader-chat-assistant">
                 <small>Assistant</small>
-                <p>{hasUserPrompt ? 'Your shader version is ready.' : 'Continue creating with your current shader.'}</p>
+                <p>Your shader version is ready.</p>
                 <div className="shader-chat-result">
                   <div className="shader-chat-result-preview"><ShaderThumbnail shader={version} /></div>
-                  <div className="shader-chat-result-heading"><strong>{version.name}</strong><span className={isCurrent ? 'is-applied' : ''}>{isCurrent ? '✓ Current' : 'Saved version'}</span></div>
+                  <div className="shader-chat-result-heading"><strong>{version.name}</strong><span className={isCurrent ? 'is-applied' : ''}>{isCurrent ? <><ShaderChatIcon name="check" /> Current</> : 'Saved version'}</span></div>
                   <div className="shader-chat-result-actions">
-                    {isCurrent ? <button type="button" onClick={() => setTab('code')}>〈/〉 View code</button> : null}
-                    <button type="button" disabled={loading || isCurrent} onClick={() => onRestore(version.id)}>↶ Restore</button>
+                    {isCurrent ? <button type="button" onClick={() => setTab('code')}><ShaderChatIcon name="code" /> View code</button> : null}
+                    <button type="button" disabled={loading || isCurrent} onClick={() => onRestore(version.id)}><ShaderChatIcon name="restore" /> Restore</button>
                   </div>
                   {!isCurrent ? <details className="shader-chat-version-code"><summary>View code</summary><pre>{version.code}</pre></details> : null}
                 </div>
                 <div className="shader-chat-message-actions">
-                  <button type="button" onClick={() => { void copyCode(version); }}>{copied === version.id ? '✓ Copied' : 'Copy'}</button>
-                  {hasUserPrompt ? <button type="button" disabled={loading} onClick={() => { followRef.current = true; onRetry(version.prompt); }}>↻ Retry</button> : null}
+                  <button type="button" onClick={() => { void copyCode(version); }}><ShaderChatIcon name={copied === version.id ? 'check' : 'copy'} /> {copied === version.id ? 'Copied' : 'Copy'}</button>
+                  <button type="button" disabled={loading} onClick={() => { followRef.current = true; onRetry(version.prompt); }}><ShaderChatIcon name="retry" /> Retry</button>
                 </div>
               </article>
             </div>;

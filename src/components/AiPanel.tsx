@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { AiGenerationRoute } from '../lib/aiRoute';
 import { CloudModelIcon } from './CloudModelIcon';
 import { PanelSection } from './PanelSection';
+import { ShaderChatIcon } from './ShaderChatIcon';
 
 const AI_ROUTE_OPTIONS: Array<{
   value: AiGenerationRoute;
@@ -160,7 +161,7 @@ export function AiPanel({
                 title="Load from clipboard"
                 onClick={() => setPasteMenuOpen((current) => !current)}
               >
-                <span aria-hidden="true">+</span>
+                <ShaderChatIcon name="plus" />
               </button>
               {pasteMenuOpen ? (
                 <div className="ai-prompt-add-menu" role="menu">
@@ -237,7 +238,7 @@ export function AiPanel({
                     )}
                   </span>
                   <span>{selectedRouteOption.label}</span>
-                  <span className="ai-prompt-route-chevron" aria-hidden="true">⌄</span>
+                  <ShaderChatIcon name="chevron" className="ai-prompt-route-chevron" />
                 </button>
                 {routeMenuOpen ? (
                   <div className="ai-prompt-route-menu" role="listbox" aria-label="Shader AI model">
@@ -288,7 +289,7 @@ export function AiPanel({
                 title={aiLoading ? 'Generating…' : 'Generate shader'}
                 onClick={() => onSubmit()}
               >
-                <span aria-hidden="true">{aiLoading ? '…' : '↑'}</span>
+                <ShaderChatIcon name={aiLoading ? 'more' : 'send'} />
               </button>
             </div>
           </div>

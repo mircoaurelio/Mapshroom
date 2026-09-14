@@ -8318,9 +8318,9 @@ ${errorSnapshot}`,
 
   const renderChatWorkspace = (codePanel: ReactNode, historyPanel: ReactNode) => (
     <ShaderChatWorkspace
-      shaderName={project.studio.activeShaderName}
       shaderCode={project.studio.activeShaderCode}
       versions={project.studio.shaderVersions}
+      chatHistory={project.studio.shaderChatHistory}
       pendingPrompt={chatSubmission?.shaderId === project.studio.activeShaderId && !project.studio.shaderVersions.some(version => !chatSubmission.versionIds.includes(version.id)) ? chatSubmission.prompt : undefined}
       loading={aiLoading}
       feedback={!chatSubmission || chatSubmission.shaderId === project.studio.activeShaderId ? aiFeedbackMessage : ''}
