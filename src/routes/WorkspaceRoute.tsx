@@ -1,4 +1,5 @@
 import { createUniformRuntime } from '../lib/uniformRuntime';
+import { renameShader } from '../lib/renameShader';
 import { preserveShaderVersion } from '../lib/shaderHistory';
 import { chooseRandomShaderReplacement } from '../lib/randomShader';
 import { enableTimelineStep } from '../lib/enableTimelineStep';
@@ -6474,6 +6475,10 @@ export function WorkspaceRoute() {
     setStatusMessage(`Started ${nextName} and linked it into the timeline.`);
   };
 
+  const handleShaderNameChange = (shaderId: string, name: string) => {
+    updateProject((currentProject) => renameShader(currentProject, shaderId, name));
+  };
+
   const restoreShaderVersion = (versionId: string) => {
     if (!project) {
       return;
@@ -8286,9 +8291,6 @@ ${errorSnapshot}`,
 
   const useDesktopPaneLayout =
     !isMobile && uiPreferences.chromeVisible && uiPreferences.workspaceMode !== 'immersive';
-  const timelineEditingInDesktopPane =
-    useDesktopPaneLayout && editingTimelineStepId !== null;
-
   const aiPanel = (
     <AiPanel
       prompt={aiPrompt}
@@ -8323,6 +8325,8 @@ ${errorSnapshot}`,
 
   const studioPanel = (
     <StudioPanel
+      uniformPanelTitle={project.studio.activeShaderName}
+      onShaderNameChange={(name) => handleShaderNameChange(project.studio.activeShaderId, name)}
       savedShaders={project.studio.savedShaders}
       activeShaderId={project.studio.activeShaderId}
       randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
@@ -8359,13 +8363,8 @@ ${errorSnapshot}`,
 
   const desktopSliderPanel = (
     <UniformPanel
-      title={
-        timelineEditingInDesktopPane
-          ? `Editing · ${project.studio.activeShaderName}`
-          : showDesktopSlidersWindow
-            ? 'Sliders Window'
-            : 'Sliders'
-      }
+      title={project.studio.activeShaderName}
+      onTitleChange={(name) => handleShaderNameChange(project.studio.activeShaderId, name)}
       randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
       audioShaderId={project.studio.activeShaderId}
       audioShaderCode={project.studio.activeShaderCode}
@@ -8748,6 +8747,7 @@ ${errorSnapshot}`,
       {isMobile && mobilePanel === 'sliders' && mobileUiMode === 'full' ? (
         <MobileUniformOverlay
           shaderName={project.studio.activeShaderName}
+          onShaderNameChange={(name) => handleShaderNameChange(project.studio.activeShaderId, name)}
           randomizationKey={`${project.sessionId}:${project.studio.activeShaderId}`}
           audioShaderId={project.studio.activeShaderId}
           audioShaderCode={project.studio.activeShaderCode}

@@ -2,6 +2,7 @@ import { useRangeHoverPreview } from '../hooks/useRangeHoverPreview';
 import { useLiveUniformValues } from '../hooks/useLiveUniformValues';
 import type { UniformRuntime } from '../lib/uniformRuntime';
 import { RangeInput } from './RangeInput';
+import { EditableShaderName } from './EditableShaderName';
 import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
@@ -20,6 +21,7 @@ import type { AudioReactivityController } from '../hooks/useAudioReactivity';
 
 interface UniformPanelProps {
   title?: string;
+  onTitleChange?: (name: string) => void;
   randomizationKey: string;
   audioShaderId?: string;
   audioShaderCode?: string;
@@ -37,6 +39,7 @@ interface UniformPanelProps {
 
 export function UniformPanel({
   title = 'Uniform Map',
+  onTitleChange,
   randomizationKey,
   audioShaderId,
   audioShaderCode,
@@ -82,17 +85,17 @@ export function UniformPanel({
 
   return (
     <PanelSection
-      title={title}
+      title={onTitleChange ? <EditableShaderName key={randomizationKey} name={title} onChange={onTitleChange} /> : title}
       actions={
         <button
           type="button"
           className="uniform-randomize-button"
           disabled={randomizableCount === 0}
-          aria-label="Randomize unlocked sliders"
+          aria-label="Randomize unlocked parameters"
           title={
             randomizableCount > 0
-              ? `Randomize ${randomizableCount} unlocked slider${randomizableCount === 1 ? '' : 's'}`
-              : 'All sliders are excluded from randomization'
+              ? `Randomize ${randomizableCount} unlocked parameter${randomizableCount === 1 ? '' : 's'}`
+              : 'All parameters are excluded from randomization'
           }
           onPointerDown={handlePointerDown}
           onFocus={handleFocus}
@@ -126,11 +129,12 @@ export function UniformPanel({
 
             const isNumeric = definition.type === 'float' || definition.type === 'int';
             const hoverValue = preview?.name === name ? preview.value : null;
-            const isLocked = isNumeric && isUniformLocked(name);
+            const isRandomizable = isNumeric || definition.type === 'vec3';
+            const isLocked = isRandomizable && isUniformLocked(name);
 
             return (
               <div
-                className={`field ${isNumeric ? 'uniform-random-field' : ''} ${
+                className={`field ${isRandomizable ? 'uniform-random-field' : ''} ${
                   isLocked ? 'uniform-random-field-locked' : ''
                 } ${isNumeric && audioModeEnabled ? 'audio-reactive-field' : ''}`}
                 key={name}
@@ -138,7 +142,7 @@ export function UniformPanel({
                 <span className="field-inline-label">
                   <span>{name}</span>
                   <span className="uniform-field-meta">
-                    {isNumeric ? (
+                    {isRandomizable ? (
                       <span className="uniform-field-actions">
                         <button
                           type="button"
@@ -153,14 +157,14 @@ export function UniformPanel({
                           aria-pressed={isLocked}
                           title={
                             isLocked
-                              ? 'Include this slider in randomization'
-                              : 'Exclude this slider from randomization'
+                              ? 'Include this parameter in randomization'
+                              : 'Exclude this parameter from randomization'
                           }
                           onClick={() => toggleUniformLock(name)}
                         >
                           <ShuffleIcon blocked={isLocked} />
                         </button>
-                        {audioReactivity && audioShaderId && audioModeEnabled ? (
+                        {isNumeric && audioReactivity && audioShaderId && audioModeEnabled ? (
                           <AudioReactiveUniformToggle
                             controller={audioReactivity}
                             shaderId={audioShaderId}
