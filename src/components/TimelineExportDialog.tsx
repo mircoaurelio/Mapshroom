@@ -920,6 +920,7 @@ export function TimelineExportDialog({
                 pinnedStepId={pinnedStepId}
                 stageTransform={stageTransform}
                 transport={exportTransport}
+                adaptiveQuality={false}
                 forceActiveShaderPreview={forceActiveShaderPreview}
                 onCanvasReady={(canvas) => {
                   exportCanvasRef.current = canvas;

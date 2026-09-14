@@ -239,12 +239,16 @@ export interface ProjectLibraryEntry {
   createdAt: string;
   updatedAt: string;
   bundled?: boolean;
+  sourceTemplateId?: string;
 }
 
 export interface ProjectDocument {
   version: number;
   sessionId: string;
   name: string;
+  sourceTemplateId?: string;
+  /** Monotonic save stamp shared by the IndexedDB and localStorage replicas. */
+  persistedAt?: number;
   library: {
     assets: AssetRecord[];
     activeAssetId: string | null;

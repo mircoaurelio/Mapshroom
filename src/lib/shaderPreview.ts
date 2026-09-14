@@ -1,3 +1,4 @@
+import { deduplicatePreviewCompile, waitForPreviewProgram } from './previewCompilation';
 import { buildFragmentShaderSource, parseUniforms, VERTEX_SHADER_SOURCE } from './shader';
 import type { AssetKind, ShaderUniformValueMap } from '../types';
 
@@ -228,10 +229,14 @@ function getShaderPreviewRenderer(rendererRef: { current: ShaderPreviewRenderer 
   return rendererRef.current;
 }
 
-function getShaderPreviewProgram(
+function getShaderPreviewProgram(renderer: ShaderPreviewRenderer, shaderCode: string) {
+  return deduplicatePreviewCompile(renderer, shaderCode, () => compileShaderPreviewProgram(renderer, shaderCode));
+}
+
+async function compileShaderPreviewProgram(
   renderer: ShaderPreviewRenderer,
   shaderCode: string,
-): ShaderPreviewProgram | null {
+): Promise<ShaderPreviewProgram | null> {
   const cachedProgram = renderer.programCache.get(shaderCode);
   if (cachedProgram) {
     // Refresh insertion order so the cache behaves like an LRU.
@@ -248,10 +253,6 @@ function getShaderPreviewProgram(
 
   gl.shaderSource(fragmentShader, buildFragmentShaderSource(shaderCode));
   gl.compileShader(fragmentShader);
-  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-    gl.deleteShader(fragmentShader);
-    return null;
-  }
 
   const program = gl.createProgram();
   if (!program) {
@@ -262,8 +263,9 @@ function getShaderPreviewProgram(
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);
   gl.linkProgram(program);
-  const positionLocation = gl.getAttribLocation(program, 'a_position');
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS) || positionLocation === -1) {
+  const linked = await waitForPreviewProgram(gl, program);
+  const positionLocation = linked ? gl.getAttribLocation(program, 'a_position') : -1;
+  if (!linked || positionLocation === -1) {
     gl.deleteProgram(program);
     gl.deleteShader(fragmentShader);
     return null;
@@ -287,7 +289,7 @@ function getShaderPreviewProgram(
   return bundle;
 }
 
-export function renderShaderPreviewToDataUrl(
+export async function renderShaderPreviewToDataUrl(
   shaderCode: string,
   uniformValues: ShaderUniformValueMap | undefined,
   image: HTMLCanvasElement,
@@ -300,7 +302,7 @@ export function renderShaderPreviewToDataUrl(
   }
 
   const { gl, canvas: renderCanvas, quadBuffer, texture } = renderer;
-  const previewProgram = getShaderPreviewProgram(renderer, shaderCode);
+  const previewProgram = await getShaderPreviewProgram(renderer, shaderCode);
   if (!previewProgram) {
     return createPreviewMessageDataUrl('Shader error');
   }

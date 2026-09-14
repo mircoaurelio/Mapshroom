@@ -213,7 +213,7 @@ test('autosave and WebGL previews keep background work out of the interaction pa
   assert.match(workspace, /syncedProjectAutosaveRef\.current === project/);
   assert.match(storage, /Unable to persist shader slider cache/);
   assert.doesNotMatch(workspace, /saveShaderSliderCache\(/);
-  assert.match(storage, /getRecoverableSessionStorageKeys\(project\.sessionId\)/);
+  assert.match(storage, /getRecoverableSessionStorageKeys\(snapshot\.sessionId\)/);
   assert.doesNotMatch(previewRenderer, /gl\.finish\(\)/);
   assert.doesNotMatch(presetPreview, /gl\.finish\(\)/);
   assert.match(previewRenderer, /programCache/);
@@ -252,9 +252,9 @@ test('live uniform controls avoid catalog churn and background GPU work', () => 
     'valid shaders must render transient slider values before the saved-shader commit',
   );
   assert.match(stageRenderer, /canvas\.width !== nextCanvasWidth \|\| canvas\.height !== nextCanvasHeight/);
-  assert.match(stageRenderer, /MAX_WORKSPACE_PREVIEW_DPR/);
-  assert.match(stageRenderer, /OUTPUT_START_RENDER_PIXELS/);
-  assert.match(stageRenderer, /outputPixelBudgetRef/);
+  assert.match(stageRenderer, /stagePixelRatio/);
+  assert.match(stageRenderer, /AdaptiveRenderQuality/);
+  assert.match(stageRenderer, /adaptiveQualityRef/);
   assert.match(styles, /input\[type='range'\]:active::-[\s\S]*?transition: none/);
   assert.match(depthEval, /if \(document\.hidden\)/);
 });

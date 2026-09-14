@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { ProjectLibraryEntry } from '../types';
 import { readBrowserStorageUsage, type BrowserStorageUsage } from '../lib/storage';
+import { ProjectSaveStatus } from './ProjectSaveStatus';
 
 interface ProjectLibraryDialogProps {
   open: boolean;
   currentProjectName: string;
   activeSessionId: string | null;
   savedProjects: ProjectLibraryEntry[];
-  needsFileSave: boolean;
+  saveStatus: import('../lib/projectAutosave').ProjectSaveStatus;
+  onRetrySave: () => void;
   onClose: () => void;
   onSaveProject: (name: string) => void;
   onSaveAsNewProject: (name: string) => void;
@@ -50,7 +52,7 @@ function describeStorageUsage(usage: BrowserStorageUsage | null): {
 } {
   if (!usage || usage.usageBytes == null || usage.quotaBytes == null || usage.quotaBytes <= 0) {
     return {
-      label: 'Browser storage size is not reported here. Save a file anyway so this work is not only in the browser.',
+      label: 'Projects and uploaded media are stored on this device, in this browser.',
       warning: false,
     };
   }
@@ -61,8 +63,8 @@ function describeStorageUsage(usage: BrowserStorageUsage | null): {
   return {
     label: `This browser is using ${formatStorageBytes(usage.usageBytes)} of ${formatStorageBytes(usage.quotaBytes)} (${percent}%). ${
       warning
-        ? 'Leave old copies in place and save a file before adding more images.'
-        : 'The durable copy is still a file you keep, not this browser cache.'
+        ? 'Storage is running low. Free some space before adding more images.'
+        : 'Projects and uploaded media stay in this browser. Clearing site data removes them.'
     }`,
     warning,
   };
@@ -73,7 +75,8 @@ export function ProjectLibraryDialog({
   currentProjectName,
   activeSessionId,
   savedProjects,
-  needsFileSave,
+  saveStatus,
+  onRetrySave,
   onClose,
   onSaveProject,
   onSaveAsNewProject,
@@ -115,7 +118,7 @@ export function ProjectLibraryDialog({
           <div>
             <span className="panel-eyebrow">Project</span>
             <h2 id="project-dialog-title" className="dialog-title">
-              Open Or Save File
+              Projects
             </h2>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>
@@ -128,13 +131,13 @@ export function ProjectLibraryDialog({
             <span className="panel-eyebrow">Current workspace</span>
             <p
               className={`project-library-storage-hint ${
-                needsFileSave || storageCopy.warning ? 'project-library-storage-hint-warning' : ''
+                saveStatus === 'error' || storageCopy.warning ? 'project-library-storage-hint-warning' : ''
               }`}
             >
-              {needsFileSave
-                ? 'This show is only recovered in this browser. Save a file, then open that file later. Mapshroom will not delete older copies to make room for new images.'
-                : 'A file copy was saved from this tab. Keep that file. The list below is only browser recovery plus starter templates.'}
+              <ProjectSaveStatus status={saveStatus} />
+              {' — Changes save automatically. Reopen Mapshroom in this browser to continue.'}
             </p>
+            {saveStatus === 'error' && <button type="button" className="secondary-button" onClick={onRetrySave}>Retry saving</button>}
             <p className={`project-library-storage-hint ${storageCopy.warning ? 'project-library-storage-hint-warning' : ''}`}>
               {storageCopy.label}
             </p>
@@ -151,24 +154,24 @@ export function ProjectLibraryDialog({
               </label>
               <div className="project-dialog-actions">
                 <button type="button" className="primary-button" onClick={onSaveFile}>
-                  Save File
+                  Export JSON
                 </button>
                 <button type="button" className="primary-button" onClick={onOpenFile}>
-                  Open File
+                  Import JSON
                 </button>
                 <button
                   type="button"
                   className="secondary-button"
                   onClick={() => onSaveProject(projectNameDraft)}
                 >
-                  Pin In Browser
+                  Rename
                 </button>
                 <button
                   type="button"
                   className="secondary-button"
                   onClick={() => onSaveAsNewProject(projectNameDraft)}
                 >
-                  Pin As New Browser Copy
+                  Duplicate
                 </button>
                 <button type="button" className="secondary-button" onClick={onCreateNewProject}>
                   New Starter
@@ -178,12 +181,13 @@ export function ProjectLibraryDialog({
                 </button>
               </div>
             </div>
+            <p className="project-library-storage-hint">JSON export contains project settings; uploaded media are stored separately in this browser and are not included.</p>
           </section>
 
           <section className="dialog-section">
-            <span className="panel-eyebrow">Browser recovery and starters</span>
+            <span className="panel-eyebrow">Your projects and starters</span>
             <p className="project-library-storage-hint">
-              Starters are templates. Opening one replaces the current workspace after a warning. Delete only if you already have a file; Mapshroom will not auto-remove old projects.
+              Opening a starter creates your editable local project. Your changes are kept when you switch projects or return later.
             </p>
             <div className="project-library-list">
               {savedProjects.length ? (
@@ -200,7 +204,7 @@ export function ProjectLibraryDialog({
                         ) : null}
                       </div>
                       <span className="project-library-card-meta">
-                        Updated {formatProjectTimestamp(entry.updatedAt)}
+                        {entry.bundled ? 'Ready to start' : `Updated ${formatProjectTimestamp(entry.updatedAt)}`}
                       </span>
                     </div>
                     <div className="project-library-card-actions">
@@ -225,7 +229,7 @@ export function ProjectLibraryDialog({
                 ))
               ) : (
                 <div className="project-library-empty">
-                  Open a file, or save a file from this workspace, to keep a copy outside the browser.
+                  Create a project to start. Changes save automatically here.
                 </div>
               )}
             </div>

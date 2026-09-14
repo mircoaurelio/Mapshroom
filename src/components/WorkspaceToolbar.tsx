@@ -4,6 +4,8 @@ import type { WorkspaceMode } from '../types';
 import type { AudioCaptureSource } from '../lib/audioReactivity';
 import { InstallAppButton } from './InstallAppCallout';
 import { FeedbackDialog } from './FeedbackDialog';
+import { ProjectSaveStatus } from './ProjectSaveStatus';
+import type { ProjectSaveStatus as SaveStatus } from '../lib/projectAutosave';
 import {
   advanceAssetsFirstStepToImport,
   ASSETS_FIRST_STEP_DELAY_MS,
@@ -17,6 +19,7 @@ import {
 type ToolbarMenuKey = 'file' | 'shader' | 'audio';
 
 interface WorkspaceToolbarProps {
+  saveStatus: SaveStatus;
   isPlaying: boolean;
   workspaceMode: WorkspaceMode;
   sidebarVisible: boolean;
@@ -100,6 +103,7 @@ function AssetsIcon() {
 }
 
 export function WorkspaceToolbar({
+  saveStatus,
   isPlaying,
   workspaceMode,
   sidebarVisible,
@@ -346,7 +350,7 @@ export function WorkspaceToolbar({
             className="secondary-button toolbar-menu-button"
             onClick={onOpenProjects}
           >
-            Project
+            Projects <ProjectSaveStatus status={saveStatus} />
           </button>
 
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
@@ -384,7 +388,7 @@ export function WorkspaceToolbar({
                     closeMenu();
                   }}
                 >
-                  Save File
+                  Export JSON (without media)
                 </button>
                 <button
                   type="button"

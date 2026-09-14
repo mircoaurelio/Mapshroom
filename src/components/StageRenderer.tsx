@@ -39,6 +39,9 @@ import {
   type AudioReactiveRuntime,
 } from '../lib/audioReactivity';
 import { shouldForceVideoTransportSeek } from '../lib/videoTransport';
+import { AdaptiveRenderQuality, OUTPUT_PIXEL_LIMIT, PREVIEW_PIXEL_LIMIT, stagePixelRatio } from '../lib/renderQuality';
+import { GpuFrameTimer } from '../lib/gpuFrameTimer';
+import { readRenderRuntimeOptions } from '../lib/renderRuntimeOptions';
 
 interface StageRendererProps {
   asset: AssetRecord | null;
@@ -55,6 +58,8 @@ interface StageRendererProps {
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
+  /** Disable for deterministic frame-by-frame export. */
+  adaptiveQuality?: boolean;
   showGrid?: boolean;
   onDistortionChange?: (distortion: StageDistortion) => void;
   personalPreviewActive?: boolean;
@@ -88,6 +93,7 @@ const DISTORTION_CONTROL_POINTS = Object.fromEntries(
 ) as Record<StageDistortionCorner, { x: number; y: number }>;
 
 export interface StageFrameInfo {
+  performance?: { frameMs: number; gpuMs: number | null; width: number; height: number; pixelBudget: number };
   /** True when every requested render layer was drawn with its own compiled program. */
   layersInSync: boolean;
   /** True when every visible and preload layer program is compiled and cached. */
@@ -205,7 +211,6 @@ const VIDEO_DRIFT_PLAYBACK_RATE_GAIN = 0.35;
 const MIN_STAGE_SCALE = 0;
 const MAX_RETAINED_PROGRAMS = 96;
 const COMPILE_AFTER_INTERACTION_QUIET_MS = 750;
-const MAX_WORKSPACE_PREVIEW_DPR = 2;
 const MAX_OUTPUT_RENDER_PIXELS = 3840 * 2160;
 const OUTPUT_START_RENDER_PIXELS = 1920 * 1080;
 const MIN_OUTPUT_RENDER_PIXELS = 960 * 540;
@@ -824,6 +829,7 @@ export function StageRenderer({
   stageTransform,
   transport,
   isOutputOnly = false,
+  adaptiveQuality = true,
   showGrid = false,
   onDistortionChange,
   personalPreviewActive = false,
@@ -868,11 +874,28 @@ export function StageRenderer({
   const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
   const audioRuntimeRef = useRef(audioRuntime);
   const isOutputOnlyRef = useRef(isOutputOnly);
+  const qualityRef = useRef<AdaptiveRenderQuality | null>(null);
+  qualityRef.current ??= new AdaptiveRenderQuality();
+  const gpuTimerRef = useRef<GpuFrameTimer | null>(null);
+  const adaptiveQualityRef = useRef(adaptiveQuality);
+  adaptiveQualityRef.current = adaptiveQuality;
+  const qualityFrameRef = useRef(0);
+  const lastQualityFrameRef = useRef(0);
+  const qualityCodesRef = useRef<string[]>([]);
+  const qualityGenerationRef = useRef(0);
+  const lastGpuTimeRef = useRef<number | null>(null);
+  const diagnosticsEnabledRef = useRef(readRenderRuntimeOptions(window.location).diagnostics);
+  const diagnosticsOutputRef = useRef<HTMLOutputElement | null>(null);
+  const lastDiagnosticsAtRef = useRef(0);
+  const performanceTraceRef = useRef<Array<NonNullable<StageFrameInfo['performance']> & {
+    atMs: number; programsReady: boolean; shaders: string[];
+  }>>([]);
   const outputPixelBudgetRef = useRef(OUTPUT_START_RENDER_PIXELS);
   const outputSlowFrameStreakRef = useRef(0);
   const outputFastFrameStreakRef = useRef(0);
   const lastOutputFrameAtRef = useRef(0);
   const lastOutputShaderKeyRef = useRef('');
+  const experimentalQualityRef = useRef(readRenderRuntimeOptions(window.location).experimentalQuality);
   const canvasLayoutRef = useRef({ targetWidth: 1, targetHeight: 1 });
   const applyCanvasResolutionRef = useRef<() => void>(() => {});
   const lastUserInteractionAtRef = useRef(0);
@@ -1161,6 +1184,11 @@ export function StageRenderer({
 
     const gl = canvas.getContext('webgl2', {
       preserveDrawingBuffer: preserveDrawingBufferRef.current,
+      // Every pass is a full-screen quad; multisample/depth buffers add
+      // resolve and memory cost without smoothing shader-generated edges.
+      antialias: false,
+      depth: false,
+      stencil: false,
     });
     if (!gl || gl.isContextLost()) {
       if (!gl) {
@@ -1191,11 +1219,16 @@ export function StageRenderer({
     );
 
     positionBufferRef.current = buffer;
+    gpuTimerRef.current = new GpuFrameTimer(gl);
+    qualityRef.current?.resetSamples(performance.now());
+    lastQualityFrameRef.current = 0;
     gl.viewport(0, 0, canvas.width, canvas.height);
 
     return () => {
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+      gpuTimerRef.current?.dispose();
+      gpuTimerRef.current = null;
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
@@ -1286,13 +1319,11 @@ export function StageRenderer({
     const applyCanvasResolution = () => {
       const { targetWidth, targetHeight } = canvasLayoutRef.current;
       const devicePixelRatio = window.devicePixelRatio || 1;
-      const outputPixelRatioLimit = Math.sqrt(
-        (isOutputOnly ? outputPixelBudgetRef.current : MAX_OUTPUT_RENDER_PIXELS) /
-          Math.max(1, targetWidth * targetHeight),
-      );
-      const dpr = isOutputOnly
-        ? Math.min(devicePixelRatio, outputPixelRatioLimit)
-        : Math.min(devicePixelRatio, MAX_WORKSPACE_PREVIEW_DPR);
+      const budget = !adaptiveQuality ? OUTPUT_PIXEL_LIMIT
+        : experimentalQualityRef.current
+          ? Math.min(qualityRef.current!.pixels, isOutputOnly ? OUTPUT_PIXEL_LIMIT : PREVIEW_PIXEL_LIMIT)
+          : isOutputOnly ? outputPixelBudgetRef.current : PREVIEW_PIXEL_LIMIT;
+      const dpr = stagePixelRatio(targetWidth, targetHeight, devicePixelRatio, budget, isOutputOnly);
 
       const nextCanvasWidth = Math.max(1, Math.round(targetWidth * dpr));
       const nextCanvasHeight = Math.max(1, Math.round(targetHeight * dpr));
@@ -1325,7 +1356,7 @@ export function StageRenderer({
       resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
-  }, [glContextGeneration, isOutputOnly, mediaAspectRatio]);
+  }, [glContextGeneration, isOutputOnly, adaptiveQuality, mediaAspectRatio]);
 
   useEffect(() => {
     const gl = glRef.current;
@@ -1814,7 +1845,7 @@ export function StageRenderer({
         return;
       }
 
-      if (isOutputOnlyRef.current) {
+      if (isOutputOnlyRef.current && adaptiveQualityRef.current && !experimentalQualityRef.current) {
         const shaderKey = compiledLayers.map((layer) => layer.shaderCode).join('\0');
         if (shaderKey !== lastOutputShaderKeyRef.current) {
           lastOutputShaderKeyRef.current = shaderKey;
@@ -1863,6 +1894,35 @@ export function StageRenderer({
         lastOutputFrameAtRef.current = timestamp;
       }
 
+      const quality = qualityRef.current!;
+      const maxPixels = isOutputOnlyRef.current ? OUTPUT_PIXEL_LIMIT : PREVIEW_PIXEL_LIMIT;
+      const previousBudget = quality.pixels;
+      if (compiledLayers.length !== qualityCodesRef.current.length ||
+          compiledLayers.some((layer, index) => layer.shaderCode !== qualityCodesRef.current[index])) {
+        qualityCodesRef.current = compiledLayers.map(layer => layer.shaderCode);
+        qualityGenerationRef.current += 1;
+        quality.select(qualityCodesRef.current.join('\0'), timestamp, maxPixels);
+        lastGpuTimeRef.current = null;
+      }
+      const sampleTag = `${qualityGenerationRef.current}:${canvas.width}x${canvas.height}`;
+      const measurePerformance = experimentalQualityRef.current || diagnosticsEnabledRef.current;
+      const gpuSamples = measurePerformance ? gpuTimerRef.current?.poll().filter(sample => sample.tag === sampleTag) ?? [] : [];
+      const gpuMs = gpuSamples.length ? Math.max(...gpuSamples.map(sample => sample.ms)) : null;
+      if (gpuMs !== null) lastGpuTimeRef.current = gpuMs;
+      const frameMs = lastQualityFrameRef.current ? timestamp - lastQualityFrameRef.current : 0;
+      lastQualityFrameRef.current = timestamp;
+      if (adaptiveQualityRef.current && experimentalQualityRef.current && !document.hidden && allProgramsReady) {
+        quality.sample({ now: timestamp, frameMs, gpuMs,
+          gpuAvailable: gpuTimerRef.current?.available ?? false,
+          actualPixels: canvas.width * canvas.height, maxPixels });
+      } else {
+        quality.resetSamples(timestamp);
+      }
+      if (experimentalQualityRef.current && quality.pixels !== previousBudget) applyCanvasResolutionRef.current();
+      const measureFrame = ++qualityFrameRef.current % 4 === 0;
+      const performanceInfo = { frameMs, gpuMs, width: canvas.width, height: canvas.height,
+        pixelBudget: !adaptiveQualityRef.current ? OUTPUT_PIXEL_LIMIT : experimentalQualityRef.current ? quality.pixels : isOutputOnlyRef.current ? outputPixelBudgetRef.current : PREVIEW_PIXEL_LIMIT };
+
       // When some requested layer program is still compiling, keep drawing the
       // previous compiled layers with a live clock instead of freezing the
       // stream. The new layers take over as soon as their programs are ready.
@@ -1873,6 +1933,9 @@ export function StageRenderer({
         );
 
       try {
+        if (measureFrame && measurePerformance) {
+          gpuTimerRef.current?.begin(`${qualityGenerationRef.current}:${canvas.width}x${canvas.height}`);
+        }
         const currentTransport = transportRef.current;
         const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
         const renderTime = getRenderTimeSeconds(currentTransport, timestamp);
@@ -2166,6 +2229,7 @@ export function StageRenderer({
           layersInSync,
           allProgramsReady,
           timeSeconds: transportTime,
+          performance: performanceInfo,
         });
       } catch (error) {
         const nextWarning =
@@ -2180,6 +2244,17 @@ export function StageRenderer({
           timeSeconds: getTransportTimeSeconds(transportRef.current, timestamp),
         });
       } finally {
+        gpuTimerRef.current?.end();
+        if (diagnosticsEnabledRef.current && timestamp - lastDiagnosticsAtRef.current >= 500) {
+          lastDiagnosticsAtRef.current = timestamp;
+          const snapshot = { ...performanceInfo, gpuMs: lastGpuTimeRef.current,
+            atMs: timestamp, programsReady: allProgramsReady,
+            shaders: compiledLayers.map(layer => layer.shaderCode.match(/NAME:\s*([^\n]+)/)?.[1] ?? 'Shader') };
+          performanceTraceRef.current.push(snapshot);
+          if (performanceTraceRef.current.length > 120) performanceTraceRef.current.shift();
+          if (diagnosticsOutputRef.current) diagnosticsOutputRef.current.textContent =
+            `${canvas.width}×${canvas.height} · frame ${frameMs.toFixed(1)} ms · GPU ${lastGpuTimeRef.current?.toFixed(1) ?? 'N/D'} ms`;
+        }
         rafRef.current = requestAnimationFrame(render);
       }
     };
@@ -2373,6 +2448,19 @@ export function StageRenderer({
       } ${distortEditing ? 'stage-shell-distort-editing' : ''}`}
       title={isOutputOnly ? undefined : renderStatus}
     >
+      {diagnosticsEnabledRef.current && !isOutputOnly ? (
+        <div style={{ position: 'absolute', top: 6, left: 6, zIndex: 20, background: '#111d', color: '#fff', padding: 6, fontSize: 11 }}>
+          <output ref={diagnosticsOutputRef} aria-label="Render performance" />{' '}
+          <button type="button" onClick={() => {
+            const url = URL.createObjectURL(new Blob([JSON.stringify(performanceTraceRef.current, null, 2)], { type: 'application/json' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'mapshroom-performance.json';
+            link.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          }}>Export performance</button>
+        </div>
+      ) : null}
       <div
         ref={mediaSurfaceRef}
         className={`stage-media-surface${onStageDoubleClick ? ' stage-media-surface-navigable' : ''}`}

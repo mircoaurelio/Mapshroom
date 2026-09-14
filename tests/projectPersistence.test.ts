@@ -240,7 +240,7 @@ function withCustomShaders(project: ProjectDocument, count: number): ProjectDocu
   };
 }
 
-test('project persistence round-trips, refuses stub overwrites, and keeps bundled templates read-only', async () => {
+test('project persistence saves edits, resumes editable starters, and recovers the newest replica', async () => {
   const memoryDb = installBrowserPersistenceMocks();
   const server = await createServer({
     appType: 'custom',
@@ -289,10 +289,11 @@ test('project persistence round-trips, refuses stub overwrites, and keeps bundle
     assert.equal(loaded.studio.savedShaders.length, 12);
 
     const stubReplacement = withCustomShaders(namedProject, 2);
-    assert.equal(await storage.saveProjectDocument(stubReplacement), false);
+    assert.equal(await storage.saveProjectDocument(stubReplacement), true);
     const stillLoaded = (await storage.loadProjectDocument(sessionId)) as ProjectDocument;
-    assert.equal(stillLoaded.studio.savedShaders.length, 12);
-    assert.equal(stillLoaded.name, 'User Show');
+    assert.equal(stillLoaded.studio.savedShaders.length, 2);
+    assert.equal(stillLoaded.name, stubReplacement.name);
+    assert.equal(await storage.saveProjectDocument(namedProject), true);
 
     const libraryAfterDocumentSave = storage.loadProjectLibrary() as Array<{
       sessionId: string;
@@ -331,7 +332,7 @@ test('project persistence round-trips, refuses stub overwrites, and keeps bundle
         savedShaders: bundledTemplate.studio.savedShaders.slice(0, 1),
       },
     };
-    await storage.saveProjectDocument(mutatedBundled);
+    assert.equal(await storage.saveProjectDocument(mutatedBundled), false);
     const reloadedBundled = (await storage.loadProjectDocument(bundledSessionId)) as ProjectDocument;
     assert.equal(reloadedBundled.name, bundledTemplate.name);
     assert.notEqual(reloadedBundled.name, 'Mutated statue that must not persist');
@@ -339,6 +340,28 @@ test('project persistence round-trips, refuses stub overwrites, and keeps bundle
       reloadedBundled.timeline.stub.shaderSequence.steps.length,
       bundledTemplate.timeline.stub.shaderSequence.steps.length,
     );
+
+    const editable = await storage.openEditableProject(bundledSessionId) as ProjectDocument;
+    assert.notEqual(editable.sessionId, bundledSessionId);
+    const photo = new Blob(['uploaded photo bytes'], { type: 'image/png' });
+    assert.equal(await storage.putAssetBlob('regression-photo', photo), true);
+    const edited = {
+      ...editable, name: 'My saved statue',
+      library: { ...editable.library, activeAssetId: 'regression-photo', assets: [
+        ...editable.library.assets,
+        { id: 'regression-photo', name: 'Photo', kind: 'image', sourceType: 'uploaded', mimeType: 'image/png', size: photo.size, lastModified: 1, createdAt: new Date().toISOString() },
+      ] },
+    };
+    assert.equal(await storage.saveProjectDocument(edited), true);
+    storage.saveProjectToLibrary(edited, edited.name);
+    storage.persistActiveSessionId(edited.sessionId);
+    assert.equal(storage.getOrCreateSessionId(), edited.sessionId);
+    const reopenedTemplate = await storage.openEditableProject(bundledSessionId);
+    assert.equal(reopenedTemplate.name, edited.name);
+    assert.equal(reopenedTemplate.sessionId, edited.sessionId);
+    assert.equal(reopenedTemplate.library.activeAssetId, 'regression-photo');
+    assert.equal(await (await storage.getAssetBlob('regression-photo')).text(), 'uploaded photo bytes');
+    assert.equal(storage.loadProjectLibrary().some((entry: { sessionId: string }) => entry.sessionId === bundledSessionId), false);
 
     const stubIndexed = withCustomShaders(namedProject, 1);
     memoryDb.stores.get('project-documents')?.set(sessionId, stubIndexed);
@@ -358,6 +381,40 @@ test('project persistence round-trips, refuses stub overwrites, and keeps bundle
     memoryDb.allowPuts();
     const loadedQuotaProject = (await storage.loadProjectDocument('quota-fallback-session')) as ProjectDocument;
     assert.equal(loadedQuotaProject.name, 'Quota Fallback');
+
+    // An existing IndexedDB copy must never hide a newer localStorage fallback.
+    await storage.saveProjectDocument({ ...quotaProject, name: 'Old IDB revision' });
+    memoryDb.failPuts();
+    assert.equal(await storage.saveProjectDocument({ ...quotaProject, name: 'Newest fallback' }), true);
+    memoryDb.allowPuts();
+    assert.equal((await storage.loadProjectDocument(quotaProject.sessionId)).name, 'Newest fallback');
+    assert.equal(await storage.saveProjectDocument({ ...quotaProject, name: 'Saving works again' }), true);
+    assert.equal((await storage.loadProjectDocument(quotaProject.sessionId)).name, 'Saving works again');
+
+    // A pending write cannot roll back the synchronous page-hide checkpoint.
+    const queued = storage.saveProjectDocument({ ...quotaProject, name: 'Queued old write' });
+    assert.equal(storage.checkpointProjectDocument({ ...quotaProject, name: 'Last edit before closing' }), true);
+    await queued;
+    assert.equal((await storage.loadProjectDocument(quotaProject.sessionId)).name, 'Last edit before closing');
+
+    await Promise.all([
+      storage.saveProjectDocument({ ...quotaProject, name: 'First queued edit' }),
+      storage.saveProjectDocument({ ...quotaProject, name: 'Second queued edit' }),
+    ]);
+    assert.equal((await storage.loadProjectDocument(quotaProject.sessionId)).name, 'Second queued edit');
+
+    const realSetItem = localStorage.setItem;
+    memoryDb.failPuts();
+    localStorage.setItem = () => { throw new Error('Local storage quota exceeded'); };
+    try {
+      assert.equal(await storage.saveProjectDocument({ ...quotaProject, name: 'Must not claim success' }), false);
+    } finally {
+      localStorage.setItem = realSetItem;
+      memoryDb.allowPuts();
+    }
+    assert.equal((await storage.loadProjectDocument(quotaProject.sessionId)).name, 'Second queued edit');
+    assert.equal(await storage.saveProjectDocument({ ...quotaProject, name: 'Recovered after both stores failed' }), true);
+    assert.equal((await storage.loadProjectDocument(quotaProject.sessionId)).name, 'Recovered after both stores failed');
 
     const historical = JSON.parse(
       readFileSync(
@@ -406,12 +463,14 @@ test('boot keeps bundled sessions and lists autosaved work in the project librar
     workspace,
     /Existing installs that still point at the huge bundled Statue timeline/,
   );
-  assert.match(workspace, /saveProjectToLibrary\(project, project\.name\)/);
+  assert.match(workspace, /createProjectAutosave/);
   assert.match(workspace, /saveProjectToLibrary\(nextProject, nextProject\.name\)/);
   assert.match(workspace, /libraryEntry/);
   assert.match(workspace, /parseProjectBackupContents/);
   assert.match(workspace, /beforeunload/);
-  assert.match(workspace, /confirmReplaceCurrentWorkspace/);
+  assert.match(workspace, /flushCurrentProject/);
+  assert.match(workspace, /openEditableProject/);
+  assert.doesNotMatch(workspace, /autosaveBlockedSessionRef/);
   assert.doesNotMatch(
     workspace,
     /setSavedProjects\(removeProjectFromLibrary\(sessionId\)\)/,

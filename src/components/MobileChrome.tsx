@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
 import type { MobileUiMode } from '../types';
+import { ProjectSaveStatus } from './ProjectSaveStatus';
 
 export type MobilePanelKey = 'studio' | 'mapping' | 'sliders' | null;
 
 interface MobileChromeProps {
+  saveStatus: import('../lib/projectAutosave').ProjectSaveStatus;
   activeAssetName: string;
   isTimelineOpen: boolean;
   uiMode: Exclude<MobileUiMode, 'hidden'>;
@@ -30,6 +32,7 @@ const MOBILE_PANEL_TITLES: Record<Exclude<MobilePanelKey, null>, string> = {
 };
 
 export function MobileChrome({
+  saveStatus,
   activeAssetName,
   isTimelineOpen,
   uiMode,
@@ -58,7 +61,7 @@ export function MobileChrome({
         </button>
         <div className="mobile-header-actions">
           <button type="button" className="secondary-button" onClick={onOpenProjects}>
-            Project
+            Projects <ProjectSaveStatus status={saveStatus} />
           </button>
           <button type="button" className="secondary-button" onClick={onOpenShare}>
             Share

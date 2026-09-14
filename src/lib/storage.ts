@@ -33,6 +33,32 @@ const MIDI_OUTPUT_STORAGE_PREFIX = 'mapshroom-v3:midi-output:';
 const OUTPUT_VIEWPORT_STORAGE_PREFIX = 'mapshroom-v3:output-viewport:';
 const APP_STORAGE_PREFIX = 'mapshroom-v3:';
 const LOCAL_PROJECT_FALLBACK_MAX_BYTES = 750_000;
+const projectWrites = new Map<string, Promise<boolean>>();
+let lastSaveStamp = 0;
+
+function stampProject(project: ProjectDocument): ProjectDocument {
+  lastSaveStamp = Math.max(Date.now(), lastSaveStamp + 1, (project.persistedAt ?? 0) + 1);
+  return { ...createProjectSnapshot(project), persistedAt: lastSaveStamp };
+}
+
+/** Used on page hide only: async work alone cannot survive a closing tab. */
+export function checkpointProjectDocument(project: ProjectDocument): boolean {
+  if (isBundledProjectSessionId(project.sessionId)) return false;
+  return writeLocalStorage(getProjectStorageKey(project.sessionId), JSON.stringify(stampProject(project)));
+}
+
+/** A template has one editable local project; subsequent opens resume that work. */
+export async function openEditableProject(sessionId: string): Promise<ProjectDocument | null> {
+  if (!isBundledProjectSessionId(sessionId)) return loadProjectDocument(sessionId);
+  // A stable ID also prevents two tabs from creating independent copies at boot.
+  const editableId = `editable:${sessionId}`;
+  const saved = await loadProjectDocument(editableId);
+  if (saved) return saved;
+  if (await hasPersistedProject(editableId)) return null;
+  const template = createBundledProjectDocument(sessionId);
+  if (!template) return null;
+  return { ...template, sessionId: editableId, sourceTemplateId: sessionId };
+}
 
 function getProjectStorageKey(sessionId: string): string {
   return `${PROJECT_STORAGE_PREFIX}${sessionId}`;
@@ -254,20 +280,9 @@ export async function loadProjectDocument(sessionId: string): Promise<ProjectDoc
   if (!chosenProject) {
     return null;
   }
-
-  if (chosenProject === localProject && localProject) {
-    reclaimRecoverableLocalStorage(sessionId);
-    const migrated = await putIndexedProjectDocument(createProjectSnapshot(localProject));
-    if (migrated && (await getIndexedProjectDocument(sessionId))) {
-      const raw = JSON.stringify(createProjectSnapshot(localProject));
-      if (raw.length > LOCAL_PROJECT_FALLBACK_MAX_BYTES) {
-        removeLocalStorage(getProjectStorageKey(sessionId));
-      }
-      for (const key of getRecoverableSessionStorageKeys(sessionId)) {
-        removeLocalStorage(key);
-      }
-    }
-  }
+  lastSaveStamp = Math.max(lastSaveStamp, chosenProject.persistedAt ?? 0);
+  // Do not write while loading: a migration racing an autosave can overwrite it.
+  // The next save repairs both replicas using the same save stamp.
 
   return chosenProject;
 }
@@ -369,30 +384,6 @@ export function createProjectSnapshot(
   };
 }
 
-function createEmergencyProjectSnapshot(project: ProjectDocument): ProjectDocument {
-  const compactSnapshot = createProjectSnapshot(project);
-
-  return {
-    ...compactSnapshot,
-    studio: {
-      ...compactSnapshot.studio,
-      shaderChatHistory: [],
-      shaderVersions: compactSnapshot.studio.shaderVersions.slice(-1),
-      savedShaders: compactSnapshot.studio.savedShaders.map((shader) => ({
-        ...shader,
-        versions:
-          shader.id === compactSnapshot.studio.activeShaderId ? shader.versions?.slice(-1) : undefined,
-        lastValidCode: shader.lastValidCode === shader.code ? undefined : shader.lastValidCode,
-        lastValidUniformValues:
-          stableSerialize(shader.lastValidUniformValues ?? shader.uniformValues ?? {}) ===
-          stableSerialize(shader.uniformValues ?? {})
-            ? undefined
-            : shader.lastValidUniformValues,
-      })),
-    },
-  };
-}
-
 export function isDestructiveProjectOverwrite(
   existing: ProjectDocument,
   next: ProjectDocument,
@@ -412,6 +403,11 @@ export function pickPreferredPersistedProject(
   localProject: ProjectDocument | null,
 ): ProjectDocument | null {
   if (indexedProject && localProject) {
+    if (indexedProject.persistedAt || localProject.persistedAt) {
+      return (localProject.persistedAt ?? 0) > (indexedProject.persistedAt ?? 0)
+        ? localProject : indexedProject;
+    }
+    // Preserve the recovery heuristic only for old, unstamped documents.
     if (isDestructiveProjectOverwrite(localProject, indexedProject)) {
       return localProject;
     }
@@ -434,59 +430,66 @@ async function requestPersistentStorage(): Promise<void> {
 
 export async function saveProjectDocument(project: ProjectDocument): Promise<boolean> {
   if (isBundledProjectSessionId(project.sessionId)) {
-    return true;
-  }
-
-  const storageKey = getProjectStorageKey(project.sessionId);
-  const existing =
-    normalizePersistedProject(await getIndexedProjectDocument(project.sessionId)) ??
-    readLocalStorageProject(project.sessionId);
-  if (existing && isDestructiveProjectOverwrite(existing, project)) {
-    console.warn(
-      'Refusing to overwrite a larger persisted project with a smaller replacement.',
-    );
     return false;
   }
+  const snapshot = stampProject(project);
+  const previous = projectWrites.get(project.sessionId) ?? Promise.resolve(true);
+  const write = previous.catch(() => false).then(async () => {
+    const locks = globalThis.navigator?.locks;
+    return locks
+      ? locks.request(`mapshroom-project:${project.sessionId}`, () => persistProjectSnapshot(snapshot))
+      : persistProjectSnapshot(snapshot);
+  }).catch((error) => {
+    console.warn('Unable to persist project document.', error);
+    return false;
+  });
+  projectWrites.set(project.sessionId, write);
+  try {
+    return await write;
+  } finally {
+    if (projectWrites.get(project.sessionId) === write) projectWrites.delete(project.sessionId);
+  }
+}
 
-  reclaimRecoverableLocalStorage(project.sessionId);
-  const snapshot = createProjectSnapshot(project);
+async function persistProjectSnapshot(snapshot: ProjectDocument): Promise<boolean> {
+  const storageKey = getProjectStorageKey(snapshot.sessionId);
+  const existing = pickPreferredPersistedProject(
+    normalizePersistedProject(await getIndexedProjectDocument(snapshot.sessionId)),
+    readLocalStorageProject(snapshot.sessionId),
+  );
+  // A page-hide checkpoint or another tab may already contain a newer revision.
+  if ((existing?.persistedAt ?? 0) > snapshot.persistedAt!) return true;
+
+  reclaimRecoverableLocalStorage(snapshot.sessionId);
   if (await putIndexedProjectDocument(snapshot)) {
-    const verified = await getIndexedProjectDocument(project.sessionId);
-    if (verified) {
+    if ((readLocalStorageProject(snapshot.sessionId)?.persistedAt ?? 0) <= snapshot.persistedAt!) {
       const raw = JSON.stringify(snapshot);
       if (raw.length <= LOCAL_PROJECT_FALLBACK_MAX_BYTES) {
         writeLocalStorage(storageKey, raw);
       } else {
         removeLocalStorage(storageKey);
       }
-      for (const key of getRecoverableSessionStorageKeys(project.sessionId)) {
+      for (const key of getRecoverableSessionStorageKeys(snapshot.sessionId)) {
         removeLocalStorage(key);
       }
-      void requestPersistentStorage();
-      return true;
     }
+    void requestPersistentStorage();
+    return true;
   }
 
+  if ((readLocalStorageProject(snapshot.sessionId)?.persistedAt ?? 0) > snapshot.persistedAt!) return true;
   if (writeLocalStorage(storageKey, JSON.stringify(snapshot))) {
-    removeLocalStorage(getShaderSliderCacheKey(project.sessionId));
+    removeLocalStorage(getShaderSliderCacheKey(snapshot.sessionId));
     return true;
   }
 
   reclaimRecoverableLocalStorage();
-  const fallbackSnapshot = createEmergencyProjectSnapshot(project);
-  if (writeLocalStorage(storageKey, JSON.stringify(fallbackSnapshot))) {
-    console.warn(
-      'Project snapshot exceeded localStorage quota. Saved a compact fallback snapshot instead.',
-    );
-    return true;
-  }
-
   console.warn('Unable to persist project document.');
   return false;
 }
 
 export function loadProjectLibrary(): ProjectLibraryEntry[] {
-  const raw = localStorage.getItem(PROJECT_LIBRARY_STORAGE_KEY);
+  const raw = readLocalStorage(PROJECT_LIBRARY_STORAGE_KEY);
   if (!raw) {
     return BUNDLED_PROJECT_LIBRARY_ENTRIES;
   }
@@ -510,7 +513,11 @@ export function loadProjectLibrary(): ProjectLibraryEntry[] {
       )
       .filter((entry) => !isBundledProjectSessionId(entry.sessionId))
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-    return [...BUNDLED_PROJECT_LIBRARY_ENTRIES, ...persistedEntries];
+    return [
+      ...persistedEntries,
+      ...BUNDLED_PROJECT_LIBRARY_ENTRIES.filter((template) =>
+        !persistedEntries.some((entry) => entry.sourceTemplateId === template.sessionId)),
+    ];
   } catch (error) {
     console.warn('Unable to parse project library.', error);
     return BUNDLED_PROJECT_LIBRARY_ENTRIES;
@@ -541,13 +548,14 @@ export function saveProjectToLibrary(
     name: trimmedName,
     createdAt: existingEntry?.createdAt ?? now,
     updatedAt: now,
+    sourceTemplateId: project.sourceTemplateId,
   };
   const nextEntries = [
     nextEntry,
     ...currentEntries.filter((entry) => entry.sessionId !== project.sessionId),
   ];
   saveProjectLibrary(nextEntries);
-  return nextEntries;
+  return loadProjectLibrary();
 }
 
 export function removeProjectFromLibrary(sessionId: string): ProjectLibraryEntry[] {
@@ -678,6 +686,7 @@ function openDatabase(): Promise<IDBDatabase | null> {
 
   cachedDbPromise = new Promise((resolve) => {
     const request = indexedDB.open(ASSET_DB_NAME, ASSET_DB_VERSION);
+    let abandoned = false;
 
     request.onupgradeneeded = () => {
       const database = request.result;
@@ -689,10 +698,23 @@ function openDatabase(): Promise<IDBDatabase | null> {
       }
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      if (abandoned) { request.result.close(); return; }
+      request.result.onversionchange = () => {
+        request.result.close();
+        cachedDbPromise = null;
+      };
+      resolve(request.result);
+    };
+    request.onblocked = () => {
+      abandoned = true;
+      cachedDbPromise = null;
+      resolve(null);
+    };
     request.onerror = () => {
       console.warn('Unable to open IndexedDB, blob persistence is disabled.', request.error);
       resolve(null);
+      cachedDbPromise = null;
     };
   });
 
@@ -724,6 +746,7 @@ async function withStore(
         console.warn('IndexedDB transaction failed.', transaction.error);
         resolve(false);
       };
+      transaction.onabort = () => resolve(false);
     } catch (error) {
       console.warn('IndexedDB transaction failed.', error);
       resolve(false);

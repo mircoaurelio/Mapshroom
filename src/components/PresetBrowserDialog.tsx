@@ -1,3 +1,4 @@
+import { deduplicatePreviewCompile, waitForPreviewProgram } from '../lib/previewCompilation';
 import {
   useEffect,
   useRef,
@@ -509,7 +510,11 @@ function getPreviewRenderer(rendererRef: MutableRefObject<PreviewRenderer | null
   return rendererRef.current;
 }
 
-function getPreviewProgram(renderer: PreviewRenderer, shaderCode: string): PreviewProgram | null {
+function getPreviewProgram(renderer: PreviewRenderer, shaderCode: string) {
+  return deduplicatePreviewCompile(renderer, shaderCode, () => compilePreviewProgram(renderer, shaderCode));
+}
+
+async function compilePreviewProgram(renderer: PreviewRenderer, shaderCode: string): Promise<PreviewProgram | null> {
   const cachedProgram = renderer.programCache.get(shaderCode);
   if (cachedProgram) {
     renderer.programCache.delete(shaderCode);
@@ -525,10 +530,6 @@ function getPreviewProgram(renderer: PreviewRenderer, shaderCode: string): Previ
 
   gl.shaderSource(fragmentShader, buildFragmentShaderSource(shaderCode));
   gl.compileShader(fragmentShader);
-  if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-    gl.deleteShader(fragmentShader);
-    return null;
-  }
 
   const program = gl.createProgram();
   if (!program) {
@@ -539,8 +540,9 @@ function getPreviewProgram(renderer: PreviewRenderer, shaderCode: string): Previ
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);
   gl.linkProgram(program);
-  const positionLocation = gl.getAttribLocation(program, 'a_position');
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS) || positionLocation === -1) {
+  const linked = await waitForPreviewProgram(gl, program);
+  const positionLocation = linked ? gl.getAttribLocation(program, 'a_position') : -1;
+  if (!linked || positionLocation === -1) {
     gl.deleteProgram(program);
     gl.deleteShader(fragmentShader);
     return null;
@@ -564,12 +566,14 @@ function getPreviewProgram(renderer: PreviewRenderer, shaderCode: string): Previ
   return bundle;
 }
 
-function renderPreviewToCanvas(
+async function renderPreviewToCanvas(
   shaderCode: string,
   uniformValues: ShaderUniformValueMap | undefined,
   image: HTMLCanvasElement,
   rendererRef: MutableRefObject<PreviewRenderer | null>,
   timeSeconds = 1,
+  snapshot = true,
+  stillActive?: () => boolean,
 ) {
   const renderer = getPreviewRenderer(rendererRef);
   if (!renderer) {
@@ -582,16 +586,18 @@ function renderPreviewToCanvas(
     imageAspect >= 1 ? PREVIEW_RENDER_MAX_EDGE : Math.max(1, Math.round(PREVIEW_RENDER_MAX_EDGE * imageAspect));
   const renderHeight =
     imageAspect >= 1 ? Math.max(1, Math.round(PREVIEW_RENDER_MAX_EDGE / imageAspect)) : PREVIEW_RENDER_MAX_EDGE;
-  if (renderCanvas.width !== renderWidth || renderCanvas.height !== renderHeight) {
-    renderCanvas.width = renderWidth;
-    renderCanvas.height = renderHeight;
-  }
-
-  const previewProgram = getPreviewProgram(renderer, shaderCode);
+  const previewProgram = await getPreviewProgram(renderer, shaderCode);
+  if (stillActive && !stillActive()) return null;
   if (!previewProgram) {
     return createPreviewMessageDataUrl('Shader error');
   }
   const { program, positionLocation: posLoc } = previewProgram;
+
+  // Another thumbnail may finish compiling while this request is suspended.
+  if (renderCanvas.width !== renderWidth || renderCanvas.height !== renderHeight) {
+    renderCanvas.width = renderWidth;
+    renderCanvas.height = renderHeight;
+  }
 
   gl.viewport(0, 0, renderCanvas.width, renderCanvas.height);
   gl.clearColor(0, 0, 0, 1);
@@ -632,7 +638,7 @@ function renderPreviewToCanvas(
   }
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
-  const previewSrc = renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
+  const previewSrc = snapshot ? renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY) : renderCanvas;
 
   gl.disableVertexAttribArray(posLoc);
   return previewSrc;
@@ -652,6 +658,7 @@ function PreviewCard({
   onPreviewStart,
   onPreviewEnd,
   onSelect,
+  animationActive,
 }: {
   preset: SavedShader;
   displayGroup: string;
@@ -661,16 +668,19 @@ function PreviewCard({
   previewSrc: string | null;
   isFavorite: boolean;
   onRequestPreview: () => void;
-  onRenderAnimatedPreview: (timeSeconds: number) => string | null;
+  onRenderAnimatedPreview: (timeSeconds: number) => Promise<HTMLCanvasElement | string | null>;
   onToggleFavorite: () => void;
   onPreviewStart: () => void;
   onPreviewEnd: () => void;
   onSelect: () => void;
+  animationActive: boolean;
 }) {
   const cardRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const [animatedPreviewSrc, setAnimatedPreviewSrc] = useState<string | null>(null);
+  const animatedHostRef = useRef<HTMLDivElement | null>(null);
+  const renderAnimatedRef = useRef(onRenderAnimatedPreview);
+  useEffect(() => { renderAnimatedRef.current = onRenderAnimatedPreview; }, [onRenderAnimatedPreview]);
 
   useEffect(() => {
     if (isVisible || !cardRef.current) {
@@ -700,29 +710,38 @@ function PreviewCard({
   }, [image, isVisible, onRequestPreview, previewSrc]);
 
   useEffect(() => {
-    if (!isPreviewing || !image) {
+    if (!isPreviewing || !animationActive || !image) {
       return;
     }
 
     let frameId: number | null = null;
     let lastFrameMs = 0;
-    const renderAnimatedFrame = (timestampMs: number) => {
+    const animatedHost = animatedHostRef.current;
+    let disposed = false;
+    const renderAnimatedFrame = async (timestampMs: number) => {
       if (timestampMs - lastFrameMs > 140) {
         lastFrameMs = timestampMs;
-        setAnimatedPreviewSrc(onRenderAnimatedPreview(timestampMs / 1000));
+        const canvas = await renderAnimatedRef.current(timestampMs / 1000);
+        if (disposed) return;
+        if (canvas instanceof HTMLCanvasElement && animatedHost) {
+          canvas.className = 'preset-preview-image';
+          if (canvas.parentElement !== animatedHost) animatedHost.replaceChildren(canvas);
+        }
       }
-      frameId = requestAnimationFrame(renderAnimatedFrame);
+      if (!disposed) frameId = requestAnimationFrame(renderAnimatedFrame);
     };
 
     frameId = requestAnimationFrame(renderAnimatedFrame);
     return () => {
+      disposed = true;
+      animatedHost?.replaceChildren();
       if (frameId !== null) {
         cancelAnimationFrame(frameId);
       }
     };
-  }, [image, isPreviewing, onRenderAnimatedPreview]);
+  }, [image, isPreviewing, animationActive]);
 
-  const visiblePreviewSrc = animatedPreviewSrc ?? previewSrc;
+  const visiblePreviewSrc = previewSrc;
   const handlePreviewStart = () => {
     setIsPreviewing(true);
     onPreviewStart();
@@ -753,7 +772,8 @@ function PreviewCard({
       onKeyDown={handleKeyDown}
       onClick={onSelect}
     >
-      <div className="preset-preview-shell">
+      <div className="preset-preview-shell" style={{ position: 'relative' }}>
+        {isPreviewing && animationActive ? <div ref={animatedHostRef} style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} /> : null}
         {isVisible && image && visiblePreviewSrc ? (
           <img
             className="preset-preview-image"
@@ -854,6 +874,11 @@ export function PresetBrowserDialog({
     loadFavoritePresetIds(),
   );
   const previewRendererRef = useRef<PreviewRenderer | null>(null);
+  // One separate canvas for the hovered card; static thumbnail jobs cannot
+  // overwrite its image. It is reused across cards and released on close.
+  const animatedRendererRef = useRef<PreviewRenderer | null>(null);
+  const [animatedPresetId, setAnimatedPresetId] = useState<string | null>(null);
+  const animatedPresetIdRef = useRef<string | null>(null);
   const previewSourceRef = useRef<Record<string, string>>({});
   const previewRequestsRef = useRef(new Set<string>());
   const previewRequestGenerationRef = useRef(0);
@@ -864,8 +889,11 @@ export function PresetBrowserDialog({
     }
 
     previewRequestGenerationRef.current += 1;
+    animatedPresetIdRef.current = null;
     previewRequestsRef.current.clear();
     destroyPreviewRenderer(previewRendererRef.current);
+    destroyPreviewRenderer(animatedRendererRef.current);
+    animatedRendererRef.current = null;
     previewRendererRef.current = null;
     setQuery('');
     setIsSearchOpen(false);
@@ -876,6 +904,8 @@ export function PresetBrowserDialog({
       previewRequestGenerationRef.current += 1;
       previewRequestsRef.current.clear();
       destroyPreviewRenderer(previewRendererRef.current);
+      destroyPreviewRenderer(animatedRendererRef.current);
+      animatedRendererRef.current = null;
       previewRendererRef.current = null;
     },
     [],
@@ -955,17 +985,18 @@ export function PresetBrowserDialog({
 
     previewRequestsRef.current.add(previewKey);
     const requestGeneration = previewRequestGenerationRef.current;
-    const renderPreview = () => {
+    const renderPreview = async () => {
       if (requestGeneration !== previewRequestGenerationRef.current) {
         return;
       }
 
-      const previewSrc = renderPreviewToCanvas(
+      const previewSrc = await renderPreviewToCanvas(
         renderCode,
         renderUniformValues,
         image,
         previewRendererRef,
       );
+      if (requestGeneration !== previewRequestGenerationRef.current || typeof previewSrc !== 'string') return;
       previewRequestsRef.current.delete(previewKey);
 
       previewSourceRef.current = {
@@ -998,7 +1029,7 @@ export function PresetBrowserDialog({
 
     window.setTimeout(renderPreview, 0);
   };
-  const renderAnimatedPreview = (preset: SavedShader, timeSeconds: number) => {
+  const renderAnimatedPreview = async (preset: SavedShader, timeSeconds: number) => {
     if (!image) {
       return null;
     }
@@ -1007,8 +1038,10 @@ export function PresetBrowserDialog({
       getRenderableShaderCode(preset),
       getRenderableShaderUniformValues(preset),
       image,
-      previewRendererRef,
+      animatedRendererRef,
       timeSeconds,
+      false,
+      () => animatedPresetIdRef.current === preset.id,
     );
   };
   const toggleFavoritePreset = (presetId: string) => {
@@ -1098,8 +1131,19 @@ export function PresetBrowserDialog({
         renderAnimatedPreview(preset, timeSeconds)
       }
       onToggleFavorite={() => toggleFavoritePreset(preset.id)}
-      onPreviewStart={() => onPreviewStart?.(preset.id)}
-      onPreviewEnd={() => onPreviewEnd?.(preset.id)}
+      animationActive={animatedPresetId === preset.id}
+      onPreviewStart={() => {
+        animatedPresetIdRef.current = preset.id;
+        setAnimatedPresetId(preset.id);
+        onPreviewStart?.(preset.id);
+      }}
+      onPreviewEnd={() => {
+        if (animatedPresetIdRef.current === preset.id) {
+          animatedPresetIdRef.current = null;
+          setAnimatedPresetId(null);
+        }
+        onPreviewEnd?.(preset.id);
+      }}
       onSelect={() => setPendingId(preset.id)}
     />
   );

@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-d
 import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner';
 import { BootScreenController } from './components/BootScreenController';
 import { initAnalytics } from './lib/analytics';
+import { canonicalWorkspaceUrl } from './lib/renderRuntimeOptions';
 
 // Route-level code splitting keeps the initial download small; the heavy
 // preset library and workspace UI load once the target route is known.
@@ -77,7 +78,7 @@ function CanonicalRouteUrl() {
     window.history.replaceState(
       window.history.state,
       '',
-      `${pathname}${hash}`,
+      canonicalWorkspaceUrl(pathname, location.pathname, location.search, window.location.search),
     );
   }, [location.pathname, location.search]);
 

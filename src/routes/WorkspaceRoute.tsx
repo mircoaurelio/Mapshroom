@@ -219,7 +219,10 @@ import {
   saveProjectToLibrary,
   saveProjectDocument,
   saveUiPreferences,
+  checkpointProjectDocument,
+  openEditableProject,
 } from '../lib/storage';
+import { createProjectAutosave, type ProjectSaveStatus } from '../lib/projectAutosave';
 import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
 import {
   dismissAssetsFirstStepPermanently,
@@ -269,12 +272,6 @@ import type {
   UiPreferences,
   WorkspaceMode,
 } from '../types';
-
-function confirmReplaceCurrentWorkspace(actionLabel: string): boolean {
-  return window.confirm(
-    `${actionLabel} This replaces the current workspace. Save a file first if you want to keep this work.`,
-  );
-}
 
 function hasConfiguredShaderAi(settings: AiSettings): boolean {
   if (settings.shaderRuntime === 'local') {
@@ -2856,14 +2853,27 @@ export function WorkspaceRoute() {
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const liveUniformSyncRef = useRef<ReturnType<typeof createLiveUniformSync> | null>(null);
   const syncedProjectAutosaveRef = useRef<ProjectDocument | null>(null);
-  const autosaveBlockedSessionRef = useRef<string | null>(null);
-  const emergencyBackupDownloadedRef = useRef<string | null>(null);
   const midiOutputSyncRef = useRef<ReturnType<typeof createMidiOutputSync> | null>(null);
   const uniformCommitPendingRef = useRef(false);
   const pendingUniformValuesRef = useRef<ShaderUniformValueMap>({});
   const pendingUniformShaderIdRef = useRef<string | null>(null);
   const uniformUpdateFrameRef = useRef<number | null>(null);
   const [project, setProject] = useState<ProjectDocument | null>(null);
+  const currentProjectRef = useRef<ProjectDocument | null>(null);
+  const persistenceDisabledRef = useRef(false);
+  const [projectSaveStatus, setProjectSaveStatus] = useState<ProjectSaveStatus>('saving');
+  const [autosave] = useState(() => createProjectAutosave<ProjectDocument>({
+    save: saveProjectDocument,
+    onSaved: (savedProject) => {
+      saveProjectToLibrary(savedProject, savedProject.name);
+      if (currentProjectRef.current?.sessionId === savedProject.sessionId) {
+        sessionSyncRef.current?.publish(savedProject);
+      }
+    },
+    onStatus: (sessionId, status) => {
+      if (currentProjectRef.current?.sessionId === sessionId) setProjectSaveStatus(status);
+    },
+  }));
   const audioReactivity = useAudioReactivity(project?.sessionId ?? null, {
     sectionDetectionEnabled:
       project?.timeline.stub.shaderSequence.mode === 'audioReactive',
@@ -2924,7 +2934,6 @@ export function WorkspaceRoute() {
   const [surfaceAssetId, setSurfaceAssetId] = useState<string | null>(null);
   const [surfaceInitialOptions, setSurfaceInitialOptions] = useState<SurfaceEditorInitialOptions>({});
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
-  const [needsFileSave, setNeedsFileSave] = useState(true);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isSliceStudioDialogOpen, setIsSliceStudioDialogOpen] = useState(false);
@@ -3026,7 +3035,6 @@ export function WorkspaceRoute() {
   }, [project]);
 
   const updateProject = useCallback((updater: (currentProject: ProjectDocument) => ProjectDocument) => {
-    setNeedsFileSave(true);
     setProject((currentProject) => {
       if (!currentProject) {
         return currentProject;
@@ -3240,7 +3248,7 @@ export function WorkspaceRoute() {
       const hashQuery = window.location.hash.split('?')[1] ?? '';
       const requestedProjectSessionId = new URLSearchParams(hashQuery).get('project')?.trim() ?? '';
       const requestedProject = requestedProjectSessionId
-        ? await loadProjectDocument(requestedProjectSessionId)
+        ? await openEditableProject(requestedProjectSessionId)
         : null;
       try {
         const shaderApplyLink = parseShaderApplyLink(window.location.href);
@@ -3258,7 +3266,7 @@ export function WorkspaceRoute() {
       const loadedProject =
         linkedProject ??
         requestedProject ??
-        await loadProjectDocument(sessionId);
+        await openEditableProject(sessionId);
       const libraryEntry = loadProjectLibrary().find(
         (entry) => entry.sessionId === sessionId && !entry.bundled,
       );
@@ -3282,17 +3290,20 @@ export function WorkspaceRoute() {
         return;
       }
 
-      const nextProject =
+      let nextProject =
         loadedProject ??
         createDefaultProject(sessionId, { isMobile: initialIsMobileRef.current });
-      persistActiveSessionId(sessionId);
+      if (isBundledProjectSessionId(nextProject.sessionId)) {
+        nextProject = await openEditableProject(nextProject.sessionId) ?? nextProject;
+      }
+      persistActiveSessionId(nextProject.sessionId);
       if (!isBundledProjectSessionId(nextProject.sessionId)) {
-        if (!loadedProject) {
+        if (!loadedProject || nextProject.sourceTemplateId) {
           await saveProjectDocument(nextProject);
         }
         saveProjectToLibrary(nextProject, nextProject.name);
       }
-      const sliderCache = loadShaderSliderCache(sessionId);
+      const sliderCache = loadShaderSliderCache(nextProject.sessionId);
       setProject(
         activateTimelineOnAppEntry(
           applyPersistedSliderCache(normalizeProject(nextProject), sliderCache),
@@ -3531,6 +3542,8 @@ export function WorkspaceRoute() {
         if (!currentProject || currentProject.sessionId !== incomingProject.sessionId) {
           return currentProject;
         }
+        // An incoming tab must not replace edits that are still being saved here.
+        if (autosave.hasPending(currentProject.sessionId)) return currentProject;
         // The sender already persisted and broadcast this state. Remember the
         // exact receiving render so two open workspaces cannot echo the same
         // project back and forth. A local update batched after this one creates
@@ -3551,7 +3564,7 @@ export function WorkspaceRoute() {
       midiOutputSyncRef.current?.destroy();
       midiOutputSyncRef.current = null;
     };
-  }, [activeSessionId]);
+  }, [activeSessionId, autosave]);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -3559,44 +3572,73 @@ export function WorkspaceRoute() {
     }
   }, [activeSessionId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    currentProjectRef.current = project;
     if (!project) {
       return;
     }
 
     if (syncedProjectAutosaveRef.current === project) {
       syncedProjectAutosaveRef.current = null;
+      setProjectSaveStatus('saved');
       return;
     }
+    autosave.schedule(project);
+  }, [project, autosave]);
 
-    if (autosaveBlockedSessionRef.current === project.sessionId) {
-      return;
+  const captureCurrentProject = useCallback(() => {
+    const current = currentProjectRef.current;
+    if (!current || !uniformCommitPendingRef.current) return current;
+    if (pendingUniformShaderIdRef.current && pendingUniformShaderIdRef.current !== current.studio.activeShaderId) return current;
+    // Include the last slider event even if its animation frame has not run yet.
+    return applyActiveShaderUniformValues(current, {
+      ...current.studio.uniformValues,
+      ...pendingUniformValuesRef.current,
+    }, true);
+  }, []);
+
+  const flushCurrentProject = useCallback(async () => {
+    const current = captureCurrentProject();
+    if (current && current !== currentProjectRef.current) autosave.schedule(current);
+    const saved = await autosave.flush();
+    if (!saved) {
+      setStatusMessage('Could not save your latest changes. Keep this project open and retry when browser storage is available.');
     }
+    return saved;
+  }, [autosave, captureCurrentProject]);
 
-    const timeoutId = window.setTimeout(() => {
-      sessionSyncRef.current?.publish(project);
-      if (isBundledProjectSessionId(project.sessionId)) {
-        return;
+  useEffect(() => {
+    autosave.start();
+    const checkpoint = () => {
+      if (persistenceDisabledRef.current) return;
+      const current = captureCurrentProject();
+      if (current && current !== currentProjectRef.current) autosave.schedule(current);
+      if (current && autosave.hasPending(current.sessionId)) checkpointProjectDocument(current);
+      void autosave.flush();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') checkpoint();
+    };
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (persistenceDisabledRef.current) return;
+      const pending = autosave.hasPending() || uniformCommitPendingRef.current;
+      checkpoint();
+      if (pending) {
+        event.preventDefault();
+        event.returnValue = '';
       }
-      void saveProjectDocument(project).then((saved) => {
-        if (saved) {
-          autosaveBlockedSessionRef.current = null;
-          saveProjectToLibrary(project, project.name);
-          return;
-        }
-        autosaveBlockedSessionRef.current = project.sessionId;
-        if (emergencyBackupDownloadedRef.current !== project.sessionId) {
-          emergencyBackupDownloadedRef.current = project.sessionId;
-          downloadProjectBackup(project);
-        }
-        setStatusMessage(
-          'Browser storage is full. A backup JSON was downloaded. Delete unused saved projects and keep this tab open.',
-        );
-      });
-    }, 350);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [project]);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', checkpoint);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', checkpoint);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      autosave.stop();
+      checkpoint();
+    };
+  }, [autosave, captureCurrentProject]);
 
   useEffect(() => {
     saveUiPreferences(uiPreferences);
@@ -3621,6 +3663,7 @@ export function WorkspaceRoute() {
     if (!project) {
       return;
     }
+    if (!(await flushCurrentProject())) return;
 
     const trimmedName = name.trim() || 'Untitled Project';
     if (isBundledProjectSessionId(project.sessionId)) {
@@ -3638,7 +3681,7 @@ export function WorkspaceRoute() {
       }
       setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
       persistActiveSessionId(nextProject.sessionId);
-      setStatusMessage(`Saved "${trimmedName}" in this browser. Also save a file if you want a copy you can reload.`);
+      setStatusMessage(`Saved "${trimmedName}" locally. Further changes save automatically.`);
       setIsProjectDialogOpen(false);
       trackUiClick('save_project', { mode: 'from_bundled' });
       return;
@@ -3656,20 +3699,22 @@ export function WorkspaceRoute() {
     }
     setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
     persistActiveSessionId(nextProject.sessionId);
-    setStatusMessage(`Saved project "${trimmedName}" in this browser. Also save a file if you want a copy you can reload.`);
+    setStatusMessage(`Renamed project to "${trimmedName}". Changes save automatically.`);
     setIsProjectDialogOpen(false);
     trackUiClick('save_project');
-  }, [project]);
+  }, [project, flushCurrentProject]);
 
   const handleSaveAsNewProject = useCallback(async (name: string) => {
     if (!project) {
       return;
     }
+    if (!(await flushCurrentProject())) return;
 
     const trimmedName = name.trim() || `${project.name || 'Untitled Project'} Copy`;
     const nextProject = normalizeProject({
       ...project,
       sessionId: crypto.randomUUID(),
+      sourceTemplateId: undefined,
       name: trimmedName,
     });
 
@@ -3680,15 +3725,13 @@ export function WorkspaceRoute() {
     }
     setSavedProjects(saveProjectToLibrary(nextProject, trimmedName));
     persistActiveSessionId(nextProject.sessionId);
-    setStatusMessage(`Saved "${trimmedName}" in this browser. Also save a file if you want a copy you can reload.`);
+    setStatusMessage(`Created "${trimmedName}" as a separate project. Changes save automatically.`);
     setIsProjectDialogOpen(false);
     trackUiClick('save_project_as');
-  }, [project]);
+  }, [project, flushCurrentProject]);
 
-  const handleCreateNewProject = useCallback(() => {
-    if (!confirmReplaceCurrentWorkspace('Create a new random starter?')) {
-      return;
-    }
+  const handleCreateNewProject = useCallback(async () => {
+    if (!(await flushCurrentProject())) return;
 
     const nextSessionId = crypto.randomUUID();
     const nextProject = normalizeProject(createDefaultProject(nextSessionId, { isMobile }));
@@ -3701,15 +3744,12 @@ export function WorkspaceRoute() {
     setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
-    setStatusMessage('Created a new project. Save a file to keep it.');
-    setNeedsFileSave(true);
+    setStatusMessage('Created a new project. Changes save automatically in this browser.');
     trackUiClick('create_project');
-  }, [isMobile]);
+  }, [isMobile, flushCurrentProject]);
 
-  const handleCreateEmptyProject = useCallback(() => {
-    if (!confirmReplaceCurrentWorkspace('Create a new empty project?')) {
-      return;
-    }
+  const handleCreateEmptyProject = useCallback(async () => {
+    if (!(await flushCurrentProject())) return;
 
     const nextSessionId = crypto.randomUUID();
     const nextProject = normalizeProject(createEmptyProject(nextSessionId, { isMobile }));
@@ -3722,24 +3762,18 @@ export function WorkspaceRoute() {
     setStudioPreviewOverride(false);
     clearGeneratedShaderRetry();
     setCompilerError('');
-    setStatusMessage('Created a new empty project with a white canvas. Save a file to keep it.');
-    setNeedsFileSave(true);
+    setStatusMessage('Created an empty project. Changes save automatically in this browser.');
     trackUiClick('create_empty_project');
-  }, [isMobile]);
+  }, [isMobile, flushCurrentProject]);
 
   const handleOpenSavedProject = useCallback(async (sessionId: string) => {
-    if (project && sessionId !== project.sessionId) {
-      const openingStarter = isBundledProjectSessionId(sessionId);
-      if (
-        !confirmReplaceCurrentWorkspace(
-          openingStarter ? 'Open this starter template?' : 'Open this browser copy?',
-        )
-      ) {
-        return;
-      }
+    if (!(await flushCurrentProject())) return;
+    if (sessionId === project?.sessionId) {
+      setIsProjectDialogOpen(false);
+      return;
     }
 
-    const loadedProject = await loadProjectDocument(sessionId);
+    const loadedProject = await openEditableProject(sessionId);
     if (!loadedProject) {
       setStatusMessage(
         'That project is no longer in this browser. It was not deleted. Save files going forward, or keep this card until you export it.',
@@ -3747,22 +3781,19 @@ export function WorkspaceRoute() {
       return;
     }
 
-    const sliderCache = loadShaderSliderCache(sessionId);
+    const sliderCache = loadShaderSliderCache(loadedProject.sessionId);
     const normalizedProject = applyPersistedSliderCache(
       normalizeProject(loadedProject),
       sliderCache,
     );
     setProject(normalizedProject);
-    persistActiveSessionId(sessionId);
-    setNeedsFileSave(true);
+    persistActiveSessionId(normalizedProject.sessionId);
     setIsProjectDialogOpen(false);
     setStatusMessage(
-      isBundledProjectSessionId(sessionId)
-        ? `Opened starter "${normalizedProject.name}". Save a file if you edit it.`
-        : `Opened "${normalizedProject.name}" from this browser. Save a file to keep a copy you can reload.`,
+      `Opened "${normalizedProject.name}". Changes save automatically in this browser.`,
     );
     trackUiClick('open_saved_project');
-  }, [project]);
+  }, [project, flushCurrentProject]);
 
   const handleDeleteSavedProject = useCallback(async (sessionId: string) => {
     const entry = savedProjects.find((candidate) => candidate.sessionId === sessionId);
@@ -3778,29 +3809,25 @@ export function WorkspaceRoute() {
     }
 
     setSavedProjects(await deletePersistedProject(sessionId));
-    autosaveBlockedSessionRef.current = null;
+    void autosave.flush();
     setStatusMessage(`Deleted "${entry.name}" from this browser. A file copy was not removed.`);
     trackUiClick('delete_project');
-  }, [project?.sessionId, savedProjects]);
+  }, [project?.sessionId, savedProjects, autosave]);
 
   const handleSaveProjectFile = useCallback(() => {
     if (!project) {
       return;
     }
     downloadProjectBackup(project);
-    setNeedsFileSave(false);
     setStatusMessage(
-      `Saved "${project.name}" as a JSON file. Keep that file — the browser copy can disappear.`,
+      `Exported "${project.name}" as JSON. Uploaded media stay in this browser and are not included in this file.`,
     );
     trackUiClick('save_project_file');
   }, [project]);
 
   const handleOpenProjectFilePicker = useCallback(() => {
-    if (project && !confirmReplaceCurrentWorkspace('Open a project file?')) {
-      return;
-    }
     projectFileInputRef.current?.click();
-  }, [project]);
+  }, []);
 
   const handleProjectFileSelection = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -3822,6 +3849,7 @@ export function WorkspaceRoute() {
       setStatusMessage('That file is not a Mapshroom project backup.');
       return;
     }
+    if (!(await flushCurrentProject())) return;
 
     const nextSessionId = isBundledProjectSessionId(importedProject.sessionId)
       ? crypto.randomUUID()
@@ -3835,14 +3863,14 @@ export function WorkspaceRoute() {
 
     if (!(await saveProjectDocument(nextProject))) {
       setStatusMessage(
-        `Opened "${nextProject.name}" in memory, but browser storage is full. Keep the file — do not close this tab until you can save again.`,
+        `Could not save "${nextProject.name}" locally. Keep the file and retry when browser storage is available.`,
       );
+      return;
     } else {
       setSavedProjects(saveProjectToLibrary(nextProject, nextProject.name));
     }
     persistActiveSessionId(nextProject.sessionId);
     setProject(nextProject);
-    setNeedsFileSave(false);
     setIsProjectDialogOpen(false);
     setEditingTimelineStepId(null);
     setPreviewShaderId(null);
@@ -3851,19 +3879,7 @@ export function WorkspaceRoute() {
     setCompilerError('');
     setStatusMessage(`Loaded "${nextProject.name}" from file.`);
     trackUiClick('open_project_file');
-  }, []);
-
-  useEffect(() => {
-    if (!needsFileSave) {
-      return;
-    }
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [needsFileSave]);
+  }, [flushCurrentProject]);
 
   const handleGenerateShareLink = useCallback(async () => {
     if (!project) {
@@ -4420,7 +4436,7 @@ export function WorkspaceRoute() {
 
     if (!uploadedAssets.length) {
       const message = failedStorageCount
-          ? 'Browser storage is full, so the images were not added. The current project was left unchanged. Save a file, then retry with fewer or smaller images.'
+          ? 'The images could not be stored in this browser. Free some space, then retry with fewer or smaller images.'
           : 'No supported assets were added.';
       setStatusMessage(message);
       setImageImportMessage(message);
@@ -7505,10 +7521,17 @@ ${errorSnapshot}`,
       setOutputWindowOpen(false);
       sessionSyncRef.current?.destroy();
       midiOutputSyncRef.current?.destroy();
+      persistenceDisabledRef.current = true;
+      autosave.stop();
+      await autosave.flush();
+      currentProjectRef.current = null;
       await clearPersistedSiteData();
       window.location.reload();
     } catch (error) {
       console.warn('Unable to clear local site data.', error);
+      persistenceDisabledRef.current = false;
+      currentProjectRef.current = project;
+      autosave.start();
       setIsClearingLocalData(false);
       setStatusMessage('Unable to clear local data.');
     }
@@ -9054,6 +9077,10 @@ ${errorSnapshot}`,
       <div className="sr-only" aria-live="polite">
         {statusMessage}
       </div>
+      {projectSaveStatus === 'error' && <div className="project-save-error" role="alert">
+        Your latest changes could not be saved. Keep this project open; saving will retry automatically.
+        <button type="button" className="secondary-button" onClick={() => void flushCurrentProject()}>Retry saving</button>
+      </div>}
       {imageImportMessage && !isAssetLibraryOpen ? (
         <div className="image-import-notice" role="status">
           <span>{imageImportMessage}</span>
@@ -9115,6 +9142,7 @@ ${errorSnapshot}`,
 
       {!isMobile && uiPreferences.chromeVisible ? (
         <WorkspaceToolbar
+          saveStatus={projectSaveStatus}
           isPlaying={project.playback.transport.isPlaying}
           workspaceMode={uiPreferences.workspaceMode}
           sidebarVisible={uiPreferences.sidebarVisible}
@@ -9392,6 +9420,7 @@ ${errorSnapshot}`,
 
       {isMobile && mobileChromeVisible ? (
         <MobileChrome
+          saveStatus={projectSaveStatus}
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
           isTimelineOpen={isMobileTimelineOpen}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}
@@ -9528,7 +9557,8 @@ ${errorSnapshot}`,
         currentProjectName={project.name}
         activeSessionId={project.sessionId}
         savedProjects={savedProjects}
-        needsFileSave={needsFileSave}
+        saveStatus={projectSaveStatus}
+        onRetrySave={() => void flushCurrentProject()}
         onClose={() => setIsProjectDialogOpen(false)}
         onSaveProject={handleSaveProject}
         onSaveAsNewProject={handleSaveAsNewProject}

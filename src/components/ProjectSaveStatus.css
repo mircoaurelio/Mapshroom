@@ -1,0 +1,24 @@
+.project-save-status {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+.project-save-status-saved { color: var(--text-bright); }
+.project-save-status-error { color: #ff9b8e; }
+.project-save-error {
+  position: fixed;
+  bottom: calc(12px + var(--safe-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  width: min(500px, calc(100vw - 24px));
+  padding: 12px;
+  border: 1px solid #ff9b8e;
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text-bright);
+}

@@ -384,6 +384,7 @@ interface TimelineStageRendererProps {
   };
   preferActiveShaderCompilePreview?: boolean;
   isOutputOnly?: boolean;
+  adaptiveQuality?: boolean;
   showGrid?: boolean;
   onDistortionChange?: (distortion: StageDistortion) => void;
   onPinnedIndicatorClick?: () => void;
@@ -419,6 +420,7 @@ export function TimelineStageRenderer({
   midiManualMix,
   preferActiveShaderCompilePreview = false,
   isOutputOnly,
+  adaptiveQuality,
   showGrid = false,
   onDistortionChange,
   onPinnedIndicatorClick,
@@ -2450,6 +2452,7 @@ export function TimelineStageRenderer({
       stageTransform={stageTransform}
       transport={transport}
       isOutputOnly={isOutputOnly}
+      adaptiveQuality={adaptiveQuality}
       showGrid={showGrid}
       onDistortionChange={onDistortionChange}
       personalPreviewActive={workspacePersonalPreviewActive}
