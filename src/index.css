@@ -112,13 +112,17 @@ input[type='range'] {
   --range-thumb-height: 18px;
   --range-fill: #505054;
   --range-rest: #29292d;
+  --range-hover-background: linear-gradient(var(--range-hover-angle, 90deg),
+    transparent calc(var(--range-hover-position, -10px) - 1px),
+    #d4d4d8 calc(var(--range-hover-position, -10px) - 1px) calc(var(--range-hover-position, -10px) + 1px),
+    transparent calc(var(--range-hover-position, -10px) + 1px));
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
   height: 30px;
   margin: 0;
   background: transparent;
-  cursor: ew-resize;
+  cursor: default;
   touch-action: pan-y;
 }
 
@@ -126,7 +130,7 @@ input[type='range']::-webkit-slider-runnable-track {
   height: var(--range-track-height);
   border: 0;
   border-radius: 2px;
-  background: linear-gradient(90deg,
+  background: var(--range-hover-background), linear-gradient(90deg,
     var(--range-fill) 0 var(--range-fill-position, 0%),
     var(--range-rest) var(--range-fill-position, 0%) 100%);
 }
@@ -139,6 +143,7 @@ input[type='range']::-webkit-slider-thumb {
   border: 0;
   border-radius: 5px;
   background: #96969c;
+  cursor: inherit;
 }
 
 input[type='range']::-moz-range-track {
@@ -146,7 +151,7 @@ input[type='range']::-moz-range-track {
   height: var(--range-track-height);
   border: 0;
   border-radius: 2px;
-  background: linear-gradient(90deg,
+  background: var(--range-hover-background), linear-gradient(90deg,
     var(--range-fill) 0 var(--range-fill-position, 0%),
     var(--range-rest) var(--range-fill-position, 0%) 100%);
 }
@@ -162,6 +167,7 @@ input[type='range']::-moz-range-thumb {
   border: 0;
   border-radius: 5px;
   background: #96969c;
+  cursor: inherit;
 }
 
 input[type='range']:focus-visible {
@@ -172,6 +178,11 @@ input[type='range']:focus-visible {
 input[type='range']:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+/* The hover marker stays clipped to the track, independent of the pointer's Y position. */
+input[type='range'][data-range-hover]:not(:disabled) {
+  cursor: none;
 }
 
 *::-webkit-scrollbar {
@@ -3648,16 +3659,12 @@ a {
   z-index: 2;
 }
 
-.audio-uniform-control-active .audio-uniform-main-range {
-  pointer-events: none;
-}
-
 .audio-uniform-control-active .audio-uniform-main-range::-webkit-slider-runnable-track {
-  background: transparent;
+  background: var(--range-hover-background);
 }
 
 .audio-uniform-control-active .audio-uniform-main-range::-moz-range-track {
-  background: transparent;
+  background: var(--range-hover-background);
 }
 
 .audio-uniform-bound-range {
@@ -3672,22 +3679,22 @@ a {
 
 .audio-uniform-bound-range::-webkit-slider-runnable-track {
   border-color: transparent !important;
-  background: transparent !important;
+  background: var(--range-hover-background) !important;
 }
 
 .audio-uniform-bound-range::-moz-range-track,
 .audio-uniform-bound-range::-moz-range-progress {
   border-color: transparent !important;
-  background: transparent !important;
+  background: var(--range-hover-background) !important;
 }
 
 .audio-uniform-bound-range::-webkit-slider-thumb {
-  cursor: ew-resize;
+  cursor: inherit;
   pointer-events: auto;
 }
 
 .audio-uniform-bound-range::-moz-range-thumb {
-  cursor: ew-resize;
+  cursor: inherit;
   pointer-events: auto;
 }
 
@@ -4041,7 +4048,7 @@ a {
 .color-picker-hue-field input[type='range']::-webkit-slider-runnable-track {
   width: 20px;
   height: 100%;
-  background: linear-gradient(0deg,
+  background: var(--range-hover-background), linear-gradient(0deg,
     var(--range-fill) 0 var(--range-fill-position, 0%),
     var(--range-rest) var(--range-fill-position, 0%) 100%);
 }
@@ -4049,7 +4056,7 @@ a {
 .color-picker-hue-field input[type='range']::-moz-range-track {
   width: 20px;
   height: 100%;
-  background: linear-gradient(0deg,
+  background: var(--range-hover-background), linear-gradient(0deg,
     var(--range-fill) 0 var(--range-fill-position, 0%),
     var(--range-rest) var(--range-fill-position, 0%) 100%);
 }
@@ -15165,4 +15172,15 @@ a.download-link-open-app {
     justify-self: stretch;
     justify-content: flex-end;
   }
+}
+
+.uniform-field-values > small.range-hover-value,
+.audio-reactive-field .uniform-field-values > small.range-hover-value {
+  display: inline;
+  color: #fb923c;
+  text-shadow: none;
+}
+
+.uniform-field-values:has(.range-hover-value) > .audio-uniform-live-value {
+  display: none;
 }
