@@ -240,9 +240,6 @@ function DisabledShaderCard({ shader, stepId, onEnable }: {
             <span>Off</span>
           </span>
         </span>
-        <span className="timeline-step-caption">
-          <strong className="timeline-step-name">{shader?.name ?? 'Shader'}</strong>
-        </span>
       </button>
     </article>
   );
@@ -926,16 +923,9 @@ export function ShaderTimelineEditor({
                 >
                   <span className="timeline-step-preview-shell">
                     <ShaderThumbnail shader={shader} />
-                    {(isPlayingStep || isTransitionStep) && (
+                    {isTransitionStep && (
                       <span className="timeline-step-preview-badges">
-                        {isPlayingStep ? (
-                          <span className="timeline-step-preview-badge timeline-step-preview-badge-active">
-                            Now
-                          </span>
-                        ) : null}
-                        {isTransitionStep ? (
-                          <span className="timeline-step-preview-badge">Next</span>
-                        ) : null}
+                        <span className="timeline-step-preview-badge">Next</span>
                       </span>
                     )}
 

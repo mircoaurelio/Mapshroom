@@ -7372,12 +7372,6 @@ a {
   background: rgba(var(--accent-rgb), 0.06);
 }
 
-.timeline-step-card-current:not(.timeline-step-card-editing) {
-  border-color: rgba(56, 189, 248, 0.55);
-  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.22);
-  background: rgba(56, 189, 248, 0.06);
-}
-
 .timeline-step-card-editing {
   border-color: rgba(239, 68, 68, 0.72);
   box-shadow:
@@ -7387,22 +7381,37 @@ a {
 }
 
 .timeline-flow-node.timeline-flow-node-disabled {
-  flex: 0 0 56px;
-  width: 56px;
-  min-width: 56px;
-  height: auto;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 80px;
   min-height: 0;
   aspect-ratio: auto;
 }
 
+.workspace-pane-timeline .timeline-flow-node.timeline-flow-node-disabled {
+  height: 100%;
+}
+
 .timeline-flow-node-disabled .timeline-step-card-disabled {
   width: 100%;
+  height: 100%;
   min-width: 0;
   max-width: none;
   border-style: dashed;
   border-color: rgba(161, 161, 170, 0.35);
   background: var(--bg-panel);
   box-shadow: none;
+}
+
+.timeline-step-card-disabled .timeline-step-restore {
+  height: 100%;
+  padding: 2px;
+}
+
+.timeline-step-card-disabled .timeline-step-preview-shell {
+  height: 100%;
+  aspect-ratio: auto;
 }
 
 .timeline-step-card-disabled .shader-thumbnail {
@@ -7456,6 +7465,14 @@ a {
 
 .timeline-step-card-transition {
   border-color: rgba(244, 244, 245, 0.14);
+}
+
+.timeline-step-card.timeline-step-card-current {
+  border-color: #38bdf8;
+  box-shadow:
+    inset 0 0 0 2px #38bdf8,
+    0 0 7px rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.12);
 }
 
 .timeline-step-preview-shell {
@@ -7646,11 +7663,6 @@ a {
   white-space: nowrap;
   color: var(--text-bright);
   font: 500 0.65rem/1.5 'IBM Plex Mono', monospace;
-}
-
-.timeline-step-preview-badge-active {
-  border-color: rgba(56, 189, 248, 0.42);
-  color: #e0f2fe;
 }
 
 .timeline-step-preview-badge-error {
@@ -8826,15 +8838,15 @@ a {
   touch-action: manipulation;
 }
 
-.mobile-shader-sequence-card-current {
-  border-color: rgba(var(--accent-rgb),.5);
-  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),.16);
-}
-
 .mobile-shader-sequence-card-editing {
   border-color: rgba(var(--accent-rgb),.68);
   background: rgba(var(--accent-deep-rgb),.28);
   box-shadow: 0 0 18px rgba(var(--accent-rgb),.12);
+}
+
+.mobile-shader-sequence-card-current {
+  border-color: #38bdf8;
+  box-shadow: inset 0 0 0 2px #38bdf8, 0 0 7px rgba(56, 189, 248, 0.45);
 }
 
 .mobile-shader-sequence-arranging .mobile-shader-sequence-card {

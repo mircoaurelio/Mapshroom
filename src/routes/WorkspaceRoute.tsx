@@ -1,6 +1,7 @@
 import { createUniformRuntime } from '../lib/uniformRuntime';
 import { preserveShaderVersion } from '../lib/shaderHistory';
 import { chooseRandomShaderReplacement } from '../lib/randomShader';
+import { enableTimelineStep } from '../lib/enableTimelineStep';
 import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import {
   type CSSProperties,
@@ -4941,6 +4942,30 @@ export function WorkspaceRoute() {
   ) => {
     const shouldRelinkSelection = Boolean(patch.shaderId && editingTimelineStepId === stepId);
 
+    if (patch.disabled === false && Object.keys(patch).length === 1) {
+      const nowMs = performance.now();
+      const restoreStep = (currentProject: ProjectDocument): ProjectDocument => {
+        const restored = enableTimelineStep({
+          sequence: currentProject.timeline.stub.shaderSequence,
+          transport: currentProject.playback.transport,
+          shaders: getProjectTimelineShaders(currentProject),
+          stepId,
+          randomSeedSalt: getProjectTimelineRandomSeedSalt(currentProject),
+          nowMs,
+        });
+        return {
+          ...currentProject,
+          timeline: { stub: { ...currentProject.timeline.stub, shaderSequence: restored.sequence } },
+          playback: { ...currentProject.playback, transport: restored.transport },
+        };
+      };
+      if (pendingTimelineRepeatExit && currentProjectRef.current) {
+        setPendingTimelineRepeatExit(getTimelineRepeatExitPlan(restoreStep(currentProjectRef.current), nowMs));
+      }
+      updateProject(restoreStep);
+      return;
+    }
+
     updateProject((currentProject) =>
       pruneTemporaryTimelineShaders({
         ...currentProject,
@@ -4991,7 +5016,7 @@ export function WorkspaceRoute() {
         });
       }, 0);
     }
-  }, [editingTimelineStepId, selectTimelineStepForEditing, updateProject]);
+  }, [editingTimelineStepId, pendingTimelineRepeatExit, selectTimelineStepForEditing, updateProject]);
 
   const handleRandomizeTimelineStep = (stepId: string) => {
     if (!project) {
@@ -7876,7 +7901,7 @@ ${errorSnapshot}`,
           steps: timelinePlaybackSteps,
           timeSeconds: getTransportTimeSeconds(project.playback.transport),
           loop: project.playback.transport.loop,
-          randomSeedSalt: timelineStub.shaderSequence.randomSeedToken || project.sessionId,
+          randomSeedSalt: getProjectTimelineRandomSeedSalt(project),
         })
     : null;
   const resolveCurrentAudioTimelineState = () =>
@@ -8501,6 +8526,7 @@ ${errorSnapshot}`,
       sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
+      randomSeedSalt={getProjectTimelineRandomSeedSalt(project)}
       midiTimelineControlActive={midiEnabled && midiMode === 'timeline-mixer'}
       midiManualMixArmed={midiManualMixArmed}
 

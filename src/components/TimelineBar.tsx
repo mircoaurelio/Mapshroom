@@ -18,6 +18,7 @@ interface TimelineBarProps {
   sequence: TimelineStub['shaderSequence'];
   transport: PlaybackTransport;
   durationSeconds: number;
+  randomSeedSalt: string;
   midiTimelineControlActive?: boolean;
   midiManualMixArmed?: boolean;
   audioReactiveAvailable?: boolean;
@@ -78,6 +79,7 @@ export function TimelineBar({
   sequence,
   transport,
   durationSeconds,
+  randomSeedSalt,
   midiTimelineControlActive = false,
   midiManualMixArmed = false,
   audioReactiveAvailable = false,
@@ -163,6 +165,7 @@ export function TimelineBar({
       steps: playbackDisplaySteps,
       timeSeconds: transportTimeSeconds,
       loop: transport.loop,
+      randomSeedSalt,
     });
   }, [
     playbackDisplaySteps,
@@ -179,6 +182,7 @@ export function TimelineBar({
     sequence.sharedTransitionEffect,
     transport.loop,
     transportTimeSeconds,
+    randomSeedSalt,
   ]);
   return (
     <div className="timeline-bar timeline-bar-desktop">
