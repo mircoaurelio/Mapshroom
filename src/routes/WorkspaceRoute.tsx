@@ -6522,7 +6522,9 @@ export function WorkspaceRoute() {
   const openShaderChat = (route: 'chatgpt' | 'perplexity', prompt: string, currentCode: string) => {
     const preparedPrompt = buildExternalChatShaderPrompt(prompt, currentCode);
     const providerUrl = route === 'perplexity' ? 'https://www.perplexity.ai/' : 'https://chatgpt.com/';
-    return openExternalAiWindow(`${providerUrl}?q=${encodeURIComponent(preparedPrompt)}`, { mode: 'tab' });
+    const chat = Array.from(document.querySelectorAll<HTMLElement>('.shader-chat-workspace'))
+      .find(element => element.getBoundingClientRect().width > 0);
+    return openExternalAiWindow(`${providerUrl}?q=${encodeURIComponent(preparedPrompt)}`, { beside: chat });
   };
 
   const handleShaderMutation = async (

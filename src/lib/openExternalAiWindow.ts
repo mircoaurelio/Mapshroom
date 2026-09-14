@@ -1,4 +1,5 @@
-import { isTauri, openExternalUrl } from './desktop';
+import { isTauri, openExternalUrl } from './desktop/index.ts';
+import { getExternalAiPopupBounds, type ExternalAiPopupBounds } from './externalAiWindowGeometry.ts';
 
 export type ExternalAiWindowResult = 'popup' | 'tab' | 'blocked';
 
@@ -13,6 +14,61 @@ const POPUP_MARGIN = 16;
 const AI_POPUP_NAME = 'mapshroom-ai-chat';
 let activeExternalAiWindow: Window | null = null;
 let activePopupGeometry: { width: number; left: number } | null = null;
+let stopFollowingWorkspace: (() => void) | null = null;
+
+function getWorkspacePopupBounds(chat: HTMLElement): ExternalAiPopupBounds | null {
+  return getExternalAiPopupBounds(chat.getBoundingClientRect(), {
+    screenX: window.screenX,
+    screenY: window.screenY,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    outerWidth: window.outerWidth,
+    outerHeight: window.outerHeight,
+    availableLeft: window.screen.availLeft ?? window.screenX,
+    availableTop: window.screen.availTop ?? window.screenY,
+    availableWidth: window.screen.availWidth,
+    availableHeight: window.screen.availHeight,
+  });
+}
+
+function openWorkspacePopup(url: string, chat: HTMLElement, bounds: ExternalAiPopupBounds): ExternalAiWindowResult {
+  const { left, top, width, height } = bounds;
+  const popup = window.open(url, AI_POPUP_NAME,
+    `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+  if (!popup) return 'blocked';
+
+  const align = () => {
+    if (!chat.isConnected || popup.closed) {
+      stopFollowingWorkspace?.();
+      return;
+    }
+    const next = getWorkspacePopupBounds(chat);
+    if (!next) return;
+    try {
+      popup.resizeTo(next.width, next.height);
+      popup.moveTo(next.left, next.top);
+    } catch {
+      // Browsers may restrict positioning once the external page has loaded.
+    }
+  };
+  align();
+  detachOpener(popup);
+  activeExternalAiWindow = popup;
+  activePopupGeometry = null;
+  // Observe the parent as well: the chat can move without changing its own width.
+  const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(align);
+  observer?.observe(chat);
+  if (chat.parentElement) observer?.observe(chat.parentElement);
+  observer?.observe(document.documentElement);
+  window.addEventListener('resize', align);
+  stopFollowingWorkspace = () => {
+    observer?.disconnect();
+    window.removeEventListener('resize', align);
+    stopFollowingWorkspace = null;
+  };
+  popup.focus();
+  return 'popup';
+}
 
 function resolvePopupWidth(hostWindowWidth: number, availableWidth: number): number {
   const usableHostWidth = Math.max(320, hostWindowWidth - POPUP_MARGIN * 2);
@@ -63,6 +119,7 @@ export function focusExternalAiWindow(): boolean {
 }
 
 export function closeExternalAiWindow(): void {
+  stopFollowingWorkspace?.();
   try {
     if (activeExternalAiWindow && !activeExternalAiWindow.closed) {
       activeExternalAiWindow.close();
@@ -112,13 +169,20 @@ export function alignExternalAiWindowToElement(element: HTMLElement): boolean {
   }
 }
 
-export function openExternalAiWindow(url: string, options: { mode?: 'tab' | 'auto' } = {}): ExternalAiWindowResult {
+export function openExternalAiWindow(url: string, options: { mode?: 'tab' | 'auto'; beside?: HTMLElement } = {}): ExternalAiWindowResult {
+  stopFollowingWorkspace?.();
   if (isTauri()) {
     void openExternalUrl(url);
     return 'tab';
   }
 
   if (options.mode === 'tab') {
+    return openRegularTab(url);
+  }
+
+  if (options.beside) {
+    const bounds = getWorkspacePopupBounds(options.beside);
+    if (bounds) return openWorkspacePopup(url, options.beside, bounds);
     return openRegularTab(url);
   }
 
