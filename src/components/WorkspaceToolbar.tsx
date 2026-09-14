@@ -304,8 +304,9 @@ export function WorkspaceToolbar({
     assetsFirstStepRemainingMsRef.current = 0;
     setAssetsFirstStepVisible(false);
   };
-  const assetsCalloutRef = useRef<HTMLElement | null>(null);
-  useDismissOnOutsideClick(assetsCalloutRef, assetsFirstStepVisible, dismissAssetsFirstStep);
+  const assetsGuideRef = useRef<HTMLDivElement | null>(null);
+  // The Assets button closes this tip by advancing to the import step.
+  useDismissOnOutsideClick(assetsGuideRef, assetsFirstStepVisible, dismissAssetsFirstStep);
   const openAssets = () => {
     if (assetsFirstStepVisible) {
       advanceAssetsFirstStepToImport();
@@ -765,7 +766,7 @@ export function WorkspaceToolbar({
         </div>
 
         <div className="toolbar-runtime-actions" data-onboarding-area="topbar">
-          <div className="toolbar-assets-shell">
+          <div ref={assetsGuideRef} className="toolbar-assets-shell">
             <button
               type="button"
               className="primary-button toolbar-assets-button asset-browser-shine"
@@ -777,7 +778,6 @@ export function WorkspaceToolbar({
             </button>
             {assetsFirstStepVisible ? (
               <aside
-                ref={assetsCalloutRef}
                 className="toolbar-assets-callout"
                 role="dialog"
                 aria-labelledby="assets-first-step-title"
