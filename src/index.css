@@ -180,11 +180,6 @@ input[type='range']:disabled {
   opacity: 0.45;
 }
 
-/* The hover marker stays clipped to the track, independent of the pointer's Y position. */
-input[type='range'][data-range-hover]:not(:disabled) {
-  cursor: none;
-}
-
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
