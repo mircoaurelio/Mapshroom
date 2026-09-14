@@ -2933,6 +2933,7 @@ export function WorkspaceRoute() {
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
   const [desktopPage, setDesktopPage] = useState<'workspace' | 'output'>('workspace');
+  const [moveControlsInWorkspace, setMoveControlsInWorkspace] = useState(false);
   const [assetLibraryStepId, setAssetLibraryStepId] = useState<string | null>(null);
   const [highlightAssetStartMapping, setHighlightAssetStartMapping] = useState(false);
   const [showAssetImportFirstStep, setShowAssetImportFirstStep] = useState(() =>
@@ -5406,6 +5407,9 @@ export function WorkspaceRoute() {
   };
 
   const setMoveMode = (enabled: boolean) => {
+    if (!enabled) {
+      setMoveControlsInWorkspace(false);
+    }
     if (enabled && !showOnboardingGuide && !isMappingFirstStepDismissed()) {
       setShowMappingFirstStep(true);
     } else if (!enabled) {
@@ -8844,7 +8848,8 @@ ${errorSnapshot}`,
 
   const desktopSection: WorkspaceSection = isAssetLibraryOpen
     ? 'asset'
-    : desktopPage === 'output' ? 'output' : stageTransform.moveMode ? 'move' : 'workspace';
+    : desktopPage === 'output' ? 'output'
+      : stageTransform.moveMode && !moveControlsInWorkspace ? 'move' : 'workspace';
   const selectDesktopSection = (section: WorkspaceSection) => {
     if (section === 'asset') {
       trackUiClick('open_assets');
@@ -8860,6 +8865,7 @@ ${errorSnapshot}`,
       setDesktopPage('output');
     } else {
       setDesktopPage('workspace');
+      setMoveControlsInWorkspace(false);
       const nextMoveMode = section === 'move';
       if (stageTransform.moveMode !== nextMoveMode) {
         trackUiClick(nextMoveMode ? 'move_mode_on' : 'move_mode_off');
@@ -9013,6 +9019,8 @@ ${errorSnapshot}`,
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           colorTheme={uiPreferences.colorTheme}
+          showMoveButton={desktopSection === 'workspace'}
+          moveMode={stageTransform.moveMode}
           audioReactiveEnabled={audioReactivity.preferences.modeEnabled}
           audioReactiveListening={audioReactivity.status === 'listening'}
           audioReactiveSource={audioReactivity.preferences.source}
@@ -9049,6 +9057,11 @@ ${errorSnapshot}`,
           onPlayToggle={() => {
             trackUiClick(project.playback.transport.isPlaying ? 'timeline_pause' : 'timeline_play');
             handlePlayToggle();
+          }}
+          onToggleMoveMode={() => {
+            trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');
+            setMoveControlsInWorkspace(true);
+            toggleMoveMode();
           }}
           onToggleAudioReactive={() => {
             const nextEnabled = !audioReactivity.preferences.modeEnabled;

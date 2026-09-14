@@ -11,6 +11,8 @@ interface WorkspaceToolbarProps {
   sidebarVisible: boolean;
   desktopSlidersWindowEnabled: boolean;
   colorTheme: 'green' | 'pink';
+  showMoveButton: boolean;
+  moveMode: boolean;
   audioReactiveEnabled: boolean;
   audioReactiveListening: boolean;
   audioReactiveSource: AudioCaptureSource;
@@ -23,6 +25,7 @@ interface WorkspaceToolbarProps {
   onNewShader: () => void;
   onOpenPresetBrowser: () => void;
   onPlayToggle: () => void;
+  onToggleMoveMode: () => void;
   onToggleAudioReactive: () => void;
   onStartAudioReactive: (source: AudioCaptureSource) => void;
   onToggleWorkspaceMode: () => void;
@@ -67,6 +70,8 @@ export function WorkspaceToolbar({
   sidebarVisible,
   desktopSlidersWindowEnabled,
   colorTheme,
+  showMoveButton,
+  moveMode,
   audioReactiveEnabled,
   audioReactiveListening,
   audioReactiveSource,
@@ -79,6 +84,7 @@ export function WorkspaceToolbar({
   onNewShader,
   onOpenPresetBrowser,
   onPlayToggle,
+  onToggleMoveMode,
   onToggleAudioReactive,
   onStartAudioReactive,
   onToggleWorkspaceMode,
@@ -371,6 +377,24 @@ export function WorkspaceToolbar({
             ) : null}
           </div>
 
+          {showMoveButton ? (
+            <button
+              type="button"
+              className={`secondary-button toolbar-menu-button toolbar-move-button ${
+                moveMode ? 'toolbar-menu-button-active toolbar-move-button-active' : ''
+              }`}
+              aria-pressed={moveMode}
+              title={moveMode ? 'Hide Move controls' : 'Show Move controls in workspace'}
+              onClick={() => {
+                closeMenu();
+                onToggleMoveMode();
+              }}
+            >
+              <span className="toolbar-move-indicator" aria-hidden="true" />
+              <span>Move</span>
+              {moveMode ? <small>Off</small> : null}
+            </button>
+          ) : null}
         </div>
 
         <div className="toolbar-runtime-actions" data-onboarding-area="topbar">
