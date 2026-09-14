@@ -1,3 +1,4 @@
+import { createLiveUniformBindings, prefixLiveUniformBindings, type LiveUniformBindings, type UniformRuntime } from '../lib/uniformRuntime';
 import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { advanceManualShaderMix, type ManualShaderMix, type ManualShaderMixState } from '../lib/manualShaderMix';
 import { getTransportTimeSeconds } from '../lib/clock';
@@ -147,6 +148,7 @@ interface TimelineRenderLayer {
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
   audioBindings: AudioReactiveBindingMap;
+  liveUniformBindings: LiveUniformBindings;
   usedFallback: boolean;
   inputSource?: StageRenderInputSource | null;
   overlaySource?: StageRenderInputSource | null;
@@ -167,6 +169,7 @@ interface ResolvedShaderLayer {
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
   audioBindings: AudioReactiveBindingMap;
+  liveUniformBindings: LiveUniformBindings;
   usedFallback: boolean;
   inputSource: StageRenderInputSource | null;
   overlaySource: StageRenderInputSource | null;
@@ -235,6 +238,10 @@ function buildManualMixLayer(mix: ManualShaderMix<TimelineRenderLayer>): Timelin
     audioBindings: {
       ...prefixAudioReactiveBindingKeys({ bindings: from.audioBindings, namespace: 'timeline_from' }),
       ...prefixAudioReactiveBindingKeys({ bindings: to.audioBindings, namespace: 'timeline_to' }),
+    },
+    liveUniformBindings: {
+      ...prefixLiveUniformBindings({ bindings: from.liveUniformBindings, namespace: 'timeline_from' }),
+      ...prefixLiveUniformBindings({ bindings: to.liveUniformBindings, namespace: 'timeline_to' }),
     },
     usedFallback: from.usedFallback || to.usedFallback,
     transitionInputSources: { from: from.inputSource ?? null, to: to.inputSource ?? null },
@@ -362,6 +369,7 @@ interface TimelineStageRendererProps {
   activeShaderName: string;
   activeShaderCode: string;
   activeUniformValues: ShaderUniformValueMap;
+  uniformRuntime?: UniformRuntime;
   audioBindingsByShaderId?: Record<string, AudioReactiveBindingMap>;
   audioRuntime?: AudioReactiveRuntime;
   savedShaders: SavedShader[];
@@ -404,6 +412,7 @@ export function TimelineStageRenderer({
   activeShaderName,
   activeShaderCode,
   activeUniformValues,
+  uniformRuntime,
   audioBindingsByShaderId,
   audioRuntime,
   savedShaders,
@@ -1181,9 +1190,10 @@ export function TimelineStageRenderer({
       shaderCode: string,
       uniformValues: ShaderUniformValueMap,
       audioBindings: AudioReactiveBindingMap,
-    ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues' | 'audioBindings'> => {
+    ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues' | 'audioBindings' | 'liveUniformBindings'> => {
+      const liveUniformBindings = createLiveUniformBindings(targetShader?.id ?? activeShaderId, uniformValues);
       if (!useAssignedAssetAsBase || !assignedSource) {
-        return { shaderCode, uniformValues, audioBindings };
+        return { shaderCode, uniformValues, audioBindings, liveUniformBindings };
       }
 
       return {
@@ -1200,6 +1210,10 @@ export function TimelineStageRenderer({
         },
         audioBindings: prefixAudioReactiveBindingKeys({
           bindings: audioBindings,
+          namespace: 'timeline_input',
+        }),
+        liveUniformBindings: prefixLiveUniformBindings({
+          bindings: liveUniformBindings,
           namespace: 'timeline_input',
         }),
       };
@@ -1226,6 +1240,7 @@ export function TimelineStageRenderer({
         shaderCode: previewActiveShaderCode,
         uniformValues: previewActiveUniformValues,
         audioBindings: audioBindingsByShaderId?.[activeShaderId] ?? {},
+        liveUniformBindings: createLiveUniformBindings(activeShaderId, previewActiveUniformValues),
         usedFallback: false,
         inputSource: null,
         overlaySource: null,
@@ -1264,6 +1279,7 @@ export function TimelineStageRenderer({
         shaderCode: layer.shaderCode,
         uniformValues: layer.uniformValues,
         audioBindings: layer.audioBindings,
+        liveUniformBindings: layer.liveUniformBindings,
         usedFallback: layer.usedFallback,
         inputSource: layer.inputSource,
         overlaySource: null,
@@ -1276,6 +1292,7 @@ export function TimelineStageRenderer({
         shaderCode: layer.shaderCode,
         uniformValues: layer.uniformValues,
         audioBindings: layer.audioBindings,
+        liveUniformBindings: layer.liveUniformBindings,
         usedFallback: layer.usedFallback,
         inputSource: null,
         overlaySource: null,
@@ -1297,6 +1314,10 @@ export function TimelineStageRenderer({
       },
       audioBindings: prefixAudioReactiveBindingKeys({
         bindings: layer.audioBindings,
+        namespace: 'timeline_base',
+      }),
+      liveUniformBindings: prefixLiveUniformBindings({
+        bindings: layer.liveUniformBindings,
         namespace: 'timeline_base',
       }),
       usedFallback: layer.usedFallback,
@@ -1325,6 +1346,10 @@ export function TimelineStageRenderer({
       bindings: baseLayer.audioBindings,
       namespace: 'timeline_pin',
     });
+    const prefixedBaseLiveUniformBindings = prefixLiveUniformBindings({
+      bindings: baseLayer.liveUniformBindings,
+      namespace: 'timeline_pin',
+    });
 
     if (usesTransparentOverlay) {
       return {
@@ -1335,6 +1360,7 @@ export function TimelineStageRenderer({
           u_timeline_overlay_opacity: resolvedLayer.assetSettings.opacity,
         },
         audioBindings: prefixedBaseAudioBindings,
+        liveUniformBindings: prefixedBaseLiveUniformBindings,
         ...pinCompositeSettings,
       };
     }
@@ -1347,6 +1373,7 @@ export function TimelineStageRenderer({
         ...buildPinnedCompositeUniformValues(resolvedLayer.assetSettings, applyKeyBlack),
       },
       audioBindings: prefixedBaseAudioBindings,
+      liveUniformBindings: prefixedBaseLiveUniformBindings,
       ...pinCompositeSettings,
     };
   }, [buildSingleShaderLayer]);
@@ -1478,6 +1505,18 @@ export function TimelineStageRenderer({
             namespace: 'timeline_to',
           }),
         },
+        liveUniformBindings: {
+          ...prefixLiveUniformBindings({
+            bindings: currentLayer.liveUniformBindings,
+            namespace: 'timeline_from',
+          }),
+          ...prefixLiveUniformBindings({
+            bindings: nextMediaReady
+              ? nextLayer.liveUniformBindings
+              : currentLayer.liveUniformBindings,
+            namespace: 'timeline_to',
+          }),
+        },
         usedFallback: currentLayer.usedFallback || nextLayer.usedFallback,
         transitionInputSources: {
           from: currentLayer.inputSource ?? null,
@@ -1549,6 +1588,16 @@ export function TimelineStageRenderer({
         }),
         ...prefixAudioReactiveBindingKeys({
           bindings: secondaryLayer.audioBindings,
+          namespace: 'timeline_to',
+        }),
+      },
+      liveUniformBindings: {
+        ...prefixLiveUniformBindings({
+          bindings: primaryLayer.liveUniformBindings,
+          namespace: 'timeline_from',
+        }),
+        ...prefixLiveUniformBindings({
+          bindings: secondaryLayer.liveUniformBindings,
           namespace: 'timeline_to',
         }),
       },
@@ -1635,6 +1684,16 @@ export function TimelineStageRenderer({
           namespace: 'timeline_to',
         }),
       },
+      liveUniformBindings: {
+        ...prefixLiveUniformBindings({
+          bindings: currentLayer.liveUniformBindings,
+          namespace: 'timeline_from',
+        }),
+        ...prefixLiveUniformBindings({
+          bindings: nextLayer.liveUniformBindings,
+          namespace: 'timeline_to',
+        }),
+      },
       opacity: 1,
       transitionInputSources: {
         from: currentLayer.inputSource ?? null,
@@ -1655,6 +1714,7 @@ export function TimelineStageRenderer({
     uniformDefinitions: parseUniforms(layer.shaderCode),
     uniformValues: layer.uniformValues,
     audioBindings: layer.audioBindings,
+    liveUniformBindings: layer.liveUniformBindings,
     opacity,
     inputSource: layer.inputSource ?? null,
     overlaySource: layer.overlaySource ?? null,
@@ -2445,6 +2505,7 @@ export function TimelineStageRenderer({
       preloadLayers={preloadStageLayers}
       warmupSources={timelineWarmupSources}
       audioRuntime={audioRuntime}
+      uniformRuntime={uniformRuntime}
       shaderCode={renderDescriptor.shaderCode}
       shaderCompileNonce={shaderCompileNonce}
       uniformDefinitions={renderDescriptor.uniformDefinitions}

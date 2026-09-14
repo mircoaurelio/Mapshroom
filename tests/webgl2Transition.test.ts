@@ -236,8 +236,14 @@ test('live uniform controls avoid catalog churn and background GPU work', () => 
   const styles = readFileSync(new URL('src/index.css', root), 'utf8');
   const depthEval = readFileSync(new URL('src/depthLabEval.ts', root), 'utf8');
 
-  assert.match(workspace, /flushPendingUniformValues\(false\)/);
-  assert.match(workspace, /uniformUpdateFrameRef\.current = window\.requestAnimationFrame/);
+  const dragHandler = workspace.slice(workspace.indexOf('  const handleUniformChange ='), workspace.indexOf('  const handleUniformValuesChange ='));
+  assert.match(dragHandler, /uniformRuntime\.set\(activeShaderId, name, value\)/);
+  assert.doesNotMatch(dragHandler, /updateProject\(|setProject\(|requestAnimationFrame\(/,
+    'drag events must not schedule a workspace render or rebuild its shader catalog');
+  assert.match(stageRenderer, /resolveLiveUniformValue\(/);
+  const exportDialog = readFileSync(new URL('src/components/TimelineExportDialog.tsx', root), 'utf8');
+  assert.match(exportDialog, /const exportableShaders = useMemo\(\(\) => \{\s*\/\/[^\n]+\s*if \(!open\) return \[\];/,
+    'the closed export dialog must not normalize the shader library during slider edits');
   assert.match(workspace, /commitActiveUniformValues/);
   assert.match(workspace, /onUniformValuesChange=\{handleUniformValuesChange\}/);
   assert.match(randomization, /onUniformValuesChange\(randomizedValues\)/);

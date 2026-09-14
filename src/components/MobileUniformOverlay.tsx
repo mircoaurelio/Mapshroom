@@ -1,3 +1,5 @@
+import { useLiveUniformValues } from '../hooks/useLiveUniformValues';
+import type { UniformRuntime } from '../lib/uniformRuntime';
 import { RangeInput } from './RangeInput';
 import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
@@ -21,6 +23,7 @@ interface MobileUniformOverlayProps {
   audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  uniformRuntime?: UniformRuntime;
   onInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   onUniformValuesChange?: (values: ShaderUniformValueMap) => void;
@@ -34,12 +37,14 @@ export function MobileUniformOverlay({
   audioShaderCode,
   audioReactivity,
   uniformDefinitions,
-  uniformValues,
+  uniformValues: savedUniformValues,
+  uniformRuntime,
   onInteractionStart,
   onUniformChange,
   onUniformValuesChange,
   onClose,
 }: MobileUniformOverlayProps) {
+  const uniformValues = useLiveUniformValues(uniformRuntime, audioShaderId, savedUniformValues);
   const pointerActivationRef = useRef(false);
   const entries = Object.entries(uniformDefinitions);
   const audioModeEnabled = Boolean(audioReactivity?.preferences.modeEnabled);

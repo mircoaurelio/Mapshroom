@@ -1,3 +1,4 @@
+import type { UniformRuntime } from '../lib/uniformRuntime';
 import { useMemo, useRef, useEffect, useState, type UIEvent as ReactUIEvent } from 'react';
 import { normalizeOfficialShaderBody } from '../lib/shaderCompiler';
 import type {
@@ -47,6 +48,7 @@ interface StudioPanelProps
   audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  uniformRuntime?: UniformRuntime;
   onUniformInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   onUniformValuesChange?: (values: ShaderUniformValueMap) => void;
@@ -634,6 +636,7 @@ export function StudioPanel({
   audioReactivity,
   uniformDefinitions,
   uniformValues,
+  uniformRuntime,
   onUniformInteractionStart,
   onUniformChange,
   onUniformValuesChange,
@@ -675,6 +678,7 @@ export function StudioPanel({
           audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={uniformValues}
+          uniformRuntime={uniformRuntime}
           onInteractionStart={onUniformInteractionStart}
           onUniformChange={onUniformChange}
           onUniformValuesChange={onUniformValuesChange}

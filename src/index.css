@@ -110,8 +110,8 @@ input[type='color'] {
 input[type='range'] {
   --range-track-height: 20px;
   --range-thumb-height: 18px;
-  --range-fill: #858589;
-  --range-rest: #333337;
+  --range-fill: #505054;
+  --range-rest: #29292d;
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
@@ -124,7 +124,7 @@ input[type='range'] {
 
 input[type='range']::-webkit-slider-runnable-track {
   height: var(--range-track-height);
-  border: 1px solid #505054;
+  border: 0;
   border-radius: 2px;
   background: linear-gradient(90deg,
     var(--range-fill) 0 var(--range-fill-position, 0%),
@@ -135,16 +135,16 @@ input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 8px;
   height: var(--range-thumb-height);
-  margin-top: 0;
-  border: 2px solid #18181b;
-  border-radius: 0;
-  background: #c4c4c8;
+  margin-top: 1px;
+  border: 0;
+  border-radius: 5px;
+  background: #96969c;
 }
 
 input[type='range']::-moz-range-track {
   box-sizing: border-box;
   height: var(--range-track-height);
-  border: 1px solid #505054;
+  border: 0;
   border-radius: 2px;
   background: linear-gradient(90deg,
     var(--range-fill) 0 var(--range-fill-position, 0%),
@@ -159,9 +159,9 @@ input[type='range']::-moz-range-thumb {
   box-sizing: border-box;
   width: 8px;
   height: var(--range-thumb-height);
-  border: 2px solid #18181b;
-  border-radius: 0;
-  background: #c4c4c8;
+  border: 0;
+  border-radius: 5px;
+  background: #96969c;
 }
 
 input[type='range']:focus-visible {
@@ -3616,9 +3616,9 @@ a {
   right: 0;
   left: 0;
   height: 20px;
-  border: 1px solid #505054;
+  border: 0;
   border-radius: 2px;
-  background: #333337;
+  background: #29292d;
   pointer-events: none;
 }
 
@@ -3634,8 +3634,8 @@ a {
   top: 3.5px;
   z-index: 1;
   height: 18px;
-  border: 1px solid #a1a1a6;
-  background: #68686e;
+  border: 0;
+  background: #505054;
   pointer-events: none;
 }
 
