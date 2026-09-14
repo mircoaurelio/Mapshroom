@@ -112,7 +112,7 @@ import {
   seekTransportPreservingRenderTime,
 } from '../lib/clock';
 import {
-  DEFAULT_BUNDLED_ASSET_ID,
+  isInternalCanvasAssetId,
   mergeBundledAssets,
   resolveLiveBundledAssetId,
 } from '../lib/bundledAssets';
@@ -1536,16 +1536,13 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
   const uniformDefinitions = parseUniforms(normalizedActiveShaderCode);
   const defaultProject = createDefaultProject(project.sessionId);
   const mergedLibraryAssets = mergeBundledAssets(project.library?.assets ?? []);
-  const requestedActiveAssetId = resolveLiveBundledAssetId(
-    project.playback?.activeAssetId ??
-      project.library?.activeAssetId ??
-      DEFAULT_BUNDLED_ASSET_ID,
-  );
+  const savedActiveAssetId = project.playback?.activeAssetId ?? project.library?.activeAssetId;
+  const requestedActiveAssetId = savedActiveAssetId ? resolveLiveBundledAssetId(savedActiveAssetId) : null;
   const normalizedActiveAssetId = mergedLibraryAssets.some(
     (asset) => asset.id === requestedActiveAssetId,
   )
     ? requestedActiveAssetId
-    : DEFAULT_BUNDLED_ASSET_ID;
+    : mergedLibraryAssets[0]?.id ?? null;
   const mergedSavedShaders = [
     ...Object.values(DEFAULT_SHADERS),
     ...project.studio.savedShaders,
@@ -2081,7 +2078,7 @@ function activateTimelineOnAppEntry(project: ProjectDocument): ProjectDocument {
     },
     playback: {
       ...project.playback,
-      transport: playTransport(project.playback.transport),
+      transport: project.library.assets.length ? playTransport(project.playback.transport) : pauseTransport(project.playback.transport),
     },
   };
 }
@@ -3006,7 +3003,24 @@ export function WorkspaceRoute() {
     timelineHeight: number;
   } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
+  const assetEntrySessionRef = useRef<string | null>(null);
   const pinnedTimelineStepId = project?.timeline.stub.shaderSequence.pinnedStepId ?? null;
+
+  useEffect(() => {
+    if (!project || assetEntrySessionRef.current === project.sessionId) return;
+    assetEntrySessionRef.current = project.sessionId;
+    const needsPhoto = !project.library.assets.some(asset => !isInternalCanvasAssetId(asset.id));
+    setIsAssetLibraryOpen(needsPhoto);
+    setAssetLibraryStepId(null);
+    setDesktopPage('workspace');
+    if (needsPhoto) {
+      // Photo setup replaces the old welcome tour, including on later visits.
+      dismissOnboardingPermanently();
+      setShowOnboardingGuide(false);
+      setAssetsFirstStepEligible(false);
+      signalOnboardingComplete();
+    }
+  }, [project]);
 
   useEffect(() => {
     const entryCount = registerOnboardingEntry();
@@ -8911,12 +8925,16 @@ ${errorSnapshot}`,
           ? openFilePicker('timeline-picker', assetLibraryStep.id)
           : openFilePicker('library')}
         onPasteImage={() => { void handleImageTransfer(readClipboardImages, assetLibraryStep?.id); }}
+        onOpenProject={handleOpenProjectFilePicker}
         onDropImage={(transfer) => { void handleImageTransfer(transfer, assetLibraryStep?.id); }}
         imageImporting={imageImporting}
         imageImportMessage={imageImportMessage}
-        onSelectAsset={(assetId) => assetLibraryStep
-          ? handleTimelineAssignStepAsset(assetLibraryStep.id, assetId)
-          : handleAssetSelect(assetId)}
+        onSelectAsset={(assetId) => {
+          if (assetLibraryStep) handleTimelineAssignStepAsset(assetLibraryStep.id, assetId);
+          else handleAssetSelect(assetId);
+          setDesktopPage('workspace');
+          if (stageTransform.moveMode) setMoveMode(false);
+        }}
         onRenameAsset={handleAssetRename}
         onEditMask={handleAssetMaskOpen}
         onEditSurfaces={handleAssetSurfacesOpen}
@@ -8979,7 +8997,7 @@ ${errorSnapshot}`,
         ref={fileInputRef}
         className="hidden-input"
         type="file"
-        accept="image/*,video/*"
+        accept={project.library.assets.some(asset => !isInternalCanvasAssetId(asset.id)) ? 'image/*,video/*' : 'image/*'}
         multiple
         onChange={handleFileSelection}
       />
@@ -9443,7 +9461,7 @@ ${errorSnapshot}`,
         }}
       />
 
-      {showOnboardingGuide ? (
+      {showOnboardingGuide && project.library.assets.some(asset => !isInternalCanvasAssetId(asset.id)) ? (
         isMobile ? (
           <MobileOnboardingGuide
             onStepChange={() => {

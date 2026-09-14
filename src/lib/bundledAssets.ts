@@ -111,26 +111,16 @@ export const DEFAULT_BUNDLED_ASSETS: AssetRecord[] = [
   },
 ];
 
-const LIVE_BUNDLED_ASSET_IDS = new Set(DEFAULT_BUNDLED_ASSETS.map((asset) => asset.id));
-
 export function getBundledAssetUrl(assetId: string): string | null {
   const liveId = resolveLiveBundledAssetId(assetId);
   return BUNDLED_ASSET_URLS[liveId] ?? BUNDLED_ASSET_URLS[assetId] ?? null;
 }
 
 export function mergeBundledAssets(assets: AssetRecord[]): AssetRecord[] {
-  const kept = assets.filter((asset) => {
-    if (asset.sourceType !== 'bundled') {
-      return true;
-    }
-    if (isInternalCanvasAssetId(asset.id)) {
-      return true;
-    }
-    return LIVE_BUNDLED_ASSET_IDS.has(asset.id);
-  });
-  const existingIds = new Set(kept.map((asset) => asset.id));
-  return [
-    ...DEFAULT_BUNDLED_ASSETS.filter((asset) => !existingIds.has(asset.id)),
-    ...kept,
-  ];
+  // Preserve media explicitly saved in a project, without seeding empty libraries.
+  // Retired demo IDs still resolve for older saved projects.
+  const normalized = assets.map(asset => asset.sourceType === 'bundled'
+    ? DEFAULT_BUNDLED_ASSETS.find(item => item.id === resolveLiveBundledAssetId(asset.id)) ?? asset
+    : asset);
+  return [...new Map(normalized.map(asset => [asset.id, asset])).values()];
 }

@@ -9,12 +9,8 @@ import { createTimelineShaderStep, getShaderTimelineDuration } from './lib/timel
 import {
   BUNDLED_EMPTY_CANVAS_ASSET,
   BUNDLED_EMPTY_CANVAS_ASSET_ID,
-  BUNDLED_STATUE_ASSET_ID,
-  BUNDLED_VERTICAL_STAGE_ASSET_ID,
   BUNDLED_WHITE_CANVAS_ASSET_ID,
-  DEFAULT_BUNDLED_ASSETS,
   isInternalCanvasAssetId,
-  pickStarterBundledAssetId,
 } from './lib/bundledAssets';
 import { normalizeTimelineStepAssetSettings } from './lib/timelineAssetSettings';
 import { DEFAULT_STAGE_DISTORTION } from './lib/distortion';
@@ -100,16 +96,11 @@ if (shaderPresetList.length === 0) {
 
 export function createDefaultProject(
   sessionId: string,
-  options: { isMobile?: boolean } = {},
+  _options: { isMobile?: boolean } = {},
 ): ProjectDocument {
-  const activeAssetId = pickStarterBundledAssetId(options.isMobile);
-  const preferredTemplate = activeAssetId === BUNDLED_STATUE_ASSET_ID ? 'sculpture' : 'stage';
-  const preferredPool = shaderPresetList.filter((preset) =>
-    (preset.templates ?? [preset.template]).includes(preferredTemplate),
-  );
   const starterPresets = pickRandomShaderPresets(
     STARTER_TIMELINE_SHADER_COUNT,
-    preferredPool.length >= STARTER_TIMELINE_SHADER_COUNT ? preferredPool : shaderPresetList,
+    shaderPresetList,
   );
   const activeShader = starterPresets[0]!;
   const steps = createStarterTimelineSteps(starterPresets);
@@ -122,18 +113,15 @@ export function createDefaultProject(
       createdAt: new Date().toISOString(),
     },
   ];
-  const stageTransform: StageTransform =
-    activeAssetId === BUNDLED_VERTICAL_STAGE_ASSET_ID
-      ? { ...DEFAULT_STAGE_TRANSFORM, offsetY: MOBILE_VERTICAL_STAGE_OFFSET_Y }
-      : { ...DEFAULT_STAGE_TRANSFORM };
+  const stageTransform: StageTransform = { ...DEFAULT_STAGE_TRANSFORM };
 
   return {
     version: APP_VERSION,
     sessionId,
     name: 'Untitled Project',
     library: {
-      assets: DEFAULT_BUNDLED_ASSETS,
-      activeAssetId,
+      assets: [],
+      activeAssetId: null,
     },
     studio: {
       activeShaderId: activeShader.id,
@@ -163,9 +151,9 @@ export function createDefaultProject(
       stageTransform,
     },
     playback: {
-      activeAssetId,
+      activeAssetId: null,
       transport: {
-        isPlaying: true,
+        isPlaying: false,
         currentTimeSeconds: 0,
         renderTimeOffsetSeconds: 0,
         anchorTimestampMs: null,
@@ -269,7 +257,7 @@ export function createEmptyProject(
     ...project,
     name: 'Untitled Empty Project',
     library: {
-      assets: [...DEFAULT_BUNDLED_ASSETS, BUNDLED_EMPTY_CANVAS_ASSET],
+      assets: [BUNDLED_EMPTY_CANVAS_ASSET],
       activeAssetId: BUNDLED_EMPTY_CANVAS_ASSET_ID,
     },
     studio: {

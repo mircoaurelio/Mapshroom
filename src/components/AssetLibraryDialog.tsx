@@ -10,12 +10,14 @@ import { defaultVariantKinds, sourceForAsset, variantOptions, type AssetVariantK
 import { suggestSurfaceSettings, type SuggestedSurfaces } from '../lib/assetVariantRules.js';
 import type { AssetRecord } from '../types';
 import type { SurfaceEditorInitialOptions } from './AssetSurfacesDialog';
+import { AssetPhotoWelcome } from './AssetPhotoWelcome';
 import './AssetLibraryDialog.css';
 
 interface Props {
   presentation?: 'dialog' | 'page';
   open: boolean; activeAsset: AssetRecord | null; assetUrl: string | null; assets: AssetRecord[]; activeAssetId: string | null;
   onLoadAsset: () => void; onPasteImage: () => void; onDropImage: (transfer: ImageTransfer) => void;
+  onOpenProject: () => void;
   imageImporting: boolean; imageImportMessage: string;
   onSelectAsset: (id: string) => void; onRenameAsset: (id: string, name: string) => void;
   onEditMask: (id: string, panel?: 'refine' | 'depth') => void; onEditSurfaces: (id: string, options?: SurfaceEditorInitialOptions) => void;
@@ -56,6 +58,10 @@ export function AssetLibraryDialog(props: Props) {
   const libraryRef = useRef<HTMLElement>(null), detailRef = useRef<HTMLElement>(null), bodyRef = useRef<HTMLDivElement>(null);
   const dragTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queue = useAssetVariants(visible, props.onSaveVariant, props.processingSuspended);
+  const prepareFirstPhoto = () => {
+    if (!sources.length) queue.setPreferences(value => ({ ...value, automatic: true, outputs: defaultVariantKinds }));
+    props.onImportFirstStepDismiss();
+  };
   const source = sources.find(asset => asset.id === sourceId) ?? sourceForAsset(visible.find(asset => asset.id === activeAssetId), visible) ?? sources.at(-1) ?? null;
   const versions = source ? visible.filter(asset => asset.derivation?.sourceAssetId === source.id) : [];
   const latest = (kind: AssetVariantKind) => versions.filter(asset => asset.derivation?.kind === kind).at(-1);
@@ -69,7 +75,7 @@ export function AssetLibraryDialog(props: Props) {
     ...sourceGrid.slice(4), ...visible,
   ].map(asset => [asset.id, asset])).values()];
   const thumbnails = useLibraryThumbnails(thumbnailAssets, open);
-  const { dropProps } = useImageDropTarget(props.onDropImage);
+  const { dropProps } = useImageDropTarget(transfer => { prepareFirstPhoto(); props.onDropImage(transfer); });
   const shown = variantOptions.filter(option => defaultVariantKinds.includes(option.id));
   const additionalOptions = variantOptions.filter(option => !defaultVariantKinds.includes(option.id));
   const readyCount = shown.filter(option => latest(option.id)).length;
@@ -147,16 +153,17 @@ export function AssetLibraryDialog(props: Props) {
     if (!source) return null;
     const version = latest(option.id), job = queue.jobs[variantJobKey(source.id, option.id)];
     const working = job?.state === 'processing' || job?.state === 'queued', unavailable = option.id === 'depth' && !queue.ai;
-    return <article key={option.id} className={`ml-version${selectedKind === option.id && version ? ' is-selected' : ''}${!version ? ' is-pending' : ''}`} aria-busy={working}>
-      <div className="ml-version-media"><button type="button" className={`ml-version-preview${option.id === 'background' && version ? ' ml-checkerboard' : ''}`} disabled={!version} aria-label={`Preview ${option.title}`} aria-pressed={!!version && selectedKind === option.id} onClick={() => { setExtraVersionId(null); setSelectedKind(option.id); setCompare(false); setExpandedPreview(true); }}>
+    return <article key={option.id} className={`ml-version${version && selectedVersion?.id === version.id ? ' is-selected' : ''}${!version ? ' is-pending' : ''}`} aria-busy={working}>
+      <div className="ml-version-media"><button type="button" className={`ml-version-preview${option.id === 'background' && version ? ' ml-checkerboard' : ''}`} disabled={!version} aria-label={`${isPage ? 'Select' : 'Preview'} ${option.title}`} aria-pressed={!!version && selectedVersion?.id === version.id} onClick={() => { setExtraVersionId(null); setSelectedKind(option.id); setCompare(false); setExpandedPreview(!isPage); }}>
         {version ? <Artwork asset={version} url={thumbnails[version.id]} /> : <>{thumbnails[source.id] && <img className="ml-pending-image" src={thumbnails[source.id]} alt="" />}<span className="ml-pending-icon">{working && job.state === 'processing' ? <Spinner /> : <Icon name={option.id === 'depth' ? 'depth' : 'image'} />}</span></>}
-      </button><div className="ml-version-actions">{version ? <><button className="primary-button" type="button" onClick={() => use(version)}>Use</button><button className="secondary-button" type="button" disabled={queue.busy} title={queue.busy ? 'Finish or cancel processing before adjusting' : 'Adjust result'} onClick={() => edit(option.id)}><Icon name="adjust" />Adjust</button></> : working ? <button className="secondary-button" type="button" onClick={queue.cancel}>Cancel</button> : <button className="secondary-button" type="button" disabled={!canProcess || unavailable} onClick={() => queue.generate(source, [option.id])}>{job?.state === 'error' ? 'Retry' : 'Create'}</button>}</div></div>
+      </button><div className="ml-version-actions">{version ? <><button className="secondary-button" type="button" onClick={() => { setExtraVersionId(null); setSelectedKind(option.id); setCompare(false); setExpandedPreview(true); }}><Icon name="expand" />Preview</button><button className="secondary-button" type="button" disabled={queue.busy} title={queue.busy ? 'Finish or cancel processing before adjusting' : 'Adjust result'} onClick={() => edit(option.id)}><Icon name="adjust" />Adjust</button></> : working ? <button className="secondary-button" type="button" onClick={queue.cancel}>Cancel</button> : <button className="secondary-button" type="button" disabled={!canProcess || unavailable} onClick={() => queue.generate(source, [option.id])}>{job?.state === 'error' ? 'Retry' : 'Create'}</button>}</div></div>
       <div className="ml-version-content"><h4 aria-label={option.title} title={option.description}>{option.title}{version && <span className="ml-ready-icon" role="img" aria-label="Ready"><Icon name="check" /></span>}</h4>
-        {(working || job?.state === 'error' || (!version && unavailable) || job?.state === 'cancelled') && <div className={`ml-version-status${job?.state === 'error' ? ' is-error' : ''}`} role="status">{working ? job.message : job?.state === 'error' ? job.message : unavailable ? 'Enable AI in output options' : 'Cancelled'}</div>}
+        {(working || job?.state === 'error' || (!version && unavailable) || job?.state === 'cancelled') && <div className={`ml-version-status${job?.state === 'error' ? ' is-error' : ''}`} role="status">{working ? job.message : job?.state === 'error' ? job.message : unavailable ? 'Enable AI in version options' : 'Cancelled'}</div>}
         {job?.total && job.loaded !== undefined && working ? <div className="ml-download"><progress value={job.loaded} max={job.total} /><small>{(job.loaded / 1e6).toFixed(1)} / {(job.total / 1e6).toFixed(1)} MB</small></div> : null}
       </div></article>;
   };
   const automation = <label className="ml-check"><input type="checkbox" checked={queue.preferences.automatic} onChange={event => queue.setPreferences(value => ({ ...value, automatic: event.target.checked }))} /><span>Auto-generate on upload<small>{queue.profile.mobile ? 'Lightweight outputs only · On this device' : 'Selected outputs · On this device'}</small></span></label>;
+  const generateButton = source && <button className="secondary-button" type="button" disabled={!canProcess || !!sourceBusy || !queue.preferences.outputs.some(kind => !latest(kind) && (kind !== 'depth' || queue.ai))} onClick={() => queue.generate(source)}><Icon name="depth" />Generate versions</button>;
   const metadata = <><span>{displayedDimensions?.width ? `${displayedDimensions.width} × ${displayedDimensions.height} · ` : ''}{displayed?.mimeType.split('/')[1]?.toUpperCase()}{!!displayed?.size && ` · ${displayed.size >= 1e6 ? `${(displayed.size / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(displayed.size / 1e3))} KB`}`}</span>{displayed?.derivation?.method && <span>{displayed.derivation.method}</span>}</>;
   return <div className={`${isPage ? 'ml-page' : 'dialog-backdrop asset-browser-backdrop'} ml-backdrop${dragging ? ' ml-dragging' : ''}`} role="presentation" onClick={event => { if (event.currentTarget === event.target) close(); }}>
     <section ref={dialogRef} className="ml-dialog" role={isPage ? 'region' : 'dialog'} aria-modal={isPage ? undefined : true} aria-labelledby="asset-browser-title" tabIndex={-1} {...dropProps()} onKeyDown={event => {
@@ -170,20 +177,22 @@ export function AssetLibraryDialog(props: Props) {
         else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { event.preventDefault(); first?.focus(); }
       }
     }}>
-      <header className="ml-header" inert={expandedPreview || !!pendingDelete}>{!isPage && <div className="ml-brand"><span>MAPSHROOM</span></div>}<h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : isPage ? 'Asset' : 'Media Library'}</h2><div className="ml-header-actions">
+      <header className="ml-header" inert={expandedPreview || !!pendingDelete}>{!isPage && <div className="ml-brand"><span>MAPSHROOM</span></div>}<div className="ml-header-copy"><h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : 'Asset'}</h2>{isPage && <p>{sources.length ? 'Images and videos for your project.' : 'Your surface. Your starting point.'}</p>}</div><div className="ml-header-actions">
+        {!!sources.length && <>
         <button className="secondary-button ml-paste" type="button" onClick={props.onPasteImage} disabled={props.imageImporting}><Icon name="paste" />Paste</button>
         <button className="primary-button" type="button" onClick={() => { props.onImportFirstStepDismiss(); props.onLoadAsset(); }} disabled={props.imageImporting}><Icon name="plus" />{props.imageImporting ? 'Importing…' : 'Import'}</button>
+        </>}
         {!isPage && <button className="ml-icon-button" type="button" onClick={close} aria-label="Close asset library"><Icon name="close" /></button>}
       </div></header>
-      {props.showImportFirstStep && <div ref={importTipRef} className="ml-notice">Import an image or video, or choose an asset below.<button className="ghost-button" onClick={props.onImportFirstStepDismiss}>Got it</button></div>}
+      {props.showImportFirstStep && !!sources.length && <div ref={importTipRef} className="ml-notice">Import an image or video, or choose an asset below.<button className="ghost-button" onClick={props.onImportFirstStepDismiss}>Got it</button></div>}
       {props.imageImportMessage && <p className="ml-notice" role="status">{props.imageImportMessage}</p>}
       {queue.interrupted && <div className="ml-notice" role="status">Previous processing was interrupted. Saved assets are still available.<button className="ghost-button" onClick={queue.dismissInterrupted}>Dismiss</button></div>}
-      <div ref={bodyRef} className="ml-body"><aside ref={libraryRef} className="ml-library" aria-label="Your assets" inert={expandedPreview || !!pendingDelete}><div className="ml-section-label"><span>Your assets <small>{sources.length}</small></span><button className="ml-icon-button" aria-label="Asset information" aria-expanded={showInfo} onClick={() => setShowInfo(value => !value)}><Icon name="info" /></button></div>
+      {!sources.length ? <AssetPhotoWelcome importing={props.imageImporting} onChoosePhoto={() => { prepareFirstPhoto(); props.onLoadAsset(); }} onPasteImage={() => { prepareFirstPhoto(); props.onPasteImage(); }} onOpenProject={props.onOpenProject} /> : <div ref={bodyRef} className="ml-body"><aside ref={libraryRef} className="ml-library" aria-label="Your assets" inert={expandedPreview || !!pendingDelete}><div className="ml-section-label"><span>Your assets <small>{sources.length}</small></span><button className="ml-icon-button" aria-label="Asset information" aria-expanded={showInfo} onClick={() => setShowInfo(value => !value)}><Icon name="info" /></button></div>
         {showInfo && displayed && <div className="ml-asset-info"><strong>{displayed.name}</strong><small>{metadata}</small>{resolution.url && <a className="ml-icon-button" href={resolution.url} download={displayed.name} aria-label="Download selected asset"><Icon name="download" /></a>}</div>}
         <div className="ml-asset-list">{sourceGrid.map((asset, index) => {
           const count = visible.filter(item => item.derivation?.sourceAssetId === asset.id).length;
           return <article key={asset.id} className={`ml-asset${source?.id === asset.id ? ' is-selected' : ''}`}><button type="button" className="ml-asset-select" aria-pressed={source?.id === asset.id} aria-label={`Select ${asset.name}`} title={asset.name} onClick={() => selectSource(asset)} draggable={asset.kind === 'image'} onDragStart={event => { startAssetImageDrag(event.dataTransfer, asset.id); dragTimer.current = setTimeout(() => setDragging(true), 0); }}>
-            <span className="ml-thumbnail"><Artwork asset={asset} url={thumbnails[asset.id]} eager={index < 4} /></span><span className="ml-asset-title">{asset.name}</span><span className="ml-asset-meta">{count ? `${count} ${count === 1 ? 'version' : 'versions'}` : asset.kind === 'video' ? 'Video' : 'Original'}</span>
+            <span className="ml-thumbnail"><Artwork asset={asset} url={thumbnails[asset.id]} eager={index < 4} /></span>{source?.id === asset.id && <span className="ml-asset-selected" aria-hidden="true"><Icon name="check" /></span>}<span className="ml-asset-title">{asset.name}</span><span className="ml-asset-meta">{asset.kind === 'video' ? 'Video' : 'Original'}{count ? ` · ${count} ${count === 1 ? 'version' : 'versions'}` : ''}</span>
           </button><button type="button" className="ml-icon-button ml-expand-asset" aria-label={`Expand ${asset.name}`} onClick={() => selectSource(asset, true)}><Icon name="expand" /></button></article>;
         })}</div>{!sources.length && <p className="ml-empty">Your images and videos will appear here.</p>}
       </aside><main ref={detailRef} className={`ml-detail${expandedPreview ? ' has-expanded-preview' : ''}`}>{source ? <>
@@ -203,7 +212,7 @@ export function AssetLibraryDialog(props: Props) {
         <p className="ml-preserved-note">Original preserved · Changes are saved as versions.</p>
         </section>}
         {source.kind === 'image' ? <section className="ml-versions-panel" aria-label="Image versions" inert={expandedPreview || !!pendingDelete}>
-          <div className="ml-versions-heading"><div className="ml-section-label"><span>Versions</span><small aria-label={`${readyCount} of ${shown.length} versions ready`}>{readyCount}/{shown.length}</small></div><div className="ml-version-toolbar"><details ref={menuRef} className="ml-outputs" onToggle={event => {
+          <div className="ml-versions-heading"><div className="ml-versions-copy"><div className="ml-section-label"><span>{isPage ? `Versions of ${source.name}` : 'Versions'}</span><small aria-label={`${readyCount} of ${shown.length} versions ready`}>{readyCount}/{shown.length}</small></div>{isPage && <p>Choose the version to use in your project. Your original stays intact.</p>}</div><div className="ml-version-toolbar">{isPage && generateButton}<details ref={menuRef} className="ml-outputs" onToggle={event => {
             if (!event.currentTarget.open) return;
             const panel = event.currentTarget.querySelector<HTMLElement>('.ml-output-menu');
             if (!panel) return;
@@ -212,7 +221,7 @@ export function AssetLibraryDialog(props: Props) {
             const height = Math.min(window.innerHeight * .65, 600);
             panel.style.top = `${Math.max(16, Math.min(bounds.bottom + 6, window.innerHeight - height - 16))}px`;
             panel.style.left = `${Math.max(16, Math.min(bounds.right - 290, window.innerWidth - 306))}px`;
-          }}><summary aria-label="Output options" title="Choose outputs and tools"><span aria-hidden="true">⋯</span></summary><div className="ml-output-menu">
+          }}><summary aria-label="Version options" title="Choose versions and tools"><span aria-hidden="true">⋯</span></summary><div className="ml-output-menu">
             <strong>Create versions</strong>{variantOptions.map(option => <label key={option.id} className="ml-check"><input type="checkbox" checked={queue.preferences.outputs.includes(option.id)} onChange={event => queue.setPreferences(value => ({ ...value, outputs: event.target.checked ? [...value.outputs, option.id] : value.outputs.filter(id => id !== option.id) }))} /><span>{option.title}</span></label>)}
             <button className="ghost-button ml-menu-tool" type="button" disabled={queue.busy} onClick={() => edit('segmentation')}>Single-zone masks…</button><div className="ml-menu-separator" />{automation}
             {queue.profile.canEnableAI && <label className="ml-check"><input type="checkbox" checked={queue.ai} onChange={event => queue.setAI(event.target.checked)} /><span>Enable AI tools<small>{queue.profile.mobile ? 'Manual use · may need more memory' : 'Background ~44 MB · Depth ~27 MB'}</small></span></label>}
@@ -223,15 +232,16 @@ export function AssetLibraryDialog(props: Props) {
             <button type="button" className="ghost-button ml-menu-tool" onClick={() => { setSelectedKind(null); setExtraVersionId(null); setCompare(false); setExpandedPreview(true); setDraftName(source.name); setRename(true); menuRef.current?.removeAttribute('open'); }}>Rename original</button>
             <button type="button" className="ghost-button ml-menu-tool ml-danger" onClick={() => { setPendingDelete(displayed ?? source); menuRef.current?.removeAttribute('open'); }}>Delete {selectedVersion && !compare ? 'version' : 'original'}…</button>
           </div></details></div></div>
+          {sourceBusy && <div className="ml-analysis-progress" role="status"><Spinner /><div><strong>Preparing your photo</strong><span>Versions appear here as they finish. You can use any ready version.</span></div><span>{readyCount}/{shown.length}</span><button className="ghost-button" type="button" onClick={queue.cancel}>Cancel</button></div>}
           <div className="ml-version-grid ml-primary-versions">{shown.map(renderVersion)}</div>
-          <div className="ml-generate-row"><button className="primary-button" type="button" disabled={!canProcess || !!sourceBusy || !queue.preferences.outputs.some(kind => !latest(kind) && (kind !== 'depth' || queue.ai))} onClick={() => queue.generate(source)}>Generate selected</button></div>
+          {!isPage && <div className="ml-generate-row">{generateButton}</div>}
           <div className="ml-suggestion"><span aria-hidden="true">✧</span><span>{suggestion ? `${suggestion.method === 'shape' ? 'Shape' : 'Color'} · ${suggestion.zones} zones` : 'Automatic settings'}</span><button type="button" className="ml-icon-button" aria-label="Adjust segmentation settings" title="Adjust segmentation settings" disabled={queue.busy} onClick={() => edit('segmentation')}><Icon name="adjust" /></button></div>
-          <section className="ml-more-versions" aria-label="More outputs"><h3>More outputs</h3><div className="ml-version-grid">{additionalOptions.map(renderVersion)}</div></section>
+          <details className="ml-more-versions"><summary>More outputs</summary><div className="ml-version-grid">{additionalOptions.map(renderVersion)}</div></details>
           {otherVersions.length > 0 && <section className="ml-more-versions" aria-label="More versions"><h3>More versions · {otherVersions.length}</h3><div className="ml-version-grid">{otherVersions.map(asset => <article key={asset.id} className="ml-version"><div className="ml-version-media"><button type="button" className="ml-version-preview" aria-label={`Preview ${asset.name}`} onClick={() => { setExtraVersionId(asset.id); setSelectedKind(null); setCompare(false); setExpandedPreview(true); }}><Artwork asset={asset} url={thumbnails[asset.id]} /></button><div className="ml-version-actions"><button className="primary-button" onClick={() => use(asset)}>Use</button><button className="secondary-button ml-danger" onClick={() => setPendingDelete(asset)}>Delete</button></div></div><div className="ml-version-content"><h4 title={asset.name}>{asset.name}</h4></div></article>)}</div></section>}
           <div className="ml-device-note"><span className="ml-device-dot" aria-hidden="true" /><span>{queue.profile.label} · {queue.profile.mobile ? 'Smaller working images · Original preserved' : 'Refined against the original photo'}</span></div>
         </section> : <div className="ml-video-tools" inert={expandedPreview || !!pendingDelete}><p>Videos are ready to use directly in the timeline.</p><button className="secondary-button" onClick={() => { setExpandedPreview(true); setDraftName(source.name); setRename(true); }}>Rename</button><button className="ghost-button ml-danger" onClick={() => setPendingDelete(source)}>Delete video…</button></div>}
-      </> : <div className="ml-empty-main"><Icon name="image" /><h3>Add your first image or video</h3><p>Import, paste or drop a file here.</p><button className="primary-button" onClick={props.onLoadAsset}><Icon name="plus" />Import media</button></div>}</main></div>
-      <footer className="ml-footer" inert={expandedPreview || !!pendingDelete}>{automation}<div className="ml-footer-status" role="status">{queue.busy ? <><Spinner /><span>Processing on this device</span><button className="ghost-button" onClick={queue.cancel}>Cancel</button></> : props.timelineAssignment ? <span title={props.timelineAssignment.shaderName}>Assign to {props.timelineAssignment.shaderName}</span> : null}</div><div className="ml-footer-actions">{props.timelineAssignment ? <button className="ghost-button" type="button" onClick={() => { props.timelineAssignment?.onUseLiveStage(); close(); }}>Use Live Stage Asset</button> : <button className="ghost-button" type="button" onClick={close}>{queue.busy ? 'Continue mapping' : 'Start mapping'}</button>}<button className="primary-button" type="button" disabled={!(selectedVersion ?? source) || resolution.status !== 'ready'} onClick={() => { const selected = selectedVersion ?? source; if (selected) use(selected); }}>Use {selectedVersion ? 'selected' : 'original'} <span aria-hidden="true">→</span></button></div></footer>
+      </> : null}</main></div>}
+      {!!sources.length && <footer className="ml-footer" inert={expandedPreview || !!pendingDelete}>{automation}<div className="ml-footer-status" role="status">{queue.busy ? <><Spinner /><span>Processing on this device</span></> : props.timelineAssignment ? <span title={props.timelineAssignment.shaderName}>Assign to {props.timelineAssignment.shaderName}</span> : null}</div><div className="ml-footer-actions">{props.timelineAssignment && <button className="ghost-button" type="button" onClick={() => { props.timelineAssignment?.onUseLiveStage(); close(); }}>Use Live Stage Asset</button>}<button className="primary-button" type="button" disabled={!(selectedVersion ?? source) || resolution.status !== 'ready'} onClick={() => { const selected = selectedVersion ?? source; if (selected) use(selected); }}>Use {selectedVersion ? 'selected version' : 'asset'} <span aria-hidden="true">→</span></button></div></footer>}
       {pendingDelete && <div className="ml-confirm-backdrop"><section className="ml-confirm" role="alertdialog" aria-modal="true" aria-labelledby="ml-delete-title"><h3 id="ml-delete-title">Delete {pendingDelete.derivation ? 'this version' : 'this asset'}?</h3><p><strong>{pendingDelete.name}</strong> will be removed from the project. {pendingDelete.derivation ? 'The original will stay.' : 'Generated versions will stay available.'}</p><div><button autoFocus className="secondary-button" onClick={() => setPendingDelete(null)}>Keep asset</button><button className="secondary-button ml-danger" onClick={() => { props.onRemoveAsset(pendingDelete.id); setPendingDelete(null); setSelectedKind(null); }}>Delete</button></div></section></div>}
     </section>
   </div>;

@@ -15,7 +15,7 @@ function readPreferences(): Preferences {
     const value = JSON.parse(localStorage.getItem(storageKey) || 'null');
     if (value && Array.isArray(value.outputs)) return { outputs: value.outputs.filter((id: AssetVariantKind) => variantOptions.some(option => option.id === id)), automatic: value.automatic === true };
   } catch { /* Private browsing may not provide storage. */ }
-  return { outputs: defaultVariantKinds, automatic: false };
+  return { outputs: defaultVariantKinds, automatic: true };
 }
 export const variantJobKey = (id: string, kind: string) => `${id}:${kind}`;
 
