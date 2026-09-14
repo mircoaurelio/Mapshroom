@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { AiGenerationRoute } from '../lib/aiRoute';
 import { CloudModelIcon } from './CloudModelIcon';
 import { PanelSection } from './PanelSection';
@@ -23,6 +23,8 @@ const AI_ROUTE_OPTIONS: Array<{
 ];
 
 interface AiPanelProps {
+  compact?: boolean;
+  onCopyPrompt?: () => Promise<void>;
   prompt: string;
   selectedRoute: AiGenerationRoute;
   aiLoading: boolean;
@@ -39,6 +41,8 @@ interface AiPanelProps {
 }
 
 export function AiPanel({
+  compact = false,
+  onCopyPrompt,
   prompt,
   selectedRoute,
   aiLoading,
@@ -53,6 +57,7 @@ export function AiPanel({
   onSubmit,
   onFixError,
 }: AiPanelProps) {
+  const [copyMessage, setCopyMessage] = useState('');
   const [pasteMenuOpen, setPasteMenuOpen] = useState(false);
   const [routeMenuOpen, setRouteMenuOpen] = useState(false);
   const pasteMenuRef = useRef<HTMLDivElement>(null);
@@ -66,6 +71,19 @@ export function AiPanel({
     AI_ROUTE_OPTIONS.find((option) => option.value === selectedRoute) ??
     AI_ROUTE_OPTIONS[0];
   useEffect(() => {
+    if (!copyMessage) return;
+    const timeout = window.setTimeout(() => setCopyMessage(''), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [copyMessage]);
+
+  useLayoutEffect(() => {
+    const field = promptFieldRef.current;
+    if (!compact || !field) return;
+    field.style.height = 'auto';
+    field.style.height = `${Math.min(150, field.scrollHeight)}px`;
+  }, [prompt, compact]);
+
+  useEffect(() => {
     if (!pasteMenuOpen && !routeMenuOpen) {
       return;
     }
@@ -76,7 +94,7 @@ export function AiPanel({
         return;
       }
 
-      if (pasteMenuOpen && !pasteMenuRef.current?.contains(target)) {
+      if (pasteMenuOpen && !pasteMenuRef.current?.contains(target) && !(target instanceof Element && target.closest('.ai-prompt-clipboard-button'))) {
         setPasteMenuOpen(false);
       }
       if (routeMenuOpen && !routeMenuRef.current?.contains(target)) {
@@ -106,7 +124,8 @@ export function AiPanel({
             ref={promptFieldRef}
             className="prompt-field prompt-field-hero"
             aria-label="Shader prompt"
-            placeholder="Describe the shader you want to create or change…"
+            placeholder={compact ? 'Describe a change…' : 'Describe the shader you want to create or change…'}
+            rows={2}
             value={prompt}
             onPointerDown={() => {
               promptPointerActivationRef.current = true;
@@ -122,9 +141,9 @@ export function AiPanel({
             }}
             onChange={(event) => onPromptChange(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
-                if (!aiLoading) {
+                if (!aiLoading && hasPromptLine) {
                   onSubmit();
                 }
               }
@@ -145,6 +164,11 @@ export function AiPanel({
               </button>
               {pasteMenuOpen ? (
                 <div className="ai-prompt-add-menu" role="menu">
+                  {compact && onCopyPrompt ? <button type="button" role="menuitem" disabled={!hasPromptLine} onClick={async () => {
+                    setPasteMenuOpen(false);
+                    try { await onCopyPrompt(); setCopyMessage('Copied'); }
+                    catch { setCopyMessage('Copy failed'); }
+                  }}><span className="ai-prompt-add-menu-icon" aria-hidden="true">⧉</span><span><strong>Copy prompt</strong><small>Ready for your preferred AI chat</small></span></button> : null}
                   <button
                     type="button"
                     role="menuitem"
@@ -253,10 +277,13 @@ export function AiPanel({
                   </div>
                 ) : null}
               </div>
+              {compact ? <button type="button" className="ai-prompt-clipboard-button" aria-label="Copy and paste options" title={copyMessage || 'Copy prompt or paste shader'} aria-haspopup="menu" aria-expanded={pasteMenuOpen} onClick={() => setPasteMenuOpen(value => !value)}>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="3" width="10" height="13" rx="2" /><path d="M4 6H3v12h10v-1" /></svg><span role="status">{copyMessage || 'Copia e incolla'}</span>
+              </button> : null}
               <button
                 type="button"
                 className={`ai-prompt-send-button ${hasPromptLine ? 'is-ready' : ''}`}
-                disabled={aiLoading}
+                disabled={aiLoading || !hasPromptLine}
                 aria-label={aiLoading ? 'Generating shader' : 'Generate shader'}
                 title={aiLoading ? 'Generating…' : 'Generate shader'}
                 onClick={() => onSubmit()}
@@ -281,7 +308,7 @@ export function AiPanel({
           </div>
         ) : null}
 
-        {showFeedback ? (
+        {showFeedback && !compact ? (
           <div className={`ai-feedback ai-feedback-${feedbackTone}`}>{feedbackMessage}</div>
         ) : null}
       </div>

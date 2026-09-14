@@ -4,6 +4,7 @@ import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import {
   type CSSProperties,
   type ChangeEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
@@ -14,6 +15,7 @@ import {
 } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
+import { ShaderChatWorkspace } from '../components/ShaderChatWorkspace';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
 import { preserveStageFrame, readStageFrameAspectRatio, replaceStageAsset } from '../lib/assetReplacement';
@@ -2889,6 +2891,7 @@ export function WorkspaceRoute() {
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
   );
   const [aiPrompt, setAiPrompt] = useState('');
+  const [chatSubmission, setChatSubmission] = useState<{ shaderId: string; prompt: string; versionIds: string[] } | null>(null);
   const initialStoredAiRouteRef = useRef<AiGenerationRoute | null>(
     readStoredAiGenerationRoute(),
   );
@@ -6536,6 +6539,7 @@ export function WorkspaceRoute() {
       return;
     }
 
+    setChatSubmission({ shaderId: project.studio.activeShaderId, prompt: historyPrompt, versionIds: project.studio.shaderVersions.map(version => version.id) });
     const aiReady = hasConfiguredShaderAi(project.ai.settings);
     const usingExternalChat =
       aiGenerationRoute === 'chatgpt' || aiGenerationRoute === 'perplexity';
@@ -6606,6 +6610,7 @@ export function WorkspaceRoute() {
           },
         );
     const targetShaderId = nextAutosavedShader?.id ?? requestedShaderId;
+    if (targetShaderId !== requestedShaderId) setChatSubmission(current => current?.shaderId === requestedShaderId ? { ...current, shaderId: targetShaderId } : current);
     const currentCode = project.studio.activeShaderCode;
     const chatHistorySnapshot =
       requestedShader && requestedShader.id === project.studio.activeShaderId
@@ -8291,6 +8296,8 @@ ${errorSnapshot}`,
 
   const aiPanel = (
     <AiPanel
+      compact
+      onCopyPrompt={() => navigator.clipboard.writeText(buildExternalChatShaderPrompt(aiPrompt, project.studio.activeShaderCode))}
       prompt={aiPrompt}
       selectedRoute={aiGenerationRoute}
       aiLoading={aiLoading}
@@ -8306,6 +8313,38 @@ ${errorSnapshot}`,
         void handleShaderMutation(aiPrompt);
       }}
       onFixError={handleFixError}
+    />
+  );
+
+  const renderChatWorkspace = (codePanel: ReactNode, historyPanel: ReactNode) => (
+    <ShaderChatWorkspace
+      shaderName={project.studio.activeShaderName}
+      shaderCode={project.studio.activeShaderCode}
+      versions={project.studio.shaderVersions}
+      pendingPrompt={chatSubmission?.shaderId === project.studio.activeShaderId && !project.studio.shaderVersions.some(version => !chatSubmission.versionIds.includes(version.id)) ? chatSubmission.prompt : undefined}
+      loading={aiLoading}
+      feedback={!chatSubmission || chatSubmission.shaderId === project.studio.activeShaderId ? aiFeedbackMessage : ''}
+      feedbackTone={aiFeedbackTone}
+      composer={aiPanel}
+      codePanel={codePanel}
+      historyPanel={historyPanel}
+      onRestore={restoreShaderVersion}
+      onNewChat={() => {
+        setAiPrompt('');
+        setChatSubmission(null);
+        setAiFeedbackMessage('');
+        if (externalChatRequest?.targetShaderId === project.studio.activeShaderId) {
+          removePendingShaderApplyRequest(externalChatRequest.requestId);
+          setExternalChatRequest(null);
+        }
+        updateProject(currentProject => applyActiveShaderPatch(currentProject, { shaderChatHistory: [] }));
+      }}
+      onSuggest={value => {
+        handlePromptFocus();
+        setAiPrompt(value);
+        window.requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('.shader-chat-workspace .prompt-field')?.focus());
+      }}
+      onRetry={value => { setAiPrompt(value); void handleShaderMutation(value); }}
     />
   );
 
@@ -8432,7 +8471,7 @@ ${errorSnapshot}`,
         mobileCardsOnly
       />
       {mobileShaderToolsPanel}
-      <ShaderCodeSection
+      {renderChatWorkspace(<ShaderCodeSection
         shaderCode={project.studio.activeShaderCode}
         onShaderCodeChange={handleActiveShaderCodeChange}
         compilerError={compilerError}
@@ -8442,8 +8481,7 @@ ${errorSnapshot}`,
         onPasteCode={handlePasteShaderFromClipboard}
         pasteCodeSuggested={Boolean(externalChatPasteSource)}
         pasteCodeSource={externalChatPasteSource}
-      />
-      {aiPanel}
+      />, <ShaderVersionTrailSection versions={project.studio.shaderVersions} onRestoreVersion={restoreShaderVersion} />)}
     </div>
   );
 
@@ -9008,10 +9046,8 @@ ${errorSnapshot}`,
                   data-onboarding-area="code"
                   style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
                 >
-                  <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
-                    {aiPanel}
-                    {desktopCodePanel}
-                    {desktopHistoryPanel}
+                    <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
+                      {renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
                   </div>
                 </aside>
               </div>
@@ -9042,8 +9078,8 @@ ${errorSnapshot}`,
 
             {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
               <aside className="workspace-sidebar" data-onboarding-area="controls">
-                <div className="workspace-sidebar-scroll">
-                  {aiPanel}
+                  <div className="workspace-sidebar-scroll">
+                    {renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
                   {studioPanel}
                   {timelineStepAssetPanel}
                 </div>
