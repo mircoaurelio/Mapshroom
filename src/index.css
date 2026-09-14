@@ -7020,7 +7020,7 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   container-type: size;
   flex: 1;
   min-height: 0;
-  --timeline-card-width: clamp(144px, min(calc((100cqh - 20px) * 0.76), calc(20cqw - 10px)), 360px);
+  --timeline-card-width: clamp(88px, min(calc((100cqh - 20px) * 0.76), calc(20cqw - 10px)), 360px);
 }
 
 .timeline-dialog-panel {
@@ -7655,6 +7655,7 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 
 .timeline-step-select {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 4px;
   width: 100%;
@@ -7849,6 +7850,7 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 
 .timeline-step-preview-shell {
   display: block;
+  flex: 0 0 auto;
   position: relative;
   width: 100%;
   overflow: hidden;
@@ -7872,12 +7874,11 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   left: 5px;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(6, 20px);
-  grid-template-rows: 20px;
+  grid-template-columns: repeat(6, minmax(0, 20px));
   gap: 1px;
   align-content: center;
   justify-content: center;
-  height: 22px;
+  padding: 1px;
   border-radius: 2px 2px 0 0;
   background: rgba(9, 9, 11, 0.9);
   opacity: 0;
@@ -7887,9 +7888,10 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-step-card-actions .timeline-step-action-button {
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  aspect-ratio: 1;
   padding: 0;
   border: 0;
   border-radius: 2px;
@@ -7899,8 +7901,10 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-step-action-button svg {
-  width: 11px;
-  height: 11px;
+  width: 80%;
+  height: 80%;
+  max-width: 11px;
+  max-height: 11px;
 }
 
 .timeline-step-action-button:disabled svg {
