@@ -1,3 +1,4 @@
+import { createUniformRuntime } from '../lib/uniformRuntime';
 import { preserveShaderVersion } from '../lib/shaderHistory';
 import { chooseRandomShaderReplacement } from '../lib/randomShader';
 import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
@@ -2096,7 +2097,7 @@ type FilePickerSource = 'library' | 'timeline-picker';
 
 const DESKTOP_PANE_MIN_WIDTH = 180;
 const DESKTOP_PANE_MAX_WIDTH = 520;
-const DESKTOP_TIMELINE_MIN_HEIGHT = 220;
+const DESKTOP_TIMELINE_MIN_HEIGHT = 180;
 const DESKTOP_TIMELINE_MAX_HEIGHT = 520;
 
 function createShaderVersion(
@@ -2361,19 +2362,18 @@ function applyPastedShaderCodeToProject(
   );
 }
 
-function applyActiveShaderUniformValues(
+function applyShaderUniformValues(
   currentProject: ProjectDocument,
   nextUniformValues: ShaderUniformValueMap,
-  commitSavedShader: boolean,
+  shaderId = currentProject.studio.activeShaderId,
 ): ProjectDocument {
-  const activeShaderIndex = commitSavedShader
-    ? currentProject.studio.savedShaders.findIndex(
-        (shader) => shader.id === currentProject.studio.activeShaderId,
-      )
-    : -1;
+  const activeShaderIndex = currentProject.studio.savedShaders.findIndex(
+    (shader) => shader.id === shaderId,
+  );
   const activeShader =
     activeShaderIndex >= 0 ? currentProject.studio.savedShaders[activeShaderIndex] : null;
-  const studioValuesChanged = !areUniformValuesEqual(
+  const isActiveShader = shaderId === currentProject.studio.activeShaderId;
+  const studioValuesChanged = isActiveShader && !areUniformValuesEqual(
     currentProject.studio.uniformValues,
     nextUniformValues,
   );
@@ -2405,7 +2405,7 @@ function applyActiveShaderUniformValues(
     ...currentProject,
     studio: {
       ...currentProject.studio,
-      uniformValues: nextUniformValues,
+      uniformValues: isActiveShader ? nextUniformValues : currentProject.studio.uniformValues,
       savedShaders: nextSavedShaders,
     },
   };
@@ -2860,7 +2860,9 @@ export function WorkspaceRoute() {
   const uniformCommitPendingRef = useRef(false);
   const pendingUniformValuesRef = useRef<ShaderUniformValueMap>({});
   const pendingUniformShaderIdRef = useRef<string | null>(null);
-  const uniformUpdateFrameRef = useRef<number | null>(null);
+  const [uniformRuntime] = useState(createUniformRuntime);
+  const uniformCommitTimerRef = useRef<number | null>(null);
+  const uniformPointerActiveRef = useRef(false);
   const [project, setProject] = useState<ProjectDocument | null>(null);
   const currentProjectRef = useRef<ProjectDocument | null>(null);
   const persistenceDisabledRef = useRef(false);
@@ -2960,7 +2962,7 @@ export function WorkspaceRoute() {
   const [desktopLayout, setDesktopLayout] = useState({
     leftSidebarWidth: 360,
     rightSidebarWidth: 360,
-    timelineHeight: 300,
+    timelineHeight: DESKTOP_TIMELINE_MIN_HEIGHT,
   });
   const [midiEnabled, setMidiEnabled] = useState(false);
   const [midiPanelVisible, setMidiPanelVisible] = useState(false);
@@ -3544,7 +3546,7 @@ export function WorkspaceRoute() {
           return currentProject;
         }
         // An incoming tab must not replace edits that are still being saved here.
-        if (autosave.hasPending(currentProject.sessionId)) return currentProject;
+        if (uniformCommitPendingRef.current || autosave.hasPending(currentProject.sessionId)) return currentProject;
         // The sender already persisted and broadcast this state. Remember the
         // exact receiving render so two open workspaces cannot echo the same
         // project back and forth. A local update batched after this one creates
@@ -3575,6 +3577,16 @@ export function WorkspaceRoute() {
 
   useLayoutEffect(() => {
     currentProjectRef.current = project;
+    if (project) {
+      for (const [shaderId, liveValues] of uniformRuntime.entries()) {
+        const savedValues = shaderId === project.studio.activeShaderId
+          ? project.studio.uniformValues
+          : project.studio.savedShaders.find(shader => shader.id === shaderId)?.uniformValues;
+        if (savedValues && Object.entries(liveValues).every(([name, value]) =>
+          Object.is(value, savedValues[name]),
+        )) uniformRuntime.clear(shaderId);
+      }
+    }
     if (!project) {
       return;
     }
@@ -3585,17 +3597,20 @@ export function WorkspaceRoute() {
       return;
     }
     autosave.schedule(project);
-  }, [project, autosave]);
+  }, [project, autosave, uniformRuntime]);
 
   const captureCurrentProject = useCallback(() => {
     const current = currentProjectRef.current;
     if (!current || !uniformCommitPendingRef.current) return current;
-    if (pendingUniformShaderIdRef.current && pendingUniformShaderIdRef.current !== current.studio.activeShaderId) return current;
-    // Include the last slider event even if its animation frame has not run yet.
-    return applyActiveShaderUniformValues(current, {
-      ...current.studio.uniformValues,
+    const shaderId = pendingUniformShaderIdRef.current ?? current.studio.activeShaderId;
+    const savedValues = shaderId === current.studio.activeShaderId
+      ? current.studio.uniformValues
+      : current.studio.savedShaders.find(shader => shader.id === shaderId)?.uniformValues;
+    // Include live edits when saving, exporting, or leaving during a drag.
+    return applyShaderUniformValues(current, {
+      ...savedValues,
       ...pendingUniformValuesRef.current,
-    }, true);
+    }, shaderId);
   }, []);
 
   const flushCurrentProject = useCallback(async () => {
@@ -4373,14 +4388,14 @@ export function WorkspaceRoute() {
     fileInputRef.current?.click();
   };
 
-  const beginDesktopResize = (target: DesktopResizeTarget, clientX: number, clientY: number) => {
+  const beginDesktopResize = (target: DesktopResizeTarget, clientX: number, clientY: number, timelineHeight = desktopLayout.timelineHeight) => {
     resizeStateRef.current = {
       target,
       startX: clientX,
       startY: clientY,
       leftSidebarWidth: desktopLayout.leftSidebarWidth,
       rightSidebarWidth: desktopLayout.rightSidebarWidth,
-      timelineHeight: desktopLayout.timelineHeight,
+      timelineHeight,
     };
     document.body.style.cursor = target === 'timeline' ? 'row-resize' : 'col-resize';
     document.body.style.userSelect = 'none';
@@ -5555,119 +5570,88 @@ export function WorkspaceRoute() {
     }
   };
 
-  const flushPendingUniformValues = useCallback((commitSavedShader: boolean) => {
-    if (uniformUpdateFrameRef.current !== null) {
-      window.cancelAnimationFrame(uniformUpdateFrameRef.current);
-      uniformUpdateFrameRef.current = null;
+  const commitActiveUniformValues = useCallback(() => {
+    if (uniformCommitTimerRef.current !== null) {
+      window.clearTimeout(uniformCommitTimerRef.current);
+      uniformCommitTimerRef.current = null;
     }
+    if (!uniformCommitPendingRef.current) return;
 
     const pendingValues = pendingUniformValuesRef.current;
-    const pendingShaderId = pendingUniformShaderIdRef.current;
+    const shaderId = pendingUniformShaderIdRef.current;
+    uniformCommitPendingRef.current = false;
     pendingUniformValuesRef.current = {};
     pendingUniformShaderIdRef.current = null;
-    const hasPendingValues = Object.keys(pendingValues).length > 0;
-
-    if (!hasPendingValues && !commitSavedShader) {
-      return;
-    }
-
     updateProject((currentProject) => {
-      if (pendingShaderId && pendingShaderId !== currentProject.studio.activeShaderId) {
-        return currentProject;
-      }
-      const nextUniformValues = hasPendingValues
-        ? {
-            ...currentProject.studio.uniformValues,
-            ...pendingValues,
-          }
-        : currentProject.studio.uniformValues;
-      return applyActiveShaderUniformValues(
-        currentProject,
-        nextUniformValues,
-        commitSavedShader,
-      );
+      if (!shaderId) return currentProject;
+      const savedValues = shaderId === currentProject.studio.activeShaderId
+        ? currentProject.studio.uniformValues
+        : currentProject.studio.savedShaders.find(shader => shader.id === shaderId)?.uniformValues;
+      return applyShaderUniformValues(currentProject, {
+        ...savedValues,
+        ...pendingValues,
+      }, shaderId);
     });
   }, [updateProject]);
 
-  const commitActiveUniformValues = useCallback(() => {
-    if (!uniformCommitPendingRef.current) {
-      return;
-    }
-
-    uniformCommitPendingRef.current = false;
-    flushPendingUniformValues(true);
-  }, [flushPendingUniformValues]);
-
   const handleUniformChange = useCallback((name: string, value: ShaderUniformValue) => {
-    const activeShaderId = project?.studio.activeShaderId;
-    if (!activeShaderId) {
-      return;
+    const activeShaderId = currentProjectRef.current?.studio.activeShaderId;
+    if (!activeShaderId) return;
+    if (pendingUniformShaderIdRef.current && pendingUniformShaderIdRef.current !== activeShaderId) {
+      commitActiveUniformValues();
     }
 
     uniformCommitPendingRef.current = true;
     pendingUniformShaderIdRef.current = activeShaderId;
-    pendingUniformValuesRef.current = {
-      ...pendingUniformValuesRef.current,
-      [name]: value,
-    };
+    pendingUniformValuesRef.current[name] = value;
+    // WebGL reads this value in its existing frame. Only the small controls subscribe.
+    uniformRuntime.set(activeShaderId, name, value);
     liveUniformSyncRef.current?.publish(activeShaderId, name, value);
-
-    if (uniformUpdateFrameRef.current === null) {
-      uniformUpdateFrameRef.current = window.requestAnimationFrame(() => {
-        uniformUpdateFrameRef.current = null;
-        flushPendingUniformValues(false);
-      });
+    if (uniformCommitTimerRef.current !== null) window.clearTimeout(uniformCommitTimerRef.current);
+    // MIDI and native colour pickers may not send a pointerup/keyup to this window.
+    if (!uniformPointerActiveRef.current) {
+      uniformCommitTimerRef.current = window.setTimeout(commitActiveUniformValues, 180);
     }
-  }, [flushPendingUniformValues, project?.studio.activeShaderId]);
+  }, [commitActiveUniformValues, uniformRuntime]);
 
   const handleUniformValuesChange = useCallback((values: ShaderUniformValueMap) => {
-    uniformCommitPendingRef.current = false;
-    pendingUniformValuesRef.current = {};
-    pendingUniformShaderIdRef.current = null;
-    if (uniformUpdateFrameRef.current !== null) {
-      window.cancelAnimationFrame(uniformUpdateFrameRef.current);
-      uniformUpdateFrameRef.current = null;
-    }
-    const activeShaderId = project?.studio.activeShaderId;
+    commitActiveUniformValues();
+    const activeShaderId = currentProjectRef.current?.studio.activeShaderId;
     if (activeShaderId) {
       for (const [name, value] of Object.entries(values)) {
+        uniformRuntime.set(activeShaderId, name, value);
         liveUniformSyncRef.current?.publish(activeShaderId, name, value);
       }
     }
-    updateProject((currentProject) =>
-      applyActiveShaderUniformValues(currentProject, values, true),
-    );
-  }, [project?.studio.activeShaderId, updateProject]);
-
-  useEffect(
-    () => () => {
-      if (uniformUpdateFrameRef.current !== null) {
-        window.cancelAnimationFrame(uniformUpdateFrameRef.current);
-      }
-    },
-    [],
-  );
+    updateProject((currentProject) => applyShaderUniformValues(currentProject, values));
+  }, [commitActiveUniformValues, uniformRuntime, updateProject]);
 
   useEffect(() => {
-    const commitOnInteractionEnd = () => commitActiveUniformValues();
-    window.addEventListener('pointerup', commitOnInteractionEnd, true);
-    window.addEventListener('pointercancel', commitOnInteractionEnd, true);
-    window.addEventListener('keyup', commitOnInteractionEnd, true);
+    const beginPointer = (event: PointerEvent) => {
+      if (event.target instanceof HTMLInputElement && event.target.type === 'range') {
+        uniformPointerActiveRef.current = true;
+        if (uniformCommitTimerRef.current !== null) window.clearTimeout(uniformCommitTimerRef.current);
+      }
+    };
+    const endPointer = () => {
+      uniformPointerActiveRef.current = false;
+      commitActiveUniformValues();
+    };
+    const endKey = () => commitActiveUniformValues();
+    window.addEventListener('pointerdown', beginPointer, true);
+    window.addEventListener('pointerup', endPointer, true);
+    window.addEventListener('pointercancel', endPointer, true);
+    window.addEventListener('blur', endPointer);
+    window.addEventListener('keyup', endKey, true);
     return () => {
-      window.removeEventListener('pointerup', commitOnInteractionEnd, true);
-      window.removeEventListener('pointercancel', commitOnInteractionEnd, true);
-      window.removeEventListener('keyup', commitOnInteractionEnd, true);
+      window.removeEventListener('pointerdown', beginPointer, true);
+      window.removeEventListener('pointerup', endPointer, true);
+      window.removeEventListener('pointercancel', endPointer, true);
+      window.removeEventListener('blur', endPointer);
+      window.removeEventListener('keyup', endKey, true);
+      if (uniformCommitTimerRef.current !== null) window.clearTimeout(uniformCommitTimerRef.current);
     };
   }, [commitActiveUniformValues]);
-
-  useEffect(() => {
-    if (!uniformCommitPendingRef.current) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(commitActiveUniformValues, 180);
-    return () => window.clearTimeout(timeoutId);
-  }, [commitActiveUniformValues, project?.studio.uniformValues]);
 
   const selectTimelineStepByIndex = useCallback((stepIndex: number, cut = false) => {
     const step = project?.timeline.stub.shaderSequence.steps[stepIndex];
@@ -8391,6 +8375,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
+      uniformRuntime={uniformRuntime}
       onUniformInteractionStart={handleUniformInteractionStart}
       onUniformChange={handleUniformChange}
       onUniformValuesChange={handleUniformValuesChange}
@@ -8431,6 +8416,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
+      uniformRuntime={uniformRuntime}
       onInteractionStart={handleUniformInteractionStart}
       onUniformChange={handleUniformChange}
       onUniformValuesChange={handleUniformValuesChange}
@@ -8655,6 +8641,7 @@ ${errorSnapshot}`,
         activeShaderName={project.studio.activeShaderName}
         activeShaderCode={project.studio.activeShaderCode}
         activeUniformValues={project.studio.uniformValues}
+        uniformRuntime={uniformRuntime}
         audioBindingsByShaderId={
           audioReactivity.preferences.modeEnabled
             ? audioReactivity.preferences.bindingsByShaderId
@@ -8811,6 +8798,7 @@ ${errorSnapshot}`,
           audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={project.studio.uniformValues}
+          uniformRuntime={uniformRuntime}
           onInteractionStart={handleUniformInteractionStart}
           onUniformChange={handleUniformChange}
           onUniformValuesChange={handleUniformValuesChange}
@@ -9023,7 +9011,7 @@ ${errorSnapshot}`,
           <>
             <section
               className="workspace-desktop-main"
-              style={{ gridTemplateRows: `minmax(0, 1fr) 10px ${desktopLayout.timelineHeight}px` }}
+              style={{ gridTemplateRows: `minmax(0, 1fr) 10px minmax(var(--desktop-timeline-min-height), ${desktopLayout.timelineHeight}px)` }}
             >
               <div
                 className="workspace-desktop-top"
@@ -9080,7 +9068,7 @@ ${errorSnapshot}`,
                 role="presentation"
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  beginDesktopResize('timeline', event.clientX, event.clientY);
+                  beginDesktopResize('timeline', event.clientX, event.clientY, event.currentTarget.nextElementSibling?.getBoundingClientRect().height);
                 }}
               />
 

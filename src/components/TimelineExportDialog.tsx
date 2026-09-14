@@ -280,6 +280,8 @@ export function TimelineExportDialog({
   }, [timeline.shaderSequence.mode]);
 
   const exportableShaders = useMemo(() => {
+    // Normalizing the entire shader library is export work, not slider work.
+    if (!open) return [];
     const activeShader: SavedShader = {
       ...savedShaders.find((shader) => shader.id === activeShaderId),
       id: activeShaderId,
@@ -324,6 +326,7 @@ export function TimelineExportDialog({
     activeShaderId,
     activeShaderName,
     activeUniformValues,
+    open,
     savedShaders,
     timeline.shaderSequence.steps,
   ]);

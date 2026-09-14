@@ -1,3 +1,4 @@
+import { resolveLiveUniformValue, type LiveUniformBindings, type UniformRuntime } from '../lib/uniformRuntime';
 import { validStageAspectRatio } from '../lib/assetReplacement';
 import {
   type CSSProperties,
@@ -56,6 +57,7 @@ interface StageRendererProps {
   preloadLayers?: StageRenderLayer[];
   warmupSources?: StageRenderInputSource[];
   audioRuntime?: AudioReactiveRuntime;
+  uniformRuntime?: UniformRuntime;
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
@@ -120,6 +122,7 @@ export interface StageRenderLayer {
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
   audioBindings?: AudioReactiveBindingMap;
+  liveUniformBindings?: LiveUniformBindings;
   opacity?: number;
   inputSource?: StageRenderInputSource | null;
   overlaySource?: StageRenderInputSource | null;
@@ -827,6 +830,7 @@ export function StageRenderer({
   preloadLayers,
   warmupSources,
   audioRuntime,
+  uniformRuntime,
   stageTransform,
   transport,
   isOutputOnly = false,
@@ -874,6 +878,7 @@ export function StageRenderer({
   const resolvedRenderLayersRef = useRef<StageRenderLayer[]>([]);
   const resolvedPreloadLayersRef = useRef<StageRenderLayer[]>([]);
   const audioRuntimeRef = useRef(audioRuntime);
+  const uniformRuntimeRef = useRef(uniformRuntime);
   const isOutputOnlyRef = useRef(isOutputOnly);
   const qualityRef = useRef<AdaptiveRenderQuality | null>(null);
   qualityRef.current ??= new AdaptiveRenderQuality();
@@ -914,6 +919,7 @@ export function StageRenderer({
   const onCompiledShaderCodesChangeRef = useRef(onCompiledShaderCodesChange);
   const onFrameRenderedRef = useRef(onFrameRendered);
   audioRuntimeRef.current = audioRuntime;
+  uniformRuntimeRef.current = uniformRuntime;
   isOutputOnlyRef.current = isOutputOnly;
   useEffect(
     () => () => {
@@ -2135,7 +2141,11 @@ export function StageRenderer({
 
           for (const [name, definition] of Object.entries(layer.uniformDefinitions)) {
             const location = layer.locations.custom[name];
-            const value = activeLayer.uniformValues[name] ?? layer.uniformValues[name];
+            const value = resolveLiveUniformValue(
+              uniformRuntimeRef.current,
+              activeLayer.liveUniformBindings?.[name] ?? layer.liveUniformBindings?.[name],
+              activeLayer.uniformValues[name] ?? layer.uniformValues[name],
+            );
 
             if (!location || value === undefined) {
               continue;

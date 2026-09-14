@@ -215,6 +215,39 @@ function StepperChevronIcon({ direction }: { direction: 'up' | 'down' }) {
   );
 }
 
+function DisabledShaderCard({ shader, stepId, onEnable }: {
+  shader: SavedShader | undefined;
+  stepId: string;
+  onEnable: () => void;
+}) {
+  return (
+    <article
+      className="timeline-step-card timeline-step-card-disabled"
+      data-timeline-step-id={stepId}
+      data-preview-shader-id={shader?.id}
+    >
+      <button
+        type="button"
+        className="timeline-step-select timeline-step-restore"
+        aria-label={`Enable ${shader?.name ?? 'shader'}`}
+        title={`Enable ${shader?.name ?? 'shader'}`}
+        onClick={onEnable}
+      >
+        <span className="timeline-step-preview-shell">
+          <ShaderThumbnail shader={shader} />
+          <span className="timeline-step-restore-indicator" aria-hidden="true">
+            <PowerIcon />
+            <span>Off</span>
+          </span>
+        </span>
+        <span className="timeline-step-caption">
+          <strong className="timeline-step-name">{shader?.name ?? 'Shader'}</strong>
+        </span>
+      </button>
+    </article>
+  );
+}
+
 export function ShaderTimelineEditor({
   transportControls,
   assets,
@@ -290,6 +323,14 @@ export function ShaderTimelineEditor({
     sequence.randomChoiceEnabled;
 
   const enabledStepCount = sequence.steps.filter((step) => !step.disabled).length;
+  const enableStep = (stepId: string) => {
+    onStepChange(stepId, { disabled: false });
+    requestAnimationFrame(() => {
+      flowStripRef.current?.querySelector<HTMLButtonElement>(
+        `[data-timeline-step-id="${stepId}"] .timeline-step-select`,
+      )?.focus();
+    });
+  };
   useEffect(() => {
     const strip = flowStripRef.current;
     if (!strip) {
@@ -553,11 +594,17 @@ export function ShaderTimelineEditor({
         >
           {displaySteps.map((step, index) => {
             const shader = shaderMap.get(step.shaderId);
+            if (step.disabled) {
+              return (
+                <div key={step.id} className="timeline-flow-node timeline-flow-node-disabled" role="listitem">
+                  <DisabledShaderCard shader={shader} stepId={step.id} onEnable={() => enableStep(step.id)} />
+                </div>
+              );
+            }
             const isEditing = step.id === editingStepId;
             const isCurrent = step.id === activeStepId;
-            const isDisabledStep = Boolean(step.disabled);
             const deleteBlocked =
-              sequence.steps.length === 1 || (!isDisabledStep && enabledStepCount <= 1);
+              sequence.steps.length === 1 || enabledStepCount <= 1;
             const isDragging = mobileDraggingStepId === step.id;
 
             return (
@@ -839,14 +886,20 @@ export function ShaderTimelineEditor({
       >
         {sequence.steps.map((step) => {
           const shader = shaderMap.get(step.shaderId);
+          if (step.disabled) {
+            return (
+              <div key={step.id} className="timeline-flow-node timeline-flow-node-disabled" role="listitem">
+                <DisabledShaderCard shader={shader} stepId={step.id} onEnable={() => enableStep(step.id)} />
+              </div>
+            );
+          }
           const isPlayingStep = step.id === activeStepId;
           const isTransitionStep = step.id === transitionStepId && transitionStepId !== activeStepId;
           const assignedAsset = shader?.inputAssetId ? assetMap.get(shader.inputAssetId) ?? null : null;
           const hasCompileError = hasShaderCompileError(shader);
           const hasAssignedAsset = Boolean(shader?.inputAssetId);
-          const isDisabledStep = Boolean(step.disabled);
           const isPinnedStep = pinnedStepId === step.id;
-          const disableToggleBlocked = !isDisabledStep && enabledStepCount <= 1;
+          const disableToggleBlocked = enabledStepCount <= 1;
 
           return (
             <div
@@ -858,7 +911,7 @@ export function ShaderTimelineEditor({
                 className={`timeline-step-card ${step.shaderId === activeShaderId ? 'timeline-step-card-active' : ''
                   } ${isPlayingStep ? 'timeline-step-card-current' : ''} ${isTransitionStep ? 'timeline-step-card-transition' : ''
                   } ${step.id === editingStepId ? 'timeline-step-card-editing' : ''} ${!isAdvancedView ? 'timeline-step-card-simple' : ''
-                  } ${isDisabledStep ? 'timeline-step-card-disabled' : ''} ${isPinnedStep ? 'timeline-step-card-pinned' : ''
+                  } ${isPinnedStep ? 'timeline-step-card-pinned' : ''
                   }`}
                 data-timeline-step-id={step.id}
                 data-preview-shader-id={shader?.id}
@@ -867,7 +920,7 @@ export function ShaderTimelineEditor({
                 <button
                   type="button"
                   className="timeline-step-select"
-                  aria-label={`Edit ${shader?.name ?? 'shader'}${isDisabledStep ? ' (off)' : ''}`}
+                  aria-label={`Edit ${shader?.name ?? 'shader'}`}
                   aria-pressed={step.id === editingStepId}
                   onClick={() => onEditStep(step.id)}
                 >
@@ -938,9 +991,6 @@ export function ShaderTimelineEditor({
                     <strong className="timeline-step-name" title={shader?.name}>
                       {shader?.name ?? 'Shader unavailable'}
                     </strong>
-                    {isDisabledStep ? (
-                      <span className="timeline-step-status-off" title="Excluded from playback">Off</span>
-                    ) : null}
                   </span>
                 </button>
 
@@ -951,8 +1001,7 @@ export function ShaderTimelineEditor({
                       }`}
                     aria-label={isPinnedStep ? 'Unpin shader step' : 'Pin shader step'}
                     aria-pressed={isPinnedStep}
-                    disabled={isDisabledStep}
-                    title={isDisabledStep ? 'Enable the shader before pinning' : isPinnedStep ? 'Unpin compare layer' : 'Pin compare layer'}
+                    title={isPinnedStep ? 'Unpin compare layer' : 'Pin compare layer'}
                     onClick={(event) => {
                       event.stopPropagation();
                       onPinnedStepToggle(step.id);
@@ -989,16 +1038,21 @@ export function ShaderTimelineEditor({
 
                   <button
                     type="button"
-                    className={`icon-button timeline-step-action-button ${isDisabledStep ? 'timeline-step-action-button-enable' : ''}`}
-                    aria-label={isDisabledStep ? 'Enable shader step' : 'Disable shader step'}
-                    title={isDisabledStep ? 'Enable step' : 'Disable step'}
+                    className="icon-button timeline-step-action-button"
+                    aria-label="Disable shader step"
+                    title="Disable step"
                     disabled={disableToggleBlocked}
                     onClick={(event) => {
                       event.stopPropagation();
-                      onStepChange(step.id, { disabled: !isDisabledStep });
+                      onStepChange(step.id, { disabled: true });
+                      requestAnimationFrame(() => {
+                        flowStripRef.current?.querySelector<HTMLButtonElement>(
+                          `[data-timeline-step-id="${step.id}"] .timeline-step-restore`,
+                        )?.focus();
+                      });
                     }}
                   >
-                    {isDisabledStep ? <PowerIcon /> : <BlockIcon />}
+                    <BlockIcon />
                   </button>
 
                   <button
@@ -1032,7 +1086,7 @@ export function ShaderTimelineEditor({
                     className="icon-button timeline-step-action-button timeline-step-action-button-danger"
                     aria-label="Delete shader step"
                     title="Delete"
-                    disabled={sequence.steps.length === 1 || (!isDisabledStep && enabledStepCount <= 1)}
+                    disabled={sequence.steps.length === 1 || enabledStepCount <= 1}
                     onClick={(event) => {
                       event.stopPropagation();
                       onRemoveStep(step.id);

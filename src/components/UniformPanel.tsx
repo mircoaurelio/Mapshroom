@@ -1,3 +1,5 @@
+import { useLiveUniformValues } from '../hooks/useLiveUniformValues';
+import type { UniformRuntime } from '../lib/uniformRuntime';
 import { RangeInput } from './RangeInput';
 import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
@@ -23,6 +25,7 @@ interface UniformPanelProps {
   audioReactivity?: AudioReactivityController;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
+  uniformRuntime?: UniformRuntime;
   onInteractionStart: () => void;
   onUniformChange: (name: string, value: ShaderUniformValue) => void;
   onUniformValuesChange?: (values: ShaderUniformValueMap) => void;
@@ -38,7 +41,8 @@ export function UniformPanel({
   audioShaderCode,
   audioReactivity,
   uniformDefinitions,
-  uniformValues,
+  uniformValues: savedUniformValues,
+  uniformRuntime,
   onInteractionStart,
   onUniformChange,
   onUniformValuesChange,
@@ -46,6 +50,7 @@ export function UniformPanel({
   onNewUniformNameChange,
   onQuickAddUniform,
 }: UniformPanelProps) {
+  const uniformValues = useLiveUniformValues(uniformRuntime, audioShaderId, savedUniformValues);
   const pointerActivationRef = useRef(false);
   const audioModeEnabled = Boolean(audioReactivity?.preferences.modeEnabled);
   const {
