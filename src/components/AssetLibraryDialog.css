@@ -188,3 +188,10 @@
   .ml-footer-status { display:none; } .ml-footer-actions { width:100%; margin:0; flex-direction:row-reverse; gap:8px; }
   .ml-footer-actions .primary-button { flex:1; } .ml-footer-actions .ghost-button { font-size:12px; } .ml-notice { padding:6px 12px; font-size:12px; }
 }
+
+/* Desktop sections share the workspace shell; mobile retains the dialog. */
+.ml-page { grid-area: 1 / 1; position: relative; padding: 0; min-width: 0; min-height: 0; height: 100%; background: var(--bg); z-index: 1; }
+.ml-page .ml-dialog { width: 100%; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+.ml-page .ml-header h2 { padding-left: 0; border-left: 0; }
+.ml-page .ml-thumbnail { height: clamp(100px, 20dvh, 180px); }
+.ml-page .ml-dialog .ml-body { min-height: 0; }

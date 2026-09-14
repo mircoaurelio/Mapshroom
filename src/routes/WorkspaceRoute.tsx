@@ -66,6 +66,7 @@ import type { TimelineSelectionInfo } from '../components/TimelineSelectionBanne
 import { MidiControllerPanel } from '../components/MidiControllerPanel';
 import { MidiControllerGuideDialog } from '../components/MidiControllerGuideDialog';
 import { SliceStudioDialog } from '../components/SliceStudioDialog';
+import { WorkspaceNavigation, type WorkspaceSection } from '../components/WorkspaceNavigation';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import { MapshroomBrandLockup } from '../components/MapshroomBrandLockup';
 import {
@@ -2855,6 +2856,7 @@ export function WorkspaceRoute() {
   const stageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const outputWindowRef = useRef<Window | null>(null);
   const [outputWindowOpen, setOutputWindowOpen] = useState(false);
+  const [outputWindowMessage, setOutputWindowMessage] = useState('');
   const sessionSyncRef = useRef<ReturnType<typeof createSessionSync> | null>(null);
   const liveUniformSyncRef = useRef<ReturnType<typeof createLiveUniformSync> | null>(null);
   const syncedProjectAutosaveRef = useRef<ProjectDocument | null>(null);
@@ -2930,6 +2932,7 @@ export function WorkspaceRoute() {
   } | null>(null);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
+  const [desktopPage, setDesktopPage] = useState<'workspace' | 'output'>('workspace');
   const [assetLibraryStepId, setAssetLibraryStepId] = useState<string | null>(null);
   const [highlightAssetStartMapping, setHighlightAssetStartMapping] = useState(false);
   const [showAssetImportFirstStep, setShowAssetImportFirstStep] = useState(() =>
@@ -7148,6 +7151,7 @@ ${errorSnapshot}`,
       sessionId: project.sessionId,
       existingWindow: outputWindowRef.current,
     });
+    setOutputWindowMessage(result.message);
 
     if (!result.popup) {
       setStatusMessage(result.message);
@@ -7171,6 +7175,7 @@ ${errorSnapshot}`,
       if (!outputWindowRef.current || outputWindowRef.current.closed) {
         outputWindowRef.current = null;
         setOutputWindowOpen(false);
+        setOutputWindowMessage('Output window is closed.');
       }
     }, 1_000);
 
@@ -7809,7 +7814,7 @@ ${errorSnapshot}`,
   const mobileChromeVisible = mobileUiMode !== 'hidden';
   const stageControlsVisible = isMobile
     ? mobileUiMode === 'full' && stageTransform.moveMode
-    : uiPreferences.chromeVisible && stageTransform.moveMode;
+    : uiPreferences.chromeVisible && stageTransform.moveMode && desktopPage !== 'output';
   const timelineStub = project.timeline.stub;
   const timelineSelectableShaders = getProjectTimelineShaders(project);
   const timelineSequenceEnabled = timelineStub.shaderSequence.steps.length > 0;
@@ -8837,6 +8842,95 @@ ${errorSnapshot}`,
     </section>
   );
 
+  const desktopSection: WorkspaceSection = isAssetLibraryOpen
+    ? 'asset'
+    : desktopPage === 'output' ? 'output' : stageTransform.moveMode ? 'move' : 'workspace';
+  const selectDesktopSection = (section: WorkspaceSection) => {
+    if (section === 'asset') {
+      trackUiClick('open_assets');
+      setAssetLibraryStepId(null);
+      setIsAssetLibraryOpen(true);
+      return;
+    }
+    setIsAssetLibraryOpen(false);
+    setAssetLibraryStepId(null);
+    setHighlightAssetStartMapping(false);
+    if (section === 'output') {
+      trackUiClick('output_section');
+      setDesktopPage('output');
+    } else {
+      setDesktopPage('workspace');
+      const nextMoveMode = section === 'move';
+      if (stageTransform.moveMode !== nextMoveMode) {
+        trackUiClick(nextMoveMode ? 'move_mode_on' : 'move_mode_off');
+        setMoveMode(nextMoveMode);
+      }
+    }
+  };
+  const workspaceNavigation = <WorkspaceNavigation
+    activeSection={desktopSection}
+    onSelectSection={selectDesktopSection}
+    assetsFirstStepEligible={assetsFirstStepEligible}
+    onboardingActive={showOnboardingGuide}
+    onAssetsFirstStepAdvance={() => setShowAssetImportFirstStep(true)}
+  />;
+  const sectionHeader = desktopSection === 'move' || desktopSection === 'output' ? (
+    <header className="workspace-page-header">
+      <div>
+        <h2>{desktopSection === 'move' ? 'Move' : 'Output'}</h2>
+        <p>{desktopSection === 'move'
+          ? 'Align your projection using the controls below. Changes appear in the Output window.'
+          : 'Open the live output on your projector or second display.'}</p>
+      </div>
+      <button type="button" className="primary-button" onClick={() => { trackUiClick('open_output'); handleOutputWindowOpen(); }}>
+        {outputWindowOpen ? 'Show output window' : 'Open output window'}
+      </button>
+    </header>
+  ) : null;
+  const assetLibraryView = (
+      <AssetLibraryDialog
+        key={project.sessionId}
+        open={isAssetLibraryOpen}
+        presentation={!isMobile && uiPreferences.chromeVisible ? 'page' : 'dialog'}
+        activeAsset={activeAsset}
+        assetUrl={activeAssetUrl}
+        assets={project.library.assets}
+        activeAssetId={assetLibraryShader?.inputAssetId ?? activeAsset?.id ?? null}
+        timelineAssignment={assetLibraryStep && assetLibraryShader ? {
+          shaderName: assetLibraryShader.name,
+          onUseLiveStage: () => handleTimelineAssignStepAsset(assetLibraryStep.id, null),
+        } : undefined}
+        onLoadAsset={() => assetLibraryStep
+          ? openFilePicker('timeline-picker', assetLibraryStep.id)
+          : openFilePicker('library')}
+        onPasteImage={() => { void handleImageTransfer(readClipboardImages, assetLibraryStep?.id); }}
+        onDropImage={(transfer) => { void handleImageTransfer(transfer, assetLibraryStep?.id); }}
+        imageImporting={imageImporting}
+        imageImportMessage={imageImportMessage}
+        onSelectAsset={(assetId) => assetLibraryStep
+          ? handleTimelineAssignStepAsset(assetLibraryStep.id, assetId)
+          : handleAssetSelect(assetId)}
+        onRenameAsset={handleAssetRename}
+        onEditMask={handleAssetMaskOpen}
+        onEditSurfaces={handleAssetSurfacesOpen}
+        onSaveVariant={handleAssetVersionSave}
+        processingSuspended={Boolean(segmentationAsset || surfaceAsset)}
+        onRemoveAsset={handleAssetRemove}
+        onOpenProBeta={() => setProBetaSource('asset_generate')}
+        onClose={() => {
+          setHighlightAssetStartMapping(false);
+          setIsAssetLibraryOpen(false);
+          setAssetLibraryStepId(null);
+        }}
+        showImportFirstStep={showAssetImportFirstStep}
+        highlightStartMapping={highlightAssetStartMapping}
+        onImportFirstStepDismiss={() => {
+          dismissAssetsFirstStepPermanently();
+          setShowAssetImportFirstStep(false);
+        }}
+      />
+  );
+
   return (
     <div
       className={`workspace-shell ${isMobile ? 'workspace-shell-mobile' : ''} ${
@@ -8918,7 +9012,6 @@ ${errorSnapshot}`,
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
           colorTheme={uiPreferences.colorTheme}
-          moveMode={stageTransform.moveMode}
           audioReactiveEnabled={audioReactivity.preferences.modeEnabled}
           audioReactiveListening={audioReactivity.status === 'listening'}
           audioReactiveSource={audioReactivity.preferences.source}
@@ -8936,11 +9029,6 @@ ${errorSnapshot}`,
             trackUiClick('open_export');
             setIsExportDialogOpen(true);
           }}
-          onOpenAssets={() => {
-            trackUiClick('open_assets');
-            setAssetLibraryStepId(null);
-            setIsAssetLibraryOpen(true);
-          }}
           onOpenSettings={() => {
             trackUiClick('open_settings');
             setApiSettingsVariant('settings');
@@ -8948,24 +9036,18 @@ ${errorSnapshot}`,
           }}
           onNewShader={() => {
             trackUiClick('new_shader');
+            selectDesktopSection('workspace');
             createNewShader();
             setMobilePanel(null);
           }}
           onOpenPresetBrowser={() => {
             trackUiClick('open_presets');
+            selectDesktopSection('workspace');
             setIsPresetBrowserOpen(true);
           }}
           onPlayToggle={() => {
             trackUiClick(project.playback.transport.isPlaying ? 'timeline_pause' : 'timeline_play');
             handlePlayToggle();
-          }}
-          onOpenOutput={() => {
-            trackUiClick('open_output');
-            handleOutputWindowOpen();
-          }}
-          onToggleMoveMode={() => {
-            trackUiClick(stageTransform.moveMode ? 'move_mode_off' : 'move_mode_on');
-            toggleMoveMode();
           }}
           onToggleAudioReactive={() => {
             const nextEnabled = !audioReactivity.preferences.modeEnabled;
@@ -9015,69 +9097,78 @@ ${errorSnapshot}`,
             trackUiClick('open_slicer');
             setIsSliceStudioDialogOpen(true);
           }}
-          assetsFirstStepEligible={assetsFirstStepEligible}
-          onboardingActive={showOnboardingGuide}
-          onAssetsFirstStepAdvance={() => setShowAssetImportFirstStep(true)}
         />
       ) : null}
 
       <div
-        className={`workspace-body ${useDesktopPaneLayout ? 'workspace-body-desktop-grid' : ''}`}
+        className={`workspace-body ${useDesktopPaneLayout ? 'workspace-body-desktop-grid' : ''} ${!isMobile && uiPreferences.chromeVisible ? 'workspace-body-with-navigation' : ''}`}
       >
         {useDesktopPaneLayout ? (
           <>
             <section
               className="workspace-desktop-main"
-              style={{ gridTemplateRows: `minmax(0, 1fr) 10px minmax(var(--desktop-timeline-min-height), ${desktopLayout.timelineHeight}px)` }}
+              style={{ gridTemplateRows: `minmax(0, 1fr) 10px minmax(var(--desktop-timeline-min-height), min(${desktopLayout.timelineHeight}px, calc(100% - 244px)))` }}
             >
-              <div
-                className="workspace-desktop-top"
-                style={{ gridTemplateColumns: desktopMainTopGridTemplateColumns }}
-              >
-                {uiPreferences.sidebarVisible ? (
-                  <>
-                    <aside
-                      className="workspace-pane workspace-pane-left"
-                      data-onboarding-area="controls"
-                      style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
-                    >
-                      <div className="workspace-pane-scroll">
-                        {desktopSlidersPanel}
-                        {timelineStepAssetPanel}
-                      </div>
-                    </aside>
+              <div className="workspace-upper">
+                {workspaceNavigation}
+                <div className="workspace-section-content">
+                  <div
+                    className={`workspace-desktop-top ${desktopSection === 'move' || desktopSection === 'output' ? 'workspace-page-stage' : ''}`}
+                    hidden={desktopSection === 'asset'}
+                    style={{ gridTemplateColumns: desktopMainTopGridTemplateColumns }}
+                  >
+                    {uiPreferences.sidebarVisible ? (
+                      <>
+                        <aside
+                          className="workspace-pane workspace-pane-left"
+                          data-onboarding-area="controls"
+                          style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
+                        >
+                          <div className="workspace-pane-scroll">
+                            {desktopSlidersPanel}
+                            {timelineStepAssetPanel}
+                          </div>
+                        </aside>
+
+                        <div
+                          className="workspace-resize-handle workspace-resize-handle-vertical"
+                          role="presentation"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            beginDesktopResize('left', event.clientX, event.clientY);
+                          }}
+                        />
+                      </>
+                    ) : null}
+
+                    <div className="workspace-desktop-stage">
+                      {sectionHeader}
+                      {stageViewport}
+                      {desktopSection === 'output' && <p className="workspace-output-status" role="status">{outputWindowMessage || (outputWindowOpen ? 'Output window connected.' : 'Output window is closed.')}</p>}
+                    </div>
 
                     <div
                       className="workspace-resize-handle workspace-resize-handle-vertical"
                       role="presentation"
                       onMouseDown={(event) => {
                         event.preventDefault();
-                        beginDesktopResize('left', event.clientX, event.clientY);
+                        beginDesktopResize('right', event.clientX, event.clientY);
                       }}
                     />
-                  </>
-                ) : null}
 
-                <div className="workspace-desktop-stage">{stageViewport}</div>
-
-                <div
-                  className="workspace-resize-handle workspace-resize-handle-vertical"
-                  role="presentation"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    beginDesktopResize('right', event.clientX, event.clientY);
-                  }}
-                />
-
-                <aside
-                  className="workspace-pane workspace-pane-right"
-                  data-onboarding-area="code"
-                  style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
-                >
-                    <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
-                      {renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
+                    <aside
+                      className="workspace-pane workspace-pane-right"
+                      data-onboarding-area="code"
+                      style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
+                    >
+                        <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
+                          {renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
+                      </div>
+                    </aside>
                   </div>
-                </aside>
+
+                  {assetLibraryView}
+                </div>
               </div>
 
               <div
@@ -9101,19 +9192,18 @@ ${errorSnapshot}`,
 
           </>
         ) : (
-          <>
-            {stageViewport}
-
-            {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
-              <aside className="workspace-sidebar" data-onboarding-area="controls">
-                  <div className="workspace-sidebar-scroll">
-                    {renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
-                  {studioPanel}
-                  {timelineStepAssetPanel}
+          !isMobile && uiPreferences.chromeVisible ? (
+            <div className="workspace-upper workspace-upper-immersive">
+              {workspaceNavigation}
+              <div className="workspace-section-content">
+                <div className="workspace-immersive-content" hidden={desktopSection === 'asset'}>
+                  <div className="workspace-desktop-stage">{sectionHeader}{stageViewport}</div>
+                  {desktopSection === 'workspace' && uiPreferences.sidebarVisible && <aside className="workspace-sidebar" data-onboarding-area="controls"><div className="workspace-sidebar-scroll">{renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}{studioPanel}{timelineStepAssetPanel}</div></aside>}
                 </div>
-              </aside>
-            ) : null}
-          </>
+                {assetLibraryView}
+              </div>
+            </div>
+          ) : stageViewport
         )}
       </div>
 
@@ -9123,46 +9213,7 @@ ${errorSnapshot}`,
         </div>
       ) : null}
 
-      <AssetLibraryDialog
-        key={project.sessionId}
-        open={isAssetLibraryOpen}
-        activeAsset={activeAsset}
-        assetUrl={activeAssetUrl}
-        assets={project.library.assets}
-        activeAssetId={assetLibraryShader?.inputAssetId ?? activeAsset?.id ?? null}
-        timelineAssignment={assetLibraryStep && assetLibraryShader ? {
-          shaderName: assetLibraryShader.name,
-          onUseLiveStage: () => handleTimelineAssignStepAsset(assetLibraryStep.id, null),
-        } : undefined}
-        onLoadAsset={() => assetLibraryStep
-          ? openFilePicker('timeline-picker', assetLibraryStep.id)
-          : openFilePicker('library')}
-        onPasteImage={() => { void handleImageTransfer(readClipboardImages, assetLibraryStep?.id); }}
-        onDropImage={(transfer) => { void handleImageTransfer(transfer, assetLibraryStep?.id); }}
-        imageImporting={imageImporting}
-        imageImportMessage={imageImportMessage}
-        onSelectAsset={(assetId) => assetLibraryStep
-          ? handleTimelineAssignStepAsset(assetLibraryStep.id, assetId)
-          : handleAssetSelect(assetId)}
-        onRenameAsset={handleAssetRename}
-        onEditMask={handleAssetMaskOpen}
-        onEditSurfaces={handleAssetSurfacesOpen}
-        onSaveVariant={handleAssetVersionSave}
-        processingSuspended={Boolean(segmentationAsset || surfaceAsset)}
-        onRemoveAsset={handleAssetRemove}
-        onOpenProBeta={() => setProBetaSource('asset_generate')}
-        onClose={() => {
-          setHighlightAssetStartMapping(false);
-          setIsAssetLibraryOpen(false);
-          setAssetLibraryStepId(null);
-        }}
-        showImportFirstStep={showAssetImportFirstStep}
-        highlightStartMapping={highlightAssetStartMapping}
-        onImportFirstStepDismiss={() => {
-          dismissAssetsFirstStepPermanently();
-          setShowAssetImportFirstStep(false);
-        }}
-      />
+      {(isMobile || !uiPreferences.chromeVisible) ? assetLibraryView : null}
 
       <AssetSegmentationDialog
         asset={segmentationAsset}

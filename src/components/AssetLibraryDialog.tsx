@@ -13,6 +13,7 @@ import type { SurfaceEditorInitialOptions } from './AssetSurfacesDialog';
 import './AssetLibraryDialog.css';
 
 interface Props {
+  presentation?: 'dialog' | 'page';
   open: boolean; activeAsset: AssetRecord | null; assetUrl: string | null; assets: AssetRecord[]; activeAssetId: string | null;
   onLoadAsset: () => void; onPasteImage: () => void; onDropImage: (transfer: ImageTransfer) => void;
   imageImporting: boolean; imageImportMessage: string;
@@ -90,8 +91,11 @@ export function AssetLibraryDialog(props: Props) {
     bodyRef.current?.scrollTo(0, 0);
     const click = (event: MouseEvent) => { if (!menuRef.current?.contains(event.target as Node)) menuRef.current?.removeAttribute('open'); };
     document.addEventListener('click', click);
-    return () => { document.removeEventListener('click', click); previous?.focus(); };
-  }, [open]);
+    return () => {
+      document.removeEventListener('click', click);
+      if (props.presentation !== 'page') previous?.focus();
+    };
+  }, [open, props.presentation]);
   useEffect(() => {
     const end = () => { if (dragTimer.current) clearTimeout(dragTimer.current); setDragging(false); };
     window.addEventListener('dragend', end); window.addEventListener('drop', end, true);
@@ -127,6 +131,7 @@ export function AssetLibraryDialog(props: Props) {
     return () => { if (previous?.isConnected) previous.focus(); };
   }, [open, expandedPreview]);
   if (!open) return null;
+  const isPage = props.presentation === 'page';
   const close = () => { setExpandedPreview(false); if (props.showImportFirstStep) props.onImportFirstStepDismiss(); props.onClose(); };
   const selectSource = (asset: AssetRecord, expand = false) => { setSourceId(asset.id); setExtraVersionId(null); setSelectedKind(null); setCompare(false); setExpandedPreview(expand); };
   const use = (asset: AssetRecord) => { props.onSelectAsset(asset.id); close(); };
@@ -153,11 +158,11 @@ export function AssetLibraryDialog(props: Props) {
   };
   const automation = <label className="ml-check"><input type="checkbox" checked={queue.preferences.automatic} onChange={event => queue.setPreferences(value => ({ ...value, automatic: event.target.checked }))} /><span>Auto-generate on upload<small>{queue.profile.mobile ? 'Lightweight outputs only · On this device' : 'Selected outputs · On this device'}</small></span></label>;
   const metadata = <><span>{displayedDimensions?.width ? `${displayedDimensions.width} × ${displayedDimensions.height} · ` : ''}{displayed?.mimeType.split('/')[1]?.toUpperCase()}{!!displayed?.size && ` · ${displayed.size >= 1e6 ? `${(displayed.size / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(displayed.size / 1e3))} KB`}`}</span>{displayed?.derivation?.method && <span>{displayed.derivation.method}</span>}</>;
-  return <div className={`dialog-backdrop asset-browser-backdrop ml-backdrop${dragging ? ' ml-dragging' : ''}`} role="presentation" onClick={event => { if (event.currentTarget === event.target) close(); }}>
-    <section ref={dialogRef} className="ml-dialog" role="dialog" aria-modal="true" aria-labelledby="asset-browser-title" tabIndex={-1} {...dropProps()} onKeyDown={event => {
+  return <div className={`${isPage ? 'ml-page' : 'dialog-backdrop asset-browser-backdrop'} ml-backdrop${dragging ? ' ml-dragging' : ''}`} role="presentation" onClick={event => { if (event.currentTarget === event.target) close(); }}>
+    <section ref={dialogRef} className="ml-dialog" role={isPage ? 'region' : 'dialog'} aria-modal={isPage ? undefined : true} aria-labelledby="asset-browser-title" tabIndex={-1} {...dropProps()} onKeyDown={event => {
       event.stopPropagation();
       if (event.key === 'Escape') { event.preventDefault(); if (pendingDelete) setPendingDelete(null); else if (expandedPreview) setExpandedPreview(false); else if (menuRef.current?.open) { menuRef.current.open = false; menuRef.current.querySelector('summary')?.focus(); } else close(); }
-      if (event.key === 'Tab') {
+      if (event.key === 'Tab' && (!isPage || pendingDelete || expandedPreview)) {
         const scope = pendingDelete ? dialogRef.current?.querySelector('.ml-confirm') : expandedPreview ? dialogRef.current?.querySelector('.ml-source-panel') : dialogRef.current;
         const items = Array.from(scope?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), summary, a[href], video[controls]') ?? []).filter(node => node.getClientRects().length && !node.closest('[inert]'));
         const first = items[0], last = items.at(-1);
@@ -165,10 +170,10 @@ export function AssetLibraryDialog(props: Props) {
         else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { event.preventDefault(); first?.focus(); }
       }
     }}>
-      <header className="ml-header" inert={expandedPreview || !!pendingDelete}><div className="ml-brand"><span>MAPSHROOM</span></div><h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : 'Media Library'}</h2><div className="ml-header-actions">
+      <header className="ml-header" inert={expandedPreview || !!pendingDelete}>{!isPage && <div className="ml-brand"><span>MAPSHROOM</span></div>}<h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : isPage ? 'Asset' : 'Media Library'}</h2><div className="ml-header-actions">
         <button className="secondary-button ml-paste" type="button" onClick={props.onPasteImage} disabled={props.imageImporting}><Icon name="paste" />Paste</button>
         <button className="primary-button" type="button" onClick={() => { props.onImportFirstStepDismiss(); props.onLoadAsset(); }} disabled={props.imageImporting}><Icon name="plus" />{props.imageImporting ? 'Importing…' : 'Import'}</button>
-        <button className="ml-icon-button" type="button" onClick={close} aria-label="Close asset library"><Icon name="close" /></button>
+        {!isPage && <button className="ml-icon-button" type="button" onClick={close} aria-label="Close asset library"><Icon name="close" /></button>}
       </div></header>
       {props.showImportFirstStep && <div ref={importTipRef} className="ml-notice">Import an image or video, or choose an asset below.<button className="ghost-button" onClick={props.onImportFirstStepDismiss}>Got it</button></div>}
       {props.imageImportMessage && <p className="ml-notice" role="status">{props.imageImportMessage}</p>}
