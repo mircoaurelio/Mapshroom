@@ -11,7 +11,7 @@ interface Props {
   asset: AssetRecord;
   assetUrl: string | null;
   assetMissing: boolean;
-  onApply: (blob: Blob, output: SurfaceOutput) => Promise<boolean>;
+  onApply: (blob: Blob, output: SurfaceOutput, settings: SurfaceSettings) => Promise<boolean>;
   onClose: () => void;
   initialOptions?: SurfaceEditorInitialOptions;
 }
@@ -67,7 +67,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.current?.focus();
     // The media library stays mounted below this editor; make it inert while editing.
-    const library = document.querySelector<HTMLElement>('.asset-browser-backdrop');
+    const library = document.querySelector<HTMLElement>('.asset-browser-backdrop, .ml-page');
     const wasInert = library?.inert;
     if (library) library.inert = true;
     return () => {
@@ -208,7 +208,7 @@ export function AssetSurfacesDialog({ asset, assetUrl, assetMissing, onApply, on
         if (!data.blob) { fail(data.error ?? 'Could not create the PNG.'); return; }
         setStatus('Saving to your media library…');
         try {
-          const saved = await onApply(data.blob, output);
+          const saved = await onApply(data.blob, output, settings);
           if (!alive.current) return;
           if (saved) closeRef.current();
           else fail('The image could not be saved. Free some browser storage and retry.');

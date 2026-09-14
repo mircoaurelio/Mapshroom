@@ -1,7 +1,7 @@
 import { prepareImage, analyze } from './surfaceMapping/algorithms.js';
 import { prepareSurface, shapeRegions, finishSurface } from './surfaceMapping/surfaces.js';
 import { refineSurfaces, renderRefined } from './surfaceMapping/refinement.js';
-import { suggestSurfaceSettings, fitProcessingSize, connectedDarkAlpha } from './assetVariantRules.js';
+import { suggestSurfaceSettings, fitProcessingSize, connectedDarkAlpha, surfaceSettingsForVariant, normalizeGradientSettings } from './assetVariantRules.js';
 
 let acknowledge;
 self.onmessage = ({ data }) => {
@@ -9,7 +9,7 @@ self.onmessage = ({ data }) => {
   if (data.type === 'run') void run(data);
 };
 
-async function run({ source, outputs, profile, ai }) {
+async function run({ source, outputs, profile, ai, gradientSettings }) {
   let bitmap, model, canvas;
   let currentKind = outputs[0];
   const send = message => self.postMessage({ kind: currentKind, ...message });
@@ -31,7 +31,7 @@ async function run({ source, outputs, profile, ai }) {
     small.width = small.height = 1;
     const settings = suggestSurfaceSettings(rgba, sw, sh, profile.mobile);
     send({ type: 'suggestion', settings });
-    let result, refined, mask;
+    let result, refined, mask, resultKey;
     // RGB stays unchanged for depth; background alpha is applied afterwards.
     const aiBlob = await canvas.convertToBlob({ type: 'image/png' });
     for (const kind of outputs) {
@@ -40,12 +40,17 @@ async function run({ source, outputs, profile, ai }) {
       let pixels, method;
       try {
         if (kind !== 'background' && kind !== 'depth') {
-          if (!result) {
-            const image = prepareSurface(prepareImage(rgba, sw, sh, settings.black), settings.smoothing);
-            result = settings.method === 'shape' ? shapeRegions(image, settings.zones) : analyze(image, 'slic', 50);
-            result = finishSurface(result, image, settings.zones, settings.smoothing);
+          const surface = surfaceSettingsForVariant(settings, kind, gradientSettings);
+          const key = JSON.stringify(surface);
+          // A gradient with its own zone controls must not reuse segmentation labels.
+          if (!result || resultKey !== key) {
+            result = null; refined = null;
+            const image = prepareSurface(prepareImage(rgba, sw, sh, surface.black), surface.smoothing);
+            result = surface.method === 'shape' ? shapeRegions(image, surface.zones) : analyze(image, 'slic', 50);
+            result = finishSurface(result, image, surface.zones, surface.smoothing);
             if (!result.count) throw new Error('No zones found. Open Adjust to change the dark-background threshold.');
-            refined = refineSurfaces(result, rgba, width, height, original, settings.black);
+            refined = refineSurfaces(result, rgba, width, height, original, surface.black);
+            resultKey = key;
           }
           const output = kind === 'segmentation' ? 'regions' : kind;
           pixels = renderRefined(result, rgba, refined, original, { style: 'radial', palette: 'thermal', angle: 90, texture: 100, feather: 1, black: settings.black }, output, 0);
@@ -88,7 +93,7 @@ async function run({ source, outputs, profile, ai }) {
         send({ type: 'phase', message: 'Saving version…' });
         const blob = await canvas.convertToBlob({ type: 'image/png' });
         const saved = new Promise(resolve => { acknowledge = resolve; });
-        send({ type: 'result', blob, width, height, method });
+        send({ type: 'result', blob, width, height, method, ...(kind === 'gradient' ? { surfaceSettings: normalizeGradientSettings(gradientSettings) } : {}) });
         await saved;
       } catch (error) {
         if (model) { try { await model.dispose(); } catch { /* Worker termination is the final cleanup. */ } model = null; }

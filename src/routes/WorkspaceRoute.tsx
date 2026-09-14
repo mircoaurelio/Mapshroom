@@ -4789,7 +4789,7 @@ export function WorkspaceRoute() {
     if (asset?.kind === 'image') { setSurfaceInitialOptions(options); setSurfaceAssetId(assetId); }
   }, [project]);
 
-  const handleAssetSurfacesApply = useCallback(async (blob: Blob, output: SurfaceOutput) => {
+  const handleAssetSurfacesApply = useCallback(async (blob: Blob, output: SurfaceOutput, settings: { zones: number; smoothing: number }) => {
     if (!surfaceAsset || !project) return false;
     const outputAsset: AssetRecord = {
       ...surfaceAsset,
@@ -4797,7 +4797,7 @@ export function WorkspaceRoute() {
       name: `${surfaceAsset.name.replace(/\.[^.]+$/, '')}-surfaces-${output}.png`,
       mimeType: 'image/png', size: blob.size, lastModified: Date.now(),
       createdAt: new Date().toISOString(), sourceType: 'uploaded',
-      derivation: { sourceAssetId: surfaceAsset.derivation?.sourceAssetId ?? surfaceAsset.id, kind: output === 'regions' ? 'segmentation' : output },
+      derivation: { sourceAssetId: surfaceAsset.derivation?.sourceAssetId ?? surfaceAsset.id, kind: output === 'regions' ? 'segmentation' : output, surfaceSettings: { zones: settings.zones, smoothing: settings.smoothing } },
     };
     if (!await putAssetBlob(outputAsset.id, blob)) return false;
     const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
@@ -4816,7 +4816,7 @@ export function WorkspaceRoute() {
       ...source, id: crypto.randomUUID(), name: `${source.name.replace(/\.[^.]+$/, '')}-${result.kind}.png`,
       mimeType: 'image/png', kind: 'image', size: result.blob.size, lastModified: Date.now(),
       createdAt: new Date().toISOString(), sourceType: 'generated',
-      derivation: { sourceAssetId: source.id, kind: result.kind, width: result.width, height: result.height, method: result.method },
+      derivation: { sourceAssetId: source.id, kind: result.kind, width: result.width, height: result.height, method: result.method, surfaceSettings: result.surfaceSettings },
     };
     if (!await putAssetBlob(output.id, result.blob)) return null;
     if (assetVersionProjectRef.current?.sessionId !== sessionId || !assetVersionProjectRef.current.library.assets.some(asset => asset.id === source.id)) {

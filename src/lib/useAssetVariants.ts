@@ -3,7 +3,7 @@ import type { AssetRecord } from '../types';
 import { getAssetBlob } from './storage';
 import { getBundledAssetUrl } from './bundledAssets';
 import { defaultVariantKinds, variantOptions, type AssetVariantKind, type SaveAssetVariant } from './assetVariants';
-import { processingProfile, type SuggestedSurfaces } from './assetVariantRules.js';
+import { normalizeGradientSettings, processingProfile, type GradientSettings, type SuggestedSurfaces } from './assetVariantRules.js';
 
 export interface VariantJob { state: 'queued' | 'processing' | 'ready' | 'error' | 'cancelled'; message: string; loaded?: number; total?: number }
 type Preferences = { outputs: AssetVariantKind[]; automatic: boolean };
@@ -36,7 +36,7 @@ export function useAssetVariants(assets: AssetRecord[], onSave: SaveAssetVariant
   const assetsRef = useRef(assets), saveRef = useRef(onSave), suspendedRef = useRef(suspended);
   assetsRef.current = assets; saveRef.current = onSave; suspendedRef.current = suspended;
   const workerRef = useRef<Worker | null>(null);
-  const pending = useRef<{ source: AssetRecord; outputs: AssetVariantKind[]; ai: boolean }[]>([]);
+  const pending = useRef<{ source: AssetRecord; outputs: AssetVariantKind[]; ai: boolean; gradientSettings: GradientSettings }[]>([]);
   const running = useRef<{ source: AssetRecord; outputs: AssetVariantKind[] } | null>(null);
   const occupied = useRef(new Set<string>());
   const seen = useRef(new Set(assets.map(asset => asset.id)));
@@ -89,7 +89,7 @@ export function useAssetVariants(assets: AssetRecord[], onSave: SaveAssetVariant
           } else if (data.type === 'result') {
             try {
               if (!assetsRef.current.some(asset => asset.id === next.source.id)) throw new Error('The original was removed.');
-              const asset = await saveRef.current(next.source, { kind, blob: data.blob, width: data.width, height: data.height, method: data.method });
+              const asset = await saveRef.current(next.source, { kind, blob: data.blob, width: data.width, height: data.height, method: data.method, surfaceSettings: data.surfaceSettings });
               if (token !== generation.current || !alive.current) return;
               if (!asset) throw new Error('Could not save this version. Free browser storage and retry.');
               publish(next.source.id, kind, { state: 'ready', message: data.method });
@@ -101,18 +101,20 @@ export function useAssetVariants(assets: AssetRecord[], onSave: SaveAssetVariant
           } else if (data.type === 'fatal') fail(data.message);
           else if (data.type === 'done') finish();
         };
-        worker.postMessage({ type: 'run', source, outputs: next.outputs, profile, ai: next.ai });
+        worker.postMessage({ type: 'run', source, outputs: next.outputs, profile, ai: next.ai, gradientSettings: next.gradientSettings });
       } catch (error) { if (token === generation.current) fail(error instanceof Error ? error.message : 'Could not start processing.'); }
     })();
   };
-  const generate = (source: AssetRecord, kinds = preferences.outputs, automatic = false) => {
+  const generate = (source: AssetRecord, kinds = preferences.outputs, automatic = false, options: { regenerate?: boolean; gradientSettings?: GradientSettings } = {}) => {
     if (source.kind !== 'image') return;
     // Automatic imports never start AI jobs on an unvalidated phone.
     const allowedAI = ai && (!automatic || !profile.mobile);
-    const outputs = order.filter(kind => kinds.includes(kind) && (kind !== 'depth' || allowedAI) && !occupied.current.has(variantJobKey(source.id, kind)) && !assetsRef.current.some(asset => asset.derivation?.sourceAssetId === source.id && asset.derivation.kind === kind));
+    const outputs = order.filter(kind => kinds.includes(kind) && (kind !== 'depth' || allowedAI) && !occupied.current.has(variantJobKey(source.id, kind)) && (options.regenerate || !assetsRef.current.some(asset => asset.derivation?.sourceAssetId === source.id && asset.derivation.kind === kind)));
     if (!outputs.length) return;
     for (const kind of outputs) { occupied.current.add(variantJobKey(source.id, kind)); publish(source.id, kind, { state: 'queued', message: 'Queued' }); }
-    pending.current.push({ source, outputs, ai: allowedAI }); setInterrupted(false); pumpRef.current();
+    const previousGradient = assetsRef.current.filter(asset => asset.derivation?.sourceAssetId === source.id && asset.derivation.kind === 'gradient').at(-1);
+    const gradientSettings = normalizeGradientSettings(options.gradientSettings ?? previousGradient?.derivation?.surfaceSettings);
+    pending.current.push({ source, outputs, ai: allowedAI, gradientSettings }); setInterrupted(false); pumpRef.current();
   };
   const generateRef = useRef(generate); generateRef.current = generate;
   const cancel = useCallback(() => {

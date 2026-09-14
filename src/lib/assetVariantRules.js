@@ -1,4 +1,15 @@
 // Rules describe image statistics, not a semantic understanding of its subject.
+export function normalizeGradientSettings(value) {
+  return {
+    zones: Number.isFinite(value?.zones) ? Math.max(2, Math.min(48, Math.round(value.zones))) : 2,
+    smoothing: Number.isFinite(value?.smoothing) ? Math.max(0, Math.min(100, Math.round(value.smoothing))) : 0,
+  };
+}
+
+export function surfaceSettingsForVariant(suggested, kind, gradientSettings) {
+  return kind === 'gradient' ? { ...suggested, ...normalizeGradientSettings(gradientSettings) } : suggested;
+}
+
 export function suggestSurfaceSettings(rgba, width, height, mobile = false) {
   let opaque = 0, green = 0, colorful = 0, border = 0, darkBorder = 0, transparent = 0;
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {

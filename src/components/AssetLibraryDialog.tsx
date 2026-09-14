@@ -7,11 +7,13 @@ import { useAssetObjectUrl } from '../lib/useAssetObjectUrl';
 import { useLibraryThumbnails } from '../lib/useLibraryThumbnails';
 import { useAssetVariants, variantJobKey } from '../lib/useAssetVariants';
 import { defaultVariantKinds, sourceForAsset, variantOptions, type AssetVariantKind, type SaveAssetVariant } from '../lib/assetVariants';
-import { suggestSurfaceSettings, type SuggestedSurfaces } from '../lib/assetVariantRules.js';
+import { normalizeGradientSettings, suggestSurfaceSettings, type GradientSettings, type SuggestedSurfaces } from '../lib/assetVariantRules.js';
 import type { AssetRecord } from '../types';
 import type { SurfaceEditorInitialOptions } from './AssetSurfacesDialog';
 import { AssetPhotoWelcome } from './AssetPhotoWelcome';
+import { RangeInput } from './RangeInput';
 import './AssetLibraryDialog.css';
+import './AssetLibraryPage.css';
 
 interface Props {
   presentation?: 'dialog' | 'page';
@@ -51,6 +53,8 @@ export function AssetLibraryDialog(props: Props) {
   const [pendingDelete, setPendingDelete] = useState<AssetRecord | null>(null);
   const [dragging, setDragging] = useState(false);
   const [expandedPreview, setExpandedPreview] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const [gradientDraft, setGradientDraft] = useState<{ sourceId: string; settings: GradientSettings } | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [dimensions, setDimensions] = useState<{ id: string; width: number; height: number } | null>(null);
   const [imageSuggestion, setImageSuggestion] = useState<{ id: string; value: SuggestedSurfaces } | null>(null);
@@ -65,14 +69,16 @@ export function AssetLibraryDialog(props: Props) {
   const source = sources.find(asset => asset.id === sourceId) ?? sourceForAsset(visible.find(asset => asset.id === activeAssetId), visible) ?? sources.at(-1) ?? null;
   const versions = source ? visible.filter(asset => asset.derivation?.sourceAssetId === source.id) : [];
   const latest = (kind: AssetVariantKind) => versions.filter(asset => asset.derivation?.kind === kind).at(-1);
+  const latestGradientId = latest('gradient')?.id;
+  const gradientSettings = gradientDraft && gradientDraft.sourceId === source?.id ? gradientDraft.settings : normalizeGradientSettings(latest('gradient')?.derivation?.surfaceSettings);
   const selectedVersion = versions.find(asset => asset.id === extraVersionId) ?? (selectedKind ? latest(selectedKind) : undefined);
   const otherVersions = versions.filter(asset => !variantOptions.some(option => latest(option.id)?.id === asset.id));
   const displayed = !compare && selectedVersion ? selectedVersion : source;
   const resolution = useAssetObjectUrl(open ? displayed : null);
   const thumbnailAssets = [...new Map([
-    ...sourceGrid.slice(0, 4), ...(source ? [source] : []),
+    ...(source ? [source] : []),
     ...variantOptions.flatMap(option => { const version = latest(option.id); return version ? [version] : []; }),
-    ...sourceGrid.slice(4), ...visible,
+    ...sourceGrid, ...visible,
   ].map(asset => [asset.id, asset])).values()];
   const thumbnails = useLibraryThumbnails(thumbnailAssets, open);
   const { dropProps } = useImageDropTarget(transfer => { prepareFirstPhoto(); props.onDropImage(transfer); });
@@ -83,6 +89,7 @@ export function AssetLibraryDialog(props: Props) {
   const suggestion = (source && queue.suggestions[source.id]) ?? (imageSuggestion?.id === source?.id ? imageSuggestion?.value : null);
   const canProcess = source?.kind === 'image' && !props.processingSuspended;
   const displayedDimensions = displayed?.derivation?.width ? displayed.derivation : dimensions?.id === displayed?.id ? dimensions : null;
+  useEffect(() => { setGradientDraft(null); }, [source?.id, latestGradientId]);
   useEffect(() => {
     const active = visible.find(asset => asset.id === activeAssetId);
     if (open && active) { setSourceId(sourceForAsset(active, visible)?.id ?? null); setSelectedKind(null); setExtraVersionId(active.derivation ? active.id : null); setCompare(false); }
@@ -138,23 +145,24 @@ export function AssetLibraryDialog(props: Props) {
   }, [open, expandedPreview]);
   if (!open) return null;
   const isPage = props.presentation === 'page';
-  const close = () => { setExpandedPreview(false); if (props.showImportFirstStep) props.onImportFirstStepDismiss(); props.onClose(); };
-  const selectSource = (asset: AssetRecord, expand = false) => { setSourceId(asset.id); setExtraVersionId(null); setSelectedKind(null); setCompare(false); setExpandedPreview(expand); };
+  const close = () => { setExpandedPreview(false); setExtrasOpen(false); if (props.showImportFirstStep) props.onImportFirstStepDismiss(); props.onClose(); };
+  const selectSource = (asset: AssetRecord, expand = false) => { setSourceId(asset.id); setExtraVersionId(null); setSelectedKind(null); setCompare(false); setExpandedPreview(expand); setGradientDraft(null); };
   const use = (asset: AssetRecord) => { props.onSelectAsset(asset.id); close(); };
   const edit = (kind: AssetVariantKind) => {
     if (!source) return;
     setExpandedPreview(false);
+    setExtrasOpen(false);
     menuRef.current?.removeAttribute('open');
     if (kind === 'background') props.onEditMask((latest('background') ?? source).id, 'refine');
     else if (kind === 'depth') props.onEditMask((latest('depth') ?? source).id, 'depth');
-    else props.onEditSurfaces(source.id, { method: suggestion?.method, settings: suggestion ?? undefined, output: kind === 'segmentation' ? 'regions' : kind });
+    else props.onEditSurfaces(source.id, { method: suggestion?.method, settings: { ...suggestion, ...(kind === 'gradient' ? gradientSettings : {}) }, output: kind === 'segmentation' ? 'regions' : kind });
   };
   const renderVersion = (option: (typeof variantOptions)[number]) => {
     if (!source) return null;
     const version = latest(option.id), job = queue.jobs[variantJobKey(source.id, option.id)];
     const working = job?.state === 'processing' || job?.state === 'queued', unavailable = option.id === 'depth' && !queue.ai;
     return <article key={option.id} className={`ml-version${version && selectedVersion?.id === version.id ? ' is-selected' : ''}${!version ? ' is-pending' : ''}`} aria-busy={working}>
-      <div className="ml-version-media"><button type="button" className={`ml-version-preview${option.id === 'background' && version ? ' ml-checkerboard' : ''}`} disabled={!version} aria-label={`${isPage ? 'Select' : 'Preview'} ${option.title}`} aria-pressed={!!version && selectedVersion?.id === version.id} onClick={() => { setExtraVersionId(null); setSelectedKind(option.id); setCompare(false); setExpandedPreview(!isPage); }}>
+      <div className="ml-version-media"><button type="button" className={`ml-version-preview${option.id === 'background' && version ? ' ml-checkerboard' : ''}`} disabled={!version} aria-label={`${isPage ? 'Select' : 'Preview'} ${option.title}`} aria-pressed={!!version && selectedVersion?.id === version.id} onClick={() => { setExtraVersionId(null); setSelectedKind(option.id); setCompare(false); setExtrasOpen(false); setExpandedPreview(!isPage); }}>
         {version ? <Artwork asset={version} url={thumbnails[version.id]} /> : <>{thumbnails[source.id] && <img className="ml-pending-image" src={thumbnails[source.id]} alt="" />}<span className="ml-pending-icon">{working && job.state === 'processing' ? <Spinner /> : <Icon name={option.id === 'depth' ? 'depth' : 'image'} />}</span></>}
       </button><div className="ml-version-actions">{version ? <><button className="secondary-button" type="button" onClick={() => { setExtraVersionId(null); setSelectedKind(option.id); setCompare(false); setExpandedPreview(true); }}><Icon name="expand" />Preview</button><button className="secondary-button" type="button" disabled={queue.busy} title={queue.busy ? 'Finish or cancel processing before adjusting' : 'Adjust result'} onClick={() => edit(option.id)}><Icon name="adjust" />Adjust</button></> : working ? <button className="secondary-button" type="button" onClick={queue.cancel}>Cancel</button> : <button className="secondary-button" type="button" disabled={!canProcess || unavailable} onClick={() => queue.generate(source, [option.id])}>{job?.state === 'error' ? 'Retry' : 'Create'}</button>}</div></div>
       <div className="ml-version-content"><h4 aria-label={option.title} title={option.description}>{option.title}{version && <span className="ml-ready-icon" role="img" aria-label="Ready"><Icon name="check" /></span>}</h4>
@@ -165,19 +173,21 @@ export function AssetLibraryDialog(props: Props) {
   const automation = <label className="ml-check"><input type="checkbox" checked={queue.preferences.automatic} onChange={event => queue.setPreferences(value => ({ ...value, automatic: event.target.checked }))} /><span>Auto-generate on upload<small>{queue.profile.mobile ? 'Lightweight outputs only · On this device' : 'Selected outputs · On this device'}</small></span></label>;
   const generateButton = source && <button className="secondary-button" type="button" disabled={!canProcess || !!sourceBusy || !queue.preferences.outputs.some(kind => !latest(kind) && (kind !== 'depth' || queue.ai))} onClick={() => queue.generate(source)}><Icon name="depth" />Generate versions</button>;
   const metadata = <><span>{displayedDimensions?.width ? `${displayedDimensions.width} × ${displayedDimensions.height} · ` : ''}{displayed?.mimeType.split('/')[1]?.toUpperCase()}{!!displayed?.size && ` · ${displayed.size >= 1e6 ? `${(displayed.size / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(displayed.size / 1e3))} KB`}`}</span>{displayed?.derivation?.method && <span>{displayed.derivation.method}</span>}</>;
-  return <div className={`${isPage ? 'ml-page' : 'dialog-backdrop asset-browser-backdrop'} ml-backdrop${dragging ? ' ml-dragging' : ''}`} role="presentation" onClick={event => { if (event.currentTarget === event.target) close(); }}>
+  return <div className={`${isPage ? 'ml-page' : 'dialog-backdrop asset-browser-backdrop'} ml-backdrop${sources.length ? ' ml-populated' : ''}${dragging ? ' ml-dragging' : ''}`} role="presentation" onClick={event => { if (event.currentTarget === event.target) close(); }}>
     <section ref={dialogRef} className="ml-dialog" role={isPage ? 'region' : 'dialog'} aria-modal={isPage ? undefined : true} aria-labelledby="asset-browser-title" tabIndex={-1} {...dropProps()} onKeyDown={event => {
       event.stopPropagation();
-      if (event.key === 'Escape') { event.preventDefault(); if (pendingDelete) setPendingDelete(null); else if (expandedPreview) setExpandedPreview(false); else if (menuRef.current?.open) { menuRef.current.open = false; menuRef.current.querySelector('summary')?.focus(); } else close(); }
-      if (event.key === 'Tab' && (!isPage || pendingDelete || expandedPreview)) {
-        const scope = pendingDelete ? dialogRef.current?.querySelector('.ml-confirm') : expandedPreview ? dialogRef.current?.querySelector('.ml-source-panel') : dialogRef.current;
-        const items = Array.from(scope?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), summary, a[href], video[controls]') ?? []).filter(node => node.getClientRects().length && !node.closest('[inert]'));
+      if (event.key === 'Escape') { event.preventDefault(); if (pendingDelete) setPendingDelete(null); else if (expandedPreview) setExpandedPreview(false); else if (extrasOpen) setExtrasOpen(false); else if (menuRef.current?.open) { menuRef.current.open = false; menuRef.current.querySelector('summary')?.focus(); } else close(); }
+      if (event.key === 'Tab' && (!isPage || pendingDelete || expandedPreview || extrasOpen)) {
+        const scope = pendingDelete ? dialogRef.current?.querySelector('.ml-confirm') : expandedPreview ? dialogRef.current?.querySelector('.ml-source-panel') : extrasOpen ? dialogRef.current?.querySelector('.ml-extras-panel') : dialogRef.current;
+        const items = Array.from(scope?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary, a[href], video[controls]') ?? []).filter(node => node.getClientRects().length && !node.closest('[inert]'));
         const first = items[0], last = items.at(-1);
         if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { event.preventDefault(); first?.focus(); }
       }
     }}>
-      <header className="ml-header" inert={expandedPreview || !!pendingDelete}>{!isPage && <div className="ml-brand"><span>MAPSHROOM</span></div>}<div className="ml-header-copy"><h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : 'Asset'}</h2>{isPage && <p>{sources.length ? 'Images and videos for your project.' : 'Your surface. Your starting point.'}</p>}</div><div className="ml-header-actions">
+      <header className="ml-header" inert={expandedPreview || extrasOpen || !!pendingDelete}>{!isPage && <div className="ml-brand"><span>MAPSHROOM</span></div>}<div className={isPage ? 'ml-sr-only' : 'ml-header-copy'}><h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : 'Photo versions'}</h2></div>
+        {isPage && source && <div className="ml-photo-picker"><button className="ml-original-thumb" type="button" aria-label="Select original" aria-pressed={!selectedVersion} title="Use original photo" onClick={() => selectSource(source)}><Artwork asset={source} url={thumbnails[source.id]} eager /></button><div><span className="ml-photo-label">Original</span><select aria-label="Photo" value={source.id} onChange={event => { const next = sources.find(asset => asset.id === event.target.value); if (next) selectSource(next); }}>{sourceGrid.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></div><button className="ml-icon-button" type="button" aria-label="Preview original" onClick={() => selectSource(source, true)}><Icon name="expand" /></button></div>}
+        <div className="ml-header-actions">
         {!!sources.length && <>
         <button className="secondary-button ml-paste" type="button" onClick={props.onPasteImage} disabled={props.imageImporting}><Icon name="paste" />Paste</button>
         <button className="primary-button" type="button" onClick={() => { props.onImportFirstStepDismiss(); props.onLoadAsset(); }} disabled={props.imageImporting}><Icon name="plus" />{props.imageImporting ? 'Importing…' : 'Import'}</button>
@@ -185,9 +195,9 @@ export function AssetLibraryDialog(props: Props) {
         {!isPage && <button className="ml-icon-button" type="button" onClick={close} aria-label="Close asset library"><Icon name="close" /></button>}
       </div></header>
       {props.showImportFirstStep && !!sources.length && <div ref={importTipRef} className="ml-notice">Import an image or video, or choose an asset below.<button className="ghost-button" onClick={props.onImportFirstStepDismiss}>Got it</button></div>}
-      {props.imageImportMessage && <p className="ml-notice" role="status">{props.imageImportMessage}</p>}
+      {props.imageImportMessage && <p className={isPage && /^\d+ assets? added\.$/.test(props.imageImportMessage) ? 'ml-sr-only' : 'ml-notice'} role="status">{props.imageImportMessage}</p>}
       {queue.interrupted && <div className="ml-notice" role="status">Previous processing was interrupted. Saved assets are still available.<button className="ghost-button" onClick={queue.dismissInterrupted}>Dismiss</button></div>}
-      {!sources.length ? <AssetPhotoWelcome importing={props.imageImporting} onChoosePhoto={() => { prepareFirstPhoto(); props.onLoadAsset(); }} onPasteImage={() => { prepareFirstPhoto(); props.onPasteImage(); }} onOpenProject={props.onOpenProject} /> : <div ref={bodyRef} className="ml-body"><aside ref={libraryRef} className="ml-library" aria-label="Your assets" inert={expandedPreview || !!pendingDelete}><div className="ml-section-label"><span>Your assets <small>{sources.length}</small></span><button className="ml-icon-button" aria-label="Asset information" aria-expanded={showInfo} onClick={() => setShowInfo(value => !value)}><Icon name="info" /></button></div>
+      {!sources.length ? <AssetPhotoWelcome importing={props.imageImporting} onChoosePhoto={() => { prepareFirstPhoto(); props.onLoadAsset(); }} onPasteImage={() => { prepareFirstPhoto(); props.onPasteImage(); }} onOpenProject={props.onOpenProject} /> : <div ref={bodyRef} className="ml-body">{!isPage && <aside ref={libraryRef} className="ml-library" aria-label="Your assets" inert={expandedPreview || extrasOpen || !!pendingDelete}><div className="ml-section-label"><span>Your assets <small>{sources.length}</small></span><button className="ml-icon-button" aria-label="Asset information" aria-expanded={showInfo} onClick={() => setShowInfo(value => !value)}><Icon name="info" /></button></div>
         {showInfo && displayed && <div className="ml-asset-info"><strong>{displayed.name}</strong><small>{metadata}</small>{resolution.url && <a className="ml-icon-button" href={resolution.url} download={displayed.name} aria-label="Download selected asset"><Icon name="download" /></a>}</div>}
         <div className="ml-asset-list">{sourceGrid.map((asset, index) => {
           const count = visible.filter(item => item.derivation?.sourceAssetId === asset.id).length;
@@ -195,7 +205,7 @@ export function AssetLibraryDialog(props: Props) {
             <span className="ml-thumbnail"><Artwork asset={asset} url={thumbnails[asset.id]} eager={index < 4} /></span>{source?.id === asset.id && <span className="ml-asset-selected" aria-hidden="true"><Icon name="check" /></span>}<span className="ml-asset-title">{asset.name}</span><span className="ml-asset-meta">{asset.kind === 'video' ? 'Video' : 'Original'}{count ? ` · ${count} ${count === 1 ? 'version' : 'versions'}` : ''}</span>
           </button><button type="button" className="ml-icon-button ml-expand-asset" aria-label={`Expand ${asset.name}`} onClick={() => selectSource(asset, true)}><Icon name="expand" /></button></article>;
         })}</div>{!sources.length && <p className="ml-empty">Your images and videos will appear here.</p>}
-      </aside><main ref={detailRef} className={`ml-detail${expandedPreview ? ' has-expanded-preview' : ''}`}>{source ? <>
+      </aside>}<main ref={detailRef} className={`ml-detail${expandedPreview ? ' has-expanded-preview' : ''}`}>{source ? <>
         {expandedPreview && <section className="ml-source-panel" role="dialog" aria-modal="true" aria-label="Asset preview" inert={!!pendingDelete}>
         <div className="ml-section-label"><span>{selectedVersion && !compare ? 'Selected version' : 'Original'}</span><button className="ml-icon-button ml-close-preview" type="button" aria-label="Close preview" onClick={() => setExpandedPreview(false)}><Icon name="close" /></button></div>
         <div id="ml-main-preview" className={`ml-main-preview${displayed?.derivation?.kind === 'background' ? ' ml-checkerboard' : ''}`}><Artwork asset={displayed ?? source} url={resolution.url} main onVideoLoad={video => setDimensions({ id: (displayed ?? source).id, width: video.videoWidth, height: video.videoHeight })} onLoad={image => {
@@ -211,8 +221,8 @@ export function AssetLibraryDialog(props: Props) {
         <div className="ml-caption"><div className="ml-caption-name">{rename ? <form onSubmit={event => { event.preventDefault(); props.onRenameAsset(source.id, draftName.trim() || 'Untitled asset'); setRename(false); }}><input autoFocus aria-label="Asset name" value={draftName} onChange={event => setDraftName(event.target.value)} /><button className="secondary-button" type="submit">Save</button></form> : <h3 title={displayed?.name}>{displayed?.name}</h3>}<small className="ml-image-meta">{displayedDimensions?.width ? `${displayedDimensions.width} × ${displayedDimensions.height} · ` : ''}{displayed?.mimeType.split('/')[1]?.toUpperCase() ?? source.kind}{!!displayed?.size && ` · ${displayed.size >= 1e6 ? `${(displayed.size / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(displayed.size / 1e3))} KB`}`}</small>{displayed?.derivation?.method && <small>{displayed.derivation.method}</small>}</div><div className="ml-caption-actions">{selectedVersion && <button className="secondary-button" type="button" aria-pressed={compare} onClick={() => setCompare(value => !value)}>{compare ? 'Show version' : 'Compare original'}</button>}{resolution.url && <a className="ml-icon-button" href={resolution.url} download={displayed?.name} aria-label="Download image"><Icon name="download" /></a>}</div></div>
         <p className="ml-preserved-note">Original preserved · Changes are saved as versions.</p>
         </section>}
-        {source.kind === 'image' ? <section className="ml-versions-panel" aria-label="Image versions" inert={expandedPreview || !!pendingDelete}>
-          <div className="ml-versions-heading"><div className="ml-versions-copy"><div className="ml-section-label"><span>{isPage ? `Versions of ${source.name}` : 'Versions'}</span><small aria-label={`${readyCount} of ${shown.length} versions ready`}>{readyCount}/{shown.length}</small></div>{isPage && <p>Choose the version to use in your project. Your original stays intact.</p>}</div><div className="ml-version-toolbar">{isPage && generateButton}<details ref={menuRef} className="ml-outputs" onToggle={event => {
+        {source.kind === 'image' ? <section className="ml-versions-panel" aria-label="Image versions" inert={expandedPreview || extrasOpen || !!pendingDelete}>
+          <div className="ml-versions-heading"><div className="ml-versions-copy"><div className="ml-section-label"><span>Versions</span><small aria-label={`${readyCount} of ${shown.length} versions ready`}>{readyCount}/{shown.length}</small></div></div><div className="ml-version-toolbar">{isPage && readyCount < shown.length && generateButton}<button className="ghost-button" type="button" onClick={() => setExtrasOpen(true)}>More versions</button><details ref={menuRef} className="ml-outputs" onToggle={event => {
             if (!event.currentTarget.open) return;
             const panel = event.currentTarget.querySelector<HTMLElement>('.ml-output-menu');
             if (!panel) return;
@@ -232,16 +242,23 @@ export function AssetLibraryDialog(props: Props) {
             <button type="button" className="ghost-button ml-menu-tool" onClick={() => { setSelectedKind(null); setExtraVersionId(null); setCompare(false); setExpandedPreview(true); setDraftName(source.name); setRename(true); menuRef.current?.removeAttribute('open'); }}>Rename original</button>
             <button type="button" className="ghost-button ml-menu-tool ml-danger" onClick={() => { setPendingDelete(displayed ?? source); menuRef.current?.removeAttribute('open'); }}>Delete {selectedVersion && !compare ? 'version' : 'original'}…</button>
           </div></details></div></div>
-          {sourceBusy && <div className="ml-analysis-progress" role="status"><Spinner /><div><strong>Preparing your photo</strong><span>Versions appear here as they finish. You can use any ready version.</span></div><span>{readyCount}/{shown.length}</span><button className="ghost-button" type="button" onClick={queue.cancel}>Cancel</button></div>}
+          {sourceBusy && <div className="ml-analysis-progress" role="status"><Spinner /><div><strong>Generating…</strong></div><button className="ghost-button" type="button" onClick={queue.cancel}>Cancel</button></div>}
           <div className="ml-version-grid ml-primary-versions">{shown.map(renderVersion)}</div>
+          <form className="ml-gradient-controls" aria-label="Gradient map settings" onSubmit={event => { event.preventDefault(); if (!canProcess || queue.busy) return; setExtraVersionId(null); setSelectedKind('gradient'); setCompare(false); queue.generate(source, ['gradient'], false, { regenerate: true, gradientSettings }); }}>
+            <div className="ml-gradient-label"><Icon name="adjust" /><strong>Gradient map</strong></div>
+            <label className="ml-gradient-slider"><span>Target zones<output>{gradientSettings.zones}</output></span><RangeInput aria-label="Target zones" aria-describedby="ml-gradient-hint" min={2} max={48} value={gradientSettings.zones} disabled={queue.busy} onChange={event => setGradientDraft({ sourceId: source.id, settings: { ...gradientSettings, zones: Number(event.target.value) } })} /></label>
+            <label className="ml-gradient-slider"><span>Smooth surfaces<output>{gradientSettings.smoothing}%</output></span><RangeInput aria-label="Smooth surfaces" min={0} max={100} value={gradientSettings.smoothing} disabled={queue.busy} onChange={event => setGradientDraft({ sourceId: source.id, settings: { ...gradientSettings, smoothing: Number(event.target.value) } })} /></label>
+            <button className="secondary-button" type="submit" disabled={!canProcess || queue.busy}>{sourceBusy ? 'Generating…' : latest('gradient') ? 'Update gradient' : 'Create gradient'}</button>
+            <p id="ml-gradient-hint">A target, not an exact count. Isolated pieces stay separate.</p>
+          </form>
           {!isPage && <div className="ml-generate-row">{generateButton}</div>}
-          <div className="ml-suggestion"><span aria-hidden="true">✧</span><span>{suggestion ? `${suggestion.method === 'shape' ? 'Shape' : 'Color'} · ${suggestion.zones} zones` : 'Automatic settings'}</span><button type="button" className="ml-icon-button" aria-label="Adjust segmentation settings" title="Adjust segmentation settings" disabled={queue.busy} onClick={() => edit('segmentation')}><Icon name="adjust" /></button></div>
-          <details className="ml-more-versions"><summary>More outputs</summary><div className="ml-version-grid">{additionalOptions.map(renderVersion)}</div></details>
-          {otherVersions.length > 0 && <section className="ml-more-versions" aria-label="More versions"><h3>More versions · {otherVersions.length}</h3><div className="ml-version-grid">{otherVersions.map(asset => <article key={asset.id} className="ml-version"><div className="ml-version-media"><button type="button" className="ml-version-preview" aria-label={`Preview ${asset.name}`} onClick={() => { setExtraVersionId(asset.id); setSelectedKind(null); setCompare(false); setExpandedPreview(true); }}><Artwork asset={asset} url={thumbnails[asset.id]} /></button><div className="ml-version-actions"><button className="primary-button" onClick={() => use(asset)}>Use</button><button className="secondary-button ml-danger" onClick={() => setPendingDelete(asset)}>Delete</button></div></div><div className="ml-version-content"><h4 title={asset.name}>{asset.name}</h4></div></article>)}</div></section>}
-          <div className="ml-device-note"><span className="ml-device-dot" aria-hidden="true" /><span>{queue.profile.label} · {queue.profile.mobile ? 'Smaller working images · Original preserved' : 'Refined against the original photo'}</span></div>
         </section> : <div className="ml-video-tools" inert={expandedPreview || !!pendingDelete}><p>Videos are ready to use directly in the timeline.</p><button className="secondary-button" onClick={() => { setExpandedPreview(true); setDraftName(source.name); setRename(true); }}>Rename</button><button className="ghost-button ml-danger" onClick={() => setPendingDelete(source)}>Delete video…</button></div>}
       </> : null}</main></div>}
-      {!!sources.length && <footer className="ml-footer" inert={expandedPreview || !!pendingDelete}>{automation}<div className="ml-footer-status" role="status">{queue.busy ? <><Spinner /><span>Processing on this device</span></> : props.timelineAssignment ? <span title={props.timelineAssignment.shaderName}>Assign to {props.timelineAssignment.shaderName}</span> : null}</div><div className="ml-footer-actions">{props.timelineAssignment && <button className="ghost-button" type="button" onClick={() => { props.timelineAssignment?.onUseLiveStage(); close(); }}>Use Live Stage Asset</button>}<button className="primary-button" type="button" disabled={!(selectedVersion ?? source) || resolution.status !== 'ready'} onClick={() => { const selected = selectedVersion ?? source; if (selected) use(selected); }}>Use {selectedVersion ? 'selected version' : 'asset'} <span aria-hidden="true">→</span></button></div></footer>}
+      {!!sources.length && <footer className="ml-footer" inert={expandedPreview || extrasOpen || !!pendingDelete}>{automation}<div className="ml-footer-status" role="status">{props.timelineAssignment ? <span title={props.timelineAssignment.shaderName}>Assign to {props.timelineAssignment.shaderName}</span> : <span>{selectedVersion ? variantOptions.find(option => option.id === selectedVersion.derivation?.kind)?.title ?? 'Selected version' : 'Original selected'}</span>}</div><div className="ml-footer-actions">{props.timelineAssignment && <button className="ghost-button" type="button" onClick={() => { props.timelineAssignment?.onUseLiveStage(); close(); }}>Use Live Stage Asset</button>}<button className="primary-button" type="button" disabled={!(selectedVersion ?? source) || resolution.status !== 'ready'} onClick={() => { const selected = selectedVersion ?? source; if (selected) use(selected); }}>Use {selectedVersion ? 'selected version' : 'original'} <span aria-hidden="true">→</span></button></div></footer>}
+      {extrasOpen && <section className="ml-extras-panel" role="dialog" aria-modal="true" aria-label="More versions" inert={expandedPreview || !!pendingDelete}><div className="ml-section-label"><span>More versions</span><button autoFocus className="ml-icon-button" type="button" aria-label="Close more versions" onClick={() => setExtrasOpen(false)}><Icon name="close" /></button></div><div className="ml-extras-body">
+        <div className="ml-version-grid">{additionalOptions.map(renderVersion)}</div>
+        {otherVersions.length > 0 && <section className="ml-more-versions" aria-label="Previous versions"><h3>Previous versions · {otherVersions.length}</h3><div className="ml-version-grid">{otherVersions.map(asset => <article key={asset.id} className="ml-version"><div className="ml-version-media"><button type="button" className="ml-version-preview" aria-label={`Preview ${asset.name}`} onClick={() => { setExtraVersionId(asset.id); setSelectedKind(null); setCompare(false); setExpandedPreview(true); }}><Artwork asset={asset} url={thumbnails[asset.id]} /></button><div className="ml-version-actions"><button className="primary-button" onClick={() => use(asset)}>Use</button><button className="secondary-button ml-danger" onClick={() => setPendingDelete(asset)}>Delete</button></div></div><div className="ml-version-content"><h4 title={asset.name}>{asset.name}</h4></div></article>)}</div></section>}
+      </div></section>}
       {pendingDelete && <div className="ml-confirm-backdrop"><section className="ml-confirm" role="alertdialog" aria-modal="true" aria-labelledby="ml-delete-title"><h3 id="ml-delete-title">Delete {pendingDelete.derivation ? 'this version' : 'this asset'}?</h3><p><strong>{pendingDelete.name}</strong> will be removed from the project. {pendingDelete.derivation ? 'The original will stay.' : 'Generated versions will stay available.'}</p><div><button autoFocus className="secondary-button" onClick={() => setPendingDelete(null)}>Keep asset</button><button className="secondary-button ml-danger" onClick={() => { props.onRemoveAsset(pendingDelete.id); setPendingDelete(null); setSelectedKind(null); }}>Delete</button></div></section></div>}
     </section>
   </div>;
