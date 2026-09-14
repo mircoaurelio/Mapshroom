@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import {
   useRef,
@@ -716,8 +717,7 @@ export function MappingPad({
                 ← / → 0.1°
               </span>
             </span>
-            <input
-              type="range"
+            <RangeInput
               min={MIN_MAPPING_ROTATION}
               max={MAX_MAPPING_ROTATION}
               step={ROTATION_STEP}

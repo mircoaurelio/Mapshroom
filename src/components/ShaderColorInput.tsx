@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import {
   useEffect,
   useLayoutEffect,
@@ -253,8 +254,7 @@ export function ShaderColorInput({ value, onChange }: ShaderColorInputProps) {
                 </span>
                 <label className="color-picker-hue-field">
                   <span>Hue</span>
-                  <input
-                    type="range"
+                  <RangeInput
                     min={0}
                     max={359}
                     step={1}

@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { AssetRecord } from '../types';
 import { AppSelect } from './AppSelect';
@@ -29,7 +30,7 @@ function Slider({ label, value, min = 0, max, unit = '', onChange }: {
 }) {
   const id = useId();
   return <div className="surface-slider"><label htmlFor={id}>{label}<output>{value}{unit}</output></label>
-    <input id={id} type="range" min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))} />
+    <RangeInput id={id} min={min} max={max} value={value} onChange={event => onChange(Number(event.target.value))} />
   </div>;
 }
 

@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import { useEffect, useRef, useState } from 'react';
 import type {
   ShaderUniformDefinition,
@@ -892,9 +893,8 @@ export function AudioReactiveUniformSlider({
             aria-hidden="true"
           />
         ) : null}
-        <input
+        <RangeInput
           className="audio-uniform-main-range"
-          type="range"
           aria-label={name}
           aria-readonly={isActive}
           min={definition.min}
@@ -916,9 +916,8 @@ export function AudioReactiveUniformSlider({
         />
         {isActive && binding ? (
           <>
-            <input
+            <RangeInput
               className="audio-uniform-bound-range audio-uniform-bound-range-min"
-              type="range"
               aria-label={`Audio minimum for ${name}`}
               title={`Minimum audio value: ${formatValue(binding.min, definition)}`}
               min={definition.min}
@@ -931,9 +930,8 @@ export function AudioReactiveUniformSlider({
                 })
               }
             />
-            <input
+            <RangeInput
               className="audio-uniform-bound-range audio-uniform-bound-range-max"
-              type="range"
               aria-label={`Audio maximum for ${name}`}
               title={`Maximum audio value: ${formatValue(binding.max, definition)}`}
               min={definition.min}

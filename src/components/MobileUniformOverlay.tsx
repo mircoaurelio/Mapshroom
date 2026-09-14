@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
 import { useUniformRandomization } from '../hooks/useUniformRandomization';
@@ -225,8 +226,7 @@ export function MobileUniformOverlay({
                         onBaseValueChange={(nextValue) => onUniformChange(name, nextValue)}
                       />
                     ) : (
-                      <input
-                        type="range"
+                      <RangeInput
                         aria-label={name}
                         min={definition.min}
                         max={definition.max}

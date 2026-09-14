@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import { useRef } from 'react';
 import type { ShaderUniformMap, ShaderUniformValue, ShaderUniformValueMap } from '../types';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
@@ -199,20 +200,18 @@ export function UniformPanel({
                       showSignalPicker={false}
                     />
                   ) : (
-                    <span className="uniform-range-shell">
-                      <input
-                        type="range"
-                        aria-label={name}
-                        min={definition.min}
-                        max={definition.max}
-                        step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
-                        value={Number(value)}
-                        onChange={(event) => onUniformChange(name, Number(event.target.value))}
-                        onKeyDown={(event) =>
-                          handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
-                        }
-                      />
-                    </span>
+                    <RangeInput
+                      className="uniform-range"
+                      aria-label={name}
+                      min={definition.min}
+                      max={definition.max}
+                      step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
+                      value={Number(value)}
+                      onChange={(event) => onUniformChange(name, Number(event.target.value))}
+                      onKeyDown={(event) =>
+                        handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))
+                      }
+                    />
                   )
                 ) : null}
                 {definition.type === 'bool' ? (

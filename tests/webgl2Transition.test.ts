@@ -256,7 +256,11 @@ test('live uniform controls avoid catalog churn and background GPU work', () => 
   assert.match(stageRenderer, /stagePixelRatio/);
   assert.match(stageRenderer, /AdaptiveRenderQuality/);
   assert.match(stageRenderer, /adaptiveQualityRef/);
-  assert.match(styles, /input\[type='range'\]:active::-[\s\S]*?transition: none/);
+  assert.doesNotMatch(
+    styles,
+    /data-range-precision|(?:slider-thumb|range-thumb)[^{]*\{[^}]*(?:transition|animation|clip-path|filter)\s*:/,
+    'native slider thumbs must stay static during pointer interaction',
+  );
   assert.match(depthEval, /if \(document\.hidden\)/);
 });
 

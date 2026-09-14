@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 
 interface MobilePrecisionOverlayProps {
@@ -13,8 +14,7 @@ export function MobilePrecisionOverlay({
     <div className="mobile-precision-overlay">
       <label className="mobile-precision-field">
         <span>Precision {precision}</span>
-        <input
-          type="range"
+        <RangeInput
           min={1}
           max={40}
           value={precision}

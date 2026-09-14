@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import type { StageTransform } from '../types';
 import { handleVerticalRangeKey } from '../lib/rangeKeyboard';
 import { type MappingAction, MappingPad } from './MappingPad';
@@ -41,8 +42,7 @@ export function MappingPanel({
           {showPrecisionSlider ? (
             <label className="field">
               <span>Precision</span>
-              <input
-                type="range"
+              <RangeInput
                 min={1}
                 max={40}
                 value={stageTransform.precision}

@@ -1,3 +1,4 @@
+import { RangeInput } from './RangeInput';
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
 import { growthSubmitFeedback, getTurnstileSiteKey } from '../lib/growthApi';
 import { growthCopy } from '../lib/growthCopy';
@@ -134,8 +135,7 @@ export function FeedbackDialog({ open, onClose }: FeedbackDialogProps) {
 
               <label className="growth-field">
                 <span className="download-link-label">{copy.ratingLabel}</span>
-                <input
-                  type="range"
+                <RangeInput
                   min={1}
                   max={5}
                   value={rating}
