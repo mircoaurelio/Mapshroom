@@ -6556,7 +6556,27 @@ a {
   container-type: size;
   flex: 1;
   min-height: 0;
-  --timeline-card-width: clamp(88px, min(calc((100cqh - 20px) * 0.76), calc(20cqw - 10px)), 360px);
+  /* Size against the scrollable height, including space used by its scrollbar. */
+  --timeline-card-caption-height: calc(0.975rem + 4px);
+}
+
+.workspace-pane-timeline .timeline-flow-node {
+  align-self: flex-start;
+  height: calc(100% - var(--timeline-card-caption-height));
+  min-height: 80px;
+  min-width: 80px;
+  aspect-ratio: 1;
+}
+
+.workspace-pane-timeline .timeline-step-card {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.workspace-pane-timeline .timeline-step-card-add {
+  height: calc(100% + var(--timeline-card-caption-height));
+  min-height: 0;
 }
 
 .timeline-dialog-panel {

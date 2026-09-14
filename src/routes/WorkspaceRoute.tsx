@@ -2956,7 +2956,7 @@ export function WorkspaceRoute() {
   const [desktopLayout, setDesktopLayout] = useState({
     leftSidebarWidth: 360,
     rightSidebarWidth: 360,
-    timelineHeight: 300,
+    timelineHeight: DESKTOP_TIMELINE_MIN_HEIGHT,
   });
   const [midiEnabled, setMidiEnabled] = useState(false);
   const [midiPanelVisible, setMidiPanelVisible] = useState(false);
