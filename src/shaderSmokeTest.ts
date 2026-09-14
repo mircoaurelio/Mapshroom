@@ -9,7 +9,7 @@ import {
   type ShaderCompileTarget,
 } from './lib/shaderCompiler';
 import { normalizeProjectShaderSources } from './lib/shaderProfile';
-import { buildTimelineTransitionShaderCode } from './lib/timelineShader';
+import { buildTimelineInputShaderCode, buildTimelineTransitionShaderCode } from './lib/timelineShader';
 import { shaderPresetList } from './shaders/presets';
 import type { ProjectDocument, ShaderMinimumTarget } from './types';
 
@@ -346,6 +346,7 @@ async function runShaderSmokeTest(): Promise<void> {
   const shaderEntries: ShaderSmokeEntry[] = [
     ...shaderPresetList,
     ...historicalShaderEntries,
+    ...shaderPresetList.map(entry => ({ ...entry, id: `mapped-${entry.id}`, name: `Mapped photo · ${entry.name}`, code: buildTimelineInputShaderCode({ shaderCode: entry.code }) })),
     buildNestedTransitionSmokeEntry(),
   ];
   const nonOfficialPresetIds = shaderPresetList

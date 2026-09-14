@@ -30,7 +30,7 @@ import {
   buildTimelineTransitionShaderCode,
 } from '../lib/timelineShader';
 import { collectNestedTimelineSamplerSources } from '../lib/timelineSamplerBindings';
-import { getBundledAssetUrl } from '../lib/bundledAssets';
+import { getBundledAssetUrl, isInternalCanvasAssetId } from '../lib/bundledAssets';
 import { getAssetBlob } from '../lib/storage';
 import type {
   PlaybackTransport,
@@ -542,6 +542,9 @@ export function TimelineStageRenderer({
   const referencedInputAssetIds = useMemo(() => {
     const shaderById = new Map(savedShaders.map((shader) => [shader.id, shader]));
     const assetIds = new Set<string>();
+    // The live stage image also needs decoded dimensions when its aspect differs
+    // from a preserved projection frame, even without a per-step assignment.
+    if (asset && !isInternalCanvasAssetId(asset.id)) assetIds.add(asset.id);
 
     for (const shader of savedShaders) {
       if (shader.inputAssetId) {
@@ -565,7 +568,7 @@ export function TimelineStageRenderer({
     }
 
     return Array.from(assetIds);
-  }, [pinnedStepId, savedShaders, shaderSequence.steps]);
+  }, [asset, pinnedStepId, savedShaders, shaderSequence.steps]);
   const referencedInputAssetSignature = useMemo(
     () => referencedInputAssetIds.join('\u0001'),
     [referencedInputAssetIds],
@@ -1186,13 +1189,14 @@ export function TimelineStageRenderer({
         targetShader?.audioReactiveBindings ??
         {}
       : {};
-    const mapAssignedInput = (
+    const mapShaderInput = (
       shaderCode: string,
       uniformValues: ShaderUniformValueMap,
       audioBindings: AudioReactiveBindingMap,
     ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues' | 'audioBindings' | 'liveUniformBindings'> => {
       const liveUniformBindings = createLiveUniformBindings(targetShader?.id ?? activeShaderId, uniformValues);
-      if (!useAssignedAssetAsBase || !assignedSource) {
+      const sourceAssetId = useAssignedAssetAsBase ? assignedSource?.assetId : asset?.id;
+      if (!sourceAssetId || isInternalCanvasAssetId(sourceAssetId)) {
         return { shaderCode, uniformValues, audioBindings, liveUniformBindings };
       }
 
@@ -1200,8 +1204,10 @@ export function TimelineStageRenderer({
         shaderCode: buildTimelineInputShaderCode({ shaderCode }),
         uniformValues: {
           ...buildInputUniformValues(
-            assetSettings,
-            timelineDecodedAssetAspectRatios.get(assignedSource.assetId) ?? 1,
+            // Per-step fit/positioning applies only to explicitly assigned media.
+            // The shared stage image always keeps its proportions inside the frame.
+            useAssignedAssetAsBase ? assetSettings : normalizeTimelineStepAssetSettings(),
+            timelineDecodedAssetAspectRatios.get(sourceAssetId) ?? 1,
           ),
           ...prefixUniformValueKeys({
             sourceValues: uniformValues,
@@ -1220,7 +1226,7 @@ export function TimelineStageRenderer({
     };
 
     if (isActiveShader) {
-      const mappedInput = mapAssignedInput(
+      const mappedInput = mapShaderInput(
         previewActiveShaderCode,
         previewActiveUniformValues,
         targetAudioBindings,
@@ -1236,11 +1242,13 @@ export function TimelineStageRenderer({
     }
 
     if (!targetShader) {
+      const mappedInput = mapShaderInput(
+        previewActiveShaderCode,
+        previewActiveUniformValues,
+        audioBindingsByShaderId?.[activeShaderId] ?? {},
+      );
       return {
-        shaderCode: previewActiveShaderCode,
-        uniformValues: previewActiveUniformValues,
-        audioBindings: audioBindingsByShaderId?.[activeShaderId] ?? {},
-        liveUniformBindings: createLiveUniformBindings(activeShaderId, previewActiveUniformValues),
+        ...mappedInput,
         usedFallback: false,
         inputSource: null,
         overlaySource: null,
@@ -1248,7 +1256,7 @@ export function TimelineStageRenderer({
       };
     }
 
-    const mappedInput = mapAssignedInput(
+    const mappedInput = mapShaderInput(
       getRenderableShaderCode(targetShader),
       getRenderableShaderUniformValues(targetShader),
       targetAudioBindings,
@@ -1261,6 +1269,7 @@ export function TimelineStageRenderer({
       assetSettings,
     };
   }, [
+    asset,
     activeSavedShader,
     activeShaderId,
     audioBindingsByShaderId,
