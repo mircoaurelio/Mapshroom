@@ -1070,7 +1070,7 @@ export function ShaderTimelineEditor({
         })}
 
         {onAddStep ? (
-          <div className="timeline-flow-node" role="listitem">
+          <div className="timeline-flow-node timeline-flow-node-add" role="listitem">
             <div
               className={`timeline-step-card timeline-step-card-add ${
                 !isAdvancedView ? 'timeline-step-card-simple' : ''

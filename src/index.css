@@ -7206,6 +7206,13 @@ a {
   flex: 0 0 auto;
 }
 
+.timeline-flow-node.timeline-flow-node-add {
+  /* Keep both add actions readable independently of the thumbnail height. */
+  width: 16rem;
+  min-width: 16rem;
+  aspect-ratio: auto;
+}
+
 .timeline-step-card {
   container: shaderCard / inline-size;
   position: relative;
@@ -7249,6 +7256,9 @@ a {
   display: flex;
   flex-direction: row;
   align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
   gap: 0.3rem;
   padding: 0.35rem;
   overflow: hidden;
