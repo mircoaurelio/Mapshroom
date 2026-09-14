@@ -8472,6 +8472,7 @@ ${errorSnapshot}`,
       />
       {mobileShaderToolsPanel}
       {renderChatWorkspace(<ShaderCodeSection
+        fillAvailableSpace
         shaderCode={project.studio.activeShaderCode}
         onShaderCodeChange={handleActiveShaderCodeChange}
         compilerError={compilerError}
@@ -8487,6 +8488,7 @@ ${errorSnapshot}`,
 
   const desktopCodePanel = (
     <ShaderCodeSection
+      fillAvailableSpace
       shaderCode={project.studio.activeShaderCode}
       onShaderCodeChange={handleActiveShaderCodeChange}
       compilerError={compilerError}

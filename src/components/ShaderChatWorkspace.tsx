@@ -130,7 +130,7 @@ export function ShaderChatWorkspace({
           <small className="shader-chat-keyboard-hint">Enter to send · Shift + Enter for a new line</small>
         </div>
       </div>
-      <div id={`${id}-code`} role="tabpanel" aria-labelledby={`${id}-code-tab`} hidden={tab !== 'code'} className="shader-chat-tool-panel">{tab === 'code' ? codePanel : null}</div>
+      <div id={`${id}-code`} role="tabpanel" aria-labelledby={`${id}-code-tab`} hidden={tab !== 'code'} className="shader-chat-tool-panel shader-chat-code-panel">{tab === 'code' ? codePanel : null}</div>
       <div id={`${id}-history`} role="tabpanel" aria-labelledby={`${id}-history-tab`} hidden={tab !== 'history'} className="shader-chat-tool-panel">{tab === 'history' ? historyPanel : null}</div>
     </section>
   );

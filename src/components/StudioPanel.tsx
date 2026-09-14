@@ -26,6 +26,7 @@ interface ShaderVersionTrailSectionProps {
 }
 
 interface ShaderCodeSectionProps {
+  fillAvailableSpace?: boolean;
   shaderCode: string;
   onShaderCodeChange: (value: string) => void;
   compilerError: string;
@@ -291,6 +292,7 @@ function GlslCodeEditor({
         dangerouslySetInnerHTML={{ __html: `${highlightedCode}\n` }}
       />
       <textarea
+        aria-label="Shader code"
         className={`code-editor code-editor-semantic ${
           expanded ? 'code-editor-expanded' : ''
         }`}
@@ -370,6 +372,7 @@ export function ShaderVersionTrailSection({
 }
 
 export function ShaderCodeSection({
+  fillAvailableSpace = false,
   shaderCode,
   onShaderCodeChange,
   compilerError,
@@ -477,7 +480,7 @@ export function ShaderCodeSection({
           >
             <ExpandIcon />
           </button>
-          <button
+          {!fillAvailableSpace ? <button
             type="button"
             className="icon-button"
             aria-label={collapsed ? 'Expand code editor' : 'Collapse code editor'}
@@ -485,7 +488,7 @@ export function ShaderCodeSection({
             onClick={() => setCollapsed((currentValue) => !currentValue)}
           >
             <CollapseIcon collapsed={collapsed} />
-          </button>
+          </button> : null}
           <button
             type="button"
             className={`icon-button ${
@@ -515,11 +518,11 @@ export function ShaderCodeSection({
         </>
       }
     >
-      {collapsed ? (
+      {collapsed && !fillAvailableSpace ? (
         null
       ) : (
-        <div className="stack gap-md">
-          <GlslCodeEditor value={shaderCode} onChange={onShaderCodeChange} />
+        <div className="stack gap-md shader-code-content">
+          <GlslCodeEditor value={shaderCode} expanded={fillAvailableSpace} onChange={onShaderCodeChange} />
           {compilerError ? (
             <div className="error-panel">
               {compilerError}

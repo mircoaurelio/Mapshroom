@@ -63,6 +63,16 @@
 .shader-chat-workspace .ai-prompt-route-menu { right: 0; width: min(250px, 78vw); }
 .shader-chat-keyboard-hint { display: block; margin: 6px 6px 0; color: #777e89; font-size: 9px; }
 .shader-chat-tool-panel { flex: 1; overflow: auto; min-height: 0; }
+.shader-chat-code-panel { display: flex; flex-direction: column; overflow: hidden; }
+.shader-chat-code-panel > .panel-section { display: flex; flex: 1; flex-direction: column; min-height: 0; border-bottom: 0; }
+.shader-chat-code-panel > .panel-section > .panel-section-header { flex-shrink: 0; }
+.shader-chat-code-panel .shader-code-content { flex: 1; min-height: 0; }
+.shader-chat-code-panel .shader-code-content > .code-editor-shell { border-radius: 9px; }
+.shader-chat-code-panel .shader-code-content > .code-editor-shell > .code-editor { height: 100%; min-height: 0; }
+.shader-chat-code-panel .shader-code-content > .error-panel { flex: 0 1 auto; max-height: 35%; overflow: auto; }
+.shader-chat-workspace .version-card { border-radius: 9px; overflow: hidden; }
+.shader-chat-workspace .version-card > div { min-width: 0; overflow-wrap: anywhere; }
+.shader-chat-workspace .version-card > button { flex-shrink: 0; border-radius: 6px; }
 .shader-chat-workspace button:disabled { opacity: .4; cursor: default; }
 .shader-chat-workspace button:focus-visible, .shader-chat-workspace summary:focus-visible { outline: 2px solid var(--chat-accent); outline-offset: 3px; }
 .shader-chat-workspace button:hover:not(:disabled) { color: #fff; }
