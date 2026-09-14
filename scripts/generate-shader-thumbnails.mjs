@@ -2,7 +2,7 @@ import { rolldown } from 'rolldown';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile, writeFile, mkdir, mkdtemp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, mkdtemp, readdir, unlink } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -31,9 +31,14 @@ const server = createServer(async (request, response) => {
       await writeFile(join(output, file), Buffer.from(data.dataUrl.split(',')[1], 'base64'));
       manifest[data.key] = { file, time: data.time };
     } else if (request.url === '/complete') {
+      const errors = data.results.filter(result => result.error);
+      if (errors.length) throw new Error(`Thumbnail generation failed: ${JSON.stringify(errors)}`);
       await writeFile(join(root, 'src/lib/shaderThumbnailManifest.json'), JSON.stringify(manifest, null, 2) + '\n');
       await writeFile(join(output, 'catalog.json'), JSON.stringify(data.results, null, 2) + '\n');
-      const errors = data.results.filter(result => result.error);
+      // Remove obsolete generated files only after the complete replacement catalogue succeeds.
+      for (const file of await readdir(output)) {
+        if (/^[a-f0-9]{16}\.webp$/.test(file) && !manifest[file.slice(0, -5)]) await unlink(join(output, file));
+      }
       console.log(JSON.stringify({ presets: data.results.length, images: Object.keys(manifest).length, errors }, null, 2));
       completed.resolve(errors.length);
     } else if (request.url === '/error') completed.reject(new Error(data.error));

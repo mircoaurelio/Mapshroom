@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
   clampTimelineStepDuration,
@@ -21,6 +21,7 @@ import type {
 } from '../types';
 
 interface ShaderTimelineEditorProps {
+  transportControls?: ReactNode;
   assets: AssetRecord[];
   assetKind: AssetKind | null;
   assetUrl: string | null;
@@ -209,6 +210,7 @@ function StepperChevronIcon({ direction }: { direction: 'up' | 'down' }) {
 }
 
 export function ShaderTimelineEditor({
+  transportControls,
   assets,
   savedShaders,
   activeShaderId,
@@ -684,8 +686,8 @@ export function ShaderTimelineEditor({
     <section className="timeline-sequence-editor">
       <div className="timeline-sequence-toolbar">
         <div className="timeline-sequence-copy">
-          <span className="timeline-sequence-label">Timeline Logic</span>
           <div className="timeline-sequence-title-row">
+            {transportControls}
             <strong className="timeline-sequence-title">
               {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
               {formatStepDuration(totalDurationSeconds)}
@@ -925,12 +927,13 @@ export function ShaderTimelineEditor({
                 {...dropProps(step.id)}
                 role="button"
                 tabIndex={0}
+                aria-label={`Edit ${shader?.name ?? 'shader'}`}
                 aria-pressed={step.id === editingStepId}
                 onClick={() => {
                   onEditStep(step.id);
                 }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
+                  if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
                     event.preventDefault();
                     onEditStep(step.id);
                   }
@@ -1097,11 +1100,11 @@ export function ShaderTimelineEditor({
                   ) : null}
                 </div>
 
-                <label className="field timeline-compact-field">
-                  <span>Shader</span>
+                <div className="field timeline-compact-field">
                   {shaderPickerStepId === step.id ? (
                     <select
                       className="select-field"
+                      aria-label="Choose shader"
                       value={step.shaderId}
                       autoFocus
                       onBlur={() => setShaderPickerStepId(null)}
@@ -1129,7 +1132,7 @@ export function ShaderTimelineEditor({
                       {shader?.name ?? 'Choose shader'}
                     </button>
                   )}
-                </label>
+                </div>
               </article>
             </div>
           );

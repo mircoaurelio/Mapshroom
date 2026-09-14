@@ -2,8 +2,7 @@ import { deduplicatePreviewCompile, waitForPreviewProgram } from './previewCompi
 import { buildFragmentShaderSource, parseUniforms, VERTEX_SHADER_SOURCE } from './shader';
 import type { AssetKind, ShaderUniformValueMap } from '../types';
 
-const PREVIEW_WIDTH = 160;
-const PREVIEW_HEIGHT = 96;
+import { THUMBNAIL_WIDTH as PREVIEW_WIDTH, THUMBNAIL_HEIGHT as PREVIEW_HEIGHT } from './shaderThumbnailKey';
 const PREVIEW_SOURCE_MAX_EDGE = 256;
 const PREVIEW_FALLBACK_BG = '#050506';
 const PREVIEW_IMAGE_QUALITY = 0.68;

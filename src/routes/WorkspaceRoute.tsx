@@ -162,7 +162,6 @@ import {
   isTimelineStepEnabled,
   normalizeTimelineTransitionEffect,
   roundTimelineSeconds,
-  scaleTimelineStepDurations,
   shouldUseSharedTransition,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
 } from '../lib/timeline';
@@ -2096,7 +2095,7 @@ function sanitizeAiMessage(message: string): string {
     .replaceAll('Google', 'AI');
 }
 
-type DesktopResizeTarget = 'left' | 'right' | 'right-split';
+type DesktopResizeTarget = 'left' | 'timeline';
 type FilePickerSource = 'library' | 'timeline-picker';
 
 const DESKTOP_PANE_MIN_WIDTH = 180;
@@ -2965,7 +2964,6 @@ export function WorkspaceRoute() {
   const [shareLinkError, setShareLinkError] = useState('');
   const [desktopLayout, setDesktopLayout] = useState({
     leftSidebarWidth: 360,
-    rightSidebarWidth: 360,
     timelineHeight: 300,
   });
   const [midiEnabled, setMidiEnabled] = useState(false);
@@ -3000,7 +2998,6 @@ export function WorkspaceRoute() {
     startX: number;
     startY: number;
     leftSidebarWidth: number;
-    rightSidebarWidth: number;
     timelineHeight: number;
   } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
@@ -3958,16 +3955,6 @@ export function WorkspaceRoute() {
           };
         }
 
-        if (resizeState.target === 'right') {
-          return {
-            ...currentValue,
-            rightSidebarWidth: Math.max(
-              DESKTOP_PANE_MIN_WIDTH,
-              Math.min(DESKTOP_PANE_MAX_WIDTH, resizeState.rightSidebarWidth - deltaX),
-            ),
-          };
-        }
-
         return {
           ...currentValue,
           timelineHeight: Math.max(
@@ -4385,10 +4372,9 @@ export function WorkspaceRoute() {
       startX: clientX,
       startY: clientY,
       leftSidebarWidth: desktopLayout.leftSidebarWidth,
-      rightSidebarWidth: desktopLayout.rightSidebarWidth,
       timelineHeight: desktopLayout.timelineHeight,
     };
-    document.body.style.cursor = target === 'right-split' ? 'row-resize' : 'col-resize';
+    document.body.style.cursor = target === 'timeline' ? 'row-resize' : 'col-resize';
     document.body.style.userSelect = 'none';
   };
 
@@ -4822,16 +4808,6 @@ export function WorkspaceRoute() {
     });
     if (removedAsset) setStatusMessage(`Removed asset "${removedAsset.name}".`);
   };
-
-  const handleTimelineSeek = useCallback((nextTimeSeconds: number) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      playback: {
-        ...currentProject.playback,
-        transport: seekTransport(currentProject.playback.transport, nextTimeSeconds),
-      },
-    }));
-  }, [updateProject]);
 
   const handleTimelineStop = useCallback(() => {
     updateProject((currentProject) => {
@@ -5350,108 +5326,6 @@ export function WorkspaceRoute() {
     if (nextStatusMessage) {
       setStatusMessage(nextStatusMessage);
     }
-  }, [updateProject]);
-
-  const handleTimelineResizeBoundary = useCallback((
-    leftStepId: string,
-    rightStepId: string,
-    leftDurationSeconds: number,
-    rightDurationSeconds: number,
-  ) => {
-    updateProject((currentProject) => ({
-      ...currentProject,
-      timeline: {
-        stub: {
-          ...currentProject.timeline.stub,
-          shaderSequence: {
-            ...currentProject.timeline.stub.shaderSequence,
-            steps: currentProject.timeline.stub.shaderSequence.steps.map((step) => {
-              if (step.id === leftStepId) {
-                const durationSeconds = clampTimelineStepDuration(leftDurationSeconds);
-                return {
-                  ...step,
-                  durationSeconds,
-                  transitionDurationSeconds: clampTransitionDuration(
-                    durationSeconds,
-                    step.transitionDurationSeconds,
-                  ),
-                };
-              }
-
-              if (step.id === rightStepId) {
-                const durationSeconds = clampTimelineStepDuration(rightDurationSeconds);
-                return {
-                  ...step,
-                  durationSeconds,
-                  transitionDurationSeconds: clampTransitionDuration(
-                    durationSeconds,
-                    step.transitionDurationSeconds,
-                  ),
-                };
-              }
-
-              return step;
-            }),
-          },
-        },
-      },
-    }));
-  }, [updateProject]);
-
-  const handleTimelineDurationChange = useCallback((durationSeconds: number) => {
-    updateProject((currentProject) => {
-      const nextDurationSeconds = roundTimelineSeconds(Math.max(0.5, Math.min(36000, durationSeconds)));
-
-      if (currentProject.timeline.stub.shaderSequence.steps.length === 0) {
-        return {
-          ...currentProject,
-          timeline: {
-            stub: {
-              ...currentProject.timeline.stub,
-              durationSeconds: nextDurationSeconds,
-            },
-          },
-        };
-      }
-
-      const steps = currentProject.timeline.stub.shaderSequence.steps;
-      const currentTotalDurationSeconds = getShaderTimelineDuration(steps);
-      const minimumTotalDurationSeconds = steps.length * 0.5;
-      const clampedTotalDurationSeconds = Math.max(
-        minimumTotalDurationSeconds,
-        nextDurationSeconds,
-      );
-      const scaledSteps = scaleTimelineStepDurations(steps, clampedTotalDurationSeconds);
-      const scaleRatio =
-        currentTotalDurationSeconds > 0
-          ? clampedTotalDurationSeconds / currentTotalDurationSeconds
-          : 1;
-      const smallestStepDurationSeconds = scaledSteps.reduce(
-        (shortestDuration, step) =>
-          Math.min(shortestDuration, clampTimelineStepDuration(step.durationSeconds)),
-        Number.POSITIVE_INFINITY,
-      );
-
-      return {
-        ...currentProject,
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            durationSeconds: clampedTotalDurationSeconds,
-            shaderSequence: {
-              ...currentProject.timeline.stub.shaderSequence,
-              sharedTransitionDurationSeconds: clampTransitionDuration(
-                Number.isFinite(smallestStepDurationSeconds)
-                  ? smallestStepDurationSeconds
-                  : clampedTotalDurationSeconds,
-                currentProject.timeline.stub.shaderSequence.sharedTransitionDurationSeconds * scaleRatio,
-              ),
-              steps: scaledSteps,
-            },
-          },
-        },
-      };
-    });
   }, [updateProject]);
 
   const handleMobileEqualDurationChange = useCallback((durationSeconds: number) => {
@@ -7762,23 +7636,6 @@ ${errorSnapshot}`,
     });
   }, [project, selectTimelineStepForEditing]);
 
-  const handleTimelineRepeatSectionSelect = useCallback((
-    stepId: string,
-    timeSeconds: number,
-  ) => {
-    void selectTimelineStepForEditing(stepId, {
-      focusStudioOnMobile: false,
-      stagePreviewMode: 'focused',
-      seekTimeSeconds: timeSeconds,
-      preserveRenderTimeOnSeek: true,
-    });
-    setTimelineScrollToStepRequest({
-      stepId,
-      token: performance.now(),
-    });
-    setStatusMessage('Repeating the selected timeline section.');
-  }, [selectTimelineStepForEditing]);
-
   const handleMobileEditingStepOffset = useCallback((offset: number) => {
     const steps = project?.timeline.stub.shaderSequence.steps.filter((step) => !step.disabled) ?? [];
     if (!steps.length) return;
@@ -8023,35 +7880,6 @@ ${errorSnapshot}`,
     midiManualMixArmed &&
     Boolean(midiManualMixCurrentStep && midiManualMixNextStep);
 
-  const timelineMarkers = timelineSequenceEnabled
-    ? timelineStub.shaderSequence.mode === 'random'
-      ? playableTimelineSteps.map((_, index) => `Pick ${index + 1}`)
-      : playableTimelineSteps.map((step, index) => {
-          const shaderName =
-            timelineSelectableShaders.find((shader) => shader.id === step.shaderId)?.name ??
-            `Step ${index + 1}`;
-          return shaderName;
-        })
-    : timelineStub.markers;
-  const timelineTracks = timelineSequenceEnabled
-    ? [
-        {
-          id: 'timeline-track-shader-sequence',
-          label:
-            timelineStub.shaderSequence.mode === 'audioReactive'
-              ? 'Audio Sync'
-              : timelineStub.shaderSequence.mode === 'random'
-              ? 'Random Flow'
-              : timelineStub.shaderSequence.mode === 'randomMix'
-                ? 'Random Mix'
-                : timelineStub.shaderSequence.mode === 'double'
-                  ? 'Double Flow'
-                : 'Shader Flow',
-          type: timelineStub.shaderSequence.mode,
-        },
-        ...timelineStub.tracks,
-      ]
-    : timelineStub.tracks;
   const timelineDurationSeconds = timelineSequenceEnabled
     ? getShaderTimelineDuration(timelinePlaybackSteps)
       : activeAsset?.kind === 'video' && activeAssetDurationSeconds
@@ -8694,14 +8522,12 @@ ${errorSnapshot}`,
       savedShaders={timelineSelectableShaders}
       editingStepId={editingTimelineStepId}
       pinnedStepId={pinnedTimelineStepId}
-      repeatExitPending={pendingTimelineRepeatExit !== null}
       sequence={timelineStub.shaderSequence}
       transport={project.playback.transport}
       durationSeconds={timelineDurationSeconds}
       midiTimelineControlActive={midiEnabled && midiMode === 'timeline-mixer'}
       midiManualMixArmed={midiManualMixArmed}
-      markers={timelineMarkers}
-      tracks={timelineTracks}
+
       audioReactiveAvailable={audioReactivity.preferences.modeEnabled}
       audioReactiveListening={audioReactivity.status === 'listening'}
       audioRuntime={audioReactivity.runtime}
@@ -8725,8 +8551,7 @@ ${errorSnapshot}`,
           />
         ) : null
       }
-      onSeek={handleTimelineSeek}
-      onRepeatSectionSelect={handleTimelineRepeatSectionSelect}
+
       onPlayToggle={handlePlayToggle}
       onSequenceModeChange={handleTimelineSequenceModeChange}
       onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
@@ -8738,10 +8563,8 @@ ${errorSnapshot}`,
       onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
       onBrowseSequenceAssets={requestTimelineAssetPicker}
       onDropSequenceImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
-      onSequenceDurationChange={handleTimelineDurationChange}
       onDuplicateSequenceStep={handleTimelineDuplicateStep}
       onRemoveSequenceStep={handleTimelineRemoveStep}
-      onResizeSequenceBoundary={handleTimelineResizeBoundary}
       onEditSequenceStep={handleTimelineEditStep}
       onAddSequenceStep={createNewShader}
       onAddRandomSequenceStep={addRandomPresetShader}
@@ -8757,7 +8580,6 @@ ${errorSnapshot}`,
   }
   const sharedTimelineShaderCount = sharedTimelineShaderIds.size;
 
-  const desktopGridTemplateColumns = `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
   const desktopMainTopGridTemplateColumns = uiPreferences.sidebarVisible
     ? `${desktopLayout.leftSidebarWidth}px 10px minmax(0, 1fr)`
     : 'minmax(0, 1fr)';
@@ -9150,7 +8972,6 @@ ${errorSnapshot}`,
 
       <div
         className={`workspace-body ${useDesktopPaneLayout ? 'workspace-body-desktop-grid' : ''}`}
-        style={useDesktopPaneLayout ? { gridTemplateColumns: desktopGridTemplateColumns } : undefined}
       >
         {useDesktopPaneLayout ? (
           <>
@@ -9170,8 +8991,10 @@ ${errorSnapshot}`,
                       style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
                     >
                       <div className="workspace-pane-scroll">
+                        {desktopShaderToolsPanel}
                         {desktopSlidersPanel}
                         {timelineStepAssetPanel}
+                        <div data-onboarding-area="code">{desktopCodePanel}{desktopHistoryPanel}</div>
                       </div>
                     </aside>
 
@@ -9194,7 +9017,7 @@ ${errorSnapshot}`,
                 role="presentation"
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  beginDesktopResize('right-split', event.clientX, event.clientY);
+                  beginDesktopResize('timeline', event.clientX, event.clientY);
                 }}
               />
 
@@ -9208,27 +9031,6 @@ ${errorSnapshot}`,
               </section>
             </section>
 
-            <div
-              className="workspace-resize-handle workspace-resize-handle-vertical"
-              role="presentation"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                beginDesktopResize('right', event.clientX, event.clientY);
-              }}
-            />
-
-            <aside
-              className="workspace-pane workspace-pane-right"
-              data-onboarding-area="code"
-              style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
-            >
-              <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
-                {aiPanel}
-                {desktopShaderToolsPanel}
-                {desktopCodePanel}
-                {desktopHistoryPanel}
-              </div>
-            </aside>
           </>
         ) : (
           <>
@@ -9237,7 +9039,6 @@ ${errorSnapshot}`,
             {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
               <aside className="workspace-sidebar" data-onboarding-area="controls">
                 <div className="workspace-sidebar-scroll">
-                  {aiPanel}
                   {studioPanel}
                   {timelineStepAssetPanel}
                 </div>
@@ -9353,45 +9154,13 @@ ${errorSnapshot}`,
 
       <TimelineDialog
         open={isMobile && isMobileTimelineOpen}
-        assets={project.library.assets}
-        assetKind={activeAsset?.kind ?? null}
-        assetUrl={activeAssetUrl}
-        activeShaderId={project.studio.activeShaderId}
-        savedShaders={timelineSelectableShaders}
-        editingStepId={editingTimelineStepId}
-        pinnedStepId={pinnedTimelineStepId}
-        repeatExitPending={pendingTimelineRepeatExit !== null}
         sequence={timelineStub.shaderSequence}
         transport={project.playback.transport}
-        durationSeconds={timelineDurationSeconds}
-        midiTimelineControlActive={midiEnabled && midiMode === 'timeline-mixer'}
-        midiManualMixArmed={midiManualMixArmed}
-        markers={timelineMarkers}
-        tracks={timelineTracks}
         audioReactiveAvailable={audioReactivity.preferences.modeEnabled}
         audioReactiveListening={audioReactivity.status === 'listening'}
-        audioRuntime={audioReactivity.runtime}
-        onSeek={handleTimelineSeek}
-        onRepeatSectionSelect={handleTimelineRepeatSectionSelect}
         onPlayToggle={handlePlayToggle}
         onSequenceModeChange={handleTimelineSequenceModeChange}
-        onSequenceSharedTransitionChange={handleTimelineSharedTransitionChange}
-        onSequenceStepChange={handleTimelineStepChange}
-        hasSequenceShuffleUndo={hasTimelineShaderShuffleUndo}
-        onRandomizeSequenceShaders={handleRandomizeTimelineShaders}
-        onRestoreSequenceShaders={handleRestoreTimelineShaders}
-        onDismissSequenceShuffleUndo={handleDismissTimelineShaderRestore}
-        onSequencePinnedStepToggle={handleTimelinePinnedStepToggle}
-        onBrowseSequenceAssets={requestTimelineAssetPicker}
-        onDropSequenceImage={(transfer, stepId) => { void handleImageTransfer(transfer, stepId); }}
-        onSequenceDurationChange={handleTimelineDurationChange}
         onMobileEqualDurationChange={handleMobileEqualDurationChange}
-        onDuplicateSequenceStep={handleTimelineDuplicateStep}
-        onRemoveSequenceStep={handleTimelineRemoveStep}
-        onResizeSequenceBoundary={handleTimelineResizeBoundary}
-        onEditSequenceStep={handleTimelineEditStep}
-        onAddSequenceStep={handleMobileAddShader}
-        scrollToStepRequest={timelineScrollToStepRequest}
         onClose={() => setIsMobileTimelineOpen(false)}
       />
 

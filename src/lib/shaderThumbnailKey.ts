@@ -1,8 +1,8 @@
 import type { ShaderUniformValueMap } from '../types';
 
-export const THUMBNAIL_VERSION = 1;
-export const THUMBNAIL_WIDTH = 160;
-export const THUMBNAIL_HEIGHT = 96;
+export const THUMBNAIL_VERSION = 2;
+export const THUMBNAIL_WIDTH = 128;
+export const THUMBNAIL_HEIGHT = 128;
 export const THUMBNAIL_TIME = 1.6;
 
 /** Content identity deliberately excludes asset URLs, shader names and IDs. */

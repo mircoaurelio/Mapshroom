@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SavedShader } from '../types';
 import { bundledShaderThumbnail, requestShaderThumbnail, thumbnailIdentity } from '../lib/shaderThumbnails';
+import { THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT } from '../lib/shaderThumbnailKey';
 import './ShaderThumbnail.css';
 
 export function ShaderThumbnail({ shader, className = '' }: { shader: SavedShader | undefined; className?: string }) {
@@ -41,7 +42,7 @@ export function ShaderThumbnail({ shader, className = '' }: { shader: SavedShade
   const hue = parseInt(key.slice(0, 4) || '0', 16) % 360;
   return <span ref={host} className={`shader-thumbnail ${className}`}>
     {src && failed !== src ? <img src={src} alt={`${shader?.name ?? 'Shader'} preview`}
-      width="160" height="96" loading="lazy" decoding="async" draggable={false} onError={() => setFailed(src)} />
+      width={THUMBNAIL_WIDTH} height={THUMBNAIL_HEIGHT} loading="lazy" decoding="async" draggable={false} onError={() => setFailed(src)} />
       : <span className="shader-thumbnail-fallback" style={{ background: `repeating-radial-gradient(ellipse at ${25 + hue % 50}% 45%, hsl(${hue} 48% 32%) 0 4px, #101114 6px 14px)` }}
         role="img" aria-label={`${shader?.name ?? 'Shader'} — snapshot unavailable`} />}
   </span>;
