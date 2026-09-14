@@ -1,3 +1,4 @@
+import { useRangeHoverPreview } from '../hooks/useRangeHoverPreview';
 import { useLiveUniformValues } from '../hooks/useLiveUniformValues';
 import type { UniformRuntime } from '../lib/uniformRuntime';
 import { RangeInput } from './RangeInput';
@@ -44,6 +45,7 @@ export function MobileUniformOverlay({
   onUniformValuesChange,
   onClose,
 }: MobileUniformOverlayProps) {
+  const { preview, onHoverValueChange } = useRangeHoverPreview(randomizationKey);
   const uniformValues = useLiveUniformValues(uniformRuntime, audioShaderId, savedUniformValues);
   const pointerActivationRef = useRef(false);
   const entries = Object.entries(uniformDefinitions);
@@ -162,6 +164,7 @@ export function MobileUniformOverlay({
               if (value === undefined) return null;
 
               const isNumeric = definition.type === 'float' || definition.type === 'int';
+              const hoverValue = preview?.name === name ? preview.value : null;
               const isLocked = isNumeric && isUniformLocked(name);
 
               return (
@@ -206,7 +209,9 @@ export function MobileUniformOverlay({
                       ) : null}
                       {isNumeric ? (
                         <span className="uniform-field-values">
-                          <small>{Number(value).toFixed(definition.type === 'int' ? 0 : 2)}</small>
+                          <small className={hoverValue !== null ? 'range-hover-value' : undefined}>
+                            {(hoverValue ?? Number(value)).toFixed(definition.type === 'int' ? 0 : 2)}
+                          </small>
                           {audioReactivity && audioShaderId && audioModeEnabled ? (
                             <AudioReactiveUniformLiveValue
                               controller={audioReactivity}
@@ -229,6 +234,7 @@ export function MobileUniformOverlay({
                         definition={definition}
                         baseValue={Number(value)}
                         onBaseValueChange={(nextValue) => onUniformChange(name, nextValue)}
+                        onHoverValueChange={(nextValue) => onHoverValueChange(name, nextValue)}
                       />
                     ) : (
                       <RangeInput
@@ -237,6 +243,7 @@ export function MobileUniformOverlay({
                         max={definition.max}
                         step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 1000}
                         value={Number(value)}
+                        onHoverValueChange={(nextValue) => onHoverValueChange(name, nextValue)}
                         onChange={(event) => onUniformChange(name, Number(event.target.value))}
                         onKeyDown={(event) =>
                           handleVerticalRangeKey(event, (nextValue) => onUniformChange(name, nextValue))

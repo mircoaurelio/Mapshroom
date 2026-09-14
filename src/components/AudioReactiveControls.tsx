@@ -30,6 +30,7 @@ interface AudioReactiveUniformSliderProps {
   definition: ShaderUniformDefinition;
   baseValue: number;
   onBaseValueChange: (value: number) => void;
+  onHoverValueChange?: (value: number | null) => void;
   showSignalPicker?: boolean;
 }
 
@@ -851,6 +852,7 @@ export function AudioReactiveUniformSlider({
   definition,
   baseValue,
   onBaseValueChange,
+  onHoverValueChange,
   showSignalPicker = true,
 }: AudioReactiveUniformSliderProps) {
   const binding = controller.preferences.bindingsByShaderId[shaderId]?.[name] ?? null;
@@ -901,6 +903,10 @@ export function AudioReactiveUniformSlider({
           max={definition.max}
           step={step}
           value={liveValue}
+          onHoverValueChange={onHoverValueChange}
+          onPointerDown={(event) => {
+            if (isActive) event.preventDefault();
+          }}
           onChange={(event) => {
             if (!isActive) {
               onBaseValueChange(Number(event.target.value));
@@ -924,6 +930,7 @@ export function AudioReactiveUniformSlider({
               max={definition.max}
               step={step}
               value={binding.min}
+              onHoverValueChange={onHoverValueChange}
               onChange={(event) =>
                 updateBinding({
                   min: Math.min(Number(event.target.value), binding.max),
@@ -938,6 +945,7 @@ export function AudioReactiveUniformSlider({
               max={definition.max}
               step={step}
               value={binding.max}
+              onHoverValueChange={onHoverValueChange}
               onChange={(event) =>
                 updateBinding({
                   max: Math.max(Number(event.target.value), binding.min),
