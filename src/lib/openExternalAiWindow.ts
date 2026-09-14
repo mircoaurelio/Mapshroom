@@ -16,8 +16,8 @@ let activeExternalAiWindow: Window | null = null;
 let activePopupGeometry: { width: number; left: number } | null = null;
 let stopFollowingWorkspace: (() => void) | null = null;
 
-function getWorkspacePopupBounds(chat: HTMLElement): ExternalAiPopupBounds | null {
-  return getExternalAiPopupBounds(chat.getBoundingClientRect(), {
+function getWorkspacePopupBounds(canvas: HTMLElement): ExternalAiPopupBounds | null {
+  return getExternalAiPopupBounds(canvas.getBoundingClientRect(), {
     screenX: window.screenX,
     screenY: window.screenY,
     innerWidth: window.innerWidth,
@@ -31,18 +31,20 @@ function getWorkspacePopupBounds(chat: HTMLElement): ExternalAiPopupBounds | nul
   });
 }
 
-function openWorkspacePopup(url: string, chat: HTMLElement, bounds: ExternalAiPopupBounds): ExternalAiWindowResult {
+function openWorkspacePopup(url: string, canvas: HTMLElement, bounds: ExternalAiPopupBounds): ExternalAiWindowResult {
   const { left, top, width, height } = bounds;
-  const popup = window.open(url, AI_POPUP_NAME,
+  // A fresh same-origin window can be sized before navigation; an existing
+  // cross-origin ChatGPT window may retain its old position and dimensions.
+  const popup = window.open('about:blank', '_blank',
     `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`);
   if (!popup) return 'blocked';
 
   const align = () => {
-    if (!chat.isConnected || popup.closed) {
+    if (!canvas.isConnected || popup.closed) {
       stopFollowingWorkspace?.();
       return;
     }
-    const next = getWorkspacePopupBounds(chat);
+    const next = getWorkspacePopupBounds(canvas);
     if (!next) return;
     try {
       popup.resizeTo(next.width, next.height);
@@ -55,10 +57,10 @@ function openWorkspacePopup(url: string, chat: HTMLElement, bounds: ExternalAiPo
   detachOpener(popup);
   activeExternalAiWindow = popup;
   activePopupGeometry = null;
-  // Observe the parent as well: the chat can move without changing its own width.
+  // The canvas tracks both sidebar resizing and the available vertical space.
   const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(align);
-  observer?.observe(chat);
-  if (chat.parentElement) observer?.observe(chat.parentElement);
+  observer?.observe(canvas);
+  if (canvas.parentElement) observer?.observe(canvas.parentElement);
   observer?.observe(document.documentElement);
   window.addEventListener('resize', align);
   stopFollowingWorkspace = () => {
@@ -66,6 +68,7 @@ function openWorkspacePopup(url: string, chat: HTMLElement, bounds: ExternalAiPo
     window.removeEventListener('resize', align);
     stopFollowingWorkspace = null;
   };
+  popup.location.replace(url);
   popup.focus();
   return 'popup';
 }
@@ -169,7 +172,7 @@ export function alignExternalAiWindowToElement(element: HTMLElement): boolean {
   }
 }
 
-export function openExternalAiWindow(url: string, options: { mode?: 'tab' | 'auto'; beside?: HTMLElement } = {}): ExternalAiWindowResult {
+export function openExternalAiWindow(url: string, options: { mode?: 'tab' | 'auto'; cover?: HTMLElement } = {}): ExternalAiWindowResult {
   stopFollowingWorkspace?.();
   if (isTauri()) {
     void openExternalUrl(url);
@@ -180,9 +183,9 @@ export function openExternalAiWindow(url: string, options: { mode?: 'tab' | 'aut
     return openRegularTab(url);
   }
 
-  if (options.beside) {
-    const bounds = getWorkspacePopupBounds(options.beside);
-    if (bounds) return openWorkspacePopup(url, options.beside, bounds);
+  if (options.cover) {
+    const bounds = getWorkspacePopupBounds(options.cover);
+    if (bounds) return openWorkspacePopup(url, options.cover, bounds);
     return openRegularTab(url);
   }
 
