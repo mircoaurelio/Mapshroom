@@ -11,7 +11,6 @@ export function RangeInput({ value, min = 0, max = 100, style, onChange, onHover
   onPointerEnter, onPointerMove, onPointerLeave, onPointerCancel, onKeyDown, ...props }: RangeInputProps) {
   const hoverDirection = useRef({ vertical: false, reversed: false });
   const clearHover = (input: HTMLInputElement) => {
-    input.removeAttribute('data-range-hover');
     input.style.removeProperty('--range-hover-position');
     onHoverValueChange?.(null);
   };
@@ -22,7 +21,6 @@ export function RangeInput({ value, min = 0, max = 100, style, onChange, onHover
     const { vertical, reversed } = hoverDirection.current;
     const position = vertical ? event.clientY - rect.top : event.clientX - rect.left;
     const length = vertical ? rect.height : rect.width;
-    input.setAttribute('data-range-hover', 'true');
     input.style.setProperty('--range-hover-position', `${Math.max(1, Math.min(length - 1, position))}px`);
     input.style.setProperty('--range-hover-angle', vertical ? '180deg' : '90deg');
     onHoverValueChange?.(rangeValueAtPosition(position, length, Number(min), Number(max),
