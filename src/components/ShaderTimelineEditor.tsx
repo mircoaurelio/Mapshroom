@@ -157,6 +157,15 @@ function BlockIcon() {
   );
 }
 
+function PowerIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 2v6" />
+      <path d="M4.5 3.8a5.25 5.25 0 1 0 7 0" />
+    </svg>
+  );
+}
+
 function PinIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -860,7 +869,7 @@ export function ShaderTimelineEditor({
                 {...dropProps(step.id)}
                 role="button"
                 tabIndex={0}
-                aria-label={`Edit ${shader?.name ?? 'shader'}`}
+                aria-label={`Edit ${shader?.name ?? 'shader'}${isDisabledStep ? ' (off)' : ''}`}
                 aria-pressed={step.id === editingStepId}
                 onClick={() => {
                   onEditStep(step.id);
@@ -921,22 +930,21 @@ export function ShaderTimelineEditor({
                       <ImageAssetIcon />
                     </button>
 
-                    <button
-                      type="button"
-                      className={`icon-button timeline-step-overlay-button timeline-step-overlay-button-disable ${
-                        isDisabledStep ? 'timeline-step-overlay-button-disable-active' : ''
-                      }`}
-                      aria-label={isDisabledStep ? 'Enable shader step' : 'Disable shader step'}
-                      aria-pressed={isDisabledStep}
-                      title={isDisabledStep ? 'Enable step' : 'Disable step'}
-                      disabled={disableToggleBlocked}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onStepChange(step.id, { disabled: !isDisabledStep });
-                      }}
-                    >
-                      <BlockIcon />
-                    </button>
+                    {!isDisabledStep ? (
+                      <button
+                        type="button"
+                        className="icon-button timeline-step-overlay-button"
+                        aria-label="Disable shader step"
+                        title="Disable step"
+                        disabled={disableToggleBlocked}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onStepChange(step.id, { disabled: true });
+                        }}
+                      >
+                        <BlockIcon />
+                      </button>
+                    ) : null}
 
                     <button
                       type="button"
@@ -979,6 +987,21 @@ export function ShaderTimelineEditor({
                     </button>
                   </div>
 
+                  {isDisabledStep ? (
+                    <button
+                      type="button"
+                      className="timeline-step-enable"
+                      aria-label="Enable shader step"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onStepChange(step.id, { disabled: false });
+                      }}
+                    >
+                      <PowerIcon />
+                      Enable
+                    </button>
+                  ) : null}
+
                   {(isPlayingStep || isTransitionStep) && (
                     <div className="timeline-step-preview-badges">
                       {isPlayingStep ? (
@@ -992,8 +1015,7 @@ export function ShaderTimelineEditor({
                     </div>
                   )}
 
-                  {isDisabledStep ||
-                  isPinnedStep ||
+                  {isPinnedStep ||
                   hasAssignedAsset ||
                   hasCompileError ||
                   getPendingAiJobCount(shader) > 0 ||
@@ -1002,11 +1024,6 @@ export function ShaderTimelineEditor({
                       {isPinnedStep ? (
                         <span className="timeline-step-preview-badge timeline-step-preview-badge-pinned">
                           Pin
-                        </span>
-                      ) : null}
-                      {isDisabledStep ? (
-                        <span className="timeline-step-preview-badge timeline-step-preview-badge-disabled">
-                          Off
                         </span>
                       ) : null}
                       {hasAssignedAsset ? (
@@ -1046,9 +1063,14 @@ export function ShaderTimelineEditor({
                   ) : null}
                 </div>
 
-                <strong className="timeline-step-name" title={shader?.name}>
-                  {shader?.name ?? 'Shader unavailable'}
-                </strong>
+                <div className="timeline-step-caption">
+                  <strong className="timeline-step-name" title={shader?.name}>
+                    {shader?.name ?? 'Shader unavailable'}
+                  </strong>
+                  {isDisabledStep ? (
+                    <span className="timeline-step-status-off" title="Excluded from playback">Off</span>
+                  ) : null}
+                </div>
               </article>
             </div>
           );
