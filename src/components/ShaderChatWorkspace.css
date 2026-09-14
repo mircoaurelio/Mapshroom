@@ -17,6 +17,7 @@
 .shader-chat-tabs > .shader-chat-new { align-self: center; display: grid; place-items: center; width: 30px; height: 30px; margin-left: auto; padding: 5px; border: 1px solid #34363c; border-radius: 7px; }
 .shader-chat-new svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .shader-chat-panel { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.shader-chat-panel:has(.shader-chat-paste-form) > .shader-chat-compose-area { display: none; }
 .shader-chat-messages { flex: 1; min-height: 60px; overflow: auto; padding: 16px 14px 20px; scrollbar-gutter: stable; overflow-wrap: anywhere; }
 .shader-chat-welcome { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 2px 0 8px; }
 .shader-chat-greeting { max-width: 340px; margin: 0; padding: 12px 14px; border-radius: 13px; background: #1a1d21; color: #cdd1d8; font-size: 13px; line-height: 1.55; }
@@ -49,12 +50,12 @@
 .shader-chat-feedback.is-error > p, .shader-chat-copy-error { color: #ffaca5; }
 .shader-chat-copy-error { font-size: 12px; }
 .shader-chat-handoff-button { display: inline-flex; align-items: center; gap: 7px; margin: 0 7px 7px 0; padding: 9px 12px; border: 1px solid #3b3e45; border-radius: 8px; background: #171b1d; color: #e9eaec; font: 12px Arial, sans-serif; cursor: pointer; }
-.shader-chat-paste-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; padding: 12px; border: 1px solid #303237; border-radius: 9px; background: #121416; }
+.shader-chat-paste-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; padding: 12px; border: 1px solid #303237; border-radius: 9px; background: #121416; scroll-margin-block: 16px; }
 .shader-chat-paste-form > label { font-size: 12px; color: #e9eaec; }
-.shader-chat-paste-form > textarea { width: 100%; min-height: 140px; max-height: 260px; padding: 10px; resize: vertical; border: 1px solid #3b3e45; border-radius: 6px; background: #0b0c0e; color: #dce0e6; font: 11px/1.5 monospace; }
+.shader-chat-paste-form > textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 100px; height: clamp(100px, 24dvh, 220px); max-height: 28dvh; padding: 10px; resize: vertical; border: 1px solid #3b3e45; border-radius: 6px; background: #0b0c0e; color: #dce0e6; font: 11px/1.5 monospace; }
 .shader-chat-paste-form > textarea:focus { outline: 1px solid var(--chat-accent); border-color: var(--chat-accent); }
 .shader-chat-paste-form > .shader-chat-copy-error { margin: 0; }
-.shader-chat-paste-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.shader-chat-paste-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; flex-wrap: wrap; flex-shrink: 0; gap: 8px; padding-top: 4px; background: #121416; }
 .shader-chat-paste-actions > button { padding: 8px 10px; border: 1px solid #3b3e45; border-radius: 6px; background: transparent; color: #c4c9d1; font: 12px Arial, sans-serif; cursor: pointer; }
 .shader-chat-paste-actions > button[type="submit"] { border-color: var(--chat-accent); background: var(--chat-accent); color: #082316; }
 .shader-chat-paste-actions > button[type="submit"]:hover:not(:disabled) { background: #a0ffca; color: #082316; }
