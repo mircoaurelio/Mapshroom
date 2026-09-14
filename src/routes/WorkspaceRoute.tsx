@@ -8869,6 +8869,7 @@ ${errorSnapshot}`,
   };
   const workspaceNavigation = <WorkspaceNavigation
     activeSection={desktopSection}
+    outputWindowOpen={outputWindowOpen}
     onSelectSection={selectDesktopSection}
     assetsFirstStepEligible={assetsFirstStepEligible}
     onboardingActive={showOnboardingGuide}
@@ -9107,7 +9108,7 @@ ${errorSnapshot}`,
           <>
             <section
               className="workspace-desktop-main"
-              style={{ gridTemplateRows: `minmax(0, 1fr) 10px minmax(var(--desktop-timeline-min-height), min(${desktopLayout.timelineHeight}px, calc(100% - 244px)))` }}
+              style={{ gridTemplateRows: desktopSection === 'workspace' ? `minmax(0, 1fr) 10px minmax(var(--desktop-timeline-min-height), min(${desktopLayout.timelineHeight}px, calc(100% - 244px)))` : 'minmax(0, 1fr)' }}
             >
               <div className="workspace-upper">
                 {workspaceNavigation}
@@ -9171,23 +9172,27 @@ ${errorSnapshot}`,
                 </div>
               </div>
 
-              <div
-                className="workspace-resize-handle workspace-resize-handle-horizontal"
-                role="presentation"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  beginDesktopResize('timeline', event.clientX, event.clientY, event.currentTarget.nextElementSibling?.getBoundingClientRect().height);
-                }}
-              />
+              {desktopSection === 'workspace' && (
+                <>
+                  <div
+                    className="workspace-resize-handle workspace-resize-handle-horizontal"
+                    role="presentation"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      beginDesktopResize('timeline', event.clientX, event.clientY, event.currentTarget.nextElementSibling?.getBoundingClientRect().height);
+                    }}
+                  />
 
-              <section className="workspace-pane-section workspace-pane-timeline">
-                <div
-                  className="workspace-pane-scroll workspace-pane-scroll-timeline"
-                  data-onboarding-area="timeline"
-                >
-                  {timelineBar}
-                </div>
-              </section>
+                  <section className="workspace-pane-section workspace-pane-timeline">
+                    <div
+                      className="workspace-pane-scroll workspace-pane-scroll-timeline"
+                      data-onboarding-area="timeline"
+                    >
+                      {timelineBar}
+                    </div>
+                  </section>
+                </>
+              )}
             </section>
 
           </>
@@ -9207,7 +9212,7 @@ ${errorSnapshot}`,
         )}
       </div>
 
-      {!isMobile && uiPreferences.chromeVisible && !useDesktopPaneLayout ? (
+      {!isMobile && uiPreferences.chromeVisible && !useDesktopPaneLayout && desktopSection === 'workspace' ? (
         <div className="workspace-timeline-shell" data-onboarding-area="timeline">
           {timelineBar}
         </div>

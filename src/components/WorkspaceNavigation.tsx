@@ -16,6 +16,7 @@ export type WorkspaceSection = 'asset' | 'move' | 'output' | 'workspace';
 
 interface WorkspaceNavigationProps {
   activeSection: WorkspaceSection;
+  outputWindowOpen: boolean;
   onSelectSection: (section: WorkspaceSection) => void;
   assetsFirstStepEligible: boolean;
   onboardingActive: boolean;
@@ -32,7 +33,7 @@ function NavigationIcon({ section }: { section: WorkspaceSection }) {
 }
 function AssetsIcon() { return <NavigationIcon section="asset" />; }
 
-export function WorkspaceNavigation({ activeSection, onSelectSection, assetsFirstStepEligible, onboardingActive, onAssetsFirstStepAdvance }: WorkspaceNavigationProps) {
+export function WorkspaceNavigation({ activeSection, outputWindowOpen, onSelectSection, assetsFirstStepEligible, onboardingActive, onAssetsFirstStepAdvance }: WorkspaceNavigationProps) {
   const onOpenAssets = () => onSelectSection('asset');
   const [assetsFirstStepVisible, setAssetsFirstStepVisible] = useState(false);
   const [assetsFirstStepAdvanced, setAssetsFirstStepAdvanced] = useState(() =>
@@ -214,7 +215,8 @@ export function WorkspaceNavigation({ activeSection, onSelectSection, assetsFirs
     </div>
     {(['move', 'output', 'workspace'] as const).map(section => {
       const label = section === 'workspace' ? 'Workspace' : section === 'move' ? 'Move' : 'Output';
-      return <button key={section} type="button" className="workspace-nav-item" aria-current={activeSection === section ? 'page' : undefined} title={label} data-onboarding-area={section === 'move' ? 'mapping' : undefined} onClick={() => onSelectSection(section)}>
+      const outputLive = section === 'output' && outputWindowOpen;
+      return <button key={section} type="button" className={`workspace-nav-item${outputLive ? ' workspace-nav-output-live' : ''}`} aria-current={activeSection === section ? 'page' : undefined} aria-description={section === 'output' ? (outputWindowOpen ? 'Output window is open' : 'Output window is closed') : undefined} title={outputLive ? 'Output — window open' : label} data-onboarding-area={section === 'move' ? 'mapping' : undefined} onClick={() => onSelectSection(section)}>
         <NavigationIcon section={section} /><span>{label}</span>
       </button>;
     })}
