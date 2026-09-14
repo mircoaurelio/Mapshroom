@@ -250,6 +250,14 @@ vec4 mixTimelineTransition(vec4 fromColor, vec4 toColor, vec2 uv, float progress
   }
 }
 
+// Mapped inputs expose their original-photo mask in stage coordinates so an
+// overlay uses the same fit as the image beneath it, regardless of shader color.
+function buildSourceMaskExpression(code: string, namespace: string, sampler: string): string {
+  return collectFunctionNames(code).includes('getTimelineMappedSourceMask')
+    ? `${namespace}_getTimelineMappedSourceMask(${sampler}, uv, resolution)`
+    : `getTimelineSourceMask(${sampler}, uv)`;
+}
+
 function buildTimelineOverlayComposer(): string {
   return `
 vec2 getTimelineOverlayUv(
@@ -360,7 +368,7 @@ vec3 blendTimelineOverlay(
 
 vec4 applyTimelineOverlay(
     vec4 baseColor,
-    sampler2D sourceImage,
+    float sourceMask,
     sampler2D overlayImage,
     vec2 uv,
     vec2 resolution,
@@ -396,7 +404,6 @@ vec4 applyTimelineOverlay(
     vec4 overlayColor = sampleTimelineOverlayColor(overlayImage, overlayUv, resolution, quality);
     float overlayMix = clamp(overlayColor.a * opacity * overlayMask, 0.0, 1.0);
     if (blendMode > 3.5) {
-        float sourceMask = getTimelineSourceMask(sourceImage, uv);
         float overlayBrightness = smoothstep(0.08, 0.35, getTimelineOverlayLuminance(overlayColor.rgb));
         float maskedRevealMix = overlayMix * sourceMask * overlayBrightness;
         vec3 maskedRevealColor = mix(baseColor.rgb, overlayColor.rgb, maskedRevealMix);
@@ -642,7 +649,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
 
     return applyTimelineOverlay(
         baseColor,
-        tex,
+        ${buildSourceMaskExpression(shaderCode, 'timeline_base', 'tex')},
         u_timeline_overlay_image,
         uv,
         resolution,
@@ -681,8 +688,8 @@ ${inputCode}
 
 ${overlayComposer}
 
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec2 inputUv = getTimelineOverlayUv(
+vec2 getTimelineMappedInputUv(vec2 uv, vec2 resolution) {
+    return getTimelineOverlayUv(
         uv,
         resolution,
         u_timeline_input_aspect_ratio,
@@ -692,6 +699,15 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
         u_timeline_input_offset_y,
         u_timeline_input_fit_mode
     );
+}
+
+float getTimelineMappedSourceMask(sampler2D tex, vec2 uv, vec2 resolution) {
+    vec2 inputUv = getTimelineMappedInputUv(uv, resolution);
+    return getTimelineOverlayMask(inputUv) * getTimelineSourceMask(tex, inputUv);
+}
+
+vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
+    vec2 inputUv = getTimelineMappedInputUv(uv, resolution);
     float inputMask = getTimelineOverlayMask(inputUv);
     if (inputMask <= 0.001) {
         return vec4(0.0);
@@ -764,7 +780,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     if (u_timeline_from_has_overlay) {
         fromColor = applyTimelineOverlay(
             fromColor,
-            tex,
+            ${buildSourceMaskExpression(fromCode, 'timeline_from', 'u_timeline_from_image')},
             u_timeline_from_overlay_image,
             uv,
             resolution,
@@ -782,7 +798,7 @@ vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
     if (u_timeline_to_has_overlay) {
         toColor = applyTimelineOverlay(
             toColor,
-            tex,
+            ${buildSourceMaskExpression(toCode, 'timeline_to', 'u_timeline_to_image')},
             u_timeline_to_overlay_image,
             uv,
             resolution,
