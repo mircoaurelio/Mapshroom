@@ -256,7 +256,6 @@ export function ShaderTimelineEditor({
       : sequence.mode === 'random'
         ? 'Random Shader Flow'
         : 'Shader Sequence';
-  const [shaderPickerStepId, setShaderPickerStepId] = useState<string | null>(null);
   const [isShuffleConfirmationOpen, setIsShuffleConfirmationOpen] = useState(false);
   const [isMobileArranging, setIsMobileArranging] = useState(false);
   const [isMobileAddOpen, setIsMobileAddOpen] = useState(false);
@@ -1100,39 +1099,9 @@ export function ShaderTimelineEditor({
                   ) : null}
                 </div>
 
-                <div className="field timeline-compact-field">
-                  {shaderPickerStepId === step.id ? (
-                    <select
-                      className="select-field"
-                      aria-label="Choose shader"
-                      value={step.shaderId}
-                      autoFocus
-                      onBlur={() => setShaderPickerStepId(null)}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) => {
-                        onStepChange(step.id, { shaderId: event.target.value });
-                        setShaderPickerStepId(null);
-                      }}
-                    >
-                      {savedShaders.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.isTemporary ? `${item.name} (Timeline)` : item.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <button
-                      type="button"
-                      className="secondary-button timeline-step-shader-button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setShaderPickerStepId(step.id);
-                      }}
-                    >
-                      {shader?.name ?? 'Choose shader'}
-                    </button>
-                  )}
-                </div>
+                <strong className="timeline-step-name" title={shader?.name}>
+                  {shader?.name ?? 'Shader unavailable'}
+                </strong>
               </article>
             </div>
           );

@@ -2095,7 +2095,7 @@ function sanitizeAiMessage(message: string): string {
     .replaceAll('Google', 'AI');
 }
 
-type DesktopResizeTarget = 'left' | 'timeline';
+type DesktopResizeTarget = 'left' | 'right' | 'timeline';
 type FilePickerSource = 'library' | 'timeline-picker';
 
 const DESKTOP_PANE_MIN_WIDTH = 180;
@@ -2964,6 +2964,7 @@ export function WorkspaceRoute() {
   const [shareLinkError, setShareLinkError] = useState('');
   const [desktopLayout, setDesktopLayout] = useState({
     leftSidebarWidth: 360,
+    rightSidebarWidth: 360,
     timelineHeight: 300,
   });
   const [midiEnabled, setMidiEnabled] = useState(false);
@@ -2998,6 +2999,7 @@ export function WorkspaceRoute() {
     startX: number;
     startY: number;
     leftSidebarWidth: number;
+    rightSidebarWidth: number;
     timelineHeight: number;
   } | null>(null);
   const activeSessionId = project?.sessionId ?? null;
@@ -3955,6 +3957,16 @@ export function WorkspaceRoute() {
           };
         }
 
+        if (resizeState.target === 'right') {
+          return {
+            ...currentValue,
+            rightSidebarWidth: Math.max(
+              DESKTOP_PANE_MIN_WIDTH,
+              Math.min(DESKTOP_PANE_MAX_WIDTH, resizeState.rightSidebarWidth - deltaX),
+            ),
+          };
+        }
+
         return {
           ...currentValue,
           timelineHeight: Math.max(
@@ -4372,6 +4384,7 @@ export function WorkspaceRoute() {
       startX: clientX,
       startY: clientY,
       leftSidebarWidth: desktopLayout.leftSidebarWidth,
+      rightSidebarWidth: desktopLayout.rightSidebarWidth,
       timelineHeight: desktopLayout.timelineHeight,
     };
     document.body.style.cursor = target === 'timeline' ? 'row-resize' : 'col-resize';
@@ -8581,8 +8594,8 @@ ${errorSnapshot}`,
   const sharedTimelineShaderCount = sharedTimelineShaderIds.size;
 
   const desktopMainTopGridTemplateColumns = uiPreferences.sidebarVisible
-    ? `${desktopLayout.leftSidebarWidth}px 10px minmax(0, 1fr)`
-    : 'minmax(0, 1fr)';
+    ? `${desktopLayout.leftSidebarWidth}px 10px minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`
+    : `minmax(0, 1fr) 10px ${desktopLayout.rightSidebarWidth}px`;
 
   const stageViewport = (
     <section
@@ -8991,10 +9004,8 @@ ${errorSnapshot}`,
                       style={{ width: `${desktopLayout.leftSidebarWidth}px` }}
                     >
                       <div className="workspace-pane-scroll">
-                        {desktopShaderToolsPanel}
                         {desktopSlidersPanel}
                         {timelineStepAssetPanel}
-                        <div data-onboarding-area="code">{desktopCodePanel}{desktopHistoryPanel}</div>
                       </div>
                     </aside>
 
@@ -9010,6 +9021,28 @@ ${errorSnapshot}`,
                 ) : null}
 
                 <div className="workspace-desktop-stage">{stageViewport}</div>
+
+                <div
+                  className="workspace-resize-handle workspace-resize-handle-vertical"
+                  role="presentation"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    beginDesktopResize('right', event.clientX, event.clientY);
+                  }}
+                />
+
+                <aside
+                  className="workspace-pane workspace-pane-right"
+                  data-onboarding-area="code"
+                  style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
+                >
+                  <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
+                    {aiPanel}
+                    {desktopShaderToolsPanel}
+                    {desktopCodePanel}
+                    {desktopHistoryPanel}
+                  </div>
+                </aside>
               </div>
 
               <div
@@ -9039,6 +9072,7 @@ ${errorSnapshot}`,
             {!isMobile && uiPreferences.chromeVisible && uiPreferences.sidebarVisible ? (
               <aside className="workspace-sidebar" data-onboarding-area="controls">
                 <div className="workspace-sidebar-scroll">
+                  {aiPanel}
                   {studioPanel}
                   {timelineStepAssetPanel}
                 </div>

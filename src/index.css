@@ -1030,6 +1030,18 @@ a {
   border-right: 1px solid var(--line);
 }
 
+.workspace-pane-right {
+  border-left: 1px solid var(--line);
+}
+
+.workspace-pane-right .panel-section:first-child {
+  border-top: 0;
+}
+
+.workspace-pane-scroll-inspector {
+  background: var(--bg-panel);
+}
+
 .workspace-pane-section {
   min-height: 0;
   display: flex;
@@ -1054,6 +1066,7 @@ a {
 
 .workspace-pane-scroll-timeline {
   background: var(--bg-panel);
+  overflow: hidden;
 }
 
 .workspace-desktop-main {
@@ -6988,6 +7001,28 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   padding: 0.6rem 0.8rem;
 }
 
+.workspace-pane-timeline .timeline-bar {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-pane-timeline .timeline-sequence-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.workspace-pane-timeline .timeline-sequence-toolbar {
+  flex: 0 0 auto;
+}
+
+.workspace-pane-timeline .timeline-flow-strip {
+  container-type: size;
+  flex: 1;
+  min-height: 0;
+  --timeline-card-width: clamp(112px, min(calc(100cqh - 30px), calc(25cqw - 10px)), 420px);
+}
+
 .timeline-dialog-panel {
   width: min(100%, 960px);
 }
@@ -7790,29 +7825,11 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   width: 100%;
   gap: 0.35rem;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
   overscroll-behavior-x: contain;
   padding-bottom: 0.28rem;
   scrollbar-width: thin;
   scrollbar-color: #000000 rgba(0, 0, 0, 0.82);
-}
-
-@container timelinePane (min-height: 430px) {
-  .timeline-flow-strip {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    grid-template-rows: repeat(2, max-content);
-    align-items: start;
-    align-content: start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-bottom: 0.4rem;
-  }
-
-  .timeline-flow-node {
-    align-items: stretch;
-  }
 }
 
 .timeline-flow-strip::-webkit-scrollbar-track {
@@ -7830,7 +7847,7 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 
 .timeline-flow-node {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   min-width: min-content;
   flex: 0 0 auto;
 }
@@ -8175,13 +8192,15 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   stroke-linejoin: round;
 }
 
-.timeline-step-shader-button {
-  min-height: 34px;
-  justify-content: flex-start;
+.timeline-step-name {
+  display: block;
+  min-width: 0;
   overflow: hidden;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-bright);
+  font: 500 0.65rem/1.5 'IBM Plex Mono', monospace;
 }
 
 .timeline-step-preview-badge-active {
@@ -8271,12 +8290,6 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   padding: 0.22rem 0.45rem;
   font-size: 0.56rem;
   letter-spacing: 0.1em;
-}
-
-.timeline-step-card .text-field,
-.timeline-step-card .select-field {
-  min-height: var(--timeline-card-select-height, 26px);
-  padding: 0.32rem 0.45rem;
 }
 
 .timeline-step-card-simple .timeline-step-actions .ghost-button {
