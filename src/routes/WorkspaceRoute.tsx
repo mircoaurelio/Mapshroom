@@ -6855,9 +6855,10 @@ export function WorkspaceRoute() {
       retryInFlight: false,
     };
 
-    updateProject((currentProject) =>
-      applyExternalShaderCodeToProject(currentProject, {
-        targetShaderId,
+    updateProject((currentProject) => {
+      if (currentProject.studio.activeShaderId !== targetShaderId) return currentProject;
+      return applyExternalShaderCodeToProject(currentProject, {
+        targetShaderId: currentProject.studio.activeShaderId,
         prompt: externalChatRequest.prompt,
         historyPrompt: externalChatRequest.historyPrompt,
         currentCode: externalChatRequest.currentCode,
@@ -6865,8 +6866,8 @@ export function WorkspaceRoute() {
         validationError,
         versionId,
         activateTarget: true,
-      }),
-    );
+      });
+    });
 
     setAiPrompt((currentPrompt) =>
       currentPrompt.trim() === externalChatRequest.prompt ? '' : currentPrompt,
@@ -8154,10 +8155,6 @@ ${errorSnapshot}`,
       const clipboardText = (await navigator.clipboard.readText()).trim();
       if (!clipboardText) {
         throw new Error('The clipboard is empty.');
-      }
-      if (externalChatRequest?.targetShaderId === project.studio.activeShaderId) {
-        await handleApplyExternalChatResponse(clipboardText);
-        return true;
       }
       const shaderApplyLink = extractShaderApplyLinkFromText(clipboardText);
       const nextCode = validateGeneratedShader(
