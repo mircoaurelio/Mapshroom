@@ -855,221 +855,191 @@ export function ShaderTimelineEditor({
               role="listitem"
             >
               <article
-                className={`timeline-step-card ${
-                  step.shaderId === activeShaderId ? 'timeline-step-card-active' : ''
-                } ${isPlayingStep ? 'timeline-step-card-current' : ''} ${
-                  isTransitionStep ? 'timeline-step-card-transition' : ''
-                } ${step.id === editingStepId ? 'timeline-step-card-editing' : ''} ${
-                  !isAdvancedView ? 'timeline-step-card-simple' : ''
-                } ${isDisabledStep ? 'timeline-step-card-disabled' : ''} ${
-                  isPinnedStep ? 'timeline-step-card-pinned' : ''
-                }`}
+                className={`timeline-step-card ${step.shaderId === activeShaderId ? 'timeline-step-card-active' : ''
+                  } ${isPlayingStep ? 'timeline-step-card-current' : ''} ${isTransitionStep ? 'timeline-step-card-transition' : ''
+                  } ${step.id === editingStepId ? 'timeline-step-card-editing' : ''} ${!isAdvancedView ? 'timeline-step-card-simple' : ''
+                  } ${isDisabledStep ? 'timeline-step-card-disabled' : ''} ${isPinnedStep ? 'timeline-step-card-pinned' : ''
+                  }`}
                 data-timeline-step-id={step.id}
                 data-preview-shader-id={shader?.id}
                 {...dropProps(step.id)}
-                role="button"
-                tabIndex={0}
-                aria-label={`Edit ${shader?.name ?? 'shader'}${isDisabledStep ? ' (off)' : ''}`}
-                aria-pressed={step.id === editingStepId}
-                onClick={() => {
-                  onEditStep(step.id);
-                }}
-                onKeyDown={(event) => {
-                  if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
-                    event.preventDefault();
-                    onEditStep(step.id);
-                  }
-                }}
               >
-                <div className="timeline-step-preview-shell">
-                  <ShaderThumbnail shader={shader} />
-
-                  <div className="timeline-step-preview-actions">
-                    {!isDisabledStep ? (
-                      <button
-                        type="button"
-                        className={`icon-button timeline-step-overlay-button ${
-                          isPinnedStep ? 'timeline-step-overlay-button-pin-active' : ''
-                        }`}
-                        aria-label={isPinnedStep ? 'Unpin shader step' : 'Pin shader step'}
-                        aria-pressed={isPinnedStep}
-                        title={isPinnedStep ? 'Unpin compare layer' : 'Pin compare layer'}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onPinnedStepToggle(step.id);
-                        }}
-                      >
-                        <PinIcon />
-                      </button>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      className={`icon-button timeline-step-overlay-button ${
-                        hasAssignedAsset ? 'timeline-step-overlay-button-pin-active' : ''
-                      }`}
-                      aria-label={
-                        hasAssignedAsset
-                          ? `Change assigned asset for ${shader?.name ?? 'shader'}`
-                          : `Assign asset to ${shader?.name ?? 'shader'}`
-                      }
-                      aria-pressed={hasAssignedAsset}
-                      title={
-                        assignedAsset
-                          ? `Assigned asset: ${assignedAsset.name}`
-                          : hasAssignedAsset
-                            ? 'Assigned asset is unavailable on this device'
-                            : 'Assign asset'
-                      }
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onEditStep(step.id);
-                        onBrowseAssets(step.id);
-                      }}
-                    >
-                      <ImageAssetIcon />
-                    </button>
-
-                    {!isDisabledStep ? (
-                      <button
-                        type="button"
-                        className="icon-button timeline-step-overlay-button"
-                        aria-label="Disable shader step"
-                        title="Disable step"
-                        disabled={disableToggleBlocked}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onStepChange(step.id, { disabled: true });
-                        }}
-                      >
-                        <BlockIcon />
-                      </button>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      className="icon-button timeline-step-overlay-button"
-                      aria-label="Duplicate shader step"
-                      title="Duplicate"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDuplicateStep(step.id);
-                      }}
-                    >
-                      <DuplicateIcon />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="icon-button timeline-step-overlay-button"
-                      aria-label="Replace with random shader"
-                      title="Replace with a random preset"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onRandomizeStep(step.id);
-                      }}
-                    >
-                      <ShuffleIcon />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="icon-button timeline-step-overlay-button timeline-step-overlay-button-danger"
-                      aria-label="Delete shader step"
-                      title="Delete"
-                      disabled={sequence.steps.length === 1 || (!isDisabledStep && enabledStepCount <= 1)}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onRemoveStep(step.id);
-                      }}
-                    >
-                      <DeleteIcon />
-                    </button>
-                  </div>
-
-                  {isDisabledStep ? (
-                    <button
-                      type="button"
-                      className="timeline-step-enable"
-                      aria-label="Enable shader step"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onStepChange(step.id, { disabled: false });
-                      }}
-                    >
-                      <PowerIcon />
-                      Enable
-                    </button>
-                  ) : null}
-
-                  {(isPlayingStep || isTransitionStep) && (
-                    <div className="timeline-step-preview-badges">
-                      {isPlayingStep ? (
-                        <span className="timeline-step-preview-badge timeline-step-preview-badge-active">
-                          Now
-                        </span>
-                      ) : null}
-                      {isTransitionStep ? (
-                        <span className="timeline-step-preview-badge">Next</span>
-                      ) : null}
-                    </div>
-                  )}
-
-                  {isPinnedStep ||
-                  hasAssignedAsset ||
-                  hasCompileError ||
-                  getPendingAiJobCount(shader) > 0 ||
-                  shader?.hasUnreadAiResult ? (
-                    <div className="timeline-step-preview-badges timeline-step-preview-badges-bottom">
-                      {isPinnedStep ? (
-                        <span className="timeline-step-preview-badge timeline-step-preview-badge-pinned">
-                          Pin
-                        </span>
-                      ) : null}
-                      {hasAssignedAsset ? (
-                        <span
-                          className="timeline-step-preview-badge timeline-step-preview-badge-pinned"
-                          title={assignedAsset ? assignedAsset.name : 'Assigned asset missing'}
-                        >
-                          Img
-                        </span>
-                      ) : null}
-                      {hasCompileError ? (
-                        <span
-                          className="timeline-step-preview-badge timeline-step-preview-badge-error"
-                          title={shader?.compileError ?? 'Shader compile error'}
-                        >
-                          <ErrorIcon />
-                        </span>
-                      ) : null}
-                      {getPendingAiJobCount(shader) > 0 ? (
-                        <span
-                          className="timeline-step-preview-badge timeline-step-preview-badge-loading"
-                          aria-label="Shader update in progress"
-                          title="Shader update in progress"
-                        >
-                          <span className="timeline-step-preview-dots" aria-hidden="true">
-                            <span />
-                            <span />
+                <button
+                  type="button"
+                  className="timeline-step-select"
+                  aria-label={`Edit ${shader?.name ?? 'shader'}${isDisabledStep ? ' (off)' : ''}`}
+                  aria-pressed={step.id === editingStepId}
+                  onClick={() => onEditStep(step.id)}
+                >
+                  <span className="timeline-step-preview-shell">
+                    <ShaderThumbnail shader={shader} />
+                    {(isPlayingStep || isTransitionStep) && (
+                      <span className="timeline-step-preview-badges">
+                        {isPlayingStep ? (
+                          <span className="timeline-step-preview-badge timeline-step-preview-badge-active">
+                            Now
                           </span>
-                        </span>
-                      ) : null}
-                      {shader?.hasUnreadAiResult ? (
-                        <span className="timeline-step-preview-badge timeline-step-preview-badge-active">
-                          Updated
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
+                        ) : null}
+                        {isTransitionStep ? (
+                          <span className="timeline-step-preview-badge">Next</span>
+                        ) : null}
+                      </span>
+                    )}
 
-                <div className="timeline-step-caption">
-                  <strong className="timeline-step-name" title={shader?.name}>
-                    {shader?.name ?? 'Shader unavailable'}
-                  </strong>
-                  {isDisabledStep ? (
-                    <span className="timeline-step-status-off" title="Excluded from playback">Off</span>
-                  ) : null}
+                    {isPinnedStep ||
+                      hasAssignedAsset ||
+                      hasCompileError ||
+                      getPendingAiJobCount(shader) > 0 ||
+                      shader?.hasUnreadAiResult ? (
+                      <span className="timeline-step-preview-badges timeline-step-preview-badges-bottom">
+                        {isPinnedStep ? (
+                          <span className="timeline-step-preview-badge timeline-step-preview-badge-pinned">
+                            Pin
+                          </span>
+                        ) : null}
+                        {hasAssignedAsset ? (
+                          <span
+                            className="timeline-step-preview-badge timeline-step-preview-badge-pinned"
+                            title={assignedAsset ? assignedAsset.name : 'Assigned asset missing'}
+                          >
+                            Img
+                          </span>
+                        ) : null}
+                        {hasCompileError ? (
+                          <span
+                            className="timeline-step-preview-badge timeline-step-preview-badge-error"
+                            title={shader?.compileError ?? 'Shader compile error'}
+                          >
+                            <ErrorIcon />
+                          </span>
+                        ) : null}
+                        {getPendingAiJobCount(shader) > 0 ? (
+                          <span
+                            className="timeline-step-preview-badge timeline-step-preview-badge-loading"
+                            aria-label="Shader update in progress"
+                            title="Shader update in progress"
+                          >
+                            <span className="timeline-step-preview-dots" aria-hidden="true">
+                              <span />
+                              <span />
+                            </span>
+                          </span>
+                        ) : null}
+                        {shader?.hasUnreadAiResult ? (
+                          <span className="timeline-step-preview-badge timeline-step-preview-badge-active">
+                            Updated
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </span>
+
+                  <span className="timeline-step-caption">
+                    <strong className="timeline-step-name" title={shader?.name}>
+                      {shader?.name ?? 'Shader unavailable'}
+                    </strong>
+                    {isDisabledStep ? (
+                      <span className="timeline-step-status-off" title="Excluded from playback">Off</span>
+                    ) : null}
+                  </span>
+                </button>
+
+                <div className="timeline-step-card-actions" role="group" aria-label={`Actions for ${shader?.name ?? 'shader'}`}>
+                  <button
+                    type="button"
+                    className={`icon-button timeline-step-action-button ${isPinnedStep ? 'timeline-step-action-button-pin-active' : ''
+                      }`}
+                    aria-label={isPinnedStep ? 'Unpin shader step' : 'Pin shader step'}
+                    aria-pressed={isPinnedStep}
+                    disabled={isDisabledStep}
+                    title={isDisabledStep ? 'Enable the shader before pinning' : isPinnedStep ? 'Unpin compare layer' : 'Pin compare layer'}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onPinnedStepToggle(step.id);
+                    }}
+                  >
+                    <PinIcon />
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`icon-button timeline-step-action-button ${hasAssignedAsset ? 'timeline-step-action-button-pin-active' : ''
+                      }`}
+                    aria-label={
+                      hasAssignedAsset
+                        ? `Change assigned asset for ${shader?.name ?? 'shader'}`
+                        : `Assign asset to ${shader?.name ?? 'shader'}`
+                    }
+                    aria-pressed={hasAssignedAsset}
+                    title={
+                      assignedAsset
+                        ? `Assigned asset: ${assignedAsset.name}`
+                        : hasAssignedAsset
+                          ? 'Assigned asset is unavailable on this device'
+                          : 'Assign asset'
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEditStep(step.id);
+                      onBrowseAssets(step.id);
+                    }}
+                  >
+                    <ImageAssetIcon />
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`icon-button timeline-step-action-button ${isDisabledStep ? 'timeline-step-action-button-enable' : ''}`}
+                    aria-label={isDisabledStep ? 'Enable shader step' : 'Disable shader step'}
+                    title={isDisabledStep ? 'Enable step' : 'Disable step'}
+                    disabled={disableToggleBlocked}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onStepChange(step.id, { disabled: !isDisabledStep });
+                    }}
+                  >
+                    {isDisabledStep ? <PowerIcon /> : <BlockIcon />}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="icon-button timeline-step-action-button"
+                    aria-label="Duplicate shader step"
+                    title="Duplicate"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDuplicateStep(step.id);
+                    }}
+                  >
+                    <DuplicateIcon />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="icon-button timeline-step-action-button"
+                    aria-label="Replace with random shader"
+                    title="Replace with a random preset"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRandomizeStep(step.id);
+                    }}
+                  >
+                    <ShuffleIcon />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="icon-button timeline-step-action-button timeline-step-action-button-danger"
+                    aria-label="Delete shader step"
+                    title="Delete"
+                    disabled={sequence.steps.length === 1 || (!isDisabledStep && enabledStepCount <= 1)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemoveStep(step.id);
+                    }}
+                  >
+                    <DeleteIcon />
+                  </button>
                 </div>
               </article>
             </div>

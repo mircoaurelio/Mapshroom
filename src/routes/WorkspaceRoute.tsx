@@ -9100,7 +9100,6 @@ ${errorSnapshot}`,
 
       {isMobile && mobileChromeVisible ? (
         <MobileChrome
-          saveStatus={projectSaveStatus}
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
           isTimelineOpen={isMobileTimelineOpen}
           uiMode={mobileUiMode === 'bar' ? 'bar' : 'full'}

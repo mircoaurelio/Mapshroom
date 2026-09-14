@@ -7020,7 +7020,7 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   container-type: size;
   flex: 1;
   min-height: 0;
-  --timeline-card-width: clamp(112px, min(calc(100cqh - 30px), calc(25cqw - 10px)), 420px);
+  --timeline-card-width: clamp(144px, min(calc((100cqh - 20px) * 0.76), calc(20cqw - 10px)), 360px);
 }
 
 .timeline-dialog-panel {
@@ -7638,17 +7638,33 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-step-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--timeline-card-gap, 0.45rem);
-  width: var(--timeline-card-width, 180px);
-  min-width: var(--timeline-card-width, 180px);
-  max-width: var(--timeline-card-width, 180px);
-  padding: var(--timeline-card-padding-y, 0.55rem) var(--timeline-card-padding-x, 0.6rem);
+  gap: 0;
+  width: var(--timeline-card-width, 160px);
+  min-width: var(--timeline-card-width, 160px);
+  max-width: var(--timeline-card-width, 160px);
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--bg-panel-soft);
   box-sizing: border-box;
+  overflow: hidden;
+}
+
+.timeline-step-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
@@ -7822,9 +7838,9 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.1);
 }
 
-.timeline-step-card:focus-visible {
-  outline: 1px solid rgba(var(--accent-alt-rgb), 0.55);
-  outline-offset: 1px;
+.timeline-step-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .timeline-step-card-transition {
@@ -7832,7 +7848,9 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
 }
 
 .timeline-step-preview-shell {
+  display: block;
   position: relative;
+  width: 100%;
   overflow: hidden;
   aspect-ratio: 1;
   border: 1px solid rgba(63, 63, 70, 0.45);
@@ -7847,109 +7865,104 @@ html:root[data-color-theme='pink'] body .uniform-range-shell::before {
   object-fit: cover;
 }
 
-.timeline-step-preview-actions {
+.timeline-step-card-actions {
   position: absolute;
-  top: 0.45rem;
-  right: 0.45rem;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  max-width: calc(100% - 0.9rem);
-  align-items: center;
-  gap: 0.18rem;
+  top: 5px;
+  right: 5px;
+  left: 5px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(6, 20px);
+  grid-template-rows: 20px;
+  gap: 1px;
+  align-content: center;
+  justify-content: center;
+  height: 22px;
+  border-radius: 2px 2px 0 0;
+  background: rgba(9, 9, 11, 0.9);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 120ms ease;
+  transition: opacity 120ms ease, visibility 0s 120ms;
 }
 
-.timeline-step-card:hover .timeline-step-preview-actions,
-.timeline-step-card:focus-within .timeline-step-preview-actions,
-.timeline-step-card:hover .timeline-step-enable,
-.timeline-step-card:focus-within .timeline-step-enable {
+.timeline-step-card-actions .timeline-step-action-button {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 120ms ease;
+}
+
+.timeline-step-action-button svg {
+  width: 11px;
+  height: 11px;
+}
+
+.timeline-step-action-button:disabled svg {
+  opacity: 0.3;
+}
+
+.timeline-step-card:hover .timeline-step-card-actions {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  /* Let a quick click select the preview before tools appear beneath the pointer. */
+  transition-delay: 180ms;
+}
+
+.timeline-step-card:has(:focus-visible) .timeline-step-card-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
 }
 
 .timeline-step-card:hover .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom),
-.timeline-step-card:focus-within .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom),
-.timeline-step-card-disabled:hover .timeline-step-preview-badges-bottom,
-.timeline-step-card-disabled:focus-within .timeline-step-preview-badges-bottom {
+.timeline-step-card:has(:focus-visible) .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom) {
   opacity: 0;
 }
 
 @media (hover: none) {
-  .timeline-step-preview-actions,
-  .timeline-step-card .timeline-step-enable { opacity: 1; pointer-events: auto; }
-  .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom),
-  .timeline-step-card-disabled .timeline-step-preview-badges-bottom { opacity: 0; }
+  .timeline-step-card .timeline-step-card-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+
+  .timeline-step-preview-badges:not(.timeline-step-preview-badges-bottom) { top: 26px; }
 }
 
-.timeline-step-overlay-button {
-  width: 24px;
-  height: 24px;
-  border-color: rgba(244, 244, 245, 0.14);
-  background: rgba(9, 9, 11, 0.78);
-  color: rgba(244, 244, 245, 0.84);
-  backdrop-filter: blur(10px);
-}
-
-.timeline-step-overlay-button:hover:not(:disabled) {
-  border-color: rgba(244, 244, 245, 0.22);
-  background: rgba(24, 24, 27, 0.88);
+.timeline-step-card-actions .timeline-step-action-button:hover:not(:disabled),
+.timeline-step-card-actions .timeline-step-action-button:focus-visible {
+  background: var(--bg-panel-raised);
   color: var(--text-bright);
 }
 
-.timeline-step-overlay-button-danger:hover:not(:disabled) {
-  border-color: rgba(248, 113, 113, 0.38);
+.timeline-step-action-button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.timeline-step-card-actions .timeline-step-action-button-danger:hover:not(:disabled) {
   background: rgba(127, 29, 29, 0.82);
   color: #fecaca;
 }
 
-.timeline-step-enable {
-  position: absolute;
-  bottom: 0.3rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  height: 24px;
-  max-width: calc(100% - 0.8rem);
-  padding: 0 0.5rem;
-  border: 1px solid rgba(var(--accent-rgb), 0.45);
-  border-radius: var(--radius-sm);
-  background: var(--bg-panel);
-  color: var(--accent-pale);
-  font: 500 0.6rem/1 'IBM Plex Mono', monospace;
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease, background 120ms ease;
-}
-
-.timeline-step-enable svg {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-
-.timeline-step-enable:hover,
-.timeline-step-enable:focus-visible {
+.timeline-step-card-actions .timeline-step-action-button-enable,
+.timeline-step-card-actions .timeline-step-action-button-enable:hover:not(:disabled) {
   background: var(--accent-soft);
-  border-color: var(--accent);
-  outline: 1px solid var(--accent);
-  outline-offset: 1px;
+  color: var(--accent-pale);
 }
 
-.timeline-step-overlay-button-pin-active,
-.timeline-step-overlay-button-pin-active:hover:not(:disabled) {
-  border-color: rgba(251, 191, 36, 0.5);
-  background: rgba(120, 53, 15, 0.88);
+.timeline-step-card-actions .timeline-step-action-button-pin-active,
+.timeline-step-card-actions .timeline-step-action-button-pin-active:hover:not(:disabled) {
+  background: rgba(120, 53, 15, 0.5);
   color: #fde68a;
 }
 
