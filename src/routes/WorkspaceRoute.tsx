@@ -7434,6 +7434,7 @@ ${errorSnapshot}`,
       seekTimeSeconds?: number | null;
       preserveRenderTimeOnSeek?: boolean;
       selectionTransition?: 'mix' | 'cut';
+      showRepeatTip?: boolean;
     },
   ) {
     let nextStatusMessage = '';
@@ -7592,6 +7593,7 @@ ${errorSnapshot}`,
     if (
       didSelectStep &&
       options?.stagePreviewMode === 'focused' &&
+      options.showRepeatTip !== false &&
       !isMobile &&
       !outputWindowOpen &&
       uiPreferences.chromeVisible &&
@@ -8262,6 +8264,26 @@ ${errorSnapshot}`,
     );
   };
 
+  const handleUniformInteractionStart = () => {
+    if (!timelineSequenceEnabled) return;
+    const sequence = project.timeline.stub.shaderSequence;
+    // The controls describe the studio shader, which may differ from the playing step.
+    const displayedStep = sequence.steps.find((step) =>
+      step.id === editingTimelineStepId && step.shaderId === project.studio.activeShaderId,
+    ) ?? sequence.steps.find((step) => step.shaderId === project.studio.activeShaderId);
+    if (!displayedStep || (
+      sequence.stagePreviewMode === 'focused' && sequence.singleStepLoopEnabled &&
+      sequence.focusedStepId === displayedStep.id && pendingTimelineRepeatExit === null
+    )) return;
+    selectTimelineStepForEditing(displayedStep.id, {
+      stagePreviewMode: 'focused',
+      selectionTransition: 'cut',
+      focusStudioOnMobile: false,
+      suppressStatus: true,
+      showRepeatTip: false,
+    });
+  };
+
   const useDesktopPaneLayout =
     !isMobile && uiPreferences.chromeVisible && uiPreferences.workspaceMode !== 'immersive';
   const timelineEditingInDesktopPane =
@@ -8309,7 +8331,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
-      onUniformInteractionStart={handlePromptFocus}
+      onUniformInteractionStart={handleUniformInteractionStart}
       onUniformChange={handleUniformChange}
       onUniformValuesChange={handleUniformValuesChange}
       newUniformName={newUniformName}
@@ -8349,7 +8371,7 @@ ${errorSnapshot}`,
       audioReactivity={audioReactivity}
       uniformDefinitions={uniformDefinitions}
       uniformValues={project.studio.uniformValues}
-      onInteractionStart={handlePromptFocus}
+      onInteractionStart={handleUniformInteractionStart}
       onUniformChange={handleUniformChange}
       onUniformValuesChange={handleUniformValuesChange}
       newUniformName={newUniformName}
@@ -8728,7 +8750,7 @@ ${errorSnapshot}`,
           audioReactivity={audioReactivity}
           uniformDefinitions={uniformDefinitions}
           uniformValues={project.studio.uniformValues}
-          onInteractionStart={handlePromptFocus}
+          onInteractionStart={handleUniformInteractionStart}
           onUniformChange={handleUniformChange}
           onUniformValuesChange={handleUniformValuesChange}
           onClose={() => handleMobilePanelChange(null)}

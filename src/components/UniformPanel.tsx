@@ -205,7 +205,7 @@ export function UniformPanel({
                       aria-label={name}
                       min={definition.min}
                       max={definition.max}
-                      step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 100}
+                      step={definition.type === 'int' ? 1 : (definition.max - definition.min) / 1000}
                       value={Number(value)}
                       onChange={(event) => onUniformChange(name, Number(event.target.value))}
                       onKeyDown={(event) =>

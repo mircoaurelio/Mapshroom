@@ -351,7 +351,7 @@ function getStep(definition: ShaderUniformDefinition): number {
   if (definition.type === 'int') {
     return 1;
   }
-  return Math.max(Number.EPSILON, (definition.max - definition.min) / 100);
+  return Math.max(Number.EPSILON, (definition.max - definition.min) / 1000);
 }
 
 function formatValue(value: number, definition: ShaderUniformDefinition): string {

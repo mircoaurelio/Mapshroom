@@ -2009,13 +2009,6 @@ a {
   touch-action: none;
 }
 
-.mobile-uniform-field:focus-within {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
 .mobile-uniform-overlay input[type='color'] {
   width: 100%;
   height: 100%;
@@ -2250,9 +2243,8 @@ a {
 .mobile-uniform-field:focus-within,
 .mobile-precision-field:focus-within,
 .timeline-compact-field:focus-within {
-  margin: -0.25rem;
-  padding: 0.25rem;
-  border: 1px solid #71717a;
+  outline: 1px solid #71717a;
+  outline-offset: 3px;
   border-radius: var(--radius-sm);
   background: rgba(161, 161, 170, 0.08);
 }
@@ -2392,8 +2384,7 @@ a {
 
 .field:focus-within .field-inline-label small,
 .mobile-uniform-field:focus-within .mobile-uniform-field-label small {
-  color: #fff7ed;
-  text-shadow: 0 0 12px rgba(251, 191, 36, 0.34);
+  color: #e4e4e7;
 }
 
 .audio-reactive-panel {
