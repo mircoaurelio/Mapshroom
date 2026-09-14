@@ -1,3 +1,4 @@
+import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import {
   useRef,
   useState,
@@ -174,6 +175,8 @@ export function MappingPad({
   const [dragDirection, setDragDirection] = useState<PrecisionDirection>(null);
   const [rotationExpanded, setRotationExpanded] = useState(false);
   const [positionPanel, setPositionPanel] = useState<PositionPanel>(null);
+  const firstStepRef = useRef<HTMLElement | null>(null);
+  useDismissOnOutsideClick(firstStepRef, showFirstStep && !positionPanel, onFirstStepDismiss);
   const [positionPaste, setPositionPaste] = useState('');
   const [positionExportJson, setPositionExportJson] = useState('');
   const [positionPanelMessage, setPositionPanelMessage] =
@@ -428,6 +431,7 @@ export function MappingPad({
     >
       {showFirstStep && !positionPanel ? (
         <aside
+          ref={firstStepRef}
           className="mapping-first-step-callout"
           role="dialog"
           aria-labelledby="mapping-first-step-title"

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import { startAssetImageDrag, type ImageTransfer } from '../lib/imageTransfer';
 import { useImageDropTarget } from '../lib/useImageDropTarget';
 import { isInternalCanvasAssetId } from '../lib/bundledAssets';
@@ -34,6 +35,8 @@ function Artwork({ asset, url, main = false, onLoad, onVideoLoad }: { asset: Ass
 }
 
 export function AssetLibraryDialog(props: Props) {
+  const importTipRef = useRef<HTMLDivElement | null>(null);
+  useDismissOnOutsideClick(importTipRef, props.open && props.showImportFirstStep, props.onImportFirstStepDismiss);
   const { open, assets, activeAssetId } = props;
   const visible = useMemo(() => assets.filter(asset => !isInternalCanvasAssetId(asset.id)), [assets]);
   const sources = visible.filter(asset => !asset.derivation || !visible.some(source => source.id === asset.derivation?.sourceAssetId));
@@ -143,7 +146,7 @@ export function AssetLibraryDialog(props: Props) {
         <button className="primary-button" type="button" onClick={() => { props.onImportFirstStepDismiss(); props.onLoadAsset(); }} disabled={props.imageImporting}><Icon name="plus" />{props.imageImporting ? 'Importing…' : 'Import'}</button>
         <button className="ml-icon-button" type="button" onClick={close} aria-label="Close asset library"><Icon name="close" /></button>
       </div></header>
-      {props.showImportFirstStep && <div className="ml-notice">Import an image or video, or choose an asset below.<button className="ghost-button" onClick={props.onImportFirstStepDismiss}>Got it</button></div>}
+      {props.showImportFirstStep && <div ref={importTipRef} className="ml-notice">Import an image or video, or choose an asset below.<button className="ghost-button" onClick={props.onImportFirstStepDismiss}>Got it</button></div>}
       {props.imageImportMessage && <p className="ml-notice" role="status">{props.imageImportMessage}</p>}
       {queue.interrupted && <div className="ml-notice" role="status">Previous processing was interrupted. Saved assets are still available.<button className="ghost-button" onClick={queue.dismissInterrupted}>Dismiss</button></div>}
       <div className="ml-body"><aside className="ml-library" aria-label="Your assets" inert={expandedPreview || !!pendingDelete}><div className="ml-section-label"><span>Your assets <small>{sources.length}</small></span><button className="ml-icon-button" aria-label="Asset information" aria-expanded={showInfo} onClick={() => setShowInfo(value => !value)}><Icon name="info" /></button></div>

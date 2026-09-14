@@ -1,4 +1,5 @@
 import { preserveShaderVersion } from '../lib/shaderHistory';
+import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import {
   type CSSProperties,
   type ChangeEvent,
@@ -864,6 +865,8 @@ function MobileOnboardingGuide({
   onDismissPermanently,
   onStepChange,
 }: MobileOnboardingGuideProps) {
+  const panelRef = useRef<HTMLElement | null>(null);
+  useDismissOnOutsideClick(panelRef, true, onDismissPermanently);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [locale] = useState<OnboardingLocale>(() => resolveOnboardingLocale());
   const [targetRect, setTargetRect] = useState<{
@@ -976,6 +979,7 @@ function MobileOnboardingGuide({
         <span className="mobile-onboarding-highlight" style={highlightStyle} aria-hidden="true" />
       ) : null}
       <section
+        ref={panelRef}
         className={`mobile-onboarding-callout ${
           calloutAboveTarget
             ? 'mobile-onboarding-callout-above'
@@ -1025,6 +1029,8 @@ function MobileOnboardingGuide({
 }
 
 function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps) {
+  const panelRef = useRef<HTMLElement | null>(null);
+  useDismissOnOutsideClick(panelRef, true, onDismissPermanently);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const calloutCardRef = useRef<HTMLElement | null>(null);
@@ -1242,6 +1248,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
       {showWelcome ? (
         <section
+          ref={panelRef}
           className={`onboarding-panel onboarding-welcome-panel ${
             welcomeRevealed ? 'onboarding-welcome-panel-ready' : ''
           }`}
@@ -1302,6 +1309,7 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
 
       {!activeUiArea && !showWelcome ? (
         <section
+          ref={panelRef}
           className="onboarding-panel onboarding-setup-panel"
           role="dialog"
           aria-modal="true"
@@ -1388,7 +1396,10 @@ function OnboardingGuide({ onClose, onDismissPermanently }: OnboardingGuideProps
           aria-modal="true"
         >
           <article
-            ref={calloutCardRef}
+            ref={(element) => {
+              calloutCardRef.current = element;
+              panelRef.current = element;
+            }}
             className={`onboarding-area-card onboarding-area-card-${activeUiArea.placement} ${
               onboardingTargetMissing
                 ? 'onboarding-area-card-fallback'

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 
 interface PlaybackControlsProps {
   canNavigate: boolean;
@@ -61,6 +62,7 @@ export function PlaybackControls({
 }: PlaybackControlsProps) {
   const repeatButtonRef = useRef<HTMLButtonElement | null>(null);
   const repeatCalloutRef = useRef<HTMLElement | null>(null);
+  useDismissOnOutsideClick(repeatCalloutRef, showRepeatFirstStep, onRepeatFirstStepDismiss);
   const repeatLabel = isRepeatEnabled
     ? 'Return to full timeline'
     : 'Repeat current shader';

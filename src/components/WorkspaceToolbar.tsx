@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import type { WorkspaceMode } from '../types';
 import type { AudioCaptureSource } from '../lib/audioReactivity';
 import { InstallAppButton } from './InstallAppCallout';
@@ -303,6 +304,8 @@ export function WorkspaceToolbar({
     assetsFirstStepRemainingMsRef.current = 0;
     setAssetsFirstStepVisible(false);
   };
+  const assetsCalloutRef = useRef<HTMLElement | null>(null);
+  useDismissOnOutsideClick(assetsCalloutRef, assetsFirstStepVisible, dismissAssetsFirstStep);
   const openAssets = () => {
     if (assetsFirstStepVisible) {
       advanceAssetsFirstStepToImport();
@@ -334,6 +337,12 @@ export function WorkspaceToolbar({
       setMoveOutputTipVisible(false);
     }, 7_000);
   };
+  const outputCalloutRef = useRef<HTMLElement | null>(null);
+  useDismissOnOutsideClick(
+    outputCalloutRef,
+    moveMode && moveOutputTipVisible && !assetsFirstStepVisible,
+    dismissMoveOutputTip,
+  );
 
   return (
     <header className="workspace-toolbar">
@@ -768,6 +777,7 @@ export function WorkspaceToolbar({
             </button>
             {assetsFirstStepVisible ? (
               <aside
+                ref={assetsCalloutRef}
                 className="toolbar-assets-callout"
                 role="dialog"
                 aria-labelledby="assets-first-step-title"
@@ -822,7 +832,7 @@ export function WorkspaceToolbar({
               {moveMode ? <small>Affected by Move</small> : null}
             </button>
             {moveMode && moveOutputTipVisible && !assetsFirstStepVisible ? (
-              <aside className="toolbar-output-callout" aria-live="polite">
+              <aside ref={outputCalloutRef} className="toolbar-output-callout" aria-live="polite">
                 <span className="toolbar-output-callout-arrow" aria-hidden="true" />
                 <button
                   type="button"
