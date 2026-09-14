@@ -4974,7 +4974,9 @@ export function WorkspaceRoute() {
             ...currentProject.timeline.stub,
             shaderSequence: {
               ...currentProject.timeline.stub.shaderSequence,
-              focusedStepId: stepId,
+              focusedStepId: patch.disabled === true
+                ? currentProject.timeline.stub.shaderSequence.focusedStepId
+                : stepId,
               pinnedStepId:
                 patch.disabled &&
                 currentProject.timeline.stub.shaderSequence.pinnedStepId === stepId

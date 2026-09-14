@@ -43,8 +43,12 @@ export function enableTimelineStep({
   }
 
   const nextSteps = playbackSteps(nextSequence);
-  const isFocused = sequence.singleStepLoopEnabled &&
-    current.currentStep.id === sequence.focusedStepId;
+  const isFocused = sequence.singleStepLoopEnabled;
+  if (isFocused) {
+    // An old focused ID may refer to the disabled card. Preserve the shader
+    // actually being held, rather than reviving that stale selection.
+    nextSequence.focusedStepId = current.currentStep.id;
+  }
   const orderedSteps = isFocused ? nextSteps : getTimelineCycleSteps({
     mode: sequence.mode === 'double' ? 'randomMix' : sequence.randomChoiceEnabled ? 'random' : sequence.mode,
     steps: nextSteps,

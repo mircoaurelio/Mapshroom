@@ -81,6 +81,21 @@ test('enabling keeps pinned shaders and other steps unchanged', () => {
   assert.equal(resolve(result.sequence, result.transport).currentStep.id, resolve(sequence, transport).currentStep.id);
 });
 
+test('restoring a stale focused ID keeps the fallback shader actually in repeat', () => {
+  const { sequence, transport } = fixture();
+  sequence.singleStepLoopEnabled = true;
+  sequence.stagePreviewMode = 'focused';
+  sequence.focusedStepId = 'a';
+  const before = resolve(sequence, transport);
+  assert.equal(before.currentStep.id, 'b');
+  const result = enableTimelineStep({ sequence, transport, shaders, stepId: 'a', nowMs });
+  const after = resolve(result.sequence, result.transport);
+  assert.equal(result.sequence.focusedStepId, 'b');
+  assert.equal(after.currentStep.id, before.currentStep.id);
+  assert.equal(after.localTimeSeconds, before.localTimeSeconds);
+  assert.equal(getRenderTimeSeconds(result.transport, nowMs), getRenderTimeSeconds(transport, nowMs));
+});
+
 test('missing or already enabled steps are a no-op', () => {
   const { sequence, transport } = fixture();
   for (const stepId of ['missing', 'b']) {
