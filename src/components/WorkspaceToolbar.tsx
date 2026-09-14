@@ -3,10 +3,7 @@ import { Link } from 'react-router-dom';
 import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
 import type { WorkspaceMode } from '../types';
 import type { AudioCaptureSource } from '../lib/audioReactivity';
-import { InstallAppButton } from './InstallAppCallout';
 import { FeedbackDialog } from './FeedbackDialog';
-import { ProjectSaveStatus } from './ProjectSaveStatus';
-import type { ProjectSaveStatus as SaveStatus } from '../lib/projectAutosave';
 import {
   advanceAssetsFirstStepToImport,
   ASSETS_FIRST_STEP_DELAY_MS,
@@ -20,7 +17,6 @@ import {
 type ToolbarMenuKey = 'file' | 'shader' | 'audio';
 
 interface WorkspaceToolbarProps {
-  saveStatus: SaveStatus;
   isPlaying: boolean;
   workspaceMode: WorkspaceMode;
   sidebarVisible: boolean;
@@ -37,7 +33,6 @@ interface WorkspaceToolbarProps {
   onOpenExport: () => void;
   onOpenAssets: () => void;
   onOpenSettings: () => void;
-  onOpenProBeta: () => void;
   onNewShader: () => void;
   onOpenPresetBrowser: () => void;
   onPlayToggle: () => void;
@@ -104,7 +99,6 @@ function AssetsIcon() {
 }
 
 export function WorkspaceToolbar({
-  saveStatus,
   isPlaying,
   workspaceMode,
   sidebarVisible,
@@ -121,7 +115,6 @@ export function WorkspaceToolbar({
   onOpenExport,
   onOpenAssets,
   onOpenSettings,
-  onOpenProBeta,
   onNewShader,
   onOpenPresetBrowser,
   onPlayToggle,
@@ -350,19 +343,6 @@ export function WorkspaceToolbar({
       <strong className="toolbar-brand">Mapshroom</strong>
       <div className="toolbar-actions">
         <div className="toolbar-menu-group toolbar-menu-group-right" ref={toolbarMenusRef}>
-          <InstallAppButton
-            className="workspace-install-control"
-            onOpenProBeta={onOpenProBeta}
-          />
-
-          <button
-            type="button"
-            className="secondary-button toolbar-menu-button"
-            onClick={onOpenProjects}
-          >
-            Projects <ProjectSaveStatus status={saveStatus} />
-          </button>
-
           <div className="toolbar-menu-shell toolbar-menu-shell-align-right">
             <button
               type="button"

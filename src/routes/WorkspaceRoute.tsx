@@ -8825,7 +8825,6 @@ ${errorSnapshot}`,
 
       {!isMobile && uiPreferences.chromeVisible ? (
         <WorkspaceToolbar
-          saveStatus={projectSaveStatus}
           isPlaying={project.playback.transport.isPlaying}
           workspaceMode={uiPreferences.workspaceMode}
           sidebarVisible={uiPreferences.sidebarVisible}
@@ -8859,7 +8858,6 @@ ${errorSnapshot}`,
             setApiSettingsVariant('settings');
             setIsApiSettingsOpen(true);
           }}
-          onOpenProBeta={() => setProBetaSource('installed_app')}
           onNewShader={() => {
             trackUiClick('new_shader');
             createNewShader();

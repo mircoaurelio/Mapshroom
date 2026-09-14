@@ -10,9 +10,18 @@ export function ShaderThumbnail({ shader, className = '' }: { shader: SavedShade
   useEffect(() => { shaderRef.current = shader; }, [shader]);
   const key = shader ? thumbnailIdentity(shader).key : '';
   const bundled = bundledShaderThumbnail(key);
-  const [snapshot, setSnapshot] = useState<{ key: string; url: string } | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<{ key: string; url: string | null } | null>(null);
+  const [imageState, setImageState] = useState<{
+    key: string;
+    src: string;
+    status: 'ready' | 'error';
+  } | null>(null);
   const src = bundled ?? (snapshot?.key === key ? snapshot.url : null);
+  const currentImageState = imageState?.key === key && imageState.src === src ? imageState.status : null;
+  const unavailable = !shader || currentImageState === 'error' ||
+    (!bundled && snapshot?.key === key && snapshot.url === null);
+  const ready = currentImageState === 'ready';
+  const name = shader?.name ?? 'Shader';
   useEffect(() => {
     if (!key || bundled || !host.current) return;
     let controller: AbortController | null = null;
@@ -26,8 +35,8 @@ export function ShaderThumbnail({ shader, className = '' }: { shader: SavedShade
         if (!currentShader) return;
         controller = new AbortController();
         const signal = controller.signal;
-        void requestShaderThumbnail(currentShader, signal).then(url => {
-          if (url && !signal.aborted) setSnapshot({ key, url });
+        void requestShaderThumbnail(currentShader, signal).catch(() => null).then(url => {
+          if (!signal.aborted) setSnapshot({ key, url });
         });
       }, 400);
     };
@@ -39,11 +48,39 @@ export function ShaderThumbnail({ shader, className = '' }: { shader: SavedShade
     observer.observe(host.current);
     return () => { stop(); observer.disconnect(); };
   }, [key, bundled]);
-  const hue = parseInt(key.slice(0, 4) || '0', 16) % 360;
-  return <span ref={host} className={`shader-thumbnail ${className}`}>
-    {src && failed !== src ? <img src={src} alt={`${shader?.name ?? 'Shader'} preview`}
-      width={THUMBNAIL_WIDTH} height={THUMBNAIL_HEIGHT} loading="lazy" decoding="async" draggable={false} onError={() => setFailed(src)} />
-      : <span className="shader-thumbnail-fallback" style={{ background: `repeating-radial-gradient(ellipse at ${25 + hue % 50}% 45%, hsl(${hue} 48% 32%) 0 4px, #101114 6px 14px)` }}
-        role="img" aria-label={`${shader?.name ?? 'Shader'} — snapshot unavailable`} />}
-  </span>;
+  return (
+    <span ref={host} className={`shader-thumbnail ${className}`} aria-busy={!ready && !unavailable}>
+      {src && !unavailable ? (
+        <img
+          key={key}
+          src={src}
+          alt={`${name} preview`}
+          className={ready ? 'shader-thumbnail-image-ready' : 'shader-thumbnail-image-pending'}
+          aria-hidden={!ready}
+          width={THUMBNAIL_WIDTH}
+          height={THUMBNAIL_HEIGHT}
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onLoad={() => setImageState({ key, src, status: 'ready' })}
+          onError={() => setImageState({ key, src, status: 'error' })}
+        />
+      ) : null}
+      {!ready && (
+        <span
+          className="shader-thumbnail-state"
+          role={unavailable ? 'img' : 'status'}
+          aria-label={unavailable ? `${name} preview unavailable` : `Loading ${name} preview`}
+          title={unavailable ? 'Preview unavailable' : undefined}
+        >
+          {unavailable ? (
+            <svg viewBox="0 0 24 24" className="shader-thumbnail-unavailable" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="m3 3 18 18M4 17l5-5 4 4M15 8h.01" />
+            </svg>
+          ) : <span className="shader-thumbnail-spinner" aria-hidden="true" />}
+        </span>
+      )}
+    </span>
+  );
 }

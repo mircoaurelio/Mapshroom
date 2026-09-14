@@ -41,7 +41,7 @@ export class ThumbnailQueue {
         try {
           await this.yieldWork();
           if (job.subscribers.size) result = await job.render(() => job.subscribers.size > 0);
-        } catch { /* The card retains its deterministic fallback. */ }
+        } catch { /* Return null so the card can show that its preview is unavailable. */ }
         this.jobs.delete(key);
         for (const finish of [...job.subscribers.values()]) finish(result);
       }
