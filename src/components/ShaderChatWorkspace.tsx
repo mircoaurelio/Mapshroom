@@ -11,6 +11,7 @@ interface ShaderChatWorkspaceProps {
   versions: ShaderVersion[];
   chatHistory: ShaderChatTurn[];
   pendingPrompt?: string;
+  handoff?: ReactNode;
   loading: boolean;
   feedback: string;
   feedbackTone: 'idle' | 'loading' | 'success' | 'error';
@@ -24,7 +25,7 @@ interface ShaderChatWorkspaceProps {
 }
 
 export function ShaderChatWorkspace({
-  shaderCode, versions, chatHistory, pendingPrompt, loading, feedback, feedbackTone,
+  shaderCode, versions, chatHistory, pendingPrompt, handoff, loading, feedback, feedbackTone,
   composer, codePanel, historyPanel, onRestore, onNewChat, onSuggest, onRetry,
 }: ShaderChatWorkspaceProps) {
   const [tab, setTab] = useState<ChatTab>('chat');
@@ -118,6 +119,7 @@ export function ShaderChatWorkspace({
             </div>;
           })}
           {pendingPrompt ? <article className="shader-chat-user"><small>You</small><p>{pendingPrompt}</p></article> : null}
+          {handoff}
           {loading ? <article className="shader-chat-assistant shader-chat-working"><small>Assistant</small><p><span aria-hidden="true">•••</span> Creating your shader…</p></article> : null}
           {feedback && !loading ? <article className={`shader-chat-assistant shader-chat-feedback is-${feedbackTone}`}><small>Assistant</small><p>{feedback}</p></article> : null}
           {copyError ? <p className="shader-chat-copy-error" role="alert">{copyError}</p> : null}

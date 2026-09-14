@@ -112,10 +112,14 @@ export function alignExternalAiWindowToElement(element: HTMLElement): boolean {
   }
 }
 
-export function openExternalAiWindow(url: string): ExternalAiWindowResult {
+export function openExternalAiWindow(url: string, options: { mode?: 'tab' | 'auto' } = {}): ExternalAiWindowResult {
   if (isTauri()) {
     void openExternalUrl(url);
     return 'tab';
+  }
+
+  if (options.mode === 'tab') {
+    return openRegularTab(url);
   }
 
   const hasDesktopPointer = window.matchMedia('(pointer: fine)').matches;

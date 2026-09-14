@@ -16,6 +16,7 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ShaderChatWorkspace } from '../components/ShaderChatWorkspace';
+import { ShaderChatHandoff } from '../components/ShaderChatHandoff';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
 import { preserveStageFrame, readStageFrameAspectRatio, replaceStageAsset } from '../lib/assetReplacement';
@@ -6518,6 +6519,12 @@ export function WorkspaceRoute() {
     setStatusMessage('Recompiling current code...');
   };
 
+  const openShaderChat = (route: 'chatgpt' | 'perplexity', prompt: string, currentCode: string) => {
+    const preparedPrompt = buildExternalChatShaderPrompt(prompt, currentCode);
+    const providerUrl = route === 'perplexity' ? 'https://www.perplexity.ai/' : 'https://chatgpt.com/';
+    return openExternalAiWindow(`${providerUrl}?q=${encodeURIComponent(preparedPrompt)}`, { mode: 'tab' });
+  };
+
   const handleShaderMutation = async (
     prompt: string,
     options?: {
@@ -6558,16 +6565,8 @@ export function WorkspaceRoute() {
       };
       saveProjectDocument(project);
       savePendingShaderApplyRequest(pendingRequest);
-      const preparedPrompt = buildExternalChatShaderPrompt(
-        trimmedPrompt,
-        project.studio.activeShaderCode,
-      );
       const externalWindowMode = usingExternalChat
-        ? openExternalAiWindow(
-            aiGenerationRoute === 'perplexity'
-              ? `https://www.perplexity.ai/?q=${encodeURIComponent(preparedPrompt)}`
-              : `https://chatgpt.com/?q=${encodeURIComponent(preparedPrompt)}`,
-          )
+        ? openShaderChat(aiGenerationRoute, trimmedPrompt, project.studio.activeShaderCode)
         : null;
       setExternalChatRequest({
         requestId,
@@ -6580,11 +6579,12 @@ export function WorkspaceRoute() {
         externalWindowMode,
       });
       setApiSettingsVariant('setup');
-      setIsApiSettingsOpen(true);
+      setIsApiSettingsOpen(!usingExternalChat);
+      if (usingExternalChat) setAiPrompt('');
       setAiFeedbackTone('idle');
       setAiFeedbackMessage(
         usingExternalChat
-          ? `${aiGenerationRoute === 'perplexity' ? 'Perplexity' : 'ChatGPT'} is opening on the left. Follow the short guide, then paste the shader reply back into Mapshroom.`
+          ? ''
           : aiGenerationRoute === 'local'
             ? 'Choose and download a local model to continue.'
             : 'Connect your cloud API to continue.',
@@ -6834,6 +6834,9 @@ export function WorkspaceRoute() {
     if (!project || !externalChatRequest) {
       throw new Error('Ask Mapshroom for a shader first so it can prepare the matching prompt.');
     }
+    if (project.studio.activeShaderId !== externalChatRequest.targetShaderId) {
+      throw new Error('Return to the shader you requested before applying this reply.');
+    }
 
     const shaderApplyLink = extractShaderApplyLinkFromText(response);
     if (shaderApplyLink && shaderApplyLink.sessionId !== project.sessionId) {
@@ -6846,7 +6849,7 @@ export function WorkspaceRoute() {
         prompt: externalChatRequest.prompt,
       },
     );
-    const targetShaderId = project.studio.activeShaderId;
+    const targetShaderId = externalChatRequest.targetShaderId;
     const targetShader = project.studio.savedShaders.find(
       (shader) => shader.id === targetShaderId,
     );
@@ -6868,10 +6871,10 @@ export function WorkspaceRoute() {
 
     updateProject((currentProject) =>
       applyExternalShaderCodeToProject(currentProject, {
-        targetShaderId: currentProject.studio.activeShaderId,
+        targetShaderId,
         prompt: externalChatRequest.prompt,
         historyPrompt: externalChatRequest.historyPrompt,
-        currentCode: currentProject.studio.activeShaderCode,
+        currentCode: externalChatRequest.currentCode,
         nextCode,
         validationError,
         versionId,
@@ -6898,7 +6901,6 @@ export function WorkspaceRoute() {
       setAiFeedbackTone('success');
       setAiFeedbackMessage(`Shader pasted from your AI chat and applied: ${nextName}.`);
       setStatusMessage(`Shader updated: ${nextName}`);
-      closeMobileShaderDialog();
     }
 
     trackLlmRequest({
@@ -8167,6 +8169,10 @@ ${errorSnapshot}`,
       if (!clipboardText) {
         throw new Error('The clipboard is empty.');
       }
+      if (externalChatRequest?.targetShaderId === project.studio.activeShaderId) {
+        await handleApplyExternalChatResponse(clipboardText);
+        return true;
+      }
       const shaderApplyLink = extractShaderApplyLinkFromText(clipboardText);
       const nextCode = validateGeneratedShader(
         shaderApplyLink?.code ?? extractGlslCode(clipboardText),
@@ -8322,6 +8328,19 @@ ${errorSnapshot}`,
       versions={project.studio.shaderVersions}
       chatHistory={project.studio.shaderChatHistory}
       pendingPrompt={chatSubmission?.shaderId === project.studio.activeShaderId && !project.studio.shaderVersions.some(version => !chatSubmission.versionIds.includes(version.id)) ? chatSubmission.prompt : undefined}
+      handoff={externalChatRequest?.targetShaderId === project.studio.activeShaderId &&
+        (externalChatRequest.route === 'chatgpt' || externalChatRequest.route === 'perplexity') ? (
+          <ShaderChatHandoff
+            key={externalChatRequest.requestId}
+            provider={externalChatRequest.route === 'perplexity' ? 'Perplexity' : 'ChatGPT'}
+            blocked={externalChatRequest.externalWindowMode === 'blocked'}
+            onOpenChat={() => {
+              const externalWindowMode = openShaderChat(externalChatRequest.route === 'perplexity' ? 'perplexity' : 'chatgpt', externalChatRequest.prompt, externalChatRequest.currentCode);
+              setExternalChatRequest(current => current?.requestId === externalChatRequest.requestId ? { ...current, externalWindowMode } : current);
+            }}
+            onApplyCode={handleApplyExternalChatResponse}
+          />
+        ) : null}
       loading={aiLoading}
       feedback={!chatSubmission || chatSubmission.shaderId === project.studio.activeShaderId ? aiFeedbackMessage : ''}
       feedbackTone={aiFeedbackTone}
@@ -9210,16 +9229,7 @@ ${errorSnapshot}`,
         open={isApiSettingsOpen}
         settings={project.ai.settings}
         variant={apiSettingsVariant}
-        externalChatPrompt={
-          externalChatRequest
-              ? buildExternalChatShaderPrompt(
-                  externalChatRequest.prompt,
-                  externalChatRequest.currentCode,
-                )
-              : ''
-        }
-        initialPath={externalChatRequest?.route}
-        initialExternalWindowMode={externalChatRequest?.externalWindowMode}
+        initialPath={apiSettingsVariant === 'settings' ? aiGenerationRoute : externalChatRequest?.route}
         isClearingLocalData={isClearingLocalData}
         onOpenProBeta={() => setProBetaSource('shader_pro_teaser')}
         onClose={() => {
@@ -9232,7 +9242,16 @@ ${errorSnapshot}`,
           }
         }}
         onChange={updateAiSetting}
-        onRouteChange={handleAiGenerationRouteChange}
+        onRouteChange={route => {
+          handleAiGenerationRouteChange(route);
+          if (apiSettingsVariant === 'setup' && externalChatRequest && (route === 'chatgpt' || route === 'perplexity')) {
+            const externalWindowMode = openShaderChat(route, externalChatRequest.prompt, externalChatRequest.currentCode);
+            setExternalChatRequest(current => current?.requestId === externalChatRequest.requestId ? { ...current, route, externalWindowMode } : current);
+            setIsApiSettingsOpen(false);
+            setAiPrompt('');
+            setAiFeedbackMessage('');
+          }
+        }}
         onContinueWithRuntime={() => {
           const pendingRequest = externalChatRequest;
           if (!pendingRequest) {

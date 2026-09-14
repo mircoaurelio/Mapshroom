@@ -43,6 +43,16 @@
 .shader-chat-feedback { margin-top: 18px; }
 .shader-chat-feedback.is-error > p, .shader-chat-copy-error { color: #ffaca5; }
 .shader-chat-copy-error { font-size: 12px; }
+.shader-chat-handoff-button { display: inline-flex; align-items: center; gap: 7px; margin: 0 7px 7px 0; padding: 9px 12px; border: 1px solid #3b3e45; border-radius: 8px; background: #171b1d; color: #e9eaec; font: 12px Arial, sans-serif; cursor: pointer; }
+.shader-chat-paste-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; padding: 12px; border: 1px solid #303237; border-radius: 9px; background: #121416; }
+.shader-chat-paste-form > label { font-size: 12px; color: #e9eaec; }
+.shader-chat-paste-form > textarea { width: 100%; min-height: 140px; max-height: 260px; padding: 10px; resize: vertical; border: 1px solid #3b3e45; border-radius: 6px; background: #0b0c0e; color: #dce0e6; font: 11px/1.5 monospace; }
+.shader-chat-paste-form > textarea:focus { outline: 1px solid var(--chat-accent); border-color: var(--chat-accent); }
+.shader-chat-paste-form > .shader-chat-copy-error { margin: 0; }
+.shader-chat-paste-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.shader-chat-paste-actions > button { padding: 8px 10px; border: 1px solid #3b3e45; border-radius: 6px; background: transparent; color: #c4c9d1; font: 12px Arial, sans-serif; cursor: pointer; }
+.shader-chat-paste-actions > button[type="submit"] { border-color: var(--chat-accent); background: var(--chat-accent); color: #082316; }
+.shader-chat-paste-actions > button[type="submit"]:hover:not(:disabled) { background: #a0ffca; color: #082316; }
 .shader-chat-compose-area { flex: 0 0 auto; padding: 0 10px 10px; }
 .shader-chat-suggestions { display: flex; gap: 6px; margin: 0 0 8px; flex-wrap: wrap; }
 .shader-chat-suggestions button { padding: 6px 9px; border: 1px solid #303338; border-radius: 999px; background: #121416; color: #bdc2cb; font-size: 10px; cursor: pointer; }
