@@ -4,6 +4,7 @@ import { requestGoogleShaderMutation } from './google';
 import { requestLocalShaderMutation } from './localAi';
 import { requestOpenAiShaderMutation } from './openai';
 import { embedShaderPromptComment } from './shaderPromptMetadata';
+import { hasConfiguredCloudAi } from './aiRoute';
 
 interface ShaderMutationRequest {
   settings: AiSettings;
@@ -26,7 +27,7 @@ export async function requestShaderMutation({
   if (settings.shaderRuntime === 'local') {
     if (!settings.localShaderModel) throw new Error('Choose and download a local shader model first.');
     generatedCode = await requestLocalShaderMutation({ modelId: settings.localShaderModel, prompt, currentCode, stageImage, visionEnabled: settings.visionEnabled });
-  } else if (settings.shaderRuntime === 'chat') {
+  } else if (settings.shaderRuntime === 'chat' && !hasConfiguredCloudAi(settings)) {
     throw new Error('Copy this request to your AI chat, then paste its shader reply into Mapshroom.');
   } else if (settings.shaderProvider === 'openai') {
     generatedCode = await requestOpenAiShaderMutation({

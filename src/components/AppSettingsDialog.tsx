@@ -6,6 +6,9 @@ import {
 } from '../config';
 import {
   type AiGenerationRoute,
+  getCloudAiConfiguration,
+  resolveAiGenerationRoute,
+  routeAfterAiSettingsEdit,
   storeConfiguredLocalModel,
 } from '../lib/aiRoute';
 import {
@@ -114,13 +117,7 @@ export function AppSettingsDialog({
   onClearLocalData,
 }: AppSettingsDialogProps) {
   const [draft, setDraft] = useState(() => ({ ...settings }));
-  const initialRoute =
-    initialPath ??
-    (settings.shaderRuntime === 'api'
-      ? 'api'
-      : settings.shaderRuntime === 'local'
-        ? 'local'
-        : 'chatgpt');
+  const initialRoute = resolveAiGenerationRoute(settings, initialPath ?? null);
   const [route, setRoute] = useState<AiGenerationRoute>(initialRoute);
   const [section, setSection] = useState<SettingsSection>('api');
   const [visibleKey, setVisibleKey] = useState(false);
@@ -137,6 +134,10 @@ export function AppSettingsDialog({
   busyRef.current = busy;
   const provider =
     PROVIDERS.find((item) => item.id === draft.shaderProvider) ?? PROVIDERS[0];
+  const cloudConfiguration = getCloudAiConfiguration(draft);
+  const hasCloudDraft = Boolean(
+    cloudConfiguration.key.trim() && cloudConfiguration.model.trim(),
+  );
   const normalized = normalizeAiSettingsDraft(draft, route);
   const changed =
     route !== initialRoute ||
@@ -214,7 +215,9 @@ export function AppSettingsDialog({
   }, []);
 
   const updateDraft = (field: keyof AiSettings, value: string | boolean) => {
-    setDraft((current) => ({ ...current, [field]: value }));
+    const next = { ...draft, [field]: value };
+    setDraft(next);
+    setRoute((current) => routeAfterAiSettingsEdit(next, field, current));
     setSaveError('');
   };
 
@@ -330,8 +333,10 @@ export function AppSettingsDialog({
                       setRoute(event.target.value as AiGenerationRoute)
                     }
                   >
-                    <option value="chatgpt">ChatGPT</option>
-                    <option value="perplexity">Perplexity</option>
+                    {!hasCloudDraft && <option value="chatgpt">ChatGPT</option>}
+                    {!hasCloudDraft && (
+                      <option value="perplexity">Perplexity</option>
+                    )}
                     <option value="api">Cloud API</option>
                     <option value="local">Local model</option>
                   </select>
@@ -344,6 +349,9 @@ export function AppSettingsDialog({
                     <p>
                       Connect a provider for shader generation inside Mapshroom.
                     </p>
+                    {hasCloudDraft && (
+                      <p>API replies appear directly in this chat.</p>
+                    )}
                   </div>
                   <div
                     className="app-settings-providers"

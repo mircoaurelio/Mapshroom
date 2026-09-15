@@ -28,6 +28,7 @@ interface AiPanelProps {
   onCopyPrompt?: () => Promise<void>;
   prompt: string;
   selectedRoute: AiGenerationRoute;
+  cloudApiConfigured?: boolean;
   aiLoading: boolean;
   feedbackMessage: string;
   feedbackTone: 'idle' | 'loading' | 'success' | 'error';
@@ -46,6 +47,7 @@ export function AiPanel({
   onCopyPrompt,
   prompt,
   selectedRoute,
+  cloudApiConfigured = false,
   aiLoading,
   feedbackMessage,
   feedbackTone,
@@ -242,7 +244,7 @@ export function AiPanel({
                 </button>
                 {routeMenuOpen ? (
                   <div className="ai-prompt-route-menu" role="listbox" aria-label="Shader AI model">
-                    {AI_ROUTE_OPTIONS.map((option) => (
+                    {AI_ROUTE_OPTIONS.filter(option => !cloudApiConfigured || option.value === 'api' || option.value === 'local').map((option) => (
                       <button
                         key={option.value}
                         type="button"

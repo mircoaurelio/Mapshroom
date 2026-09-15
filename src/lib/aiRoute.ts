@@ -1,7 +1,61 @@
+import type { AiSettings } from '../types.ts';
+import { hasStoredCloudApiKey } from './desktopSecrets.ts';
+
 export type AiGenerationRoute = 'chatgpt' | 'perplexity' | 'local' | 'api';
 
-export const AI_GENERATION_ROUTE_STORAGE_KEY = 'mapshroom-v3:ai-generation-route';
-const CONFIGURED_LOCAL_MODEL_STORAGE_KEY = 'mapshroom-v3:configured-local-model';
+export function getCloudAiConfiguration(settings: AiSettings) {
+  const fields =
+    settings.shaderProvider === 'openai'
+      ? (['openaiApiKey', 'openaiShaderModel'] as const)
+      : settings.shaderProvider === 'anthropic'
+        ? (['anthropicApiKey', 'anthropicShaderModel'] as const)
+        : (['googleApiKey', 'googleShaderModel'] as const);
+  return {
+    key: settings[fields[0]],
+    model: settings[fields[1]],
+    keyField: fields[0],
+    modelField: fields[1],
+  };
+}
+
+export function hasConfiguredCloudAi(settings: AiSettings): boolean {
+  const { key, model } = getCloudAiConfiguration(settings);
+  return hasStoredCloudApiKey(key) && Boolean(model.trim());
+}
+
+/** A saved chat handoff preference must never bypass an available API. */
+export function resolveAiGenerationRoute(
+  settings: AiSettings,
+  preferred: AiGenerationRoute | null,
+): AiGenerationRoute {
+  if (preferred === 'local') return 'local';
+  if (hasConfiguredCloudAi(settings)) return 'api';
+  if (preferred) return preferred;
+  if (settings.shaderRuntime === 'api') return 'api';
+  if (settings.shaderRuntime === 'local' && settings.localShaderModel)
+    return 'local';
+  return 'chatgpt';
+}
+
+/** New credentials are still a draft on desktop, before the keyring returns its marker. */
+export function routeAfterAiSettingsEdit(
+  settings: AiSettings,
+  field: keyof AiSettings,
+  currentRoute: AiGenerationRoute,
+): AiGenerationRoute {
+  const { key, model, keyField, modelField } =
+    getCloudAiConfiguration(settings);
+  const editsActiveProvider =
+    field === 'shaderProvider' || field === keyField || field === modelField;
+  return editsActiveProvider && key.trim() && model.trim()
+    ? 'api'
+    : currentRoute;
+}
+
+export const AI_GENERATION_ROUTE_STORAGE_KEY =
+  'mapshroom-v3:ai-generation-route';
+const CONFIGURED_LOCAL_MODEL_STORAGE_KEY =
+  'mapshroom-v3:configured-local-model';
 
 export function readStoredAiGenerationRoute(): AiGenerationRoute | null {
   try {

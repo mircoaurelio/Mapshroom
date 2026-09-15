@@ -142,8 +142,10 @@ import {
 import { normalizeProjectShaderSources } from '../lib/shaderProfile';
 import { requestShaderMutation } from '../lib/shaderGeneration';
 import {
+  hasConfiguredCloudAi,
   readConfiguredLocalModel,
   readStoredAiGenerationRoute,
+  resolveAiGenerationRoute,
   storeAiGenerationRoute,
   type AiGenerationRoute,
 } from '../lib/aiRoute';
@@ -197,7 +199,6 @@ import {
   isTauri,
 } from '../lib/desktop';
 import {
-  hasStoredCloudApiKey,
   loadDesktopKeyringMarkers,
   migrateBrowserKeysToDesktopKeyring,
   persistCloudApiKey,
@@ -300,14 +301,7 @@ function hasConfiguredShaderAi(settings: AiSettings): boolean {
           readConfiguredLocalModel() === settings.localShaderModel),
     );
   }
-  if (settings.shaderRuntime !== 'api') return false;
-  if (settings.shaderProvider === 'openai') {
-    return Boolean(hasStoredCloudApiKey(settings.openaiApiKey) && settings.openaiShaderModel);
-  }
-  if (settings.shaderProvider === 'anthropic') {
-    return Boolean(hasStoredCloudApiKey(settings.anthropicApiKey) && settings.anthropicShaderModel);
-  }
-  return Boolean(hasStoredCloudApiKey(settings.googleApiKey) && settings.googleShaderModel);
+  return settings.shaderRuntime === 'api' && hasConfiguredCloudAi(settings);
 }
 
 function getAnalyticsAiPresence(settings: AiSettings) {
@@ -2910,9 +2904,12 @@ export function WorkspaceRoute() {
   const initialStoredAiRouteRef = useRef<AiGenerationRoute | null>(
     readStoredAiGenerationRoute(),
   );
-  const [aiGenerationRoute, setAiGenerationRoute] = useState<AiGenerationRoute>(
+  const [preferredAiGenerationRoute, setAiGenerationRoute] = useState<AiGenerationRoute>(
     () => initialStoredAiRouteRef.current ?? 'chatgpt',
   );
+  const aiGenerationRoute = project
+    ? resolveAiGenerationRoute(project.ai.settings, preferredAiGenerationRoute)
+    : preferredAiGenerationRoute;
   const aiRouteHydratedSessionRef = useRef<string | null>(null);
   const [compilerError, setCompilerError] = useState('');
   const [compileFeedbackVersion, setCompileFeedbackVersion] = useState(0);
@@ -3086,21 +3083,7 @@ export function WorkspaceRoute() {
     aiRouteHydratedSessionRef.current = project.sessionId;
     const storedRoute = readStoredAiGenerationRoute();
     const settings = project.ai.settings;
-    const hasAnyApi =
-      hasStoredCloudApiKey(settings.openaiApiKey) ||
-      hasStoredCloudApiKey(settings.anthropicApiKey) ||
-      hasStoredCloudApiKey(settings.googleApiKey);
-    const resolvedRoute: AiGenerationRoute =
-      storedRoute ??
-      (settings.shaderRuntime === 'api' && hasAnyApi
-        ? 'api'
-        : settings.shaderRuntime === 'local' && settings.localShaderModel
-          ? 'local'
-          : settings.shaderRuntime === 'chat'
-            ? 'chatgpt'
-            : hasAnyApi
-              ? 'api'
-              : 'chatgpt');
+    const resolvedRoute = resolveAiGenerationRoute(settings, storedRoute);
     const resolvedRuntime =
       resolvedRoute === 'api'
         ? 'api'
@@ -6566,7 +6549,11 @@ export function WorkspaceRoute() {
     }
 
     setChatSubmission({ shaderId: project.studio.activeShaderId, prompt: historyPrompt, versionIds: project.studio.shaderVersions.map(version => version.id) });
-    const aiReady = hasConfiguredShaderAi(project.ai.settings);
+    const requestSettings: AiSettings = {
+      ...project.ai.settings,
+      shaderRuntime: aiGenerationRoute === 'api' ? 'api' : aiGenerationRoute === 'local' ? 'local' : 'chat',
+    };
+    const aiReady = hasConfiguredShaderAi(requestSettings);
     const usingExternalChat =
       aiGenerationRoute === 'chatgpt' || aiGenerationRoute === 'perplexity';
     if (usingExternalChat || !aiReady) {
@@ -6611,6 +6598,7 @@ export function WorkspaceRoute() {
       return;
     }
 
+    setExternalChatRequest(null);
     const requestedShaderId = project.studio.activeShaderId;
     const requestedShader = project.studio.savedShaders.find(
       (shader) => shader.id === requestedShaderId,
@@ -6689,7 +6677,7 @@ export function WorkspaceRoute() {
 
     try {
       const nextCode = await requestShaderMutation({
-        settings: project.ai.settings,
+        settings: requestSettings,
         prompt: trimmedPrompt,
         currentCode,
         chatHistory: chatHistorySnapshot,
@@ -6802,8 +6790,8 @@ export function WorkspaceRoute() {
         setStatusMessage(`AI finished and updated "${nextName}" in the timeline.`);
       }
       trackLlmRequest({
-        provider: project.ai.settings.shaderProvider,
-        runtime: project.ai.settings.shaderRuntime,
+        provider: requestSettings.shaderProvider,
+        runtime: requestSettings.shaderRuntime,
         outcome: 'success',
         trigger: llmTrigger,
       });
@@ -6831,8 +6819,8 @@ export function WorkspaceRoute() {
       });
 
       trackLlmRequest({
-        provider: project.ai.settings.shaderProvider,
-        runtime: project.ai.settings.shaderRuntime,
+        provider: requestSettings.shaderProvider,
+        runtime: requestSettings.shaderRuntime,
         outcome: 'error',
         trigger: llmTrigger,
       });
@@ -8325,6 +8313,7 @@ ${errorSnapshot}`,
       onCopyPrompt={() => navigator.clipboard.writeText(buildExternalChatShaderPrompt(aiPrompt, project.studio.activeShaderCode))}
       prompt={aiPrompt}
       selectedRoute={aiGenerationRoute}
+      cloudApiConfigured={hasConfiguredCloudAi(project.ai.settings)}
       aiLoading={aiLoading}
       feedbackMessage={aiFeedbackMessage}
       feedbackTone={aiFeedbackTone}
@@ -8368,7 +8357,8 @@ ${errorSnapshot}`,
       versions={project.studio.shaderVersions}
       chatHistory={project.studio.shaderChatHistory}
       pendingPrompt={chatSubmission?.shaderId === project.studio.activeShaderId && !project.studio.shaderVersions.some(version => !chatSubmission.versionIds.includes(version.id)) ? chatSubmission.prompt : undefined}
-      handoff={externalChatRequest?.targetShaderId === project.studio.activeShaderId &&
+      handoff={(aiGenerationRoute === 'chatgpt' || aiGenerationRoute === 'perplexity') &&
+        externalChatRequest?.targetShaderId === project.studio.activeShaderId &&
         (externalChatRequest.route === 'chatgpt' || externalChatRequest.route === 'perplexity') ? (
           <ShaderChatHandoff
             key={externalChatRequest.requestId}
