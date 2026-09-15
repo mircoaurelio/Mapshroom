@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { accumulateDurationMotion, clampDurationInput, parseDurationInput } from '../lib/durationInput';
 import './DurationInput.css';
@@ -19,7 +19,8 @@ export function DurationInput({ label, description, value, min, max, className =
   const popup = useRef<HTMLDivElement>(null);
   const wheel = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const drag = useRef<{ pointerId: number; y: number; remainder: number } | null>(null);
+  const drag = useRef<{ pointerId: number; startY: number; y: number; remainder: number } | null>(null);
+  const iconPress = useRef<{ wasPinned: boolean; moved: boolean } | null>(null);
   const scrollMotion = useRef({ remainder: 0, at: 0 });
   const currentValue = useRef(value);
   const cancelBlurRef = useRef(false);
@@ -54,7 +55,7 @@ export function DurationInput({ label, description, value, min, max, className =
     if (!trigger.current) return;
     const bounds = trigger.current.getBoundingClientRect();
     const width = 88;
-    const height = 140;
+    const height = 110;
     setPosition({
       left: Math.max(8, Math.min(bounds.left + bounds.width / 2 - width / 2, window.innerWidth - width - 8)),
       top: bounds.top >= height + 8 ? bounds.top - height - 6 : Math.min(bounds.bottom + 6, window.innerHeight - height - 8),
@@ -72,6 +73,38 @@ export function DurationInput({ label, description, value, min, max, className =
     drag.current = null;
     setDragging(false);
     setOpen(null);
+  };
+
+  const startDrag = (event: ReactPointerEvent<HTMLElement>, fromIcon = false) => {
+    if (event.button !== 0 || !event.isPrimary) return;
+    event.preventDefault();
+    // Focusing the handle commits any typed draft before its value is adjusted.
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    iconPress.current = fromIcon ? { wasPinned: open === 'pinned', moved: false } : null;
+    drag.current = { pointerId: event.pointerId, startY: event.clientY, y: event.clientY, remainder: 0 };
+    show('pinned');
+    setDragging(true);
+  };
+  const moveDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const active = drag.current;
+    if (!active || active.pointerId !== event.pointerId) return;
+    if (iconPress.current && Math.abs(event.clientY - active.startY) >= 3) iconPress.current.moved = true;
+    const motion = accumulateDurationMotion(active.remainder, active.y - event.clientY, 24);
+    active.y = event.clientY;
+    active.remainder = motion.remainder;
+    if (motion.steps && adjust(motion.steps)) active.remainder = 0;
+  };
+  const endDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (drag.current?.pointerId !== event.pointerId) return;
+    drag.current = null;
+    setDragging(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const cancelDrag = () => {
+    iconPress.current = null;
+    drag.current = null;
+    setDragging(false);
   };
 
   useLayoutEffect(() => {
@@ -136,35 +169,14 @@ export function DurationInput({ label, description, value, min, max, className =
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node) && event.relatedTarget !== trigger.current) close();
       }}>
-      <div className="duration-wheel-heading">{label}</div>
       <div ref={wheel} role="slider" tabIndex={0} className={`duration-wheel${dragging ? ' is-dragging' : ''}`}
         aria-label={`Adjust ${label}`} aria-orientation="vertical" aria-valuemin={min} aria-valuemax={max}
         aria-valuenow={value} aria-valuetext={`${value} seconds`} aria-describedby={`${inputId}-wheel-help`}
-        onPointerDown={(event) => {
-          if (event.button !== 0) return;
-          event.preventDefault();
-          event.currentTarget.focus({ preventScroll: true });
-          event.currentTarget.setPointerCapture(event.pointerId);
-          drag.current = { pointerId: event.pointerId, y: event.clientY, remainder: 0 };
-          setOpen('pinned');
-          setDragging(true);
-        }}
-        onPointerMove={(event) => {
-          const active = drag.current;
-          if (!active || active.pointerId !== event.pointerId) return;
-          const motion = accumulateDurationMotion(active.remainder, active.y - event.clientY, 24);
-          active.y = event.clientY;
-          active.remainder = motion.remainder;
-          if (motion.steps && adjust(motion.steps)) active.remainder = 0;
-        }}
-        onPointerUp={(event) => {
-          if (drag.current?.pointerId !== event.pointerId) return;
-          drag.current = null;
-          setDragging(false);
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        }}
-        onLostPointerCapture={() => { drag.current = null; setDragging(false); }}
-        onPointerCancel={() => { drag.current = null; setDragging(false); }}
+        onPointerDown={event => startDrag(event)}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onLostPointerCapture={endDrag}
+        onPointerCancel={cancelDrag}
         onKeyDown={(event) => {
           if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
             event.preventDefault(); event.stopPropagation();
@@ -183,7 +195,6 @@ export function DurationInput({ label, description, value, min, max, className =
         <span className="duration-wheel-neighbor" aria-hidden="true">{value > min ? clampDurationInput(value - 1, min, max) : '—'}</span>
         <svg className="duration-wheel-arrow" viewBox="0 0 16 8" aria-hidden="true"><path d="m4 2 4 4 4-4" /></svg>
       </div>
-      <span className="duration-wheel-hint" aria-hidden="true">1 s / step</span>
       <span id={`${inputId}-wheel-help`} className="duration-input-help">Drag or scroll up to increase, down to decrease. One second per step.</span>
     </div>
   ) : null;
@@ -215,9 +226,24 @@ export function DurationInput({ label, description, value, min, max, className =
       <span className="duration-input-unit" aria-hidden="true">s</span>
       <button ref={trigger} type="button" className="duration-input-trigger" aria-label={`Adjust ${label}`}
         aria-expanded={Boolean(open)} aria-controls={open ? `${inputId}-wheel` : undefined}
+        aria-describedby={`${inputId}-help`}
         onPointerEnter={(event) => { if (event.pointerType === 'mouse') show('hover'); }}
         onPointerLeave={closeOnLeave}
-        onClick={() => open === 'pinned' ? close() : show('pinned')}
+        onPointerDown={event => startDrag(event, true)}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onLostPointerCapture={endDrag}
+        onPointerCancel={cancelDrag}
+        onClick={(event) => {
+          const press = iconPress.current;
+          iconPress.current = null;
+          // Pointer down already opened the wheel. A completed drag must not toggle it closed.
+          if (event.detail > 0 && press) {
+            if (!press.moved && press.wasPinned) { close(); trigger.current?.focus({ preventScroll: true }); }
+            return;
+          }
+          if (open === 'pinned') close(); else show('pinned');
+        }}
         onKeyDown={(event) => {
           if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
             event.preventDefault(); event.stopPropagation(); show('pinned');
@@ -228,7 +254,7 @@ export function DurationInput({ label, description, value, min, max, className =
         </svg>
       </button>
       <span id={`${inputId}-help`} className="duration-input-help">
-        {description} Enter or leave the field to apply. Escape to cancel. Arrow keys adjust by one second. Range {min} to {max} seconds.
+        {description} Drag the adjustment icon up or down to change the value. Enter or leave the field to apply typed values. Escape to cancel. Arrow keys adjust by one second. Range {min} to {max} seconds.
       </span>
       {supportsPopover ? panel : panel && createPortal(panel, document.body)}
     </div>
