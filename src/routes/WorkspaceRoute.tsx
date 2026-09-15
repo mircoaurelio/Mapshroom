@@ -1770,7 +1770,7 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
       activeAssetId: normalizedActiveAssetId,
     },
     mapping: {
-      stageTransform: {
+      stageTransform: preserveStageFrame({
         ...defaultProject.mapping.stageTransform,
         ...requestedStageTransform,
         ...normalizedMappingPosition,
@@ -1782,7 +1782,7 @@ function normalizeProjectDocument(project: ProjectDocument): ProjectDocument {
           requestedStageTransform?.distortion,
           normalizedMappingPosition.distortion,
         ),
-      },
+      }),
     },
     timeline: {
       stub: {
@@ -5559,10 +5559,10 @@ export function WorkspaceRoute() {
       updateProject((currentProject) => ({
         ...currentProject,
         mapping: {
-          stageTransform: {
+          stageTransform: preserveStageFrame({
             ...currentProject.mapping.stageTransform,
             ...position,
-          },
+          }),
         },
       }));
       setStatusMessage(`Imported mapping position from ${sourceLabel}.`);

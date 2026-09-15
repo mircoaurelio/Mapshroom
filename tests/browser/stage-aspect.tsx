@@ -4,12 +4,17 @@ import { createDefaultProject } from '../../src/config';
 import { createTimelineShaderStep } from '../../src/lib/timeline';
 import { BUNDLED_STATUE_ASSET_ID } from '../../src/lib/bundledAssets';
 import { putAssetBlob, deleteAssetBlob } from '../../src/lib/storage';
+import { preserveStageFrame, readStageFrameAspectRatio } from '../../src/lib/assetReplacement';
 import type { AssetRecord, SavedShader, TimelineAssetFitMode } from '../../src/types';
 import '../../src/index.css';
 
 // Browser integration coverage: the circles must remain round inside a calibrated
 // frame, including the shared image path with no shader.inputAssetId assignment.
-const cases: { name: string; width: number; height: number; frame: number; output?: boolean; assigned?: TimelineAssetFitMode; generated?: boolean; transition?: boolean; swap?: boolean; transparent?: boolean; resize?: boolean; secondAssigned?: boolean; overlay?: boolean; pin?: boolean; double?: boolean }[] = [
+const cases: { name: string; width: number; height: number; frame: number; staleFrame?: boolean; captureFrame?: boolean; output?: boolean; assigned?: TimelineAssetFitMode; generated?: boolean; transition?: boolean; swap?: boolean; transparent?: boolean; resize?: boolean; secondAssigned?: boolean; overlay?: boolean; pin?: boolean; double?: boolean }[] = [
+  { name: 'Upload portrait after an uncalibrated landscape preview', width: 240, height: 480, frame: 0, swap: true, captureFrame: true },
+  { name: 'Upload landscape after an uncalibrated preview', width: 480, height: 240, frame: 0, swap: true, captureFrame: true },
+  { name: 'Reopen portrait with accidentally saved landscape frame', width: 240, height: 480, frame: 16 / 9, staleFrame: true },
+  { name: 'Reopen portrait output with accidentally saved landscape frame', width: 240, height: 480, frame: 16 / 9, staleFrame: true, output: true },
   { name: 'Portrait photo in landscape frame', width: 240, height: 480, frame: 16 / 9 },
   { name: 'Landscape photo in portrait frame', width: 480, height: 240, frame: 9 / 16 },
   { name: 'Square photo in landscape frame', width: 320, height: 320, frame: 16 / 9 },
@@ -71,7 +76,7 @@ async function check(spec: typeof cases[number]) {
   if (spec.assigned) firstStep.assetSettings.fitMode = spec.assigned;
   if (spec.overlay) firstStep.assetSettings.useStepAssetAsShaderBase = false;
   const timeline = { ...project.timeline.stub, shaderSequence: { ...project.timeline.stub.shaderSequence, mode: spec.double ? 'double' as const : 'sequence' as const, sharedTransitionEnabled: false, focusedStepId: firstStep.id, steps: spec.transition || spec.pin || spec.double ? [firstStep, secondStep] : [firstStep] } };
-  const mapping = { ...project.mapping.stageTransform, ...(spec.frame ? { referenceAspectRatio: spec.frame } : {}) };
+  let mapping = { ...project.mapping.stageTransform, ...(spec.frame ? { referenceAspectRatio: spec.frame, offsetX: spec.staleFrame ? 0 : 1 } : {}) };
   const mappingBefore = JSON.stringify(mapping);
   const root = createRoot(host);
   let canvas: HTMLCanvasElement | null = null;
@@ -94,7 +99,11 @@ async function check(spec: typeof cases[number]) {
         onCompilerError={message => { if (message) { clearTimeout(deadline); reject(new Error(message)); } }}
         onFrameRendered={frame => {
           if (!canvas || !frame.layersInSync || !frame.allProgramsReady || performance.now() < settleAfter) return;
-          if (swapping) { swapping = false; settleAfter = performance.now() + 600; draw(); return; }
+          if (swapping) {
+            swapping = false;
+            if (spec.captureFrame) mapping = preserveStageFrame(mapping, readStageFrameAspectRatio(canvas));
+            settleAfter = performance.now() + 600; draw(); return;
+          }
           if (resizing) { resizing = false; host.style.width = '370px'; host.style.height = '600px'; settleAfter = performance.now() + 600; return; }
           const gl = canvas.getContext('webgl2')!;
           const pixels = new Uint8Array(canvas.width * canvas.height * 4);
@@ -103,7 +112,7 @@ async function check(spec: typeof cases[number]) {
           for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) if (pixels[(y * canvas.width + x) * 4] > 180) { left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y); }
           if (right < left) { stableFrames = 0; return; }
           const ratio = (right - left + 1) / (bottom - top + 1);
-          const expectedFrame = spec.frame || spec.width / spec.height;
+          const expectedFrame = spec.staleFrame ? spec.width / spec.height : spec.frame || spec.width / spec.height;
           const expected = spec.assigned === 'stretch' ? expectedFrame / (spec.width / spec.height) : 1;
           const frameRatio = parseFloat(canvas.style.width) / parseFloat(canvas.style.height);
           lastMeasurement = `marker ${ratio.toFixed(3)}, expected ${expected.toFixed(3)}; frame ${frameRatio.toFixed(3)}`;

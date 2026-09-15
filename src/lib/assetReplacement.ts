@@ -1,10 +1,31 @@
 import type { ProjectDocument, StageTransform } from '../types';
+import { normalizeStageDistortion } from './distortion.ts';
 
 export function validStageAspectRatio(value: number | null | undefined): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
+function hasStageCalibration(transform: StageTransform): boolean {
+  return [transform.offsetX, transform.offsetY, transform.widthAdjust, transform.heightAdjust, transform.rotationDegrees]
+    .some(value => Number.isFinite(value) && value !== 0) ||
+    Object.values(normalizeStageDistortion(transform.distortion)).some(point => point.x !== 0 || point.y !== 0);
+}
+
+export function getCalibratedStageAspectRatio(transform: StageTransform): number | undefined {
+  // Older uploads captured the empty preview's landscape frame even when no
+  // mapping had been applied. Ignore those stale ratios when reopening a project.
+  return hasStageCalibration(transform) ? validStageAspectRatio(transform.referenceAspectRatio) : undefined;
+}
+
 export function preserveStageFrame(transform: StageTransform, aspectRatio?: number | null): StageTransform {
+  // Opening Move, displaying its grid, or changing precision does not calibrate
+  // the frame. Until geometry changes, every new photo determines its own shape.
+  if (!hasStageCalibration(transform)) {
+    if (transform.referenceAspectRatio === undefined) return transform;
+    const next = { ...transform };
+    delete next.referenceAspectRatio;
+    return next;
+  }
   if (validStageAspectRatio(transform.referenceAspectRatio)) return transform;
   const referenceAspectRatio = validStageAspectRatio(aspectRatio);
   return referenceAspectRatio ? { ...transform, referenceAspectRatio } : transform;

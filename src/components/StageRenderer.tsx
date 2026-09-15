@@ -1,5 +1,5 @@
 import { resolveLiveUniformValue, type LiveUniformBindings, type UniformRuntime } from '../lib/uniformRuntime';
-import { validStageAspectRatio } from '../lib/assetReplacement';
+import { getCalibratedStageAspectRatio, validStageAspectRatio } from '../lib/assetReplacement';
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -908,6 +908,7 @@ export function StageRenderer({
   const userInteractionActiveRef = useRef(false);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
+  const calibratedAspectRatio = getCalibratedStageAspectRatio(stageTransform);
   const [hasBufferedMedia, setHasBufferedMedia] = useState(false);
   // Bumped after a WebGL context restore so every GL-owning effect rebuilds
   // its resources (programs, textures, buffers) against the restored context.
@@ -1307,7 +1308,7 @@ export function StageRenderer({
       const surfaceWidth = Math.max(1, surface.clientWidth);
       const surfaceHeight = Math.max(1, surface.clientHeight);
       const nextAspectRatio =
-        validStageAspectRatio(stageTransform.referenceAspectRatio) ??
+        calibratedAspectRatio ??
         validStageAspectRatio(mediaAspectRatioRef.current) ??
         surfaceWidth / surfaceHeight;
       const containerAspectRatio = surfaceWidth / surfaceHeight;
@@ -1363,7 +1364,7 @@ export function StageRenderer({
       resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
-  }, [glContextGeneration, isOutputOnly, adaptiveQuality, mediaAspectRatio, stageTransform.referenceAspectRatio]);
+  }, [glContextGeneration, isOutputOnly, adaptiveQuality, mediaAspectRatio, calibratedAspectRatio]);
 
   useEffect(() => {
     const gl = glRef.current;
