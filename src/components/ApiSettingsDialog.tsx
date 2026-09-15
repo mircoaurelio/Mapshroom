@@ -22,6 +22,8 @@ import {
 } from '../lib/desktopSecrets';
 import type { AiSettings, ShaderRuntime } from '../types';
 import { CloudModelIcon } from './CloudModelIcon';
+import { AppSettingsDialog } from './AppSettingsDialog';
+import type { SaveAiSetting } from '../lib/aiSettingsDraft';
 
 export type ApiSettingsVariant = 'setup' | 'settings';
 
@@ -35,7 +37,7 @@ interface ApiSettingsDialogProps {
   isClearingLocalData?: boolean;
   onOpenProBeta: () => void;
   onClose: () => void;
-  onChange: (field: keyof AiSettings, value: string | boolean) => void;
+  onChange: SaveAiSetting;
   onRouteChange?: (route: AiGenerationRoute) => void;
   onContinueWithRuntime?: () => void;
   onApplyExternalChatResponse: (response: string) => Promise<void>;
@@ -105,7 +107,12 @@ function CopyResponseIcon() {
   );
 }
 
-export function ApiSettingsDialog({
+export function ApiSettingsDialog(props: ApiSettingsDialogProps) {
+  if (props.variant === 'setup') return <ShaderSetupDialog {...props} />;
+  return props.open ? <AppSettingsDialog {...props} /> : null;
+}
+
+function ShaderSetupDialog({
   open,
   settings,
   variant = 'settings',

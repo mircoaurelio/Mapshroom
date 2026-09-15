@@ -7203,7 +7203,7 @@ ${errorSnapshot}`,
         } catch (error) {
           console.warn('Unable to clear legacy AI key preference.', error);
         }
-        void persistCloudApiKey(credentialProvider, value)
+        return persistCloudApiKey(credentialProvider, value)
           .then((storedMarker) => {
             updateProject((currentProject) => {
               const nextSettings = {
@@ -7218,11 +7218,12 @@ ${errorSnapshot}`,
                 },
               };
             });
+            return true;
           })
           .catch((error: unknown) => {
             console.warn('Unable to persist desktop credential.', error);
+            return false;
           });
-        return;
       }
 
       if (storageKey) {
@@ -7231,6 +7232,7 @@ ${errorSnapshot}`,
           else localStorage.removeItem(storageKey);
         } catch (error) {
           console.warn('Unable to persist AI key preference.', error);
+          return false;
         }
       }
     }

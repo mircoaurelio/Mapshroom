@@ -1,0 +1,400 @@
+.app-settings-backdrop {
+  z-index: 100;
+}
+.app-settings {
+  display: flex;
+  flex-direction: column;
+  width: min(860px, 100%);
+  height: min(710px, calc(100dvh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  outline: none;
+  color-scheme: dark;
+}
+.app-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--line);
+}
+.app-settings-header h2 {
+  margin: 0 0 6px;
+  color: var(--text-bright);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.app-settings p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.app-settings svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.app-settings-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.app-settings-close:hover {
+  background: var(--bg-panel-raised);
+  color: var(--text-bright);
+}
+.app-settings-layout {
+  display: grid;
+  grid-template-columns: 205px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.app-settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px 12px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-panel-soft);
+}
+.app-settings-nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.app-settings-nav button:hover {
+  background: var(--bg-panel-raised);
+  color: var(--text-bright);
+}
+.app-settings-nav button[aria-current] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.app-settings-nav p {
+  margin: auto 12px 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.app-settings-content {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px 28px;
+  scrollbar-width: thin;
+}
+.app-settings-fields {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+.app-settings-generator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 22px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.app-settings strong {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-bright);
+}
+.app-settings small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.app-settings-generator select {
+  width: 158px;
+  flex-shrink: 0;
+}
+.app-settings-heading {
+  margin-bottom: 18px;
+}
+.app-settings-heading h3 {
+  margin: 0 0 6px;
+  color: var(--text-bright);
+  font-size: 15px;
+  font-weight: 500;
+}
+.app-settings-providers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.app-settings-providers button {
+  padding: 11px 12px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg-panel-soft);
+  cursor: pointer;
+}
+.app-settings-providers button:hover {
+  border-color: var(--line-strong);
+}
+.app-settings-providers button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.app-settings-providers button[aria-pressed='true'] strong {
+  color: var(--accent);
+}
+.app-settings-providers small {
+  font-size: 10px;
+}
+.app-settings .field {
+  gap: 8px;
+  font-size: 12px;
+}
+.app-settings .text-field,
+.app-settings .select-field {
+  min-height: 38px;
+  font-size: 12px;
+}
+.app-settings-key-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.app-settings-key-row input {
+  flex: 1;
+  min-width: 0;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.app-settings-key-row button {
+  min-width: 56px;
+}
+.app-settings-remove-key {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.app-settings-remove-key:hover {
+  color: var(--error);
+}
+.app-settings-model {
+  margin-top: 20px;
+}
+.app-settings .app-settings-storage-note {
+  margin-top: 16px;
+  font-size: 11px;
+}
+.app-settings-vision {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+.app-settings input[type='checkbox'],
+.app-settings input[type='radio'] {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.app-settings .app-settings-notice {
+  margin-top: 16px;
+  color: var(--text-muted);
+  border-left: 2px solid var(--accent);
+  padding-left: 12px;
+}
+.app-settings-models {
+  display: grid;
+  gap: 8px;
+}
+.app-settings-local-model {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg-panel-soft);
+  cursor: pointer;
+}
+.app-settings-local-model.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.app-settings-local-model > span {
+  min-width: 0;
+}
+.app-settings-model-size {
+  margin-left: auto;
+  text-align: right;
+  flex-shrink: 0;
+}
+.app-settings-model-size small {
+  font-size: 10px;
+}
+.app-settings-download {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px;
+}
+.app-settings-download button {
+  flex-shrink: 0;
+}
+.app-settings-progress {
+  display: block;
+  width: 100%;
+  height: 5px;
+  margin-top: 16px;
+  accent-color: var(--accent);
+}
+.app-settings .app-settings-error {
+  color: var(--error);
+}
+.app-settings-content .app-settings-error {
+  margin-top: 14px;
+}
+.app-settings-data {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-panel-soft);
+}
+.app-settings-data > svg {
+  color: var(--text-muted);
+}
+.app-settings-data p {
+  margin: 8px 0 20px;
+}
+.app-settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+}
+.app-settings-footer p {
+  font-size: 11px;
+}
+.app-settings-footer > div {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.app-settings button:focus-visible,
+.app-settings input:focus-visible,
+.app-settings select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.app-settings button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .app-settings-backdrop {
+    padding: 8px;
+  }
+  .app-settings {
+    height: calc(100dvh - 16px);
+    border-radius: 10px;
+  }
+  .app-settings-header {
+    padding: 18px;
+  }
+  .app-settings-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .app-settings-nav {
+    flex-direction: row;
+    flex-shrink: 0;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .app-settings-nav button {
+    flex: 1;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 5px;
+    font-size: 11px;
+  }
+  .app-settings-nav svg {
+    width: 16px;
+    height: 16px;
+  }
+  .app-settings-nav p {
+    display: none;
+  }
+  .app-settings-content {
+    padding: 20px 18px;
+  }
+  .app-settings-generator {
+    gap: 10px;
+  }
+  .app-settings-generator select {
+    width: 135px;
+  }
+  .app-settings-providers button {
+    padding: 10px;
+  }
+  .app-settings-footer {
+    padding: 14px 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .app-settings-footer > div {
+    margin-left: auto;
+  }
+  .app-settings-local-model {
+    padding: 12px 10px;
+    gap: 8px;
+  }
+  .app-settings-local-model strong {
+    font-size: 11px;
+  }
+  .app-settings-model-size {
+    max-width: 86px;
+  }
+  .app-settings-data {
+    padding: 16px;
+  }
+}
