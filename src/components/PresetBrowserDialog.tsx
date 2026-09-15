@@ -116,6 +116,7 @@ interface PresetBrowserDialogProps {
   currentShaderName: string;
   canReplaceCurrent: boolean;
   onSelect: (shaderId: string, action: PresetSelectionAction) => void;
+  onOpenLibrary?: () => void;
   onClose: () => void;
 }
 
@@ -398,6 +399,7 @@ function PreviewCard({ preset, displayGroup, isTimelineLinked, isActive, isFavor
 
 export function PresetBrowserDialog({
   open,
+  onOpenLibrary,
   presets,
   activeShaderId,
   currentShaderName,
@@ -429,6 +431,7 @@ export function PresetBrowserDialog({
     queueMicrotask(() => {
       if (!cancelled) {
         setActiveCategory(currentCategory);
+        setFavoritePresetIds(loadFavoritePresetIds());
       }
     });
 
@@ -546,6 +549,7 @@ export function PresetBrowserDialog({
             <h2 className="dialog-title">Shader Library</h2>
           </div>
           <div className="preset-browser-header-actions">
+            {onOpenLibrary && <button type="button" className="ghost-button" onClick={() => { handleClose(); onOpenLibrary(); }}>Open shader page</button>}
             <button
               type="button"
               className="ghost-button preset-browser-search-toggle"

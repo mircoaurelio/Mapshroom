@@ -12,7 +12,7 @@ import {
 
 import './WorkspaceNavigation.css';
 
-export type WorkspaceSection = 'asset' | 'move' | 'output' | 'workspace';
+export type WorkspaceSection = 'asset' | 'move' | 'output' | 'workspace' | 'shader';
 
 interface WorkspaceNavigationProps {
   activeSection: WorkspaceSection;
@@ -28,6 +28,7 @@ function NavigationIcon({ section }: { section: WorkspaceSection }) {
     {section === 'asset' ? <><rect x="3" y="3" width="15" height="15" rx="2" /><path d="m5 14 4-4 3 3 2-2 2 2M7 21h12a2 2 0 0 0 2-2V7" /><circle cx="13.5" cy="7.5" r="1" /></> :
       section === 'move' ? <><path d="M12 3v18M3 12h18m-12-6 3-3 3 3m-6 12 3 3 3-3M6 9l-3 3 3 3m12-6 3 3-3 3" /></> :
       section === 'output' ? <><rect x="3" y="4" width="18" height="13" rx="1.5" /><path d="M12 17v4m-4 0h8" /></> :
+      section === 'shader' ? <><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><path d="m7 14 7-7m-4 10 7-7" /></> :
       <><rect x="2.5" y="4.5" width="19" height="15" rx="2" /><path d="m10 8.5 5 3.5-5 3.5Z" fill="currentColor" stroke="none" /></>}
   </svg>;
 }
@@ -213,8 +214,8 @@ export function WorkspaceNavigation({ activeSection, outputWindowOpen, onSelectS
       ) : null}
 
     </div>
-    {(['move', 'output', 'workspace'] as const).map(section => {
-      const label = section === 'workspace' ? 'Workspace' : section === 'move' ? 'Move' : 'Output';
+    {(['move', 'output', 'workspace', 'shader'] as const).map(section => {
+      const label = section === 'workspace' ? 'Workspace' : section === 'move' ? 'Move' : section === 'shader' ? 'Shader' : 'Output';
       const outputLive = section === 'output' && outputWindowOpen;
       return <button key={section} type="button" className={`workspace-nav-item${outputLive ? ' workspace-nav-output-live' : ''}`} aria-current={activeSection === section ? 'page' : undefined} aria-description={section === 'output' ? (outputWindowOpen ? 'Output window is open' : 'Output window is closed') : undefined} title={outputLive ? 'Output — window open' : label} data-onboarding-area={section === 'move' ? 'mapping' : undefined} onClick={() => onSelectSection(section)}>
         <NavigationIcon section={section} /><span>{label}</span>

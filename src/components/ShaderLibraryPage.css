@@ -1,0 +1,159 @@
+.shader-library-page {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-panel, #090b0c);
+  color: var(--text-bright, #e9eaec);
+  font-family: Arial, Helvetica, sans-serif;
+  color-scheme: dark;
+  container-type: inline-size;
+}
+.shader-library-page.with-chat { grid-template-columns: 220px minmax(0, 1fr) clamp(290px, 24vw, 370px); }
+.shader-library-page * { box-sizing: border-box; }
+.shader-library-page svg { width: 18px; height: 18px; flex-shrink: 0; }
+.shader-library-page button, .shader-library-page select, .shader-library-page input { font: inherit; font-size: 12px; letter-spacing: 0; text-transform: none; }
+.shader-library-page button { cursor: pointer; }
+.shader-library-page button:disabled { cursor: default; opacity: .45; }
+.shader-library-page button:focus-visible, .shader-library-page input:focus-visible, .shader-library-page select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.shader-library-page .primary-button, .shader-library-page .secondary-button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 36px; padding: 7px 12px; border-radius: 6px; white-space: nowrap; }
+.workspace-shell .shader-library-page button.primary-button { background: var(--accent); color: #061b13; border: 1px solid var(--accent); }
+.shader-library-page .secondary-button, .shader-library-page select { background: transparent; color: var(--text-bright); border: 1px solid var(--line); }
+.shader-library-page select { padding: 8px; border-radius: 5px; min-height: 34px; max-width: 100%; }
+.shader-library-page select option { background: var(--bg-panel); color: var(--text-bright); }
+.shader-library-page [aria-pressed='true']:not(.shader-library-card-select) { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.shader-library-icon-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; padding: 6px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--text-muted); }
+.shader-library-icon-button:hover { color: var(--text-bright); background: var(--bg-soft); }
+.shader-library-directory { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); padding: 12px 10px; }
+.shader-library-directory > header, .shader-library-chat > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; margin-bottom: 14px; }
+.shader-library-directory > header strong { font-size: 12px; letter-spacing: 1px; }
+.shader-library-directory-actions { display: flex; }
+.shader-library-page .shader-library-directory-close, .shader-library-directory-backdrop { display: none; }
+.shader-library-search { display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid var(--line); border-radius: 6px; min-width: 0; height: 42px; background: var(--bg-soft); color: var(--text-muted); }
+.shader-library-search:focus-within { border-color: var(--accent); }
+.shader-library-search input { flex: 1; min-width: 0; width: 100%; padding: 10px 0; border: 0; outline: 0; background: transparent; color: var(--text-bright); }
+.shader-library-search input:focus-visible { outline: 0; }
+.shader-library-search kbd { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.shader-library-search.directory-search { flex-shrink: 0; height: 35px; padding: 0 9px; margin-bottom: 18px; }
+.shader-library-directory-scroll { flex: 1; overflow-y: auto; min-height: 0; padding-right: 3px; scrollbar-width: thin; }
+.shader-library-folder { width: 100%; display: flex; align-items: center; gap: 9px; padding: 9px 8px; min-height: 36px; border: 0; border-radius: 5px; background: transparent; color: var(--text-muted); text-align: left; }
+.shader-library-folder > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shader-library-folder > small { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; }
+.shader-library-folder:hover { background: var(--bg-soft); color: var(--text-bright); }
+.shader-library-folder[aria-current] { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text-bright); }
+.shader-library-directory h3 { margin: 24px 8px 12px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 10px; letter-spacing: 1px; color: var(--text-muted); font-weight: 500; }
+.shader-library-root-row { display: flex; align-items: center; margin: 5px 0; }
+.shader-library-root-row > .shader-library-folder { flex: 1; min-width: 0; padding-left: 1px; }
+.shader-library-expander { width: 21px; height: 32px; flex-shrink: 0; display: flex; align-items: center; padding: 2px; border: 0; background: transparent; color: var(--text-muted); }
+.shader-library-expander svg { width: 13px; height: 13px; transition: transform 120ms ease; }
+.shader-library-expander[aria-expanded='true'] svg { transform: rotate(90deg); }
+.shader-library-folder.is-nested { padding-left: 30px; }
+.shader-library-directory-hint { margin: 6px 14px 20px 25px; font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+.shader-library-new-folder { margin-top: 14px; }
+.shader-library-folder-form { margin-top: 14px; }
+.shader-library-folder-form label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; }
+.shader-library-folder-form input { width: 100%; background: var(--bg-soft); border: 1px solid var(--line); padding: 9px; color: var(--text-bright); border-radius: 5px; }
+.shader-library-folder-form > div { display: flex; gap: 6px; margin-top: 8px; }
+.shader-library-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 22px 20px 0; overflow: hidden; }
+.shader-library-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 24px; }
+.shader-library-heading h1 { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 650; letter-spacing: -.5px; }
+.shader-library-heading p { margin: 6px 0 0; color: var(--text-muted); font-size: 12px; }
+.shader-library-heading-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.shader-library-toolbar { display: flex; gap: 10px; }
+.shader-library-toolbar > .shader-library-search { flex: 1; }
+.shader-library-page .shader-library-directory-toggle { display: none; }
+.shader-library-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 12px 0 16px; }
+.shader-library-filters > label { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 5px; padding-left: 10px; color: var(--text-muted); font-size: 11px; }
+.shader-library-filters > label select { border: 0; padding-left: 4px; }
+.shader-library-filters .secondary-button { font-size: 11px; min-height: 34px; padding: 6px 9px; }
+.shader-library-reset { border: 0; background: transparent; color: var(--accent); padding: 7px; }
+.shader-library-results-header { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 10px; font-size: 12px; padding-bottom: 14px; }
+.shader-library-count { margin-left: 8px; color: var(--text-muted); font-size: 11px; }
+.shader-library-results-header > div { display: flex; gap: 10px; align-items: center; }
+.shader-library-view-toggle { display: flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.shader-library-view-toggle button { display: flex; padding: 7px; color: var(--text-muted); background: transparent; border: 1px solid transparent; }
+.shader-library-results-scroll { flex: 1; min-height: 0; overflow: auto; padding: 2px 3px 0 2px; scrollbar-width: thin; }
+.shader-library-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 14px; }
+.shader-library-card { min-width: 0; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: var(--bg-panel); }
+.shader-library-card:hover { border-color: var(--text-muted); }
+.shader-library-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 4%, var(--bg-panel)); }
+.shader-library-card-select { display: block; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; border-radius: 0; }
+.shader-library-card-select:focus-visible { outline-offset: -3px !important; }
+.shader-library-preview { display: block; position: relative; width: 100%; aspect-ratio: 16 / 9; background: #050507; overflow: hidden; border-bottom: 1px solid var(--line); }
+.shader-library-preview .shader-thumbnail { position: absolute; inset: 0; width: 100%; height: 100%; }
+.shader-library-preview .shader-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.shader-library-check { position: absolute; right: 10px; top: 10px; width: 23px; height: 23px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #091e15; font-size: 14px; }
+.shader-library-card-meta { display: flex; flex-direction: column; gap: 9px; padding: 10px; min-width: 0; }
+.shader-library-card-meta strong { display: block; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shader-library-tags { display: flex; gap: 5px; overflow: hidden; }
+.shader-library-tags > span { padding: 3px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--text-muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shader-library-card-actions { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 0 6px 5px; }
+.shader-library-card-open { display: flex; align-items: center; gap: 6px; padding: 6px 3px; background: transparent; color: var(--text-muted); border: 0; font-size: 10px !important; }
+.shader-library-card-open svg { width: 13px; height: 13px; }
+.shader-library-card-open:hover { color: var(--accent); }
+.shader-library-results.is-list { display: flex; flex-direction: column; gap: 8px; }
+.is-list .shader-library-card { display: flex; align-items: center; }
+.is-list .shader-library-card-select { display: flex; align-items: center; flex: 1; min-width: 0; }
+.is-list .shader-library-preview { width: 110px; flex-shrink: 0; border-bottom: 0; border-right: 1px solid var(--line); }
+.is-list .shader-library-card-actions { padding: 8px; }
+.shader-library-load-more { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 24px 10px; color: var(--text-muted); font-size: 11px; }
+.shader-library-selection { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--line); padding: 12px 0; }
+.shader-library-selection > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.shader-library-selection > div:first-child { flex: 1; align-items: flex-start; flex-direction: column; gap: 4px; }
+.shader-library-selection small { color: var(--text-muted); font-size: 9px; letter-spacing: .7px; }
+.shader-library-selection strong { max-width: 100%; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shader-library-selection select { width: 140px; font-size: 11px; }
+.shader-library-chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--line); background: #0b0c0e; }
+.shader-library-chat > header { padding: 12px 14px 0; margin-bottom: 8px; color: #e9eaec; font-size: 12px; }
+.shader-library-chat-context { display: flex; align-items: center; gap: 12px; margin: 0 12px 12px; padding: 10px; border: 1px solid #24292c; border-radius: 8px; color: #e9eaec; background: #14181b; }
+.shader-library-chat-context > .shader-thumbnail { width: 78px; height: 55px; flex-shrink: 0; border-radius: 5px; overflow: hidden; }
+.shader-library-chat-context > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.shader-library-chat-context small { font-size: 10px; color: #929aa0; }
+.shader-library-chat-context strong { font-size: 12px; line-height: 1.4; font-weight: 500; overflow-wrap: anywhere; }
+.shader-library-chat-context button { display: flex; gap: 5px; align-items: center; border: 0; background: transparent; color: var(--accent); text-align: left; font-size: 10px; padding: 3px 0; }
+.shader-library-chat-context button svg { width: 12px; height: 12px; }
+.shader-library-chat-content { flex: 1; display: flex; min-width: 0; min-height: 0; }
+.shader-library-chat .ai-prompt-composer-footer { flex-wrap: wrap; }
+.shader-library-chat .ai-prompt-route-actions { flex-wrap: wrap; }
+.shader-library-empty { min-height: 220px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; text-align: center; padding: 24px; }
+.shader-library-empty > svg { width: 28px; height: 28px; color: var(--text-muted); }
+.shader-library-empty h2 { margin: 0; font-size: 18px; }
+.shader-library-empty p { margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.6; }
+.shader-library-notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 5px; color: var(--accent); padding: 8px 10px; margin-bottom: 12px; font-size: 12px; }
+.shader-library-notice.is-error { color: #ff9898; }
+.shader-library-notice button { border: 0; background: transparent; color: inherit; font-size: 20px; }
+.workspace-section-content > .shader-library-page { grid-area: 1 / 1; }
+.shader-library-mobile { grid-column: 1 / -1; display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; width: 100%; }
+.shader-library-mobile > header { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; font-size: 11px; gap: 8px; }
+.shader-library-mobile > .shader-library-page { flex: 1; }
+@media (max-width: 1400px) {
+  .shader-library-page { grid-template-columns: 190px minmax(0, 1fr); }
+  .shader-library-page.with-chat { grid-template-columns: 190px minmax(0, 1fr) 300px; }
+  .shader-library-main { padding: 18px 14px 0; }
+  .shader-library-heading { flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+  .shader-library-heading h1 { font-size: 21px; }
+  .shader-library-selection > div:first-child { flex-basis: 100%; }
+}
+@media (max-width: 1100px) {
+  .shader-library-page, .shader-library-page.with-chat { grid-template-columns: minmax(0, 1fr); position: relative; }
+  .shader-library-page.with-chat { grid-template-columns: minmax(0, 1fr) 300px; }
+  .shader-library-directory { display: none; }
+  .shader-library-page .shader-library-directory-toggle { display: inline-flex; }
+  .shader-library-page.with-directory .shader-library-directory { display: flex; position: absolute; top: 0; bottom: 0; left: 0; width: 230px; z-index: 5; background: var(--bg-panel); box-shadow: 12px 0 24px #0008; }
+  .shader-library-page .shader-library-directory-close { display: inline-flex; }
+  .shader-library-directory-backdrop { display: block; position: absolute; inset: 0; z-index: 4; background: #0006; border: 0; border-radius: 0; }
+  .shader-library-search kbd { display: none; }
+}
+@media (max-width: 700px) {
+  .shader-library-page.with-chat { grid-template-columns: minmax(0, 1fr); }
+  .shader-library-chat { position: absolute; inset: 0 0 0 auto; z-index: 4; width: min(100%, 370px); box-shadow: -12px 0 24px #0008; }
+  .shader-library-page { border-top: 1px solid var(--line); }
+  .shader-library-results { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
+  .shader-library-selection > div:last-child { flex-wrap: wrap; }
+  .shader-library-toolbar { flex-wrap: wrap; }
+  .shader-library-toolbar > .shader-library-search { order: 3; flex-basis: 100%; }
+  .is-list .shader-library-card-actions { flex-direction: column; }
+  .is-list .shader-library-preview { width: 65px; }
+}

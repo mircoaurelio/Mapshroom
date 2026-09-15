@@ -20,6 +20,8 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ShaderChatWorkspace } from '../components/ShaderChatWorkspace';
+import { ShaderLibraryPage } from '../components/ShaderLibraryPage';
+import { parseShaderImport } from '../lib/shaderLibrary';
 import { ShaderChatHandoff } from '../components/ShaderChatHandoff';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
@@ -2932,7 +2934,8 @@ export function WorkspaceRoute() {
   } | null>(null);
   const [isClearingLocalData, setIsClearingLocalData] = useState(false);
   const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false);
-  const [desktopPage, setDesktopPage] = useState<'workspace' | 'output'>('workspace');
+  const [desktopPage, setDesktopPage] = useState<'workspace' | 'output' | 'shader'>('workspace');
+  const bundledShaderIds = useMemo(() => new Set(Object.keys(DEFAULT_SHADERS)), []);
   const [moveControlsInWorkspace, setMoveControlsInWorkspace] = useState(false);
   const [assetLibraryStepId, setAssetLibraryStepId] = useState<string | null>(null);
   const [highlightAssetStartMapping, setHighlightAssetStartMapping] = useState(false);
@@ -6026,8 +6029,8 @@ export function WorkspaceRoute() {
           activeShaderId: currentShader.id,
           activeShaderName: currentShader.name,
           activeShaderCode: currentShader.code,
-          shaderChatHistory: [],
-          shaderVersions: getShaderVersionTrail(currentShader),
+          shaderChatHistory: currentProject.studio.activeShaderId === shaderId ? currentProject.studio.shaderChatHistory : [],
+          shaderVersions: currentProject.studio.activeShaderId === shaderId ? currentProject.studio.shaderVersions : getShaderVersionTrail(currentShader),
           uniformValues: getSyncedShaderUniformValues(
             currentShader.code,
             currentShader.uniformValues,
@@ -6068,7 +6071,55 @@ export function WorkspaceRoute() {
     );
     setPreferLiveShaderCompilePreview(false);
     setCompilerError(shader.compileError ?? '');
+    if (shader.audioReactiveBindings) seedAudioShaderBindings(shader.id, shader.audioReactiveBindings);
     closeMobileShaderDialog();
+  };
+
+  const addLibraryShaders = (shaders: SavedShader[]) => {
+    const selected = shaders[0];
+    if (!selected) return;
+    updateProject(currentProject => ({
+      ...currentProject,
+      studio: {
+        ...currentProject.studio,
+        savedShaders: [...currentProject.studio.savedShaders, ...shaders],
+        activeShaderId: selected.id,
+        activeShaderName: selected.name,
+        activeShaderCode: selected.code,
+        activeShaderSourceProfile: OFFICIAL_SHADER_PROFILE,
+        uniformValues: getSyncedShaderUniformValues(selected.code, selected.uniformValues),
+        shaderChatHistory: [],
+        shaderVersions: getShaderVersionTrail(selected),
+      },
+    }));
+    setEditingTimelineStepId(null);
+    setStudioPreviewOverride(true);
+    setPreferLiveShaderCompilePreview(false);
+    setCompilerError('');
+    setAiPrompt('');
+    setAiFeedbackMessage('');
+    setChatSubmission(null);
+    clearGeneratedShaderRetry();
+  };
+
+  const importLibraryShaders = async (files: File[]) => {
+    const targetSessionId = currentProjectRef.current?.sessionId;
+    if (files.length > 20) throw new Error('Import up to 20 shaders at a time.');
+    const imported: SavedShader[] = [];
+    // Validate the entire batch before changing the project.
+    for (const file of files) {
+      if (file.size > 1024 * 1024) throw new Error(`${file.name}: maximum shader size is 1 MB.`);
+      const parsed = parseShaderImport(await file.text(), file.name);
+      const code = normalizeOfficialShaderBody(parsed.code);
+      const compilationError = validateShaderCodeCompilation(code);
+      if (compilationError) throw new Error(`${file.name}: ${compilationError}`);
+      imported.push(createSavedShaderRecord(parsed.name, code, parsed.uniformValues, {
+        group: 'Imported', description: `Imported from ${file.name}.`,
+        versions: [createShaderVersion('Imported shader', parsed.name, code)],
+      }));
+    }
+    if (currentProjectRef.current?.sessionId !== targetSessionId) throw new Error('The project changed during import. Please import these shaders again.');
+    addLibraryShaders(imported);
   };
 
   const applyPresetSelection = (
@@ -8177,7 +8228,9 @@ ${errorSnapshot}`,
   };
 
   const handlePromptFocus = () => {
-    if (!timelineSequenceEnabled) {
+    // Library selection (and its Workspace preview) owns the chat context.
+    // Typing must not silently switch back to the currently playing clip.
+    if (desktopPage === 'shader' || studioPreviewOverride || !timelineSequenceEnabled) {
       return;
     }
 
@@ -8778,6 +8831,7 @@ ${errorSnapshot}`,
 
   const desktopSection: WorkspaceSection = isAssetLibraryOpen
     ? 'asset'
+    : desktopPage === 'shader' ? 'shader'
     : desktopPage === 'output' ? 'output'
       : stageTransform.moveMode && !moveControlsInWorkspace ? 'move' : 'workspace';
   const selectDesktopSection = (section: WorkspaceSection) => {
@@ -8790,7 +8844,11 @@ ${errorSnapshot}`,
     setIsAssetLibraryOpen(false);
     setAssetLibraryStepId(null);
     setHighlightAssetStartMapping(false);
-    if (section === 'output') {
+    if (section === 'shader') {
+      setDesktopPage('shader');
+      setMoveControlsInWorkspace(false);
+      if (stageTransform.moveMode) setMoveMode(false);
+    } else if (section === 'output') {
       trackUiClick('output_section');
       setDesktopPage('output');
     } else {
@@ -8811,6 +8869,31 @@ ${errorSnapshot}`,
     onboardingActive={showOnboardingGuide}
     onAssetsFirstStepAdvance={() => setShowAssetImportFirstStep(true)}
   />;
+  const shaderLibraryView = desktopSection === 'shader' ? (
+    <ShaderLibraryPage
+      key={`shader-library:${project.sessionId}`}
+      sessionId={project.sessionId}
+      shaders={project.studio.savedShaders}
+      bundledIds={bundledShaderIds}
+      activeShaderId={project.studio.activeShaderId}
+      chat={renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
+      onSelect={shaderId => {
+        if (shaderId !== project.studio.activeShaderId) selectShader(shaderId);
+      }}
+      onOpenWorkspace={shaderId => {
+        selectShader(shaderId);
+        selectDesktopSection('workspace');
+        setUiPreferences(current => ({ ...current, sidebarVisible: true, chromeVisible: true, workspaceMode: 'split' }));
+      }}
+      onNewShader={() => {
+        const name = 'New Shader';
+        addLibraryShaders([createSavedShaderRecord(name, blankShaderTemplate, {}, {
+          group: 'Saved', versions: [createShaderVersion('New Shader', name, blankShaderTemplate)],
+        })]);
+      }}
+      onImport={importLibraryShaders}
+    />
+  ) : null;
   const sectionHeader = desktopSection === 'move' || desktopSection === 'output' ? (
     <header className="workspace-page-header">
       <div>
@@ -8985,8 +9068,7 @@ ${errorSnapshot}`,
           }}
           onOpenPresetBrowser={() => {
             trackUiClick('open_presets');
-            selectDesktopSection('workspace');
-            setIsPresetBrowserOpen(true);
+            selectDesktopSection('shader');
           }}
           onPlayToggle={() => {
             trackUiClick(project.playback.transport.isPlaying ? 'timeline_pause' : 'timeline_play');
@@ -9062,7 +9144,7 @@ ${errorSnapshot}`,
                 <div className="workspace-section-content">
                   <div
                     className={`workspace-desktop-top ${desktopSection === 'move' || desktopSection === 'output' ? 'workspace-page-stage' : ''}`}
-                    hidden={desktopSection === 'asset'}
+                    hidden={desktopSection === 'asset' || desktopSection === 'shader'}
                     style={{ gridTemplateColumns: desktopMainTopGridTemplateColumns }}
                   >
                     {uiPreferences.sidebarVisible ? (
@@ -9110,12 +9192,13 @@ ${errorSnapshot}`,
                       style={{ width: `${desktopLayout.rightSidebarWidth}px` }}
                     >
                         <div className="workspace-pane-scroll workspace-pane-scroll-inspector">
-                          {renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
+                          {desktopSection !== 'shader' && renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
                       </div>
                     </aside>
                   </div>
 
                   {assetLibraryView}
+                  {shaderLibraryView}
                 </div>
               </div>
 
@@ -9148,14 +9231,15 @@ ${errorSnapshot}`,
             <div className="workspace-upper workspace-upper-immersive">
               {workspaceNavigation}
               <div className="workspace-section-content">
-                <div className="workspace-immersive-content" hidden={desktopSection === 'asset'}>
+                <div className="workspace-immersive-content" hidden={desktopSection === 'asset' || desktopSection === 'shader'}>
                   <div className="workspace-desktop-stage">{sectionHeader}{stageViewport}</div>
                   {desktopSection === 'workspace' && uiPreferences.sidebarVisible && <aside className="workspace-sidebar" data-onboarding-area="controls"><div className="workspace-sidebar-scroll">{renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}{studioPanel}{timelineStepAssetPanel}</div></aside>}
                 </div>
                 {assetLibraryView}
+                {shaderLibraryView}
               </div>
             </div>
-          ) : stageViewport
+          ) : desktopSection === 'shader' ? <div className="shader-library-mobile"><header><button type="button" className="secondary-button" onClick={() => selectDesktopSection('workspace')}>← Workspace</button><strong>MAPSHROOM</strong></header>{shaderLibraryView}</div> : stageViewport
         )}
       </div>
 
@@ -9187,7 +9271,7 @@ ${errorSnapshot}`,
         onClose={() => setSurfaceAssetId(null)}
       />}
 
-      {isMobile && mobileChromeVisible ? (
+      {isMobile && mobileChromeVisible && desktopSection !== 'shader' ? (
         <MobileChrome
           activeAssetName={activeAsset?.name ?? 'No asset selected'}
           isTimelineOpen={isMobileTimelineOpen}
@@ -9366,6 +9450,7 @@ ${errorSnapshot}`,
 
       <PresetBrowserDialog
         open={isPresetBrowserOpen}
+        onOpenLibrary={() => { setMobilePanel(null); setIsMobileTimelineOpen(false); selectDesktopSection('shader'); }}
         presets={timelineSelectableShaders}
         activeShaderId={project.studio.activeShaderId}
         assetUrl={activeAssetUrl}
