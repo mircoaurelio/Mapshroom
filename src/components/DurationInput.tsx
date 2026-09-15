@@ -144,8 +144,10 @@ export function DurationInput({ label, description, value, min, max, className =
   }, [open, inputId]);
 
   useEffect(() => {
-    const element = wheel.current;
-    if (!open || !element) return;
+    // The icon must accept the very first wheel event, even before the hover panel opens.
+    const elements: HTMLElement[] = [];
+    if (trigger.current) elements.push(trigger.current);
+    if (wheel.current) elements.push(wheel.current);
     const scroll = (event: WheelEvent) => {
       if (event.ctrlKey || !event.deltaY) return;
       event.preventDefault();
@@ -158,8 +160,8 @@ export function DurationInput({ label, description, value, min, max, className =
       scrollMotion.current = { remainder: motion.remainder, at: now };
       if (motion.steps && adjust(motion.steps)) scrollMotion.current.remainder = 0;
     };
-    element.addEventListener('wheel', scroll, { passive: false });
-    return () => element.removeEventListener('wheel', scroll);
+    elements.forEach(element => element.addEventListener('wheel', scroll, { passive: false }));
+    return () => elements.forEach(element => element.removeEventListener('wheel', scroll));
   }, [open, adjust]);
 
   const panel = open ? (
@@ -254,7 +256,7 @@ export function DurationInput({ label, description, value, min, max, className =
         </svg>
       </button>
       <span id={`${inputId}-help`} className="duration-input-help">
-        {description} Drag the adjustment icon up or down to change the value. Enter or leave the field to apply typed values. Escape to cancel. Arrow keys adjust by one second. Range {min} to {max} seconds.
+        {description} Scroll over the adjustment icon or drag it up or down to change the value. Enter or leave the field to apply typed values. Escape to cancel. Arrow keys adjust by one second. Range {min} to {max} seconds.
       </span>
       {supportsPopover ? panel : panel && createPortal(panel, document.body)}
     </div>
