@@ -13,6 +13,7 @@ export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
 }> = [
   { value: 'sequence', label: 'Sequence' },
   { value: 'random', label: 'Random' },
+  { value: 'double', label: 'Double' },
 ];
 
 export function normalizeTimelineSequenceMode(
@@ -20,7 +21,8 @@ export function normalizeTimelineSequenceMode(
   randomChoiceEnabled = false,
 ): TimelineSequenceMode {
   if (mode === 'audioReactive') return 'audioReactive';
-  return randomChoiceEnabled || mode === 'random' || mode === 'randomMix' || mode === 'double'
+  if (mode === 'double') return 'double';
+  return randomChoiceEnabled || mode === 'random' || mode === 'randomMix'
     ? 'random'
     : 'sequence';
 }

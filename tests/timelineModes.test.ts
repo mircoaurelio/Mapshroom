@@ -23,7 +23,7 @@ const sequence: TimelineStub['shaderSequence'] = {
   })),
 };
 
-for (const mode of ['sequence', 'random'] as const) {
+for (const mode of ['sequence', 'random', 'double'] as const) {
   test(`${mode} uses Hold and shared Mix regardless of legacy individual durations`, () => {
     const effective = getEffectiveTimelinePlaybackSteps({ ...sequence, mode });
     assert.deepEqual(effective.map((step) => step.durationSeconds), [6, 6, 6]);
@@ -68,7 +68,7 @@ test('disabled and pinned shaders do not contribute to the shared duration', () 
 });
 
 test('retired modes migrate to Random without losing steps, Hold, Mix, or other project data', () => {
-  for (const mode of ['randomMix', 'double'] as const) {
+  for (const mode of ['randomMix'] as const) {
     const project = {
       name: 'Existing project',
       timeline: { stub: { shaderSequence: { ...sequence, mode } } },
@@ -88,4 +88,12 @@ test('retired modes migrate to Random without losing steps, Hold, Mix, or other 
   assert.equal(normalizeTimelineSequenceMode('sequence', true), 'random');
   assert.equal(normalizeTimelineSequenceMode('sequence'), 'sequence');
   assert.equal(normalizeTimelineSequenceMode('audioReactive'), 'audioReactive');
+});
+
+test('Double survives save normalization, including old random-choice projects', () => {
+  const project = { timeline: { stub: { shaderSequence: { ...sequence, mode: 'double', randomChoiceEnabled: true } } } } as ProjectDocument;
+  const next = normalizeProjectTimeline(project);
+  assert.equal(next.timeline.stub.shaderSequence.mode, 'double');
+  assert.equal(next.timeline.stub.shaderSequence.steps, sequence.steps);
+  assert.equal(normalizeProjectTimeline(next), next);
 });

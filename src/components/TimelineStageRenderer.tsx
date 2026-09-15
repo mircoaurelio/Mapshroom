@@ -28,6 +28,7 @@ import {
   buildTimelinePinStackShaderOutputShaderCode,
   buildTimelinePinShaderAlphaOverlayShaderCode,
   buildTimelineTransitionShaderCode,
+  buildTimelineDoubleLayerShaderCode,
 } from '../lib/timelineShader';
 import { collectNestedTimelineSamplerSources } from '../lib/timelineSamplerBindings';
 import { getBundledAssetUrl, isInternalCanvasAssetId } from '../lib/bundledAssets';
@@ -65,9 +66,6 @@ const PRELOAD_LOOKAHEAD_EPSILON_SECONDS = 0.01;
 const STANDARD_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_PRELOAD_LOOKAHEAD_DEPTH = 2;
 const DOUBLE_RANDOM_RESEED_EPSILON_SECONDS = 0.05;
-const DOUBLE_AUTOMATA_BALANCED_PROGRESS = 0.5;
-const DOUBLE_AUTOMATA_GROW_AMOUNT = 0.12;
-const DOUBLE_AUTOMATA_MOTION_SECONDS = 1.25;
 const PIN_LAYER_FADE_DURATION_MS = 1_200;
 const MODE_LAYER_WARMUP_DURATION_MS = 900;
 const MODE_LAYER_FADE_DURATION_MS = 1_000;
@@ -145,6 +143,8 @@ type ResolvedTimelineState = NonNullable<ReturnType<typeof resolveShaderTimeline
 type TimelineSequenceStep = TimelineStub['shaderSequence']['steps'][number];
 
 interface TimelineRenderLayer {
+  /** Complementary masks already divide coverage; don't halve their brightness. */
+  coverageLayer?: boolean;
   loadSources: ShaderLoadSource[];
   kind: TimelineRenderLayerKind;
   shaderCode: string;
@@ -251,13 +251,6 @@ function buildManualMixLayer(mix: ManualShaderMix<TimelineRenderLayer>): Timelin
     transitionInputSources: { from: from.inputSource ?? null, to: to.inputSource ?? null },
     samplerSources: collectNestedTimelineSamplerSources(from, to),
   };
-}
-
-function getDoubleAutomataBalancedProgress(timeSeconds: number): number {
-  const cyclePosition = ((timeSeconds / DOUBLE_AUTOMATA_MOTION_SECONDS) % 1 + 1) % 1;
-  const wave = Math.sin(cyclePosition * Math.PI * 2);
-
-  return DOUBLE_AUTOMATA_BALANCED_PROGRESS + wave * DOUBLE_AUTOMATA_GROW_AMOUNT;
 }
 
 function buildOverlayUniformValues(
@@ -1136,7 +1129,7 @@ export function TimelineStageRenderer({
         assetId: asset.id,
         assetName: asset.name,
         kind: asset.kind,
-        url: assetUrl,
+        url: timelineDecodedAssetIds.has(inputAssetId) ? assetUrl : null,
         status: assetUrlStatus ?? (assetUrl ? 'ready' : 'loading'),
         clipStartSeconds: asset.kind === 'video' ? assetSettings.clipStartSeconds : 0,
         clipDurationSeconds: asset.kind === 'video' ? assetSettings.clipDurationSeconds : null,
@@ -1166,13 +1159,13 @@ export function TimelineStageRenderer({
       assetId: sourceAsset.id,
       assetName: sourceAsset.name,
       kind: sourceAsset.kind,
-      url: resolvedSource?.url ?? null,
+      url: timelineDecodedAssetIds.has(inputAssetId) ? resolvedSource?.url ?? null : null,
       status: resolvedSource?.status ?? 'loading',
       clipStartSeconds: sourceAsset.kind === 'video' ? assetSettings.clipStartSeconds : 0,
       clipDurationSeconds: sourceAsset.kind === 'video' ? assetSettings.clipDurationSeconds : null,
       quality: assetSettings.quality,
     };
-  }, [asset, assetMap, assetUrl, assetUrlStatus, resolvedInputSources]);
+  }, [asset, assetMap, assetUrl, assetUrlStatus, resolvedInputSources, decodedAssetVersion]);
 
   const resolveShaderLayer = useCallback((
     shader: SavedShader | null | undefined,
@@ -1568,78 +1561,26 @@ export function TimelineStageRenderer({
     transport.isPlaying,
   ]);
 
-  const buildDoubleAutomataRenderLayer = useCallback((
+  const buildDoubleRenderLayers = useCallback((
     primaryState: ResolvedTimelineState,
     secondaryState: ResolvedTimelineState,
-  ): TimelineRenderLayer => {
-    const primaryLayer = buildTimelineRenderLayer(primaryState);
-    const secondaryLayer = buildTimelineRenderLayer(secondaryState);
-    const transitionSeed = getTimelineTransitionSeed(
-      'double-primary',
-      'double-secondary',
-      `${doublePrimaryRandomSeedSalt}:${primaryState.cycleIndex}`,
-    );
-    const shaderCode = buildTimelineTransitionShaderCode({
-      fromCode: primaryLayer.shaderCode,
-      toCode: secondaryLayer.shaderCode,
-      effect: 'noise',
+  ): TimelineRenderLayer[] => {
+    const seed = getTimelineTransitionSeed('double-primary', 'double-secondary', doublePrimaryRandomSeedSalt);
+    return [primaryState, secondaryState].map((state, index) => {
+      const layer = buildTimelineRenderLayer(state);
+      return {
+        ...layer,
+        coverageLayer: true,
+        shaderCode: buildTimelineDoubleLayerShaderCode(layer.shaderCode),
+        uniformValues: {
+          ...layer.uniformValues,
+          u_double_secondary: index === 1,
+          u_double_time: transportTimeSeconds,
+          u_double_seed: seed,
+        },
+      };
     });
-
-    return {
-      kind: 'transition',
-      shaderCode,
-      uniformValues: {
-        u_transition_progress: getDoubleAutomataBalancedProgress(transportTimeSeconds),
-        u_transition_seed: transitionSeed,
-        u_transition_duration: DOUBLE_AUTOMATA_MOTION_SECONDS,
-        u_timeline_from_has_overlay: Boolean(primaryLayer.overlaySource),
-        u_timeline_to_has_overlay: Boolean(secondaryLayer.overlaySource),
-        ...prefixUniformValueKeys({
-          sourceValues: primaryLayer.uniformValues,
-          namespace: 'timeline_from',
-        }),
-        ...prefixUniformValueKeys({
-          sourceValues: secondaryLayer.uniformValues,
-          namespace: 'timeline_to',
-        }),
-      },
-      audioBindings: {
-        ...prefixAudioReactiveBindingKeys({
-          bindings: primaryLayer.audioBindings,
-          namespace: 'timeline_from',
-        }),
-        ...prefixAudioReactiveBindingKeys({
-          bindings: secondaryLayer.audioBindings,
-          namespace: 'timeline_to',
-        }),
-      },
-      liveUniformBindings: {
-        ...prefixLiveUniformBindings({
-          bindings: primaryLayer.liveUniformBindings,
-          namespace: 'timeline_from',
-        }),
-        ...prefixLiveUniformBindings({
-          bindings: secondaryLayer.liveUniformBindings,
-          namespace: 'timeline_to',
-        }),
-      },
-      usedFallback: primaryLayer.usedFallback || secondaryLayer.usedFallback,
-      loadSources: [...primaryLayer.loadSources, ...secondaryLayer.loadSources],
-      transitionInputSources: {
-        from: primaryLayer.inputSource ?? null,
-        to: secondaryLayer.inputSource ?? null,
-      },
-      transitionOverlaySources: {
-        from: primaryLayer.overlaySource ?? null,
-        to: secondaryLayer.overlaySource ?? null,
-      },
-      samplerSources: collectNestedTimelineSamplerSources(primaryLayer, secondaryLayer),
-    };
-  }, [
-    buildTimelineRenderLayer,
-    doublePrimaryRandomSeedSalt,
-    transportTimeSeconds,
-  ]);
+  }, [buildTimelineRenderLayer, doublePrimaryRandomSeedSalt, transportTimeSeconds]);
 
   const buildTransitionPreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
@@ -1857,7 +1798,7 @@ export function TimelineStageRenderer({
     } else if (shaderSequence.mode === 'double') {
       const resolvedSecondaryState = secondaryTimelineState ?? liveTimelineState;
 
-      baseLayers.push(buildDoubleAutomataRenderLayer(liveTimelineState, resolvedSecondaryState));
+      baseLayers.push(...buildDoubleRenderLayers(liveTimelineState, resolvedSecondaryState));
 
       markStateVisible(liveTimelineState);
       markStateVisible(resolvedSecondaryState);
@@ -1888,7 +1829,7 @@ export function TimelineStageRenderer({
     activeSavedShader,
     buildSingleShaderLayer,
     buildTimelineRenderLayer,
-    buildDoubleAutomataRenderLayer,
+    buildDoubleRenderLayers,
     buildPinnedCompareLayer,
     focusedSequenceShader,
     focusedSequenceStep,
@@ -2114,7 +2055,7 @@ export function TimelineStageRenderer({
       }
 
       const layerOpacity = totalOpacity / layers.length;
-      return layers.map((layer) => createStageRenderLayer(layer, layerOpacity));
+      return layers.map((layer) => createStageRenderLayer(layer, layer.coverageLayer ? totalOpacity : layerOpacity));
     };
     const activeModeLayerTransition = modeLayerTransitionRef.current;
     const effectiveModeTransitionNowMs = activeModeLayerTransition
@@ -2394,42 +2335,9 @@ export function TimelineStageRenderer({
     primaryLookaheadTimelineStates.forEach(pushStatePreloads);
 
     if (shaderSequence.mode === 'double' && secondaryTimelineState) {
+      // Warm each stream independently, without four-shader combinations.
       pushStatePreloads(secondaryTimelineState);
       secondaryLookaheadTimelineStates.forEach(pushStatePreloads);
-
-      for (const primaryState of primaryLookaheadTimelineStates) {
-        preloadCandidates.push(
-          createStageRenderLayer(
-            buildDoubleAutomataRenderLayer(primaryState, secondaryTimelineState),
-            1,
-          ),
-        );
-      }
-
-      for (const secondaryState of secondaryLookaheadTimelineStates) {
-        preloadCandidates.push(
-          createStageRenderLayer(
-            buildDoubleAutomataRenderLayer(timelineState, secondaryState),
-            1,
-          ),
-        );
-      }
-
-      const pairedLookaheadCount = Math.min(
-        primaryLookaheadTimelineStates.length,
-        secondaryLookaheadTimelineStates.length,
-      );
-      for (let index = 0; index < pairedLookaheadCount; index += 1) {
-        preloadCandidates.push(
-          createStageRenderLayer(
-            buildDoubleAutomataRenderLayer(
-              primaryLookaheadTimelineStates[index],
-              secondaryLookaheadTimelineStates[index],
-            ),
-            1,
-          ),
-        );
-      }
     }
 
     const visiblePreloadKeys = new Set(stageRenderLayers.map((layer) => getStageRenderLayerWarmupKey(layer)));
@@ -2439,18 +2347,21 @@ export function TimelineStageRenderer({
         continue;
       }
 
-      const preloadKey = getStageRenderLayerWarmupKey(candidate);
+      const preloadLayer = shaderSequence.mode === 'double' && !candidate.shaderCode.includes('uniform bool u_double_secondary;')
+        ? { ...candidate, shaderCode: buildTimelineDoubleLayerShaderCode(candidate.shaderCode),
+            uniformDefinitions: parseUniforms(buildTimelineDoubleLayerShaderCode(candidate.shaderCode)) }
+        : candidate;
+      const preloadKey = getStageRenderLayerWarmupKey(preloadLayer);
       if (visiblePreloadKeys.has(preloadKey)) {
         continue;
       }
 
-      dedupedPreloads.set(preloadKey, candidate);
+      dedupedPreloads.set(preloadKey, preloadLayer);
     }
 
     return Array.from(dedupedPreloads.values());
   }, [
     buildTransitionPreloadLayer,
-    buildDoubleAutomataRenderLayer,
     buildSingleStepPreloadLayer,
     createStageRenderLayer,
     focusExitTimelineState,
@@ -2524,7 +2435,9 @@ export function TimelineStageRenderer({
   return (
     <StageRenderer
       asset={asset}
-      assetUrl={assetUrl}
+      // Input-fit uniforms need decoded dimensions before the texture is shown.
+      // In particular, a cold Output mount must never render the fallback 1:1 fit.
+      assetUrl={asset && !isInternalCanvasAssetId(asset.id) && !timelineDecodedAssetIds.has(asset.id) ? null : assetUrl}
       assetUrlStatus={assetUrlStatus}
       renderLayers={stageRenderLayers}
       preloadLayers={preloadStageLayers}

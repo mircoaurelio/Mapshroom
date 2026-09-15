@@ -286,7 +286,9 @@ export function ShaderTimelineEditor({
       ? 'Audio Sync'
       : sequence.mode === 'random'
         ? 'Random Shader Flow'
-        : 'Shader Sequence';
+        : sequence.mode === 'double'
+          ? 'Double Shader Layers'
+          : 'Shader Sequence';
   const [isMobileArranging, setIsMobileArranging] = useState(false);
   const [isMobileAddOpen, setIsMobileAddOpen] = useState(false);
   const [deleteRequest, setDeleteRequest] = useState<TimelineDeleteRequest | null>(null);
@@ -801,7 +803,9 @@ export function ShaderTimelineEditor({
                         ? audioReactiveListening
                           ? 'Advance shaders when the music changes section'
                           : 'Waiting for Audio Reactive capture'
-                        : undefined
+                        : option.value === 'double'
+                          ? 'Two independent shader flows with a moving organic mask'
+                          : undefined
                     }
                     onClick={() => onModeChange(option.value)}
                   >

@@ -923,6 +923,7 @@ export function StageRenderer({
   const experimentalQualityRef = useRef(readRenderRuntimeOptions(window.location).experimentalQuality);
   const canvasLayoutRef = useRef({ targetWidth: 1, targetHeight: 1 });
   const applyCanvasResolutionRef = useRef<() => void>(() => {});
+  const resizeCanvasRef = useRef<() => void>(() => {});
   const lastUserInteractionAtRef = useRef(0);
   const userInteractionActiveRef = useRef(false);
   const [renderStatus, setRenderStatus] = useState('No asset loaded');
@@ -1386,6 +1387,7 @@ export function StageRenderer({
       gl.viewport(0, 0, canvas.width, canvas.height);
     };
     applyCanvasResolutionRef.current = applyCanvasResolution;
+    resizeCanvasRef.current = resize;
 
     resize();
 
@@ -1394,6 +1396,7 @@ export function StageRenderer({
     window.addEventListener('resize', resize);
 
     return () => {
+      resizeCanvasRef.current = () => {};
       resizeObserver.disconnect();
       window.removeEventListener('resize', resize);
     };
@@ -1784,6 +1787,9 @@ export function StageRenderer({
           setHasBufferedMedia(true);
           if (sourceKey === preferredAspectSourceId) {
             mediaAspectRatioRef.current = aspectRatio;
+            // The texture is drawable now. Size its canvas before the next RAF;
+            // waiting for the React effect exposes one frame at the old ratio.
+            resizeCanvasRef.current();
             setMediaAspectRatio(aspectRatio);
             setRenderStatus(nextRenderStatus);
           }
@@ -1817,6 +1823,7 @@ export function StageRenderer({
       null;
     if (preferredState?.status === 'ready') {
       mediaAspectRatioRef.current = preferredState.aspectRatio;
+      resizeCanvasRef.current();
       setMediaAspectRatio(preferredState.aspectRatio);
       setRenderStatus(preferredState.source.assetName || 'Media asset');
     }

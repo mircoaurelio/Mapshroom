@@ -38,6 +38,8 @@ const cases: { name: string; width: number; height: number; frame: number; stale
   { name: 'Masked photo overlay in double playback output', width: 240, height: 480, frame: 16 / 9, overlay: true, secondAssigned: true, double: true, output: true },
   { name: 'Live portrait with a pinned landscape shader', width: 240, height: 480, frame: 16 / 9, pin: true, secondAssigned: true },
   { name: 'Double shader playback preserves the live photo', width: 240, height: 480, frame: 16 / 9, double: true },
+  { name: 'Double transitions preserve the live portrait and assigned landscape', width: 240, height: 480, frame: 16 / 9, double: true, transition: true, secondAssigned: true },
+  { name: 'Double transitions preserve a masked overlay in output', width: 240, height: 480, frame: 16 / 9, double: true, transition: true, secondAssigned: true, overlay: true, output: true },
 ];
 const code = 'vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) { return texture2D(tex, uv); }';
 const host = document.getElementById('fixture')!;

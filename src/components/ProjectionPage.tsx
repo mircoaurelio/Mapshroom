@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { StageDistortion, StageTransform } from '../types';
 import { DEFAULT_STAGE_DISTORTION } from '../lib/distortion';
 import { loadOutputViewportSnapshot } from '../lib/outputViewport';
@@ -129,9 +129,10 @@ export function ProjectionPage(props: ProjectionPageProps) {
     return () => window.removeEventListener('storage', sync);
   }, [sessionId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = previewRef.current;
     if (!element) return;
+    setPreviewSize({ width: element.clientWidth, height: element.clientHeight });
     const observer = new ResizeObserver(([entry]) => setPreviewSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
     observer.observe(element);
     return () => observer.disconnect();

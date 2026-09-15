@@ -8959,7 +8959,7 @@ ${errorSnapshot}`,
         if (shaderId !== project.studio.activeShaderId) selectShader(shaderId);
       }}
       onOpenWorkspace={shaderId => {
-        selectShader(shaderId);
+        applyPresetSelection(shaderId, 'create-new');
         selectDesktopSection('workspace');
         setUiPreferences(current => ({ ...current, sidebarVisible: true, chromeVisible: true, workspaceMode: 'split' }));
       }}
