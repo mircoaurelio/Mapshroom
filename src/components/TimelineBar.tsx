@@ -256,7 +256,6 @@ export function TimelineDialog({
       <section
         className="dialog-panel timeline-dialog-panel"
         role="dialog"
-        aria-modal="true"
         aria-label="Timeline playback settings"
       >
         <div className="dialog-body mobile-timeline-settings">

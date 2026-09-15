@@ -7331,6 +7331,7 @@ ${errorSnapshot}`,
   };
 
   const handleMobileToggleMapping = () => {
+    setIsMobileTimelineOpen(false);
     updateMobileUiMode('full');
     toggleMoveMode();
   };
@@ -7338,7 +7339,7 @@ ${errorSnapshot}`,
   const handleOpenMobileTimeline = () => {
     setMobilePanel(null);
     setMoveMode(false);
-    setIsMobileTimelineOpen(true);
+    setIsMobileTimelineOpen((isOpen) => !isOpen);
   };
 
   const handleMobileAddShader = () => {
@@ -7366,6 +7367,7 @@ ${errorSnapshot}`,
   };
 
   const handleMobilePanelChange = (panel: MobilePanelKey) => {
+    setIsMobileTimelineOpen(false);
     if (panel && uiPreferences.mobileUiMode !== 'full') {
       updateMobileUiMode('full');
     }
@@ -7410,6 +7412,7 @@ ${errorSnapshot}`,
       if (stepToEdit) {
         void selectTimelineStepForEditing(stepToEdit.id, {
           focusStudioOnMobile: false,
+          preservePlaybackState: true,
           stagePreviewMode: 'focused',
           seekTimeSeconds: project
             ? getTimelineRepeatSeekTime(
@@ -7451,6 +7454,7 @@ ${errorSnapshot}`,
       stagePreviewMode?: TimelineStagePreviewMode;
       seekTimeSeconds?: number | null;
       preserveRenderTimeOnSeek?: boolean;
+      preservePlaybackState?: boolean;
       selectionTransition?: 'mix' | 'cut';
       showRepeatTip?: boolean;
     },
@@ -7554,7 +7558,7 @@ ${errorSnapshot}`,
             },
           },
           playback:
-            isMobile
+            isMobile && !options?.preservePlaybackState
               ? {
                   ...currentProject.playback,
                   transport: playTransport(
@@ -8301,6 +8305,7 @@ ${errorSnapshot}`,
       focusStudioOnMobile: false,
       suppressStatus: true,
       showRepeatTip: false,
+      preservePlaybackState: true,
     });
   };
 

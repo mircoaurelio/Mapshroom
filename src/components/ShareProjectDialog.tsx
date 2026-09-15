@@ -105,7 +105,7 @@ export function ShareProjectDialog({
             <>
               <label className="field">
                 <span>Share URL</span>
-                <textarea className="text-area project-share-url" value={shareUrl} readOnly rows={5} />
+                <textarea className="text-field project-share-url" value={shareUrl} readOnly rows={5} />
               </label>
 
               <label className="field">
