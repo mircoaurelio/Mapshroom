@@ -967,6 +967,34 @@ a {
   outline-offset: -2px;
 }
 
+.workspace-stage-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: var(--bg-stage);
+  pointer-events: none;
+}
+
+.workspace-stage-empty .workspace-stage-empty-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 48px;
+  max-width: 100%;
+  padding: 0.8rem 1.2rem;
+  pointer-events: auto;
+}
+
+.workspace-stage-empty-button svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
 .playback-controls {
   position: absolute;
   right: 0.6rem;

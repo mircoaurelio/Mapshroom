@@ -8706,6 +8706,24 @@ ${errorSnapshot}`,
         onCanvasReady={(canvas) => { stageCanvasRef.current = canvas; }}
       />
 
+      {!project.library.assets.some(asset => !isInternalCanvasAssetId(asset.id)) ? (
+        <div className="workspace-stage-empty">
+          <button
+            type="button"
+            className="primary-button workspace-stage-empty-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              selectDesktopSection('asset');
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 16V3m-5 5 5-5 5 5M4 14v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6" />
+            </svg>
+            <span>Carica un asset</span>
+          </button>
+        </div>
+      ) : null}
+
       <div
         className={`stage-corner-controls ${
           stageControlsVisible ? 'stage-corner-controls-mapping-visible' : ''
