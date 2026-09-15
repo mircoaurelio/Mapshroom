@@ -4544,7 +4544,7 @@ export function WorkspaceRoute() {
         ? `${storedMessage} ${failedStorageCount} file${failedStorageCount > 1 ? 's' : ''} were skipped because browser storage is full. The existing project was not deleted.`
         : storedMessage;
     setStatusMessage(importMessage);
-    setImageImportMessage(importMessage);
+    setImageImportMessage(failedStorageCount ? importMessage : '');
     if (filePickerSource === 'library') {
       setHighlightAssetStartMapping(true);
     }
@@ -4607,7 +4607,7 @@ export function WorkspaceRoute() {
           const skipped = failures.length + Math.max(0, transfer.files.length - candidates.length);
           const suffix = ` ${skipped} unreadable or unsupported file${skipped === 1 ? ' was' : 's were'} skipped.`;
           setStatusMessage((message) => message + suffix);
-          setImageImportMessage((message) => message + suffix);
+          setImageImportMessage((message) => (message + suffix).trim());
         }
       }
       if (!stepId) {
@@ -6479,6 +6479,10 @@ export function WorkspaceRoute() {
       },
     }));
     setEditingTimelineStepId(nextStepId);
+    setTimelineScrollToStepRequest({
+      stepId: nextStepId,
+      token: performance.now(),
+    });
     setStatusMessage(`Started ${nextName} and linked it into the timeline.`);
   };
 
