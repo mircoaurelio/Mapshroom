@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/barlow-condensed-semibold.ttf') format('truetype');
+}
+
 :root {
   --bg: #141414;
   --bg-stage: #080808;
@@ -7209,11 +7217,7 @@ input.audio-uniform-bound-range:focus-visible {
 }
 
 .timeline-step-card-editing {
-  border-color: rgba(239, 68, 68, 0.72);
-  box-shadow:
-    inset 0 0 0 1px rgba(239, 68, 68, 0.28),
-    0 0 0 1px rgba(239, 68, 68, 0.35);
-  background: rgba(127, 29, 29, 0.08);
+  background: var(--bg-panel-raised);
 }
 
 .timeline-flow-node.timeline-flow-node-disabled {
@@ -7326,11 +7330,7 @@ input.audio-uniform-bound-range:focus-visible {
 }
 
 .timeline-step-card.timeline-step-card-current {
-  border-color: #dedede;
-  box-shadow:
-    inset 0 0 0 2px #dedede,
-    0 0 7px rgba(222, 222, 222, 0.45);
-  background: rgba(222, 222, 222, 0.12);
+  background: var(--bg-panel-raised);
 }
 
 .timeline-step-preview-shell {
@@ -7616,7 +7616,7 @@ input.audio-uniform-bound-range:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-bright);
-  font: 500 0.65rem/1.5 'IBM Plex Mono', monospace;
+  font: 600 0.82rem/1.2 'Barlow Condensed', 'Arial Narrow', sans-serif;
 }
 
 .timeline-step-preview-badge-error {
@@ -8776,6 +8776,7 @@ input.audio-uniform-bound-range:focus-visible {
 }
 
 .mobile-shader-sequence-card {
+  position: relative;
   min-width: 0;
   display: grid;
   gap: .45rem;
@@ -8793,14 +8794,11 @@ input.audio-uniform-bound-range:focus-visible {
 }
 
 .mobile-shader-sequence-card-editing {
-  border-color: rgba(var(--accent-rgb),.68);
-  background: rgba(var(--accent-deep-rgb),.28);
-  box-shadow: 0 0 18px rgba(var(--accent-rgb),.12);
+  background: var(--bg-panel-raised);
 }
 
 .mobile-shader-sequence-card-current {
-  border-color: #dedede;
-  box-shadow: inset 0 0 0 2px #dedede, 0 0 7px rgba(222, 222, 222, 0.45);
+  background: var(--bg-panel-raised);
 }
 
 .mobile-shader-sequence-arranging .mobile-shader-sequence-card {
@@ -8916,7 +8914,7 @@ input.audio-uniform-bound-range:focus-visible {
 .mobile-shader-sequence-card > strong {
   overflow: hidden;
   padding: 0 .15rem .1rem;
-  font: 650 .62rem 'IBM Plex Mono', monospace;
+  font: 600 .82rem/1.2 'Barlow Condensed', 'Arial Narrow', sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -15153,8 +15151,26 @@ a.download-link-open-app {
   display: none;
 }
 
+/* A single, even ring follows the rendered mix without affecting card layout. */
+.timeline-playback-border {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  padding: 2px;
+  border-radius: inherit;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.timeline-step-card:has(> .timeline-playback-border[data-visible='true']),
+.mobile-shader-sequence-card:has(> .timeline-playback-border[data-visible='true']) {
+  border-color: transparent;
+  box-shadow: none;
+}
+
 /* Neutral controls; red is reserved for a live output or a history action. */
-.timeline-step-card.timeline-step-card-current,
-.mobile-shader-sequence-card-current { border-color: var(--line-strong); border-bottom-color: var(--live); box-shadow: inset 0 -2px var(--live); background-color: var(--bg-panel-raised); }
 .toolbar-output-button-active .toolbar-output-indicator { background: var(--live); box-shadow: none; }
 .toolbar-move-button-active .toolbar-move-indicator { background: var(--accent); box-shadow: none; }

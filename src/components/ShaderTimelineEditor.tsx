@@ -10,6 +10,7 @@ import type { ImageTransfer } from '../lib/imageTransfer';
 import { useImageDropTarget } from '../lib/useImageDropTarget';
 import { hasShaderCompileError } from '../lib/shaderState';
 import { ShaderThumbnail } from './ShaderThumbnail';
+import { TimelinePlaybackBorder } from './TimelinePlaybackIndicators';
 import { TimelineStepOverflowActions } from './TimelineStepOverflowActions';
 import { TimelineDeleteConfirmation, type TimelineDeleteRequest } from './TimelineDeleteConfirmation';
 import { ShuffleIcon } from './ShuffleIcon';
@@ -630,6 +631,7 @@ export function ShaderTimelineEditor({
                 onPointerUp={(event) => finishMobilePress(event, true)}
                 onPointerCancel={(event) => finishMobilePress(event, false)}
               >
+                <TimelinePlaybackBorder stepId={step.id} selected={isEditing} />
                 <span className="mobile-shader-sequence-preview">
                   <ShaderThumbnail shader={shader} />
                   <span className="mobile-shader-sequence-index">{index + 1}</span>
@@ -861,6 +863,7 @@ export function ShaderTimelineEditor({
                 data-preview-shader-id={shader?.id}
                 {...dropProps(step.id)}
               >
+                <TimelinePlaybackBorder stepId={step.id} selected={step.id === editingStepId} />
                 <button
                   type="button"
                   className="timeline-step-select"
@@ -870,12 +873,6 @@ export function ShaderTimelineEditor({
                 >
                   <span className="timeline-step-preview-shell">
                     <ShaderThumbnail shader={shader} />
-                    {isTransitionStep && (
-                      <span className="timeline-step-preview-badges">
-                        <span className="timeline-step-preview-badge">Next</span>
-                      </span>
-                    )}
-
                     {isPinnedStep ||
                       hasAssignedAsset ||
                       hasCompileError ||

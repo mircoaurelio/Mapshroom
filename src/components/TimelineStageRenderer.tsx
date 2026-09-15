@@ -1,5 +1,7 @@
 import { createLiveUniformBindings, prefixLiveUniformBindings, type LiveUniformBindings, type UniformRuntime } from '../lib/uniformRuntime';
 import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTimelinePlaybackStore } from '../lib/useTimelinePlaybackStore';
+import { mergeTimelinePlaybackProgress, type TimelinePlaybackProgress } from '../lib/timelinePlaybackIndicators';
 import { advanceManualShaderMix, type ManualShaderMix, type ManualShaderMixState } from '../lib/manualShaderMix';
 import { getTransportTimeSeconds } from '../lib/clock';
 import { parseUniforms, syncUniformValues } from '../lib/shader';
@@ -142,6 +144,7 @@ type ResolvedTimelineState = NonNullable<ReturnType<typeof resolveShaderTimeline
 type TimelineSequenceStep = TimelineStub['shaderSequence']['steps'][number];
 
 interface TimelineRenderLayer {
+  playbackProgress?: TimelinePlaybackProgress;
   /** Complementary masks already divide coverage; don't halve their brightness. */
   coverageLayer?: boolean;
   loadSources: ShaderLoadSource[];
@@ -437,6 +440,7 @@ export function TimelineStageRenderer({
   onFrameRendered,
   onShaderLoadChange,
 }: TimelineStageRendererProps) {
+  const timelinePlaybackStore = useTimelinePlaybackStore();
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
   const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
   const [modeTransitionNowMs, setModeTransitionNowMs] = useState(() => performance.now());
@@ -1458,7 +1462,10 @@ export function TimelineStageRenderer({
       );
 
       if (liveGatingActive && !transitionProgramReady) {
-        return buildSingleShaderLayer(currentLayer);
+        return {
+          ...buildSingleShaderLayer(currentLayer),
+          playbackProgress: { [state.nextStep.id]: 0, [state.currentStep.id]: 1 },
+        };
       }
 
       let transitionProgress = 0;
@@ -1487,6 +1494,10 @@ export function TimelineStageRenderer({
 
       return {
         kind: 'transition',
+        playbackProgress: {
+          [state.nextStep.id]: nextMediaReady ? transitionProgress : 0,
+          [state.currentStep.id]: 1,
+        },
         shaderCode: transitionShaderCode,
         uniformValues: {
           u_transition_progress: transitionProgress,
@@ -1556,7 +1567,10 @@ export function TimelineStageRenderer({
       };
     }
 
-    return buildSingleShaderLayer(currentLayer);
+    return {
+      ...buildSingleShaderLayer(currentLayer),
+      playbackProgress: { [state.currentStep.id]: 1 },
+    };
   }, [
     buildSingleShaderLayer,
     compiledShaderCodes,
@@ -1789,6 +1803,8 @@ export function TimelineStageRenderer({
         ),
       );
       baseLayers.push(focusedLayer);
+      const focusedStepId = focusedSequenceStep?.id ?? shaderSequence.focusedStepId;
+      if (focusedStepId) focusedLayer.playbackProgress = { [focusedStepId]: 1 };
       if (shaderSequence.focusedStepId) {
         visibleStepIds.add(shaderSequence.focusedStepId);
       }
@@ -1851,6 +1867,21 @@ export function TimelineStageRenderer({
     decodedAssetVersion,
     workspaceFocusedPreviewEnabled,
   ]);
+  useLayoutEffect(() => {
+    if (!isOutputOnly) {
+      timelinePlaybackStore?.publish(mergeTimelinePlaybackProgress([
+        ...visibleTimelineRenderState.baseLayers,
+        ...(pinnedSequenceStep && visibleTimelineRenderState.pinnedLayer
+          ? [{ playbackProgress: { [pinnedSequenceStep.id]: 1 } }]
+          : []),
+      ]));
+    }
+  }, [isOutputOnly, timelinePlaybackStore, visibleTimelineRenderState, pinnedSequenceStep]);
+  useLayoutEffect(() => {
+    if (isOutputOnly) return;
+    return () => timelinePlaybackStore?.publish({});
+  }, [isOutputOnly, timelinePlaybackStore]);
+
   const manualSelectionKey =
     !midiManualMix?.enabled &&
     shaderSequence.manualSelectionTransition !== 'cut' &&

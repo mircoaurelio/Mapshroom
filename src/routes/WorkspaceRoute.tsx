@@ -70,6 +70,7 @@ import { TimelineExportDialog } from '../components/TimelineExportDialog';
 import { TimelineStepAssetPanel } from '../components/TimelineStepAssetPanel';
 import { TimelineBar, TimelineDialog } from '../components/TimelineBar';
 import { TimelineStageRenderer } from '../components/TimelineStageRenderer';
+import { TimelinePlaybackProvider } from '../components/TimelinePlaybackIndicators';
 import { UniformPanel } from '../components/UniformPanel';
 import type { TimelineSelectionInfo } from '../components/TimelineSelectionBanner';
 import { MidiControllerPanel } from '../components/MidiControllerPanel';
@@ -9095,6 +9096,7 @@ ${errorSnapshot}`,
   );
 
   return (
+    <TimelinePlaybackProvider>
     <div
       className={`workspace-shell ${isMobile ? 'workspace-shell-mobile' : ''} ${
         uiPreferences.workspaceMode === 'immersive' ? 'workspace-shell-immersive' : ''
@@ -9634,5 +9636,6 @@ ${errorSnapshot}`,
         )
       ) : null}
     </div>
+    </TimelinePlaybackProvider>
   );
 }
