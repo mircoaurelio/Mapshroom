@@ -1,3 +1,4 @@
+import { updateTimelineTiming } from '../lib/updateTimelineTiming';
 import { createUniformRuntime } from '../lib/uniformRuntime';
 import { renameShader } from '../lib/renameShader';
 import { preserveShaderVersion } from '../lib/shaderHistory';
@@ -168,7 +169,6 @@ import {
   getEffectiveTransitionDurationSeconds,
   getTimelineCycleSteps,
   resolveShaderTimelineState,
-  updateTimelineSharedSettings,
   isTimelineStepEnabled,
   normalizeTimelineTransitionEffect,
   normalizeProjectTimeline,
@@ -4895,19 +4895,32 @@ export function WorkspaceRoute() {
       sharedSectionDurationSeconds?: number;
     },
   ) => {
-    updateProject((currentProject) => {
-      const shaderSequence = currentProject.timeline.stub.shaderSequence;
+    const nowMs = performance.now();
+    const applyTiming = (currentProject: ProjectDocument): ProjectDocument => {
+      const timing = updateTimelineTiming({
+        sequence: currentProject.timeline.stub.shaderSequence,
+        transport: currentProject.playback.transport,
+        shaders: getProjectTimelineShaders(currentProject),
+        patch,
+        randomSeedSalt: getProjectTimelineRandomSeedSalt(currentProject),
+        nowMs,
+      });
       return {
         ...currentProject,
+        playback: { ...currentProject.playback, transport: timing.transport },
         timeline: {
           stub: {
             ...currentProject.timeline.stub,
-            shaderSequence: updateTimelineSharedSettings(shaderSequence, patch),
+            shaderSequence: timing.sequence,
           },
         },
       };
-    });
-  }, [updateProject]);
+    };
+    if (pendingTimelineRepeatExit && currentProjectRef.current) {
+      setPendingTimelineRepeatExit(getTimelineRepeatExitPlan(applyTiming(currentProjectRef.current), nowMs));
+    }
+    updateProject(applyTiming);
+  }, [pendingTimelineRepeatExit, updateProject]);
 
   const handleTimelineMixDurationChange = useCallback((mixDurationSeconds: number) => {
     handleTimelineSharedTransitionChange({
