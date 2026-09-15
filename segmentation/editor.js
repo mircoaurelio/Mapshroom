@@ -1,9 +1,27 @@
-const $ = (selector) => document.querySelector(selector);
-const embeddedInMapshroom = new URLSearchParams(window.location.search).get('embed') === '1';
-const embeddedStartPanel = new URLSearchParams(window.location.search).get('panel') === 'depth' ? 'depth' : 'refine';
-const embeddedManualStart = new URLSearchParams(window.location.search).get('auto') === '0';
-const embeddedMobile = new URLSearchParams(window.location.search).get('mobile') === '1';
-
+/** Image processing controller for the native Adjust map editor.
+ * DOM reads and events are scoped to the supplied root; ownership ends at dispose(). */
+export function createImageEditor(root, options = {}) {
+const document = root.ownerDocument;
+const $ = (selector) => root.querySelector(selector);
+const integrated = options.integrated ?? true;
+const initialPanel = options.initialPanel ?? 'refine';
+const manualStart = options.manualStart ?? true;
+const mobile = options.mobile ?? false;
+let disposed = false;
+let loadGeneration = 0;
+const pendingImages = new Set();
+const timers = new Set();
+const frames = new Set();
+const events = new AbortController();
+function listen(target, type, listener) { target?.addEventListener(type, listener, { signal: events.signal }); }
+function schedule(callback, delay) {
+  const id = setTimeout(() => { timers.delete(id); if (!disposed) callback(); }, delay);
+  timers.add(id); return id;
+}
+function scheduleFrame(callback) {
+  const id = requestAnimationFrame(() => { frames.delete(id); if (!disposed) callback(); });
+  frames.add(id); return id;
+}
 const elements = {
   fileInput: $('#fileInput'), dropzone: $('#dropzone'), emptyUpload: $('#emptyUploadButton'), sample: $('#sampleButton'),
   segment: $('#segmentButton'), downloadMask: $('#downloadMaskButton'), downloadComposite: $('#downloadCompositeButton'),
@@ -37,32 +55,15 @@ const modelInfo = {
   'Xenova/modnet': ['FAST', 'A lightweight model tuned primarily for people and portraits.'],
 };
 
-if (embeddedManualStart) elements.autoSegment.checked = false;
-if (embeddedMobile) elements.model.value = 'manual';
-if (embeddedInMapshroom) {
+if (manualStart) elements.autoSegment.checked = false;
+if (mobile) elements.model.value = 'manual';
+if (integrated) {
   for (const option of [...elements.model.options]) {
     if (option.value.includes('BiRefNet') || option.value.includes('BEN2')) option.remove();
   }
 }
 
-const FUNNY_LOAD_LINES = [
-  'Bribing tiny browser elves with espresso…',
-  'Teaching mushrooms which pixels are shy…',
-  'Unfolding a pocket-sized magic trick…',
-  'Convincing ONNX to stop being mysterious…',
-  'Warming up the pixel gossip network…',
-  'Herding weights into a cozy browser den…',
-  'Polishing a crystal ball full of RGBA…',
-  'Asking the void politely for smarter edges…',
-];
-
-function funnyLoadDetail(percent = 0) {
-  const line = FUNNY_LOAD_LINES[Math.floor((Math.max(0, percent) / 12.5)) % FUNNY_LOAD_LINES.length];
-  const tip = percent < 55
-    ? 'First time is slower — after that it usually zips.'
-    : 'Almost caffeinated.';
-  return `${line} ${Math.round(percent)}% · ${tip}`;
-}
+function funnyLoadDetail(percent = 0) { return `Preparing image tools · ${Math.round(percent)}%`; }
 
 let sourceFile = null;
 let sourceUrl = '';
@@ -114,7 +115,7 @@ const historyByteLimit = 96 * 1024 * 1024;
 const worker = new Worker(new URL('./segmenter.worker.js', import.meta.url), { type: 'module' });
 const depthWorker = new Worker(new URL('../depthmap/depth.worker.js', import.meta.url), { type: 'module' });
 
-elements.deviceLabel.textContent = 'WASM · CPU safe mode';
+if (elements.deviceLabel) elements.deviceLabel.textContent = 'WASM · CPU safe mode';
 
 function updateModelUI() {
   const manual = elements.model.value === 'manual';
@@ -123,11 +124,8 @@ function updateModelUI() {
   elements.modelDescription.textContent = description;
   elements.segment.disabled = manual || !sourceFile;
   elements.segment.textContent = manual ? 'Model-free tools ready' : 'Remove background ✦';
-  elements.deviceToggle.disabled = true;
-  elements.deviceToggle.textContent = 'CPU SAFE';
-  elements.deviceLabel.textContent = manual
-    ? 'No AI runtime needed'
-    : 'WASM · CPU safe mode';
+  if (elements.deviceToggle) { elements.deviceToggle.disabled = true; elements.deviceToggle.textContent = 'CPU'; }
+  if (elements.deviceLabel) elements.deviceLabel.textContent = manual ? 'Manual' : 'On device';
 }
 
 function selectedDevice() {
@@ -135,20 +133,26 @@ function selectedDevice() {
 }
 
 function showToast(message, isError = false) {
+  if (disposed) return;
   clearTimeout(toastTimer);
   elements.toast.textContent = message;
   elements.toast.classList.toggle('error', isError);
   elements.toast.classList.add('visible');
-  toastTimer = setTimeout(() => elements.toast.classList.remove('visible'), 4200);
+  toastTimer = schedule(() => elements.toast.classList.remove('visible'), 4200);
 }
 
-function notifyMapshroom(status, message, resultKind = null) {
-  if (!embeddedInMapshroom || window.parent === window) return;
-  window.parent.postMessage({ type: 'mapshroom:status', status, message, resultKind }, window.location.origin);
+function notifyHost(status, message, resultKind = null) {
+  if (disposed) return;
+  options.onStatus?.({ status, message, resultKind });
 }
 
-function selectEmbeddedPanel(panel) {
-  if (!embeddedInMapshroom) return;
+function currentResultKind() {
+  if (depthPreviewActive && depthData?.length) return 'depth';
+  return drawBaselinePixels || (integrated && root.dataset.editorPanel === 'draw') ? 'draw' : 'mask';
+}
+
+function selectPanel(panel) {
+  if (!integrated || disposed || busy || exportingResult) return;
   if (panel !== 'crop' && cropActive) setCropActive(false);
   if (panel !== 'wand' && wandActive) setWandActive(false);
   if (panel !== 'draw' && drawActive) setDrawActive(false);
@@ -160,13 +164,16 @@ function selectEmbeddedPanel(panel) {
     setBrushActive(false);
     setMagicEraseActive(false);
   }
-  document.body.dataset.editorPanel = panel;
-  document.querySelectorAll('[data-editor-panel]').forEach((button) => {
+  root.dataset.editorPanel = panel;
+  options.onPanelChange?.(panel);
+  root.querySelectorAll('[data-editor-panel]').forEach((button) => {
     button.classList.toggle('active', button.dataset.editorPanel === panel);
+    button.setAttribute('aria-selected', String(button.dataset.editorPanel === panel));
   });
   if (panel === 'draw' && sourceFile) setDrawActive(true);
   if (panel === 'depth') setDepthPreviewActive(true);
-  if (!['draw', 'depth'].includes(panel) && sourceFile) notifyMapshroom('ready', 'Mask tools ready.', 'mask');
+  elements.compare.value = '0'; updateCompare();
+  if (!['draw', 'depth'].includes(panel) && sourceFile) notifyHost('ready', 'Mask tools ready.', currentResultKind());
 }
 
 function formatBytes(bytes) {
@@ -175,8 +182,8 @@ function formatBytes(bytes) {
 }
 
 function setExportDisabled(disabled) {
-  elements.downloadMask.disabled = disabled;
-  elements.downloadComposite.disabled = disabled;
+  if (elements.downloadMask) elements.downloadMask.disabled = disabled;
+  if (elements.downloadComposite) elements.downloadComposite.disabled = disabled;
 }
 
 function alphaChannel(pixels) {
@@ -193,9 +200,12 @@ function pixelsWithAlpha(rgbPixels, alpha) {
 
 function captureState(label) {
   const pixels = new Uint8ClampedArray(basePixels);
+  const controlValues = Object.fromEntries(Array.from(root.querySelectorAll('input[type=range]:not(.compare-range)'), input => [input.id, input.value]));
   const baselinePixels = new Uint8ClampedArray(maskBaseline || basePixels);
   return {
     label, pixels, baselinePixels, sourcePixels, imageWidth, imageHeight, sourceWidth, sourceHeight,
+    controlValues, depthMode, depthPreviewActive, depthData, depthWidth, depthHeight, depthMaskAlpha, depthResultId, savedDepthPixels, savedDepthMode, depthPreserveAlpha, depthCanRegenerate,
+    hardMaskEnabled, depthInvert: elements.depthInvert.checked, drawBaselinePixels,
     fileName: sourceFile?.name || 'artwork.png', bytes: pixels.byteLength + baselinePixels.byteLength,
   };
 }
@@ -213,7 +223,7 @@ function clearHistory() {
 }
 
 function commitHistory(label) {
-  if (!basePixels || restoringHistory) return;
+  if (!basePixels || restoringHistory || busy || exportingResult || disposed) return;
   const state = captureState(label);
   undoStack.push(state);
   historyBytes += state.bytes;
@@ -223,10 +233,12 @@ function commitHistory(label) {
     historyBytes -= removed.bytes;
   }
   updateHistoryButtons();
+  notifyHost('ready', 'Unsaved changes.', currentResultKind());
 }
 
 async function restoreState(state) {
   restoringHistory = true;
+  notifyHost('processing', 'Restoring image…');
   updateHistoryButtons();
   sourcePixels = state.sourcePixels;
   imageWidth = state.imageWidth;
@@ -235,7 +247,17 @@ async function restoreState(state) {
   sourceHeight = state.sourceHeight;
   basePixels = new Uint8ClampedArray(state.pixels);
   maskBaseline = new Uint8ClampedArray(state.baselinePixels);
-  drawBaselinePixels = null;
+  drawBaselinePixels = state.drawBaselinePixels;
+  ({ depthMode, depthPreviewActive, depthData, depthWidth, depthHeight, depthMaskAlpha, depthResultId, savedDepthPixels, savedDepthMode, depthPreserveAlpha, depthCanRegenerate, hardMaskEnabled } = state);
+  for (const [id, value] of Object.entries(state.controlValues)) { const input = $(`#${id}`); if (input) input.value = value; }
+  elements.depthInvert.checked = state.depthInvert;
+  elements.feather.disabled = hardMaskEnabled;
+  elements.hardMask.textContent = hardMaskEnabled ? 'On' : 'Off';
+  elements.hardMask.classList.toggle('active', hardMaskEnabled);
+  elements.hardMask.setAttribute('aria-pressed', String(hardMaskEnabled));
+  elements.depthModeBw.classList.toggle('active', depthMode === 'bw');
+  elements.depthModeRgb.classList.toggle('active', depthMode === 'rgb');
+  syncControls();
   elements.canvas.width = imageWidth;
   elements.canvas.height = imageHeight;
   elements.wandCanvas.width = imageWidth;
@@ -245,6 +267,8 @@ async function restoreState(state) {
   sourceCanvas.height = imageHeight;
   sourceCanvas.getContext('2d').putImageData(new ImageData(sourcePixels, imageWidth, imageHeight), 0, 0);
   const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/png'));
+  if (disposed) return;
+  if (!blob) { restoringHistory = false; updateHistoryButtons(); notifyHost('error', 'Could not restore the image.'); return; }
   if (sourceUrl) URL.revokeObjectURL(sourceUrl);
   sourceFile = new File([blob], state.fileName, { type: 'image/png' });
   sourceUrl = URL.createObjectURL(blob);
@@ -253,14 +277,16 @@ async function restoreState(state) {
   elements.fileMeta.textContent = `${imageWidth} × ${imageHeight} · ${formatBytes(blob.size)}`;
   clearWandSelection();
   setCropActive(false);
-  renderMask();
-  requestAnimationFrame(fitStage);
+  if (root.dataset.editorPanel === 'depth' && depthData?.length) { depthPreviewActive = true; renderDepthPreview(); } else { depthPreviewActive = false; renderMask(); }
+  scheduleFrame(fitStage);
   restoringHistory = false;
+  setDepthGenerating(false);
   updateHistoryButtons();
+  notifyHost('ready', 'Unsaved changes.', currentResultKind());
 }
 
 async function undo() {
-  if (!undoStack.length || restoringHistory || busy) return;
+  if (!undoStack.length || restoringHistory || busy || exportingResult || disposed) return;
   const target = undoStack.pop();
   historyBytes -= target.bytes;
   redoStack.push(captureState(target.label));
@@ -269,7 +295,7 @@ async function undo() {
 }
 
 async function redo() {
-  if (!redoStack.length || restoringHistory || busy) return;
+  if (!redoStack.length || restoringHistory || busy || exportingResult || disposed) return;
   const target = redoStack.pop();
   const current = captureState(target.label);
   undoStack.push(current);
@@ -279,16 +305,21 @@ async function redo() {
 }
 
 async function openFile(file, savedDepth = null) {
-  if (!file?.type.startsWith('image/')) return showToast('Choose a JPG, PNG, or WEBP image.', true);
-  if (file.size > 45 * 1024 * 1024) return showToast('This image is over the 45 MB browser limit.', true);
+  if (disposed) return;
+  if (!file?.type.startsWith('image/')) { notifyHost('error', 'Choose a JPG, PNG, or WEBP image.'); return; }
+  if (file.size > 45 * 1024 * 1024) { notifyHost('error', 'Choose an image smaller than 45 MB.'); return; }
 
   if (sourceUrl) URL.revokeObjectURL(sourceUrl);
   sourceFile = file;
   sourceUrl = URL.createObjectURL(file);
   const image = new Image();
+  const generation = ++loadGeneration;
+  pendingImages.add(image);
   image.onload = async () => {
+    pendingImages.delete(image);
+    if (disposed || generation !== loadGeneration) return;
     if (image.naturalWidth * image.naturalHeight > 24_000_000) {
-      showToast('For this MVP, use an image up to 24 megapixels.', true);
+      notifyHost('error', 'Choose an image up to 24 megapixels.');
       return;
     }
     elements.original.src = sourceUrl;
@@ -298,8 +329,8 @@ async function openFile(file, savedDepth = null) {
     elements.canvasArea.classList.remove('hidden');
     elements.originalLayer.style.clipPath = 'inset(0 50% 0 0)';
     updateModelUI();
-    elements.downloadMask.disabled = true;
-    elements.downloadComposite.disabled = true;
+    if (elements.downloadMask) elements.downloadMask.disabled = true;
+    if (elements.downloadComposite) elements.downloadComposite.disabled = true;
     sourceWidth = image.naturalWidth;
     sourceHeight = image.naturalHeight;
     imageWidth = sourceWidth;
@@ -334,14 +365,15 @@ async function openFile(file, savedDepth = null) {
     elements.drawPanel.classList.remove('disabled-panel');
     elements.depthPanel.classList.remove('disabled-panel');
     elements.generateDepth.disabled = false;
-    elements.depthStatus.textContent = embeddedInMapshroom
+    elements.depthStatus.textContent = integrated
       ? 'Generate depth from the original photo. The result saves automatically to your media library.'
       : 'Generate depth from the original photo.';
     setExportDisabled(false);
+    elements.compare.value = '0';
     renderMask();
     cropRect = { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
     setCropActive(false);
-    requestAnimationFrame(fitStage);
+    scheduleFrame(fitStage);
     if (savedDepth) {
       try {
         restoreSavedDepth(sourcePixels, imageWidth, imageHeight, savedDepth.resultId);
@@ -350,6 +382,7 @@ async function openFile(file, savedDepth = null) {
           const originalFile = new File([savedDepth.originalBuffer], savedDepth.originalName || 'original.png', { type: savedDepth.originalMimeType || 'image/png' });
           const bitmap = await createImageBitmap(originalFile);
           try {
+            if (disposed || generation !== loadGeneration) return;
             sourceContext.clearRect(0, 0, imageWidth, imageHeight);
             sourceContext.drawImage(bitmap, 0, 0, imageWidth, imageHeight);
             sourcePixels = sourceContext.getImageData(0, 0, imageWidth, imageHeight).data;
@@ -363,26 +396,27 @@ async function openFile(file, savedDepth = null) {
           } finally { bitmap.close(); }
         }
         setDepthGenerating(false);
-        selectEmbeddedPanel('depth');
+        selectPanel('depth');
         elements.depthStatus.textContent = depthCanRegenerate
           ? 'Saved depth map loaded. Adjust it, then save your changes.'
           : 'Saved depth map loaded. The original is unavailable for regeneration.';
-        notifyMapshroom('ready', elements.depthStatus.textContent, 'depth');
+        notifyHost('ready', elements.depthStatus.textContent, 'depth');
       } catch {
-        notifyMapshroom('error', 'The saved depth map could not be opened. Close the editor and try again.', 'depth');
+        notifyHost('error', 'The saved depth map could not be opened. Close the editor and try again.', 'depth');
       }
     } else {
-      notifyMapshroom('ready', 'Image loaded. Adjust the mask or generate depth.', 'mask');
+      notifyHost('ready', 'Image loaded. Adjust the mask or generate depth.', 'mask');
     }
     if (!savedDepth && elements.autoSegment.checked && elements.model.value !== 'manual') {
-      setTimeout(() => segment(), 0);
+      schedule(() => segment(), 0);
     }
   };
-  image.onerror = () => notifyMapshroom('error', 'The image could not be opened.');
+  image.onerror = () => { pendingImages.delete(image); if (!disposed && generation === loadGeneration) notifyHost('error', 'The image could not be opened.'); };
   image.src = sourceUrl;
 }
 
 function fitStage() {
+  if (disposed) return;
   const bounds = elements.canvasArea.getBoundingClientRect();
   const ratio = sourceWidth / sourceHeight;
   let width = bounds.width;
@@ -397,42 +431,45 @@ function fitStage() {
 }
 
 async function segment() {
-  if (!sourceFile || busy) return;
+  if (!sourceFile || busy || exportingResult || disposed) return;
   busy = true;
   elements.busy.classList.remove('hidden');
-  elements.busyTitle.textContent = 'Waking the mask mushrooms…';
-  elements.busyDetail.textContent = 'First time is slower while the browser learns the spell. Later runs feel snappier.';
+  elements.busyTitle.textContent = 'Removing background…';
+  elements.busyDetail.textContent = 'Preparing the image model. The first run may take longer.';
   elements.progress.style.width = '3%';
   elements.segment.disabled = true;
   elements.generateDepth.disabled = true;
   elements.generateDepth.setAttribute('aria-busy', 'true');
   elements.generateDepth.querySelector('strong').textContent = 'Removing background first…';
-  notifyMapshroom('processing', embeddedStartPanel === 'depth'
+  notifyHost('processing', initialPanel === 'depth'
     ? 'Step 1 of 2: Removing the background. The depth map comes next.'
-    : 'First load can be slow — then masking gets quicker.');
+    : 'Removing background…');
   await runSegmentation(selectedDevice());
 }
 
 async function runSegmentation(device) {
   const buffer = await sourceFile.arrayBuffer();
+  if (disposed) return;
   worker.postMessage({ type: 'segment', buffer, mimeType: sourceFile.type, model: elements.model.value, device }, [buffer]);
 }
 
 worker.onmessage = ({ data }) => {
+  if (disposed) return;
   if (data.type === 'progress') {
     elements.progress.style.width = `${Math.max(3, data.percent)}%`;
     if (data.status === 'progress') elements.busyDetail.textContent = funnyLoadDetail(data.percent);
-    if (data.status === 'ready') elements.busyDetail.textContent = 'Almost there — the stubborn edge pixels are negotiating.';
+    if (data.status === 'ready') elements.busyDetail.textContent = 'Finishing image processing…';
   }
   if (data.type === 'phase') {
-    elements.busyTitle.textContent = data.message.includes('Loading') ? 'Waking the mask mushrooms…' : 'Sorting brave pixels from background pixels…';
+    elements.busyTitle.textContent = data.message.includes('Loading') ? 'Removing background…' : 'Refining image edges…';
     elements.progress.style.width = '92%';
   }
   if (data.type === 'sam-phase') {
-    elements.busyTitle.textContent = data.message.startsWith('Loading') ? 'Giving the AI wand a tiny espresso…' : 'The wand is consulting its pixel oracle…';
+    elements.busyTitle.textContent = data.message.startsWith('Loading') ? 'Finding the selected area…' : 'Refining the selection…';
     elements.progress.style.width = data.message.startsWith('Loading') ? '12%' : '88%';
   }
   if (data.type === 'sam-result') {
+    busy = false;
     commitHistory(`AI wand ${pendingWandAction}`);
     const mask = new Uint8Array(data.mask);
     let removedPixels = 0;
@@ -462,13 +499,14 @@ worker.onmessage = ({ data }) => {
     elements.wandModePlus.disabled = false;
     busy = false;
     elements.progress.style.width = '100%';
-    setTimeout(() => elements.busy.classList.add('hidden'), 300);
+    schedule(() => elements.busy.classList.add('hidden'), 300);
     const coverage = (removedPixels / (imageWidth * imageHeight) * 100).toFixed(1);
     const operation = pendingWandAction === 'minus' ? 'removed' : 'restored';
     showToast(`AI selection confirmed and ${operation} (${coverage}% · confidence ${Math.round(data.score * 100)}%).`);
-    notifyMapshroom('ready', 'AI selection applied. The masked asset is ready.');
+    notifyHost('ready', 'AI selection applied. The masked asset is ready.');
   }
   if (data.type === 'result') {
+    busy = false;
     commitHistory('AI background removal');
     imageWidth = data.width;
     imageHeight = data.height;
@@ -479,18 +517,18 @@ worker.onmessage = ({ data }) => {
     elements.canvas.height = imageHeight;
     renderMask();
     elements.progress.style.width = '100%';
-    setTimeout(() => elements.busy.classList.add('hidden'), 350);
+    schedule(() => elements.busy.classList.add('hidden'), 350);
     updateModelUI();
     setExportDisabled(false);
     elements.refine.classList.remove('disabled-panel');
     busy = false;
     setDepthGenerating(false);
     elements.depthStatus.textContent = 'Background removed. Step 2: click Generate depth map.';
-    const message = embeddedStartPanel === 'depth'
+    const message = initialPanel === 'depth'
       ? 'Background removed. Next, click Generate depth map.'
       : 'Background removed. Refine the mask or use the asset.';
     showToast(message);
-    notifyMapshroom('ready', message);
+    notifyHost('ready', message);
   }
   if (data.type === 'error') {
     busy = false;
@@ -501,16 +539,18 @@ worker.onmessage = ({ data }) => {
       elements.wandModeMinus.disabled = false;
       elements.wandModePlus.disabled = false;
       showToast(`AI Magic Wand failed: ${data.message}`, true);
-      notifyMapshroom('ready', 'Magic Wand failed; manual mask tools remain available.');
+      notifyHost('ready', 'Magic Wand failed; manual mask tools remain available.');
       return;
     }
     updateModelUI();
     showToast(`Segmentation failed on the CPU engine: ${data.message}`, true);
-    notifyMapshroom('ready', 'Automatic removal failed; use Smart Erase or the pencil tools.');
+    notifyHost('ready', 'Automatic removal failed; use Smart Erase or the pencil tools.');
   }
 };
 
 function renderMask() {
+  if (disposed) return;
+  syncControls();
   if (!basePixels) return;
   renderedPixels = new Uint8ClampedArray(basePixels);
 
@@ -646,6 +686,8 @@ function buildDepthPixels() {
 }
 
 function renderDepthPreview() {
+  if (disposed) return;
+  syncControls();
   const pixels = buildDepthPixels();
   if (!pixels) return;
   renderedPixels = pixels;
@@ -658,9 +700,10 @@ function setDepthPreviewActive(active) {
   depthPreviewActive = active && Boolean(depthData?.length);
   if (depthPreviewActive) {
     renderDepthPreview();
-    notifyMapshroom('ready', 'Depth map ready. Adjust it or save a depth copy.', 'depth');
+    notifyHost('ready', 'Depth map ready. Adjust it or save a depth copy.', 'depth');
   } else {
     renderMask();
+    if (sourceFile) notifyHost('ready', 'Generate a depth map to adjust its values.', currentResultKind());
   }
 }
 
@@ -695,12 +738,13 @@ async function generateDepthMap() {
   savedDepthPixels = null;
   depthPreserveAlpha = false;
   elements.busy.classList.remove('hidden');
-  elements.busyTitle.textContent = 'Teaching the mushroom to see in 3D…';
-  elements.busyDetail.textContent = 'First depth pass can crawl; later ones usually sprint.';
+  elements.busyTitle.textContent = 'Generating depth map…';
+  elements.busyDetail.textContent = 'Preparing the depth model. The first run may take longer.';
   elements.progress.style.width = '3%';
   elements.depthStatus.textContent = 'Generating depth from the original photo…';
-  notifyMapshroom('processing', 'Depth first-run is slower — hang tight.', 'depth');
+  notifyHost('processing', 'Generating depth map…', 'depth');
   const buffer = await maskedBlob.arrayBuffer();
+  if (disposed) return;
   depthWorker.postMessage({ type: 'estimate', buffer, mimeType: 'image/png', model: 'onnx-community/depth-anything-v2-small', device: 'wasm' }, [buffer]);
 }
 
@@ -711,27 +755,28 @@ function setDepthGenerating(generating) {
 }
 
 depthWorker.onmessage = async ({ data }) => {
+  if (disposed) return;
   if (data.type === 'progress') {
     elements.progress.style.width = `${Math.max(3, data.percent || 0)}%`;
     if (data.status === 'progress') elements.busyDetail.textContent = funnyLoadDetail(data.percent || 0);
   } else if (data.type === 'phase') {
-    elements.busyTitle.textContent = 'Measuring every pixel’s distance from destiny…';
+    elements.busyTitle.textContent = 'Estimating depth…';
     elements.progress.style.width = '92%';
   } else if (data.type === 'result') {
     depthData = new Uint8Array(data.pixels);
     depthWidth = data.width;
     depthHeight = data.height;
     depthResultId = crypto.randomUUID();
-    depthPreviewActive = document.body.dataset.editorPanel === 'depth';
+    depthPreviewActive = root.dataset.editorPanel === 'depth';
     busy = false;
     setDepthGenerating(false);
     elements.progress.style.width = '100%';
     elements.depthStatus.textContent = `Depth map ready · ${depthWidth} × ${depthHeight} analysis`;
-    setTimeout(() => elements.busy.classList.add('hidden'), 300);
+    schedule(() => elements.busy.classList.add('hidden'), 300);
     if (depthPreviewActive) renderDepthPreview();
     else renderMask();
-    if (embeddedInMapshroom) {
-      await sendCompositeToMapshroom({ automatic: true });
+    if (integrated) {
+      await saveResult({ automatic: true });
     } else {
       showToast('Depth map ready. Adjust it, then download the result.');
     }
@@ -741,11 +786,15 @@ depthWorker.onmessage = async ({ data }) => {
     setDepthGenerating(false);
     elements.depthStatus.textContent = 'Depth generation failed. The other tools are still available.';
     showToast(`Depth map failed: ${data.message}`, true);
-    notifyMapshroom('ready', 'Depth generation failed; Mask and Draw remain available.', 'mask');
+    notifyHost('ready', 'Depth generation failed; Mask and Draw remain available.', 'mask');
   }
 };
 
 function updateCompare() {
+  elements.canvasArea.dataset.compare = elements.compare.value;
+  const comparing = Number(elements.compare.value) > 0 && Number(elements.compare.value) < 100;
+  elements.canvasArea.classList.toggle('compare-active', comparing);
+  root.querySelectorAll('[data-preview-mode]').forEach(button => button.setAttribute('aria-pressed', String(comparing ? button.dataset.previewMode === '50' : button.dataset.previewMode === elements.compare.value)));
   const position = Number(elements.compare.value);
   elements.originalLayer.style.clipPath = `inset(0 ${100 - position}% 0 0)`;
   elements.handle.style.left = `${position}%`;
@@ -772,7 +821,8 @@ function setCropActive(active) {
   elements.canvasArea.classList.toggle('crop-active', active);
   elements.cropOverlay.setAttribute('aria-hidden', String(!active));
   elements.cropToggle.classList.toggle('active', active);
-  elements.cropToggle.innerHTML = active ? '<span>⌗</span> Cropping' : '<span>⌗</span> Crop tool';
+  elements.cropToggle.textContent = active ? 'Crop enabled' : 'Enable crop';
+  elements.cropToggle.setAttribute('aria-pressed', String(active));
   elements.cropApply.disabled = !active;
   elements.cropCancel.disabled = !active;
   renderCropFrame();
@@ -805,8 +855,10 @@ function cropPixelBuffer(pixels, startX, startY, width, height, oldWidth) {
 }
 
 async function applyCrop() {
-  if (!sourcePixels || !basePixels) return;
+  if (!sourcePixels || !basePixels || busy || exportingResult || restoringHistory || disposed) return;
   commitHistory('crop');
+  restoringHistory = true;
+  notifyHost('processing', 'Cropping image…');
   const oldWidth = imageWidth;
   const startX = Math.max(0, Math.floor(cropRect.x * imageWidth));
   const startY = Math.max(0, Math.floor(cropRect.y * imageHeight));
@@ -815,6 +867,7 @@ async function applyCrop() {
   sourcePixels = cropPixelBuffer(sourcePixels, startX, startY, width, height, oldWidth);
   basePixels = cropPixelBuffer(basePixels, startX, startY, width, height, oldWidth);
   maskBaseline = cropPixelBuffer(maskBaseline, startX, startY, width, height, oldWidth);
+  if (drawBaselinePixels) drawBaselinePixels = cropPixelBuffer(drawBaselinePixels, startX, startY, width, height, oldWidth);
   imageWidth = width;
   imageHeight = height;
   sourceWidth = width;
@@ -824,6 +877,7 @@ async function applyCrop() {
   depthHeight = 0;
   depthMaskAlpha = null;
   depthResultId = null;
+  savedDepthPixels = null;
   depthPreviewActive = false;
   elements.depthStatus.textContent = 'Crop applied. Generate depth from the updated mask.';
   elements.canvas.width = width;
@@ -836,6 +890,8 @@ async function applyCrop() {
   sourceCanvas.height = height;
   sourceCanvas.getContext('2d').putImageData(new ImageData(sourcePixels, width, height), 0, 0);
   const blob = await new Promise((resolve) => sourceCanvas.toBlob(resolve, 'image/png'));
+  if (disposed) return;
+  if (!blob) { restoringHistory = false; updateHistoryButtons(); notifyHost('error', 'Could not restore the image.'); return; }
   if (sourceUrl) URL.revokeObjectURL(sourceUrl);
   const originalName = sourceFile?.name?.replace(/\.[^.]+$/, '') || 'artwork';
   sourceFile = new File([blob], `${originalName}-crop.png`, { type: 'image/png' });
@@ -846,7 +902,10 @@ async function applyCrop() {
   renderMask();
   cropRect = { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
   setCropActive(false);
-  requestAnimationFrame(fitStage);
+  scheduleFrame(fitStage);
+  restoringHistory = false;
+  updateHistoryButtons();
+  notifyHost('ready', 'Crop applied. Save the edited copy.', currentResultKind());
   showToast(`Crop applied at ${width} × ${height} pixels.`);
 }
 
@@ -951,11 +1010,11 @@ function drawWandLine(from, to) {
 }
 
 async function confirmWandRemoval() {
-  if (!sourceFile || wandPoints.length === 0 || busy) return;
+  if (!sourceFile || wandPoints.length === 0 || busy || exportingResult || disposed) return;
   busy = true;
   elements.busy.classList.remove('hidden');
-  elements.busyTitle.textContent = 'Giving the AI wand a tiny espresso…';
-  elements.busyDetail.textContent = 'First wand use is slower; after that it mostly remembers the recipe.';
+  elements.busyTitle.textContent = 'Finding the selected area…';
+  elements.busyDetail.textContent = 'Preparing the selection model. The first run may take longer.';
   elements.progress.style.width = '3%';
   elements.wandConfirm.disabled = true;
   elements.wandModeMinus.disabled = true;
@@ -965,6 +1024,7 @@ async function confirmWandRemoval() {
   const step = Math.max(1, Math.ceil(wandPoints.length / maximumPoints));
   const points = wandPoints.filter((_, index) => index % step === 0).slice(0, maximumPoints);
   const buffer = await sourceFile.arrayBuffer();
+  if (disposed) return;
   worker.postMessage({ type: 'sam-segment', buffer, mimeType: sourceFile.type, points }, [buffer]);
 }
 
@@ -974,7 +1034,8 @@ function setBrushActive(active) {
   if (active) magicEraseActive = false;
   elements.canvasArea.classList.toggle('edit-active', active || magicEraseActive);
   elements.canvasArea.classList.toggle('brush-active', active);
-  elements.brushToggle.innerHTML = `<span aria-hidden="true">✎</span> ${active ? 'PENCIL ON' : 'PENCIL OFF'}`;
+  elements.brushToggle.textContent = active ? 'Brush enabled' : 'Enable brush';
+  elements.brushToggle.setAttribute('aria-pressed', String(active));
   elements.brushToggle.classList.toggle('active', active);
   elements.brushCursor.classList.toggle('cursor-manual', active);
   if (!active) elements.brushCursor.classList.remove('visible', 'cursor-manual');
@@ -992,7 +1053,8 @@ function setMagicEraseActive(active) {
   if (active) brushActive = false;
   elements.canvasArea.classList.toggle('edit-active', active || brushActive);
   elements.canvasArea.classList.remove('brush-active');
-  elements.brushToggle.innerHTML = '<span aria-hidden="true">✎</span> PENCIL OFF';
+  elements.brushToggle.textContent = 'Enable brush';
+  elements.brushToggle.setAttribute('aria-pressed', 'false');
   elements.brushToggle.classList.remove('active');
   elements.magicErase.classList.toggle('active', active);
   elements.brushCursor.classList.remove('visible');
@@ -1013,7 +1075,7 @@ function setDrawActive(active) {
     elements.compare.value = '0';
     updateCompare();
     showToast('Draw mode: paint mapping color directly onto the image.');
-    notifyMapshroom('ready', 'Draw mode ready. Painted pixels will be included in the saved copy.', 'draw');
+    notifyHost('ready', 'Draw mode ready. Painted pixels will be included in the saved copy.', 'draw');
   }
   elements.canvasArea.classList.toggle('edit-active', active || brushActive || magicEraseActive);
   elements.canvasArea.classList.toggle('draw-active', active);
@@ -1214,7 +1276,7 @@ function downloadCanvas(canvas, suffix) {
     link.download = `${stem}-${suffix}.png`;
     link.href = URL.createObjectURL(blob);
     link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    schedule(() => URL.revokeObjectURL(link.href), 1000);
   }, 'image/png');
 }
 
@@ -1258,13 +1320,14 @@ function downloadComposite() {
   if (canvas) downloadCanvas(canvas, 'original-black-mask');
 }
 
-async function sendCompositeToMapshroom({ automatic = false } = {}) {
-  if (exportingResult) return;
-  if (!embeddedInMapshroom || busy) {
-    notifyMapshroom(busy ? 'processing' : 'error', busy ? 'Wait for the current AI operation to finish.' : 'Mask Studio is unavailable.');
+async function saveResult({ automatic = false } = {}) {
+  if (disposed) return;
+  if (exportingResult || restoringHistory) return;
+  if (!integrated || busy) {
+    notifyHost(busy ? 'processing' : 'error', busy ? 'Wait for the current AI operation to finish.' : 'The editor is unavailable.');
     return;
   }
-  const resultKind = automatic || (depthPreviewActive && depthData?.length) ? 'depth' : drawBaselinePixels ? 'draw' : 'mask';
+  const resultKind = automatic ? 'depth' : currentResultKind();
   let canvas;
   if (resultKind === 'depth') {
     // Export depth even if the user switched panels while inference was running.
@@ -1279,71 +1342,67 @@ async function sendCompositeToMapshroom({ automatic = false } = {}) {
     canvas = buildBinaryExport('composite');
   }
   if (!canvas) {
-    notifyMapshroom('error', 'Load an image before applying the mask.');
+    notifyHost('error', 'Load an image before applying the mask.');
     return;
   }
   exportingResult = true;
-  notifyMapshroom('processing', automatic ? 'Saving depth map to your media library…' : 'Saving image…', resultKind);
+  notifyHost('processing', automatic ? 'Saving depth map to your media library…' : 'Saving image…', resultKind);
   try {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('The image could not be created.');
-    const buffer = await blob.arrayBuffer();
-    window.parent.postMessage(
-      {
-        type: 'mapshroom:segmentation-result',
-        mimeType: 'image/png',
-        resultKind,
-        resultId: resultKind === 'depth' ? depthResultId : null,
-        automatic,
-        width: imageWidth,
-        height: imageHeight,
-        buffer,
-      },
-      window.location.origin,
-      [buffer],
-    );
+    if (disposed) return;
+    const saved = await options.onSave?.(blob, {
+      resultKind, resultId: resultKind === 'depth' ? depthResultId : null,
+      automatic, width: imageWidth, height: imageHeight,
+    });
+    if (disposed) return;
+    exportingResult = false;
+    const message = saved ? 'Changes saved.' : 'The image could not be saved. Use Save to try again.';
+    if (resultKind === 'depth') elements.depthStatus.textContent = message;
+    notifyHost('ready', message, resultKind);
+    showToast(message, !saved);
   } catch {
     exportingResult = false;
-    notifyMapshroom('ready', 'The image could not be saved. Use Save to try again.', resultKind);
+    notifyHost('ready', 'The image could not be saved. Use Save to try again.', resultKind);
     showToast('The image could not be saved. Use Save to try again.', true);
   }
 }
 
 function openPicker() { elements.fileInput.click(); }
-elements.emptyUpload.addEventListener('click', openPicker);
-elements.dropzone.addEventListener('click', openPicker);
-elements.dropzone.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') openPicker(); });
-elements.fileInput.addEventListener('change', () => openFile(elements.fileInput.files[0]));
-elements.sample.addEventListener('click', async () => {
+listen(elements.emptyUpload, 'click', openPicker);
+listen(elements.dropzone, 'click', openPicker);
+listen(elements.dropzone, 'keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') openPicker(); });
+listen(elements.fileInput, 'change', () => openFile(elements.fileInput.files[0]));
+listen(elements.sample, 'click', async () => {
   const response = await fetch('../assets/defaults-basestatue.png');
   const blob = await response.blob();
   openFile(new File([blob], 'mapshroom-statue.png', { type: blob.type || 'image/png' }));
 });
-elements.segment.addEventListener('click', segment);
-elements.downloadMask.addEventListener('click', downloadMask);
-elements.downloadComposite.addEventListener('click', downloadComposite);
-elements.undo.addEventListener('click', undo);
-elements.redo.addEventListener('click', redo);
-elements.cropToggle.addEventListener('click', () => setCropActive(!cropActive));
-elements.cropReset.addEventListener('click', resetCropFrame);
-elements.cropCancel.addEventListener('click', () => { setCropActive(false); showToast('Crop cancelled.'); });
-elements.cropAspect.addEventListener('change', resetCropFrame);
-elements.cropApply.addEventListener('click', applyCrop);
-elements.cropBox.addEventListener('pointerdown', beginCropDrag);
-elements.cropOverlay.addEventListener('pointermove', moveCropDrag);
-elements.cropOverlay.addEventListener('pointerup', () => { cropDrag = null; });
-elements.cropOverlay.addEventListener('pointercancel', () => { cropDrag = null; });
-elements.wandToggle.addEventListener('click', () => setWandActive(!wandActive));
-elements.wandModeMinus.addEventListener('click', () => setWandAction('minus'));
-elements.wandModePlus.addEventListener('click', () => setWandAction('plus'));
-elements.wandCancel.addEventListener('click', () => {
+listen(elements.segment, 'click', segment);
+listen(elements.downloadMask, 'click', downloadMask);
+listen(elements.downloadComposite, 'click', downloadComposite);
+listen(elements.undo, 'click', undo);
+listen(elements.redo, 'click', redo);
+listen(elements.cropToggle, 'click', () => setCropActive(!cropActive));
+listen(elements.cropReset, 'click', resetCropFrame);
+listen(elements.cropCancel, 'click', () => { setCropActive(false); showToast('Crop cancelled.'); });
+listen(elements.cropAspect, 'change', resetCropFrame);
+listen(elements.cropApply, 'click', applyCrop);
+listen(elements.cropBox, 'pointerdown', beginCropDrag);
+listen(elements.cropOverlay, 'pointermove', moveCropDrag);
+listen(elements.cropOverlay, 'pointerup', () => { cropDrag = null; });
+listen(elements.cropOverlay, 'pointercancel', () => { cropDrag = null; });
+listen(elements.wandToggle, 'click', () => setWandActive(!wandActive));
+listen(elements.wandModeMinus, 'click', () => setWandAction('minus'));
+listen(elements.wandModePlus, 'click', () => setWandAction('plus'));
+listen(elements.wandCancel, 'click', () => {
   clearWandSelection();
   setWandActive(false);
   showToast('AI selection cancelled.');
 });
-elements.wandConfirm.addEventListener('click', confirmWandRemoval);
-elements.wandSize.addEventListener('input', () => { $('#wandSizeValue').value = `${elements.wandSize.value} px`; });
-elements.wandCanvas.addEventListener('pointerdown', (event) => {
+listen(elements.wandConfirm, 'click', confirmWandRemoval);
+listen(elements.wandSize, 'input', () => { $('#wandSizeValue').value = `${elements.wandSize.value} px`; });
+listen(elements.wandCanvas, 'pointerdown', (event) => {
   if (!wandActive) return;
   event.preventDefault();
   wandDrawing = true;
@@ -1351,22 +1410,22 @@ elements.wandCanvas.addEventListener('pointerdown', (event) => {
   previousWandPoint = wandPoint(event);
   drawWandLine(previousWandPoint, previousWandPoint);
 });
-elements.wandCanvas.addEventListener('pointermove', (event) => {
+listen(elements.wandCanvas, 'pointermove', (event) => {
   updateToolCursor(event, 'ai');
   if (!wandDrawing || !wandActive) return;
   const point = wandPoint(event);
   drawWandLine(previousWandPoint, point);
   previousWandPoint = point;
 });
-elements.wandCanvas.addEventListener('pointerup', () => { wandDrawing = false; previousWandPoint = null; });
-elements.wandCanvas.addEventListener('pointercancel', () => { wandDrawing = false; previousWandPoint = null; });
-elements.wandCanvas.addEventListener('pointerenter', (event) => updateToolCursor(event, 'ai'));
-elements.wandCanvas.addEventListener('pointerleave', () => elements.brushCursor.classList.remove('visible'));
-elements.brushToggle.addEventListener('click', () => setBrushActive(!brushActive));
-elements.drawToggle.addEventListener('click', () => setDrawActive(!drawActive));
-elements.drawSize.addEventListener('input', () => { $('#drawSizeValue').value = `${elements.drawSize.value} px`; });
-elements.drawColor.addEventListener('input', () => { elements.brushCursor.style.color = elements.drawColor.value; });
-elements.resetDraw.addEventListener('click', () => {
+listen(elements.wandCanvas, 'pointerup', () => { wandDrawing = false; previousWandPoint = null; });
+listen(elements.wandCanvas, 'pointercancel', () => { wandDrawing = false; previousWandPoint = null; });
+listen(elements.wandCanvas, 'pointerenter', (event) => updateToolCursor(event, 'ai'));
+listen(elements.wandCanvas, 'pointerleave', () => elements.brushCursor.classList.remove('visible'));
+listen(elements.brushToggle, 'click', () => setBrushActive(!brushActive));
+listen(elements.drawToggle, 'click', () => setDrawActive(!drawActive));
+listen(elements.drawSize, 'input', () => { $('#drawSizeValue').value = `${elements.drawSize.value} px`; });
+listen(elements.drawColor, 'input', () => { elements.brushCursor.style.color = elements.drawColor.value; });
+listen(elements.resetDraw, 'click', () => {
   if (!drawBaselinePixels) return;
   commitHistory('drawing reset');
   basePixels = new Uint8ClampedArray(drawBaselinePixels);
@@ -1374,14 +1433,16 @@ elements.resetDraw.addEventListener('click', () => {
   renderMask();
   showToast('Surface drawing reset.');
 });
-elements.generateDepth.addEventListener('click', generateDepthMap);
-elements.depthModeBw.addEventListener('click', () => {
+listen(elements.generateDepth, 'click', generateDepthMap);
+listen(elements.depthModeBw, 'click', () => {
+  if (depthMode !== 'bw') commitHistory('depth color');
   depthMode = 'bw';
   elements.depthModeBw.classList.add('active');
   elements.depthModeRgb.classList.remove('active');
   if (depthPreviewActive) renderDepthPreview();
 });
-elements.depthModeRgb.addEventListener('click', () => {
+listen(elements.depthModeRgb, 'click', () => {
+  if (depthMode !== 'rgb') commitHistory('depth color');
   depthMode = 'rgb';
   elements.depthModeRgb.classList.add('active');
   elements.depthModeBw.classList.remove('active');
@@ -1393,26 +1454,27 @@ elements.depthModeRgb.addEventListener('click', () => {
   ['depthContrast', 'depthContrastValue'],
   ['depthGamma', 'depthGammaValue'],
 ].forEach(([key, outputId]) => {
-  elements[key].addEventListener('input', () => {
+  listen(elements[key], 'input', () => {
     $(`#${outputId}`).value = `${elements[key].value}%`;
     if (depthPreviewActive) renderDepthPreview();
   });
 });
-elements.depthInvert.addEventListener('change', () => { if (depthPreviewActive) renderDepthPreview(); });
-elements.magicErase.addEventListener('click', () => setMagicEraseActive(!magicEraseActive));
-elements.eraseBrush.addEventListener('click', () => setBrushAction('erase'));
-elements.restoreBrush.addEventListener('click', () => setBrushAction('restore'));
-elements.brushSize.addEventListener('input', () => {
+listen(elements.depthInvert, 'change', () => { if (depthPreviewActive) renderDepthPreview(); });
+listen(elements.magicErase, 'click', () => setMagicEraseActive(!magicEraseActive));
+listen(elements.eraseBrush, 'click', () => setBrushAction('erase'));
+listen(elements.restoreBrush, 'click', () => setBrushAction('restore'));
+listen(elements.brushSize, 'input', () => {
   $('#brushSizeValue').value = `${elements.brushSize.value} px`;
 });
-elements.resetBrush.addEventListener('click', () => {
+listen(elements.resetBrush, 'click', () => {
   if (!maskBaseline) return;
   commitHistory('manual edit reset');
   basePixels = new Uint8ClampedArray(maskBaseline);
   renderMask();
   showToast('Manual mask edits reset.');
 });
-elements.hardMask.addEventListener('click', () => {
+listen(elements.hardMask, 'click', () => {
+  commitHistory('hard mask');
   hardMaskEnabled = !hardMaskEnabled;
   elements.hardMask.textContent = hardMaskEnabled ? 'ON' : 'OFF';
   elements.hardMask.classList.toggle('active', hardMaskEnabled);
@@ -1423,14 +1485,14 @@ elements.hardMask.addEventListener('click', () => {
     $('#thresholdValue').value = '35%';
   }
   if (hardMaskEnabled) {
-    document.querySelectorAll('.swatch').forEach((item) => item.classList.toggle('active', item.dataset.background === 'black'));
+    root.querySelectorAll('.swatch').forEach((item) => item.classList.toggle('active', item.dataset.background === 'black'));
     elements.checkerboard.dataset.background = 'black';
   }
   renderMask();
   showToast(hardMaskEnabled ? 'Hard mask enabled: alpha is now fully opaque or transparent.' : 'Soft alpha edges restored.');
 });
-elements.canvas.addEventListener('pointerdown', (event) => {
-  if ((!brushActive && !magicEraseActive && !drawActive) || !basePixels) return;
+listen(elements.canvas, 'pointerdown', (event) => {
+  if (busy || exportingResult || disposed || (!brushActive && !magicEraseActive && !drawActive) || !basePixels) return;
   event.preventDefault();
   if (magicEraseActive) {
     smartErase(brushPoint(event));
@@ -1451,7 +1513,7 @@ elements.canvas.addEventListener('pointerdown', (event) => {
   previousBrushPoint = brushPoint(event);
   renderMaskRegion(paintCircle(previousBrushPoint));
 });
-elements.canvas.addEventListener('pointermove', (event) => {
+listen(elements.canvas, 'pointermove', (event) => {
   updateToolCursor(event, drawActive ? 'draw' : 'manual');
   if (!painting || (!brushActive && !drawActive)) return;
   const point = brushPoint(event);
@@ -1459,20 +1521,21 @@ elements.canvas.addEventListener('pointermove', (event) => {
   else paintLine(previousBrushPoint, point);
   previousBrushPoint = point;
 });
-elements.canvas.addEventListener('pointerup', () => { painting = false; previousBrushPoint = null; });
-elements.canvas.addEventListener('pointercancel', () => { painting = false; previousBrushPoint = null; });
-elements.canvas.addEventListener('pointerleave', () => elements.brushCursor.classList.remove('visible'));
-elements.canvas.addEventListener('pointerenter', (event) => updateToolCursor(event, drawActive ? 'draw' : 'manual'));
-elements.compare.addEventListener('input', updateCompare);
-elements.model.addEventListener('change', () => {
+listen(elements.canvas, 'pointerup', () => { painting = false; previousBrushPoint = null; });
+listen(elements.canvas, 'pointercancel', () => { painting = false; previousBrushPoint = null; });
+listen(elements.canvas, 'pointerleave', () => elements.brushCursor.classList.remove('visible'));
+listen(elements.canvas, 'pointerenter', (event) => updateToolCursor(event, drawActive ? 'draw' : 'manual'));
+listen(elements.compare, 'input', updateCompare);
+listen(elements.model, 'change', () => {
   updateModelUI();
   if (sourceFile && elements.autoSegment.checked && elements.model.value !== 'manual' && !busy) segment();
 });
-elements.autoSegment.addEventListener('change', () => {
+listen(elements.autoSegment, 'change', () => {
   if (elements.autoSegment.checked && sourceFile && elements.model.value !== 'manual' && !busy) segment();
 });
 
-document.addEventListener('keydown', (event) => {
+listen(root, 'keydown', (event) => {
+  if (event.target?.closest('input, textarea, select, [contenteditable=true]')) return;
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
   const key = event.key.toLowerCase();
   if (key === 'z') {
@@ -1485,63 +1548,98 @@ document.addEventListener('keydown', (event) => {
 });
 
 [['threshold', 'thresholdValue', '%'], ['feather', 'featherValue', ' px'], ['spill', 'spillValue', '%']].forEach(([key, outputId, suffix]) => {
-  elements[key].addEventListener('input', () => {
-    document.querySelector(`#${outputId}`).value = `${elements[key].value}${suffix}`;
+  listen(elements[key], 'input', () => {
+    root.querySelector(`#${outputId}`).value = `${elements[key].value}${suffix}`;
     renderMask();
   });
 });
 
 [['magicTolerance', 'magicToleranceValue'], ['magicSoftness', 'magicSoftnessValue']].forEach(([key, outputId]) => {
-  elements[key].addEventListener('input', () => { document.querySelector(`#${outputId}`).value = elements[key].value; });
+  listen(elements[key], 'input', () => { root.querySelector(`#${outputId}`).value = elements[key].value; });
 });
 
-document.querySelectorAll('.swatch').forEach((button) => button.addEventListener('click', () => {
-  document.querySelectorAll('.swatch').forEach((item) => item.classList.remove('active'));
+root.querySelectorAll('.swatch').forEach((button) => listen(button, 'click', () => {
+  root.querySelectorAll('.swatch').forEach((item) => item.classList.remove('active'));
   button.classList.add('active');
   elements.checkerboard.dataset.background = button.dataset.background;
 }));
 
-for (const target of [document.body, elements.dropzone]) {
-  target.addEventListener('dragover', (event) => { event.preventDefault(); elements.dropOverlay.classList.add('visible'); });
-  target.addEventListener('dragleave', (event) => { if (!event.relatedTarget || !document.body.contains(event.relatedTarget)) elements.dropOverlay.classList.remove('visible'); });
-  target.addEventListener('drop', (event) => {
+if (!integrated) {
+for (const target of [root, elements.dropzone]) {
+  listen(target, 'dragover', (event) => { event.preventDefault(); elements.dropOverlay.classList.add('visible'); });
+  listen(target, 'dragleave', (event) => { if (!event.relatedTarget || !root.contains(event.relatedTarget)) elements.dropOverlay.classList.remove('visible'); });
+  listen(target, 'drop', (event) => {
     event.preventDefault();
     elements.dropOverlay.classList.remove('visible');
     openFile(event.dataTransfer.files[0]);
   });
 }
-
-window.addEventListener('message', (event) => {
-  if (!embeddedInMapshroom || event.origin !== window.location.origin || event.source !== window.parent) return;
-  if (event.data?.type === 'mapshroom:load-image' && event.data.buffer instanceof ArrayBuffer) {
-    const file = new File(
-      [event.data.buffer],
-      event.data.name || 'mapshroom-asset.png',
-      { type: event.data.mimeType || 'image/png' },
-    );
-    void openFile(file, event.data.savedDepth?.resultId ? event.data.savedDepth : null);
-  } else if (event.data?.type === 'mapshroom:request-segmentation-result') {
-    void sendCompositeToMapshroom();
-  } else if (event.data?.type === 'mapshroom:segmentation-saved') {
-    exportingResult = false;
-    if (event.data.resultKind === 'depth') {
-      elements.depthStatus.textContent = event.data.saved
-        ? 'Saved to your media library. Save depth changes after adjusting.'
-        : 'Depth map could not be saved. Use Save depth map to retry.';
-      showToast(elements.depthStatus.textContent, !event.data.saved);
-    }
-  }
-});
-
-if (embeddedInMapshroom) {
-  document.body.classList.add('embedded-in-mapshroom');
-  selectEmbeddedPanel(embeddedStartPanel);
-  document.querySelectorAll('[data-editor-panel]').forEach((button) => {
-    button.addEventListener('click', () => selectEmbeddedPanel(button.dataset.editorPanel));
-  });
-  window.parent.postMessage({ type: 'mapshroom:ready' }, window.location.origin);
 }
 
+
+
+function syncControls() {
+  root.querySelectorAll('input[type=range]:not(.compare-range)').forEach(input => {
+    const ratio = (Number(input.value) - Number(input.min || 0)) / (Number(input.max || 100) - Number(input.min || 0));
+    input.style.setProperty('--range-fill-position', `${Math.max(0, Math.min(1, ratio)) * 100}%`);
+    const output = root.querySelector(`label[for="${input.id}"] output`);
+    if (output) { const suffix = output.textContent?.includes('px') ? ' px' : output.textContent?.includes('%') ? '%' : ''; output.value = `${input.value}${suffix}`; }
+  });
+  elements.depthModeBw.setAttribute('aria-pressed', String(depthMode === 'bw'));
+  elements.depthModeRgb.setAttribute('aria-pressed', String(depthMode === 'rgb'));
+}
+root.querySelectorAll('[data-preview-mode]').forEach(button => listen(button, 'click', () => {
+  elements.compare.value = button.dataset.previewMode;
+  setBrushActive(false); setMagicEraseActive(false); setDrawActive(false); setWandActive(false); setCropActive(false);
+  updateCompare();
+}));
+for (const input of [elements.depthStrength, elements.depthDefinition, elements.depthContrast, elements.depthGamma, elements.threshold, elements.feather, elements.spill]) {
+  listen(input, 'pointerdown', () => commitHistory('image adjustment'));
+  listen(input, 'keydown', event => { if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key) && !event.repeat) commitHistory('image adjustment'); });
+}
+listen(elements.depthInvert, 'pointerdown', () => commitHistory('invert depth'));
+listen(elements.depthInvert, 'keydown', event => { if (event.key === ' ' && !event.repeat) commitHistory('invert depth'); });
+listen(root, 'input', syncControls);
+root.querySelectorAll('[data-editor-panel]').forEach(button => listen(button, 'keydown', event => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+  event.preventDefault();
+  const tabs = Array.from(root.querySelectorAll('[data-editor-panel]'));
+  const index = tabs.indexOf(button);
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  selectPanel(tabs[next].dataset.editorPanel); tabs[next].focus();
+}));
+
+if (integrated) {
+  selectPanel(initialPanel);
+  root.querySelectorAll('[data-editor-panel]').forEach(button => {
+    listen(button, 'click', () => selectPanel(button.dataset.editorPanel));
+  });
+}
+const observer = new ResizeObserver(fitStage);
+observer.observe(elements.canvasArea);
 updateCompare();
 updateModelUI();
-window.addEventListener('resize', fitStage);
+for (const runtime of [worker, depthWorker]) {
+  runtime.onerror = event => {
+    if (disposed) return;
+    event.preventDefault(); busy = false;
+    elements.busy.classList.add('hidden'); setDepthGenerating(false);
+    notifyHost('error', 'Image processing stopped. Close the editor and try again.');
+  };
+}
+return {
+  open: openFile,
+  save: () => saveResult(),
+  dispose() {
+    if (disposed) return;
+    disposed = true; loadGeneration += 1; events.abort(); observer.disconnect();
+    worker.terminate(); depthWorker.terminate();
+    timers.forEach(clearTimeout); frames.forEach(cancelAnimationFrame);
+    pendingImages.forEach(image => { image.onload = null; image.onerror = null; image.src = ''; });
+    if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    basePixels = sourcePixels = maskBaseline = renderedPixels = depthData = savedDepthPixels = null;
+    undoStack = []; redoStack = [];
+    for (const canvas of [elements.canvas, elements.wandCanvas]) { canvas.width = canvas.height = 1; }
+  },
+};
+}

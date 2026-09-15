@@ -1,6 +1,6 @@
-# Mapshroom Artwork Segmenter MVP
+# Mapshroom image processing
 
-A standalone browser-only demo for isolating statues, drawings, and paintings from their backgrounds.
+Processing engine for the native **Adjust map** editor. Mask Studio's separate HTML, stylesheet, iframe bridge and build entry have been removed.
 
 ## Run locally
 
@@ -9,13 +9,13 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173/segmentation/`.
+Open Mapshroom, go to **Assets**, select an image and choose **Adjust**. Saved depth maps reopen through **Adjust depth**.
 
 ## How it works
 
 - Inference runs locally in a Web Worker through Transformers.js and ONNX Runtime Web.
 - Inference uses single-threaded WASM/CPU safe mode. WebGPU is intentionally disabled because several integrated-GPU backends cannot execute the models' MaxPool `ceil_mode` shape computation.
-- ORMBG is selected by default and automatic background removal runs immediately after image upload. Changing the model reruns segmentation when Auto Remove is enabled; Manual mode skips inference.
+- Background removal and depth generation start only from their explicit actions. Manual masking, drawing and cropping require no model download.
 - Model files are downloaded from Hugging Face on first use and then stored in the browser cache.
 - Uploaded artwork is processed in memory and is never sent to an application server.
 - A full-resolution erase/restore pencil can create a mask without AI or clean up an AI result.
@@ -24,7 +24,14 @@ Open `http://localhost:5173/segmentation/`.
 - The crop tool provides a movable rule-of-thirds frame, eight resize handles, aspect presets, and full-resolution destructive crop application across the source and mask.
 - AI Magic Wand uses SlimSAM after explicit confirmation. Minus mode removes the prompted region; Plus mode restores the corresponding original pixels when automatic segmentation removed too much. Cancel discards the non-destructive colored prompt.
 - Undo and redo cover model results, AI wand changes, Smart Erase, individual pencil strokes, resets, and confirmed crops. Use the buttons or `Ctrl+Z`, `Ctrl+Shift+Z`, and `Ctrl+Y`.
-- Export always uses the original RGB pixels and a hard binary mask. Download either the standalone mask (white kept, black removed) or the original image with every removed pixel painted black.
+- Mask/draw saves create library copies with the edited RGB pixels and a solid background. Depth saves retain their generated asset identity; reopened depth maps preserve the existing raster and alpha at neutral settings.
+
+## Integration
+
+- `editor.js` scopes its DOM events, canvases and workers to a supplied root and returns `open`, `save` and `dispose` methods.
+- `src/components/AssetMapEditor.tsx` owns loading, focus, status and direct library-save callbacks.
+- `src/components/MapEditorTools.tsx` and `AssetMapEditor.css` provide the native interface with shared grayscale theme tokens.
+- Closing the editor aborts listeners, cancels pending callbacks and terminates both workers.
 
 ## Included model profiles
 

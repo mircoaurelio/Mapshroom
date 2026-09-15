@@ -204,7 +204,7 @@ function AudioSignalVisualizer({
     }
 
     for (const split of [1 / 3, 2 / 3]) {
-      context.strokeStyle = 'rgba(209, 250, 229, 0.16)';
+      context.strokeStyle = 'rgba(238, 238, 238, 0.16)';
       context.setLineDash([2, 3]);
       context.beginPath();
       context.moveTo(width * split, 0);
@@ -260,7 +260,7 @@ function AudioSignalVisualizer({
 
       context.shadowBlur = 0;
       if (frame.active && index % 6 === 0 && amplitude > 18) {
-        context.fillStyle = 'rgba(209, 250, 229, 0.52)';
+        context.fillStyle = 'rgba(238, 238, 238, 0.52)';
         context.font = '6px "IBM Plex Mono", monospace';
         const glyph = ((index + Math.floor(motionTime)) % 16).toString(16).toUpperCase();
         context.fillText(glyph, x, Math.max(7, baselineY - amplitude - 2));
@@ -270,9 +270,9 @@ function AudioSignalVisualizer({
 
     const history = historyRef.current;
     if (history.length > 1) {
-      context.strokeStyle = 'rgba(209, 250, 229, 0.9)';
+      context.strokeStyle = 'rgba(238, 238, 238, 0.9)';
       context.lineWidth = 1.35;
-      context.shadowColor = 'rgba(52, 211, 153, 0.58)';
+      context.shadowColor = 'rgba(222, 222, 222, 0.58)';
       context.shadowBlur = 5;
       context.beginPath();
       history.forEach((point, index) => {

@@ -40,7 +40,7 @@ import {
   type ImageTransfer,
 } from '../lib/imageTransfer';
 import { useImageDropTarget } from '../lib/useImageDropTarget';
-import { AssetSegmentationDialog, type SegmentationSaveOptions } from '../components/AssetSegmentationDialog';
+import { AssetMapEditor, type MapEditorSaveOptions } from '../components/AssetMapEditor';
 import { AssetSurfacesDialog, type SurfaceEditorInitialOptions } from '../components/AssetSurfacesDialog';
 import type { SurfaceOutput } from '../lib/surfaceMapping/types';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
@@ -4733,7 +4733,7 @@ export function WorkspaceRoute() {
     setSegmentationQueue((current) => current.slice(1));
   }, []);
 
-  const handleAssetMaskApply = useCallback(async (blob: Blob, resultKind: 'mask' | 'draw' | 'depth', options: SegmentationSaveOptions) => {
+  const handleAssetMaskApply = useCallback(async (blob: Blob, resultKind: 'mask' | 'draw' | 'depth', options: MapEditorSaveOptions) => {
     const sourceAssetId = segmentationQueue[0];
     const sourceAsset = project?.library.assets.find((asset) => asset.id === sourceAssetId);
     if (!sourceAsset) {
@@ -9136,7 +9136,6 @@ ${errorSnapshot}`,
           workspaceMode={uiPreferences.workspaceMode}
           sidebarVisible={uiPreferences.sidebarVisible}
           desktopSlidersWindowEnabled={uiPreferences.desktopSlidersWindowEnabled}
-          colorTheme={uiPreferences.colorTheme}
           showMoveButton={desktopSection === 'workspace'}
           moveMode={stageTransform.moveMode}
           audioReactiveEnabled={audioReactivity.preferences.modeEnabled}
@@ -9208,12 +9207,6 @@ ${errorSnapshot}`,
           }}
           onToggleSidebarVisibility={toggleSidebarVisibility}
           onToggleDesktopSlidersWindow={toggleDesktopSlidersWindow}
-          onToggleColorTheme={() =>
-            setUiPreferences((currentPreferences) => ({
-              ...currentPreferences,
-              colorTheme: currentPreferences.colorTheme === 'pink' ? 'green' : 'pink',
-            }))
-          }
           midiEnabled={midiEnabled}
           midiPanelVisible={midiPanelVisible}
           onToggleMidi={() => {
@@ -9349,7 +9342,7 @@ ${errorSnapshot}`,
 
       {(isMobile || !uiPreferences.chromeVisible) ? assetLibraryView : null}
 
-      <AssetSegmentationDialog
+      <AssetMapEditor
         asset={segmentationAsset}
         assetUrl={segmentationAssetResolution.url}
         initialPanel={segmentationPanel}

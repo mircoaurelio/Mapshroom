@@ -6,7 +6,7 @@
 .asset-photo-steps li + li::before { content: ''; width: 32px; height: 1px; background: var(--line-strong); margin-right: 10px; }
 .asset-photo-steps li > span { width: 27px; height: 27px; border: 1px solid var(--line-strong); border-radius: 50%; display: grid; place-items: center; }
 .asset-photo-steps [aria-current='step'] { color: var(--text-bright); }
-.asset-photo-steps [aria-current='step'] > span { color: #052e24; border-color: var(--accent); background: var(--accent); }
+.asset-photo-steps [aria-current='step'] > span { color: #171717; border-color: var(--accent); background: var(--accent); }
 .asset-photo-open { display: inline-flex; align-items: center; gap: 9px; }
 .asset-photo-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(285px, 25vw, 380px); gap: 20px; min-height: 0; min-width: 0; }
 .asset-photo-drop { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; padding: clamp(14px, 3cqh, 30px) 20px; text-align: center; border: 1px dashed color-mix(in srgb, var(--accent) 44%, var(--line)); border-radius: 12px; background: radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 65%), var(--bg-panel-soft); }

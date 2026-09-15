@@ -11,7 +11,7 @@
 .ml-grid-card .ml-version-preview { container-type:size; background:var(--bg-stage); }
 .ml-grid-card .ml-version-preview img { display:block; width:min(100cqw, calc(100cqh * var(--asset-ratio, 1))); height:min(100cqh, calc(100cqw / var(--asset-ratio, 1))); object-fit:contain; }
 .ml-grid-card .ml-cutout-image { background-color:#252529; background-image:conic-gradient(#343438 25%, transparent 0 50%, #343438 0 75%, transparent 0); background-size:16px 16px; }
-.ml-card-selected { position:absolute; top:9px; left:9px; width:23px; height:23px; display:grid; place-items:center; border-radius:50%; background:var(--accent); color:#052e24; pointer-events:none; }
+.ml-card-selected { position:absolute; top:9px; left:9px; width:23px; height:23px; display:grid; place-items:center; border-radius:50%; background:var(--accent); color:#171717; pointer-events:none; }
 .ml-card-selected svg { width:15px; height:15px; }
 .ml-card-create { position:absolute; left:0; right:0; bottom:20%; display:flex; justify-content:center; }
 .ml-grid-card > .ml-version-status { flex:none; margin:0; padding:0 12px 8px; }

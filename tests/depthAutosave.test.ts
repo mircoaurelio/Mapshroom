@@ -3,15 +3,21 @@ import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
 import test from 'node:test';
 
-// Run the actual editor message flow, replacing only browser/worker boundaries.
-const source = readFileSync(new URL('../segmentation/main.js', import.meta.url), 'utf8')
-  .replaceAll('import.meta.url', JSON.stringify('https://mapshroom.test/segmentation/main.js'));
+// Execute the real controller with browser/worker boundaries replaced. The
+// inspect closure is injected only into this test's VM, never into application code.
+const source = readFileSync(new URL('../segmentation/editor.js', import.meta.url), 'utf8')
+  .replaceAll('\r\n', '\n')
+  .replaceAll('import.meta.url', JSON.stringify('https://mapshroom.test/segmentation/editor.js'))
+  .replace('export function createImageEditor', 'function createImageEditor')
+  .replace('return {\n  open: openFile,', 'options.inspect = code => eval(code);\nreturn {\n  open: openFile,');
 
-function editor(embedded = true) {
+function editor(integrated = true, deferSave = false) {
   const messages: Record<string, unknown>[] = [];
   const workerRequests: Record<string, unknown>[] = [];
-  const listeners = new Map<string, (event: unknown) => void>();
   const nodes = new Map<string, ReturnType<typeof makeNode>>();
+  let terminated = 0, disconnected = false;
+  let saveResult = true;
+  let resolveSave: ((value: boolean) => void) | null = null;
   function makeNode() {
     let pixels = new Uint8ClampedArray();
     return {
@@ -20,38 +26,48 @@ function editor(embedded = true) {
       dataset: { background: 'black', editorPanel: 'depth' },
       style: { setProperty() {} },
       classList: { add() {}, remove() {}, toggle() {} },
-      addEventListener() {}, setAttribute() {}, querySelector: () => node('strong'),
-      getContext: () => ({ putImageData: (image: { data: Uint8ClampedArray }) => { pixels = image.data; } }),
-      toBlob: (done: (blob: Blob | null) => void) => done(new Blob([pixels])),
+      addEventListener() {}, setAttribute() {}, querySelector: (selector: string) => node(selector), querySelectorAll: () => [],
+      getContext: () => ({ clearRect() {}, putImageData: (image: { data: Uint8ClampedArray }) => { pixels = image.data; } }),
+      toBlob: (done: (blob: Blob | null) => void) => done(new Blob([pixels], { type: 'image/png' })),
     };
   }
   function node(selector: string) {
     if (!nodes.has(selector)) nodes.set(selector, makeNode());
     return nodes.get(selector)!;
   }
-  node('#modelSelect').value = 'manual';
-  node('#depthDefinitionRange').value = '0';
-  const parent = { postMessage: (message: Record<string, unknown>) => messages.push(message) };
+  node('#modelSelect').value = 'manual'; node('#depthDefinitionRange').value = '0';
+  const document = { querySelector: node, querySelectorAll: () => [], createElement: makeNode, body: node('body'), addEventListener() {} };
+  Object.assign(document.body, { ownerDocument: document });
+  const options = {
+    integrated, initialPanel: 'depth', inspect: (_code: string): unknown => undefined,
+    onStatus() {},
+    onSave: async (blob: Blob, result: Record<string, unknown>) => {
+      messages.push({ ...result, mimeType: blob.type, buffer: await blob.arrayBuffer() });
+      return deferSave ? new Promise<boolean>(resolve => { resolveSave = resolve; }) : saveResult;
+    },
+  };
   const context = createContext({
-    URL, URLSearchParams, Blob, File, ArrayBuffer, Uint8Array, Uint8ClampedArray, crypto,
+    URL, URLSearchParams, Blob, File, ArrayBuffer, Uint8Array, Uint8ClampedArray, crypto, AbortController,
     ImageData: class { data: Uint8ClampedArray; constructor(data: Uint8ClampedArray) { this.data = data; } },
-    Worker: class { postMessage(message: Record<string, unknown>) { workerRequests.push(message); } },
-    setTimeout: () => 0, clearTimeout() {}, requestAnimationFrame() {},
-    document: { querySelector: node, querySelectorAll: () => [], createElement: makeNode, body: node('body'), addEventListener() {} },
-    window: { location: { origin: 'https://mapshroom.test', search: embedded ? '?embed=1&panel=depth' : '' }, parent, addEventListener: (type: string, listener: (event: unknown) => void) => listeners.set(type, listener) },
+    Worker: class { postMessage(message: Record<string, unknown>) { workerRequests.push(message); } terminate() { terminated++; } },
+    ResizeObserver: class { observe() {} disconnect() { disconnected = true; } },
+    setTimeout: () => 0, clearTimeout() {}, requestAnimationFrame: () => 0, cancelAnimationFrame() {},
+    document, options,
   });
-  runInContext(source, context);
-  runInContext(`sourceFile = new File(['image'], 'source.png');
+  runInContext(source + '\nconst controller = createImageEditor(document.body, options);', context);
+  options.inspect(`sourceFile = new File(['image'], 'source.png');
     imageWidth = 2; imageHeight = 1;
     sourcePixels = new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255]);
     basePixels = new Uint8ClampedArray(sourcePixels);
-    depthMaskAlpha = new Uint8ClampedArray([255, 0]);`, context);
+    depthMaskAlpha = new Uint8ClampedArray([255, 0]);`);
   return {
-    run: (code: string) => runInContext(code, context),
-    results: () => messages.filter((message) => message.type === 'mapshroom:segmentation-result'),
+    run: (code: string): any => options.inspect(code), // eslint-disable-line @typescript-eslint/no-explicit-any
+    results: () => messages,
     requests: () => workerRequests,
-    complete: () => runInContext(`depthWorker.onmessage({data:{type:'result', pixels:new Uint8Array([200,100]).buffer, width:2,height:1}})`, context),
-    ack: (saved: boolean) => listeners.get('message')!({ origin: 'https://mapshroom.test', source: parent, data: { type: 'mapshroom:segmentation-saved', resultKind: 'depth', saved } }),
+    complete: () => options.inspect(`depthWorker.onmessage({data:{type:'result', pixels:new Uint8Array([200,100]).buffer, width:2,height:1}})`),
+    ack: (saved: boolean) => { saveResult = saved; resolveSave?.(saved); },
+    dispose: () => runInContext('controller.dispose()', context),
+    cleanup: () => ({ terminated, disconnected }),
   };
 }
 
@@ -84,7 +100,7 @@ test('opening a saved depth map preserves its pixels and transparency without in
 test('adjusting a reopened depth map saves its existing identity and keeps soft alpha', async () => {
   const app = editor();
   app.run(`restoreSavedDepth(new Uint8ClampedArray([200,200,200,255,100,100,100,80]), 2, 1, 'existing-depth'); setDepthPreviewActive(true); elements.depthInvert.checked = true;`);
-  await app.run('sendCompositeToMapshroom()');
+  await app.run('saveResult()');
   const [result] = app.results();
   assert.equal(result.resultKind, 'depth');
   assert.equal(result.resultId, 'existing-depth');
@@ -112,7 +128,7 @@ test('a depth version without its original cannot accidentally run inference on 
 
 test('depth completion autosaves full-size grayscale pixels with a black background, even after switching panels', async () => {
   const app = editor();
-  app.run("document.body.dataset.editorPanel = 'refine'");
+  app.run("root.dataset.editorPanel = 'refine'");
   await app.complete();
   const [result] = app.results();
   assert.equal(result.resultKind, 'depth');
@@ -122,25 +138,29 @@ test('depth completion autosaves full-size grayscale pixels with a black backgro
   assert.equal(typeof result.resultId, 'string');
 });
 
-test('depth adjustments reuse the generated asset identity and prevent concurrent duplicate saves', async () => {
-  const app = editor();
-  await app.complete();
-  await app.run('sendCompositeToMapshroom()');
+test('depth adjustments reuse the generated identity and prevent concurrent duplicate saves', async () => {
+  const app = editor(true, true);
+  const automaticSave = app.complete();
+  // The real callback waits for storage; a second Save is ignored while it waits.
+  await new Promise(resolve => setImmediate(resolve));
+  await app.run('saveResult()');
   assert.equal(app.results().length, 1);
-  app.ack(true);
+  app.ack(true); await automaticSave;
   app.run('elements.depthInvert.checked = true');
-  await app.run('sendCompositeToMapshroom()');
+  const manualSave = app.run('saveResult()');
+  await new Promise(resolve => setImmediate(resolve));
   const [automatic, manual] = app.results();
   assert.equal(manual.resultId, automatic.resultId);
   assert.equal(manual.automatic, false);
   assert.deepEqual([...new Uint8Array(manual.buffer as ArrayBuffer)], [55, 55, 55, 255, 0, 0, 0, 255]);
+  app.ack(true); await manualSave;
 });
 
 test('failed storage can retry the same generated depth map without rerunning inference', async () => {
   const app = editor();
-  await app.complete();
   app.ack(false);
-  await app.run('sendCompositeToMapshroom()');
+  await app.complete();
+  await app.run('saveResult()');
   assert.equal(app.results().length, 2);
   assert.equal(app.results()[0].resultId, app.results()[1].resultId);
 });
@@ -157,5 +177,47 @@ test('failed inference does not save an asset and releases the generating state'
 test('standalone depth generation does not send an automatic library save', async () => {
   const app = editor(false);
   await app.complete();
+  assert.equal(app.results().length, 0);
+});
+
+test('closing the native editor terminates workers and ignores late completion', async () => {
+  const app = editor();
+  app.dispose(); app.dispose();
+  assert.deepEqual(app.cleanup(), { terminated: 2, disconnected: true });
+  await app.complete();
+  assert.equal(app.results().length, 0);
+});
+
+test('an unmounted editor does not submit a result after asynchronous PNG encoding', async () => {
+  const app = editor();
+  app.run(`restoreSavedDepth(new Uint8ClampedArray([200,200,200,255,100,100,100,80]), 2, 1, 'existing-depth'); setDepthPreviewActive(true);`);
+  const save = app.run('saveResult()');
+  app.dispose();
+  await save;
+  assert.equal(app.results().length, 0);
+});
+
+test('cropping a painted image keeps reset pixels aligned and undo restores the original size', async () => {
+  const app = editor();
+  app.run(`maskBaseline = new Uint8ClampedArray(basePixels); drawBaselinePixels = new Uint8ClampedArray(basePixels);
+    sourceWidth = 2; sourceHeight = 1; cropRect = {x:.5, y:0, width:.5, height:1};
+    root.dataset.editorPanel = 'draw';`);
+  await app.run('applyCrop()');
+  assert.equal(app.run('imageWidth'), 1);
+  assert.deepEqual([...app.run('drawBaselinePixels')], [0, 255, 0, 255]);
+  await app.run('saveResult()');
+  assert.equal(app.results()[0].resultKind, 'draw');
+  assert.equal(app.results()[0].width, 1);
+  await app.run('undo()');
+  assert.equal(app.run('imageWidth'), 2);
+  assert.equal(app.run('drawBaselinePixels.length'), 8);
+  await app.run('redo()');
+  assert.equal(app.run('imageWidth'), 1);
+});
+
+test('saving is blocked while history restores an image', async () => {
+  const app = editor();
+  app.run('restoringHistory = true');
+  await app.run('saveResult()');
   assert.equal(app.results().length, 0);
 });

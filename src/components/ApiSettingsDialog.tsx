@@ -50,7 +50,7 @@ type DirectHandoffPhase = 'opening' | 'send' | 'waiting' | 'copy';
 function LocalModelIcon() {
   return (
     <svg className="ai-path-icon" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-      <circle cx="32" cy="34" r="18" fill="rgba(52,211,153,.12)" stroke="currentColor" strokeWidth="2" />
+      <circle cx="32" cy="34" r="18" fill="rgba(222,222,222,.12)" stroke="currentColor" strokeWidth="2" />
       <path
         d="M22 36c2.5-6 7-10 10-10s7.5 4 10 10"
         stroke="currentColor"

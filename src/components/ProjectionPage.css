@@ -23,13 +23,13 @@
 .projection-page-header p { margin-top: 7px; font-size: 13px; }
 .projection-toolbar-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; max-width:100%; margin-left:auto; }
 .projection-window-status { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.projection-window-status i { width: 9px; height: 9px; flex: none; border-radius: 50%; background: #ff6274; }
-.projection-window-status .is-open { background: var(--accent); }
+.projection-window-status i { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--text-dim); }
+.projection-window-status .is-open { background: var(--live); }
 .projection-page-header .projection-toolbar-actions { flex: none; }
 .projection-output-notices { flex: none; display: grid; gap: 6px; padding: 10px 24px; border-bottom: 1px solid var(--projection-border); }
 .projection-output-notices p { font-size: 12px; }
 .projection-output-notices button { min-height: 28px; padding: 3px 6px; color: var(--accent); }
-.projection-page button.projection-primary { min-height: 44px; background: var(--accent); color: #001b14; border-color: var(--accent); font-weight: 650; padding: 12px 18px; }
+.projection-page button.projection-primary { min-height: 44px; background: var(--accent); color: #171717; border-color: var(--accent); font-weight: 650; padding: 12px 18px; }
 .projection-page button.projection-primary:hover { background: var(--accent); filter: brightness(1.08); }
 .projection-primary svg { margin-left: auto; }
 .projection-page-body { display: grid; grid-template-columns: minmax(0, 1fr) 348px; gap: 18px; padding: 20px 24px 24px; flex: 1; min-height: 0; }
@@ -187,3 +187,5 @@
 .projection-page .projection-corner-drag { grid-column:2; grid-row:2; min-height:0; padding:0; border:1px solid rgba(251,146,60,.3); border-radius:50%; background:rgba(9,9,11,.9); cursor:grab; pointer-events:auto; touch-action:none; }
 .projection-page .projection-corner-drag:active { cursor:grabbing; }
 .projection-corner-drag > span { width:7px; height:7px; border:1px solid #fff7ed; border-radius:50%; background:#fb923c; box-shadow:0 0 6px rgba(249,115,22,.9); }
+
+.projection-footer-actions button[aria-label="Redo framing"]:not(:disabled) { color: var(--live); }

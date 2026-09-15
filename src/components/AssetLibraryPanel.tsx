@@ -128,7 +128,7 @@ export function AssetLibraryPanel({
             <div className="dialog-body asset-import-dialog-body">
               <p className="dialog-note">
                 Import opens the same file picker as the top toolbar, but keeps the library panel
-                focused on the asset list. Images open Mask Studio automatically before use.
+                focused on the asset list. Use Adjust to refine an image before adding it.
               </p>
 
               <div className="status-card asset-import-dialog-card">

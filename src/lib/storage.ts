@@ -587,6 +587,7 @@ export function loadUiPreferences<T extends UiPreferences>(fallback: T): T {
     return {
       ...fallback,
       ...(JSON.parse(raw) as Partial<T>),
+      colorTheme: 'graphite',
     };
   } catch (error) {
     console.warn('Unable to parse UI preferences.', error);

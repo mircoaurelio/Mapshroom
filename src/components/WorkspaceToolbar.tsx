@@ -10,7 +10,6 @@ interface WorkspaceToolbarProps {
   workspaceMode: WorkspaceMode;
   sidebarVisible: boolean;
   desktopSlidersWindowEnabled: boolean;
-  colorTheme: 'green' | 'pink';
   showMoveButton: boolean;
   moveMode: boolean;
   audioReactiveEnabled: boolean;
@@ -30,7 +29,6 @@ interface WorkspaceToolbarProps {
   onToggleWorkspaceMode: () => void;
   onToggleSidebarVisibility: () => void;
   onToggleDesktopSlidersWindow: () => void;
-  onToggleColorTheme: () => void;
   midiEnabled: boolean;
   midiPanelVisible: boolean;
   onToggleMidi: () => void;
@@ -68,7 +66,6 @@ export function WorkspaceToolbar({
   workspaceMode,
   sidebarVisible,
   desktopSlidersWindowEnabled,
-  colorTheme,
   showMoveButton,
   moveMode,
   audioReactiveEnabled,
@@ -88,7 +85,6 @@ export function WorkspaceToolbar({
   onToggleWorkspaceMode,
   onToggleSidebarVisibility,
   onToggleDesktopSlidersWindow,
-  onToggleColorTheme,
   midiEnabled,
   midiPanelVisible,
   onToggleMidi,
@@ -268,19 +264,6 @@ export function WorkspaceToolbar({
                 >
                   <span>{midiEnabled ? 'On' : 'Off'}</span>
                   MIDI
-                </button>
-                <button
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={colorTheme === 'pink'}
-                  className="toolbar-menu-item toolbar-menu-item-pink-theme"
-                  onClick={() => {
-                    onToggleColorTheme();
-                    closeMenu();
-                  }}
-                >
-                  <span aria-hidden="true">♥</span>
-                  Pink mode
                 </button>
                 <div className="toolbar-menu-divider" role="separator" />
                 <button
