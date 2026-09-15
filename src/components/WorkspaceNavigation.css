@@ -15,7 +15,6 @@
   padding: 10px 2px;
   min-height: 0;
   background: var(--bg-panel);
-  border-right: 1px solid var(--line);
 }
 
 .workspace-nav-item {
@@ -47,7 +46,7 @@
 .workspace-nav-item .workspace-nav-shader-icon { width: 22px; height: 22px; margin-block: -1.5px; transition: transform 350ms ease; }
 .workspace-nav-item:is(:hover, :focus-visible) .workspace-nav-shader-icon { transform: rotate(24deg); }
 .workspace-nav-item:hover { color: var(--text-bright); }
-.workspace-nav-item[aria-current='page'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); box-shadow: inset 2px 0 var(--accent); }
+.workspace-nav-item[aria-current='page'] { color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .workspace-nav-output-live svg { color: #ff525e; animation: workspace-output-pulse 1.4s ease-in-out infinite; }
 @keyframes workspace-output-pulse {
   0%, 100% { opacity: 1; }
