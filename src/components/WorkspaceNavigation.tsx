@@ -23,12 +23,30 @@ interface WorkspaceNavigationProps {
   onAssetsFirstStepAdvance: () => void;
 }
 
+// Three identical dotted arms form a small, rotationally symmetric vortex.
+const shaderSpiralDots = Array.from({ length: 7 }, (_, index) => {
+  const angle = index * 0.36;
+  const distance = 2.7 + index * 1.18;
+  return {
+    cx: 12 + Math.cos(angle) * distance,
+    cy: 12 + Math.sin(angle) * distance,
+    r: 0.68 + index * 0.08,
+  };
+});
+
 function NavigationIcon({ section }: { section: WorkspaceSection }) {
+  if (section === 'shader') {
+    return <svg className="workspace-nav-shader-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="12" r="1.1" />
+      {[0, 120, 240].map(rotation => <g key={rotation} transform={`rotate(${rotation} 12 12)`}>
+        {shaderSpiralDots.map((dot, index) => <circle key={index} {...dot} />)}
+      </g>)}
+    </svg>;
+  }
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {section === 'asset' ? <><rect x="3" y="3" width="15" height="15" rx="2" /><path d="m5 14 4-4 3 3 2-2 2 2M7 21h12a2 2 0 0 0 2-2V7" /><circle cx="13.5" cy="7.5" r="1" /></> :
       section === 'move' ? <><path d="M12 3v18M3 12h18m-12-6 3-3 3 3m-6 12 3 3 3-3M6 9l-3 3 3 3m12-6 3 3-3 3" /></> :
       section === 'output' ? <><rect x="3" y="4" width="18" height="13" rx="1.5" /><path d="M12 17v4m-4 0h8" /></> :
-      section === 'shader' ? <><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><path d="m7 14 7-7m-4 10 7-7" /></> :
       <><rect x="2.5" y="4.5" width="19" height="15" rx="2" /><path d="m10 8.5 5 3.5-5 3.5Z" fill="currentColor" stroke="none" /></>}
   </svg>;
 }

@@ -5,6 +5,7 @@ Implemented on `codex/shader-library`, based on `origin/main` at `2eb82aa`.
 ## Behavior
 
 - Shader appears directly after Workspace in the navigation rail.
+- Its SVG icon is a three-arm dotted spiral, with a small hover/focus rotation that respects reduced-motion preferences.
 - The page uses the real project catalog and existing cached shader thumbnails. Linked timeline drafts are excluded from the catalog to avoid duplicate library entries.
 - Search covers names, descriptions, groups and templates. Category, source, audio and favorite filters combine with folder scopes; results support grid/list views, sorting and incremental loading.
 - Custom folders, membership and recent selections persist per project in local storage. Favorites share the existing preset browser's storage key. Project autosave persists imported and newly created shaders.
@@ -16,7 +17,7 @@ Implemented on `codex/shader-library`, based on `origin/main` at `2eb82aa`.
 ## Validation
 
 - `npm run build`: passed (existing large-chunk notices remain).
-- `npm test`: 260 passed, 0 failed.
+- `npm test`: 300 passed, 0 failed after integrating the latest Assets, Move and Output release.
 - Focused final checks: shader library, selection and chat result tests passed.
 - ESLint on the new library component/model and changed navigation/preset browser: passed.
 - `git diff --check`: passed.
@@ -33,6 +34,8 @@ Implemented on `codex/shader-library`, based on `origin/main` at `2eb82aa`.
   - Final verification in a fresh browser tab: no console errors after opening the library, selecting a shader, typing a chat prompt and clearing filters.
 
 No external AI generation or model download was performed during these local checks. Generation uses the existing Workspace provider setup and error handling.
+
+Release integration also preserves the subsequent Clip / Mix T icon-scroll fix. Browser checks confirmed navigation through Shader, Workspace, Move and Output with no console errors; Open in Workspace preserves the selected shader and unsent chat prompt without adding clips.
 
 ![Desktop](desktop.png)
 
