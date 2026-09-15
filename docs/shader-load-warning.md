@@ -19,7 +19,7 @@ For mixes, the warning reports the total cost. Original sources follow the layer
 
 ## Shelved precomputed loop experiment
 
-This branch starts from `e58a980` and does not include the loop experiment. In the original local checkout at `C:/Progetti/personal/mapshroom/MapshroomV3`, `SHADER_LOOPS_ENABLED = false` disables initialization and preparation, and the control is hidden. Experiment sources and saved videos remain available for future work. Previous light-preview preferences are not loaded.
+The initial implementation used `e58a980` and was rebased onto `ec1ba57` for release, preserving the latest settings and native image-editor changes. It does not include the loop experiment. In the original local checkout at `C:/Progetti/personal/mapshroom/MapshroomV3`, `SHADER_LOOPS_ENABLED = false` disables initialization and preparation, and the control is hidden. Experiment sources and saved videos remain available for future work. Previous light-preview preferences are not loaded.
 
 ## Verification on September 15, 2026
 
@@ -31,4 +31,6 @@ Real editor at `http://127.0.0.1:5199/`, integrated Chromium browser, without fo
 - `npm test`: 320 tests passed, including sustained load, isolated spikes, recovery, unavailable GPU timing, very slow shaders, measurement resets and stale diagnostics.
 - TypeScript/Vite build succeeded. Targeted lint: zero errors, with existing warnings in the timeline renderer and workspace route.
 
-These are local preview measurements, not performance guarantees for other devices. Changes have not been published.
+Release checks after integration: 333 tests passed, the production build and secret scan passed, and the shader catalog compiled successfully for WebGL 2 and eligible WebGL 1 fallbacks. The publication target is the existing Cloudflare Worker at https://mapshroom.dev/.
+
+These are local preview measurements, not performance guarantees for other devices.
