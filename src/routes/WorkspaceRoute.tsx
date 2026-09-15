@@ -8505,6 +8505,7 @@ ${errorSnapshot}`,
 
   const timelineBar = (
     <TimelineBar
+      stageViewportRef={stageViewportRef}
       assets={project.library.assets}
       assetKind={activeAsset?.kind ?? null}
       assetUrl={activeAssetUrl}

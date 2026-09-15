@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
+import { useTimelineToolbarLayout } from '../lib/useTimelineToolbarLayout';
 import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
   roundTimelineSeconds,
@@ -24,6 +25,7 @@ import type {
 
 interface ShaderTimelineEditorProps {
   transportControls?: ReactNode;
+  stageViewportRef?: RefObject<HTMLElement | null>;
   assets: AssetRecord[];
   assetKind: AssetKind | null;
   assetUrl: string | null;
@@ -244,6 +246,7 @@ function DisabledShaderCard({ shader, stepId, onEnable }: {
 
 export function ShaderTimelineEditor({
   transportControls,
+  stageViewportRef,
   assets,
   savedShaders,
   activeShaderId,
@@ -275,6 +278,8 @@ export function ShaderTimelineEditor({
 }: ShaderTimelineEditorProps) {
   const { dropProps } = useImageDropTarget(onDropImage);
   const flowStripRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  useTimelineToolbarLayout(toolbarRef, stageViewportRef);
   const previewViewportRef = useRef<HTMLDivElement>(null);
   const title =
     sequence.mode === 'audioReactive'
@@ -715,7 +720,7 @@ export function ShaderTimelineEditor({
 
   return (
     <section className="timeline-sequence-editor">
-      <div className="timeline-sequence-toolbar">
+      <div ref={toolbarRef} className="timeline-sequence-toolbar">
         <div className="timeline-sequence-copy">
           <div className="timeline-sequence-title-row">
             <strong className="timeline-sequence-title">
@@ -741,17 +746,17 @@ export function ShaderTimelineEditor({
             </div>
           ) : null}
           <div className="timeline-shared-transition-toolbar">
-            <DurationInput
-              className="timeline-clip-duration"
-              label="Clip"
-              description={sequence.mode === 'audioReactive' ? 'Minimum clip duration before an audio change.' : 'Total clip duration, including the mix.'}
-              value={sequence.sharedSectionDurationSeconds}
-              min={sequence.mode === 'audioReactive' ? 1 : 0.5}
-              max={600}
-              onCommit={(seconds) => onSharedTransitionChange({ sharedSectionDurationSeconds: seconds })}
-            />
-
             <div className="timeline-right-controls">
+              <DurationInput
+                className="timeline-clip-duration"
+                label="Clip"
+                description={sequence.mode === 'audioReactive' ? 'Minimum clip duration before an audio change.' : 'Total clip duration, including the mix.'}
+                value={sequence.sharedSectionDurationSeconds}
+                min={sequence.mode === 'audioReactive' ? 1 : 0.5}
+                max={600}
+                onCommit={(seconds) => onSharedTransitionChange({ sharedSectionDurationSeconds: seconds })}
+              />
+
               <DurationInput
                 className="timeline-mix-duration"
                 label="Mix T"
@@ -765,6 +770,7 @@ export function ShaderTimelineEditor({
               <AppSelect
                 className="timeline-shared-transition-field timeline-shared-transition-field-fx timeline-mix-select"
                 label="Effect"
+                openOnHover
                 value={sequence.sharedTransitionEffect}
                 options={TIMELINE_TRANSITION_EFFECT_OPTIONS}
                 onChange={(effect) =>

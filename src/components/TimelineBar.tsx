@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type RefObject } from 'react';
 import { getTransportTimeSeconds } from '../lib/clock';
 import { getEffectiveTimelinePlaybackSteps, isTimelineStepEnabled, roundTimelineSeconds, resolveShaderTimelineState } from '../lib/timeline';
 import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
@@ -26,6 +26,7 @@ interface TimelineBarProps {
   audioReactiveListening?: boolean;
   audioRuntime?: AudioReactiveRuntime;
   transportControls?: ReactNode;
+  stageViewportRef?: RefObject<HTMLElement | null>;
   onPlayToggle: () => void;
   onSequenceModeChange: (mode: TimelineSequenceMode) => void;
   onSequenceSharedTransitionChange: (patch: {
@@ -87,6 +88,7 @@ export function TimelineBar({
   audioReactiveListening = false,
   audioRuntime,
   transportControls,
+  stageViewportRef,
   onSequenceModeChange,
   onSequenceSharedTransitionChange,
   onSequenceStepChange,
@@ -189,6 +191,7 @@ export function TimelineBar({
     <div className="timeline-bar timeline-bar-desktop">
       <ShaderTimelineEditor
         transportControls={transportControls}
+        stageViewportRef={stageViewportRef}
         assets={assets}
         assetKind={assetKind}
         assetUrl={assetUrl}

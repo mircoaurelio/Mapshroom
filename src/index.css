@@ -6683,8 +6683,10 @@ input.audio-uniform-bound-range:focus-visible {
 }
 
 .timeline-bar-desktop .timeline-sequence-toolbar {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-rows: minmax(34px, auto);
   align-items: center;
 }
 
@@ -6695,6 +6697,7 @@ input.audio-uniform-bound-range:focus-visible {
 
 .timeline-bar-desktop .timeline-sequence-copy {
   min-width: 0;
+  max-width: var(--timeline-copy-max-width, 100%);
   flex: 1 1 auto;
 }
 
@@ -6706,7 +6709,10 @@ input.audio-uniform-bound-range:focus-visible {
 }
 
 .timeline-bar-desktop .timeline-sequence-toolbar-actions {
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
+  width: max-content;
   flex-wrap: nowrap;
   justify-content: flex-end;
 }
@@ -6715,10 +6721,6 @@ input.audio-uniform-bound-range:focus-visible {
   flex-wrap: nowrap;
   flex: 1 1 auto;
   min-width: 0;
-}
-
-.timeline-clip-duration {
-  margin-right: auto;
 }
 
 .timeline-right-controls {
@@ -6740,6 +6742,21 @@ input.audio-uniform-bound-range:focus-visible {
 .timeline-sequence-transport {
   display: flex;
   justify-content: center;
+}
+
+.timeline-bar-desktop .timeline-sequence-transport {
+  position: absolute;
+  top: 0;
+  left: var(--timeline-transport-center, 50%);
+  min-height: 34px;
+  align-items: center;
+  transform: translateX(-50%);
+}
+
+.timeline-bar-desktop .timeline-sequence-toolbar[data-stacked="true"] .timeline-sequence-toolbar-actions {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: end;
 }
 
 .timeline-sequence-transport > .playback-controls {
@@ -6775,47 +6792,6 @@ input.audio-uniform-bound-range:focus-visible {
 .timeline-bar-desktop .timeline-shared-transition-field .text-field,
 .timeline-bar-desktop .timeline-shared-transition-field .select-field {
   min-width: 0;
-}
-
-@container timelinePane (max-width: 1100px) {
-  .timeline-bar-desktop .timeline-sequence-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .timeline-bar-desktop .timeline-sequence-toolbar-actions,
-  .timeline-bar-desktop .timeline-shared-transition-toolbar {
-    display: contents;
-  }
-
-  .timeline-bar-desktop .timeline-sequence-copy {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .timeline-bar-desktop .timeline-sequence-transport {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .timeline-bar-desktop .timeline-clip-duration {
-    grid-column: 3;
-    grid-row: 1;
-    justify-self: start;
-  }
-
-  .timeline-bar-desktop .timeline-right-controls {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-content: flex-end;
-  }
-
-  .timeline-bar-desktop .timeline-mode-switch {
-    max-width: 100%;
-    flex: 0 1 auto;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
 }
 
 .timeline-sequence-toolbar-actions > .icon-button,

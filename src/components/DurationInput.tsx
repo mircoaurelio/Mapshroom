@@ -53,9 +53,10 @@ export function DurationInput({ label, description, value, min, max, className =
     clearTimeout(closeTimer.current);
     if (!trigger.current) return;
     const bounds = trigger.current.getBoundingClientRect();
-    const height = 184;
+    const width = 88;
+    const height = 140;
     setPosition({
-      left: Math.max(8, Math.min(bounds.right - 148, window.innerWidth - 156)),
+      left: Math.max(8, Math.min(bounds.left + bounds.width / 2 - width / 2, window.innerWidth - width - 8)),
       top: bounds.top >= height + 8 ? bounds.top - height - 6 : Math.min(bounds.bottom + 6, window.innerHeight - height - 8),
     });
     setOpen(current => current === 'pinned' ? current : mode);
@@ -135,7 +136,7 @@ export function DurationInput({ label, description, value, min, max, className =
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node) && event.relatedTarget !== trigger.current) close();
       }}>
-      <div className="duration-wheel-heading">{label}<span>seconds</span></div>
+      <div className="duration-wheel-heading">{label}</div>
       <div ref={wheel} role="slider" tabIndex={0} className={`duration-wheel${dragging ? ' is-dragging' : ''}`}
         aria-label={`Adjust ${label}`} aria-orientation="vertical" aria-valuemin={min} aria-valuemax={max}
         aria-valuenow={value} aria-valuetext={`${value} seconds`} aria-describedby={`${inputId}-wheel-help`}
@@ -178,11 +179,12 @@ export function DurationInput({ label, description, value, min, max, className =
         }}>
         <svg className="duration-wheel-arrow" viewBox="0 0 16 8" aria-hidden="true"><path d="m4 6 4-4 4 4" /></svg>
         <span className="duration-wheel-neighbor" aria-hidden="true">{value < max ? clampDurationInput(value + 1, min, max) : '—'}</span>
-        <span className="duration-wheel-current" aria-hidden="true"><i />{value}<small>s</small></span>
+        <span className="duration-wheel-current" aria-hidden="true">{value}<small>s</small></span>
         <span className="duration-wheel-neighbor" aria-hidden="true">{value > min ? clampDurationInput(value - 1, min, max) : '—'}</span>
         <svg className="duration-wheel-arrow" viewBox="0 0 16 8" aria-hidden="true"><path d="m4 2 4 4 4-4" /></svg>
       </div>
-      <span id={`${inputId}-wheel-help`} className="duration-wheel-hint">Drag or scroll · 1 s</span>
+      <span className="duration-wheel-hint" aria-hidden="true">1 s / step</span>
+      <span id={`${inputId}-wheel-help`} className="duration-input-help">Drag or scroll up to increase, down to decrease. One second per step.</span>
     </div>
   ) : null;
 
@@ -221,8 +223,8 @@ export function DurationInput({ label, description, value, min, max, className =
             event.preventDefault(); event.stopPropagation(); show('pinned');
           }
         }}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-          <path d="M5 3v4m0 4v6M10 3v8m0 4v2M15 3v2m0 4v8M3 7h4v4H3zM8 11h4v4H8zM13 5h4v4h-4z" />
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m6 6 4-4 4 4M10 2v16m-4-4 4 4 4-4" />
         </svg>
       </button>
       <span id={`${inputId}-help`} className="duration-input-help">

@@ -9,23 +9,41 @@ interface Props<T extends string | number> {
   value: T;
   options: readonly Option<T>[];
   disabled?: boolean;
+  openOnHover?: boolean;
   onChange: (value: T) => void;
 }
 
 /** The app's dark menu treatment, with keyboard selection and no operating-system popup. */
-export function AppSelect<T extends string | number>({ label, className, value, options, disabled, onChange }: Props<T>) {
+export function AppSelect<T extends string | number>({ label, className, value, options, disabled, openOnHover = false, onChange }: Props<T>) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const search = useRef({ text: '', at: 0 });
+  const pinned = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 200, maxHeight: 280 });
   const selected = Math.max(0, options.findIndex(option => option.value === value));
   const supportsPopover = typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
 
-  const show = () => {
+  const dismiss = () => {
+    clearTimeout(closeTimer.current);
+    pinned.current = false;
+    setOpen(false);
+  };
+  const closeOnLeave = () => {
+    if (!openOnHover) return;
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => { if (!pinned.current) dismiss(); }, 180);
+  };
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  const show = (pin = true) => {
+    clearTimeout(closeTimer.current);
     if (disabled || !options.length || !trigger.current) return;
+    if (pin) pinned.current = true;
+    if (open) return;
     const bounds = trigger.current.getBoundingClientRect();
     const width = Math.min(Math.max(200, bounds.width), window.innerWidth - 16);
     const below = window.innerHeight - bounds.bottom - 12, above = bounds.top - 12;
@@ -43,18 +61,20 @@ export function AppSelect<T extends string | number>({ label, className, value, 
 
   useEffect(() => {
     if (!open) return;
-    const dismiss = () => setOpen(false);
     const outside = (event: PointerEvent) => {
       if (!trigger.current?.contains(event.target as Node) && !menu.current?.contains(event.target as Node)) dismiss();
     };
     const scroll = (event: Event) => { if (!menu.current?.contains(event.target as Node)) dismiss(); };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') dismiss(); };
     window.addEventListener('pointerdown', outside);
     window.addEventListener('resize', dismiss);
     window.addEventListener('scroll', scroll, true);
+    window.addEventListener('keydown', escape);
     return () => {
       window.removeEventListener('pointerdown', outside);
       window.removeEventListener('resize', dismiss);
       window.removeEventListener('scroll', scroll, true);
+      window.removeEventListener('keydown', escape);
     };
   }, [open]);
 
@@ -72,12 +92,13 @@ export function AppSelect<T extends string | number>({ label, className, value, 
   const choose = (index: number) => {
     const option = options[index];
     if (!option) return;
-    setOpen(false);
+    dismiss();
     if (option.value !== value) onChange(option.value);
     trigger.current?.focus({ preventScroll: true });
   };
   const popup = open && !disabled ? <div ref={menu} id={`${id}-menu`} role="listbox" aria-labelledby={`${id}-label`}
-    popover={supportsPopover ? 'manual' : undefined} className="app-select-menu" style={position}>
+    popover={supportsPopover ? 'manual' : undefined} className="app-select-menu" style={position}
+    onPointerEnter={() => clearTimeout(closeTimer.current)} onPointerLeave={closeOnLeave}>
     {options.map((option, index) => <div key={option.value} id={`${id}-option-${index}`} role="option" aria-selected={option.value === value}
       className={`app-select-option${active === index ? ' is-active' : ''}${option.value === value ? ' is-selected' : ''}`}
       onPointerMove={() => setActive(index)} onMouseDown={event => event.preventDefault()} onClick={() => choose(index)}>
@@ -85,17 +106,21 @@ export function AppSelect<T extends string | number>({ label, className, value, 
     </div>)}
   </div> : null;
 
-  return <div className={className ? `app-select ${className}` : 'app-select'}>
+  return <div className={className ? `app-select ${className}` : 'app-select'}
+    onPointerEnter={event => { if (openOnHover && event.pointerType === 'mouse') show(false); }}
+    onPointerLeave={closeOnLeave}>
     <span id={`${id}-label`} className="app-select-label">{label}</span>
     <button ref={trigger} type="button" role="combobox" className="app-select-trigger" disabled={disabled}
       aria-labelledby={`${id}-label`} aria-haspopup="listbox" aria-expanded={open && !disabled}
       aria-controls={open ? `${id}-menu` : undefined} aria-activedescendant={open ? `${id}-option-${active}` : undefined}
-      onClick={() => open ? setOpen(false) : show()}
+      onClick={() => open && pinned.current ? dismiss() : show()}
+      onBlur={event => { if (!menu.current?.contains(event.relatedTarget as Node)) dismiss(); }}
       onKeyDown={event => {
-        if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); return; }
-        if (event.key === 'Tab') { setOpen(false); return; }
+        if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); dismiss(); return; }
+        if (event.key === 'Tab') { dismiss(); return; }
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault(); event.stopPropagation();
+          pinned.current = true;
           if (!open) show();
           else setActive(index => Math.max(0, Math.min(options.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1))));
         } else if (event.key === 'Enter' || event.key === ' ') {
