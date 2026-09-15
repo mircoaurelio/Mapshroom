@@ -1,6 +1,6 @@
 .shader-library-page {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: var(--shader-library-directory-width, 280px) 8px minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -11,7 +11,12 @@
   color-scheme: dark;
   container-type: inline-size;
 }
-.shader-library-page.with-chat { grid-template-columns: 220px minmax(0, 1fr) clamp(290px, 24vw, 370px); }
+.shader-library-page.with-chat { grid-template-columns: var(--shader-library-directory-width, 280px) 8px minmax(0, 1fr) 8px var(--shader-library-chat-width, 340px); }
+.shader-library-resize-handle { position: relative; z-index: 2; cursor: col-resize; touch-action: none; background: var(--bg-panel); }
+.shader-library-resize-handle::after { content: ''; position: absolute; top: 12px; bottom: 12px; left: 50%; width: 1px; background: var(--line); transition: background 140ms ease; }
+.shader-library-resize-handle:is(:hover, :focus-visible)::after, .shader-library-page.is-resizing .shader-library-resize-handle::after { background: var(--accent); }
+.shader-library-resize-handle:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
+.shader-library-page.is-resizing { cursor: col-resize; user-select: none; }
 .shader-library-page * { box-sizing: border-box; }
 .shader-library-page svg { width: 18px; height: 18px; flex-shrink: 0; }
 .shader-library-page button, .shader-library-page select, .shader-library-page input { font: inherit; font-size: 12px; letter-spacing: 0; text-transform: none; }
@@ -26,7 +31,7 @@
 .shader-library-page [aria-pressed='true']:not(.shader-library-card-select) { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .shader-library-icon-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; padding: 6px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--text-muted); }
 .shader-library-icon-button:hover { color: var(--text-bright); background: var(--bg-soft); }
-.shader-library-directory { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); padding: 12px 10px; }
+.shader-library-directory { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 12px 10px; }
 .shader-library-directory > header, .shader-library-chat > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; margin-bottom: 14px; }
 .shader-library-directory > header strong { font-size: 12px; letter-spacing: 1px; }
 .shader-library-directory-actions { display: flex; }
@@ -105,7 +110,7 @@
 .shader-library-selection small { color: var(--text-muted); font-size: 9px; letter-spacing: .7px; }
 .shader-library-selection strong { max-width: 100%; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shader-library-selection select { width: 140px; font-size: 11px; }
-.shader-library-chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--line); background: #0b0c0e; }
+.shader-library-chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: #0b0c0e; }
 .shader-library-chat > header { padding: 12px 14px 0; margin-bottom: 8px; color: #e9eaec; font-size: 12px; }
 .shader-library-chat-context { display: flex; align-items: center; gap: 12px; margin: 0 12px 12px; padding: 10px; border: 1px solid #24292c; border-radius: 8px; color: #e9eaec; background: #14181b; }
 .shader-library-chat-context > .shader-thumbnail { width: 78px; height: 55px; flex-shrink: 0; border-radius: 5px; overflow: hidden; }
@@ -129,8 +134,6 @@
 .shader-library-mobile > header { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; font-size: 11px; gap: 8px; }
 .shader-library-mobile > .shader-library-page { flex: 1; }
 @media (max-width: 1400px) {
-  .shader-library-page { grid-template-columns: 190px minmax(0, 1fr); }
-  .shader-library-page.with-chat { grid-template-columns: 190px minmax(0, 1fr) 300px; }
   .shader-library-main { padding: 18px 14px 0; }
   .shader-library-heading { flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
   .shader-library-heading h1 { font-size: 21px; }
@@ -138,16 +141,17 @@
 }
 @media (max-width: 1100px) {
   .shader-library-page, .shader-library-page.with-chat { grid-template-columns: minmax(0, 1fr); position: relative; }
-  .shader-library-page.with-chat { grid-template-columns: minmax(0, 1fr) 300px; }
-  .shader-library-directory { display: none; }
+  .shader-library-page.with-chat { grid-template-columns: minmax(0, 1fr) 8px var(--shader-library-chat-width, 340px); }
+  .shader-library-directory, .shader-library-resize-directory { display: none; }
   .shader-library-page .shader-library-directory-toggle { display: inline-flex; }
-  .shader-library-page.with-directory .shader-library-directory { display: flex; position: absolute; top: 0; bottom: 0; left: 0; width: 230px; z-index: 5; background: var(--bg-panel); box-shadow: 12px 0 24px #0008; }
+  .shader-library-page.with-directory .shader-library-directory { display: flex; position: absolute; top: 0; bottom: 0; left: 0; width: min(280px, 85%); z-index: 5; background: var(--bg-panel); box-shadow: 12px 0 24px #0008; }
   .shader-library-page .shader-library-directory-close { display: inline-flex; }
   .shader-library-directory-backdrop { display: block; position: absolute; inset: 0; z-index: 4; background: #0006; border: 0; border-radius: 0; }
   .shader-library-search kbd { display: none; }
 }
 @media (max-width: 700px) {
   .shader-library-page.with-chat { grid-template-columns: minmax(0, 1fr); }
+  .shader-library-resize-chat { display: none; }
   .shader-library-chat { position: absolute; inset: 0 0 0 auto; z-index: 4; width: min(100%, 370px); box-shadow: -12px 0 24px #0008; }
   .shader-library-page { border-top: 1px solid var(--line); }
   .shader-library-results { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }

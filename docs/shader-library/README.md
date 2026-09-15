@@ -13,11 +13,12 @@ Implemented on `codex/shader-library`, based on `origin/main` at `2eb82aa`.
 - Open in Workspace is available on every card, in the selection bar and in the chat context. It selects the shader with its saved parameters and shows the Workspace without appending timeline clips. Reopening the current shader preserves its chat history and versions.
 - Chat, Code and History reuse the existing Workspace components and provider configuration. Focusing the chat in the library, or in the resulting standalone Workspace preview, keeps the selected shader instead of selecting a playing timeline clip.
 - At narrower widths the folder directory becomes a drawer and the chat becomes an overlay. Mobile users can enter through the preset browser's Open shader page action and return with Workspace.
+- Library folders start at 280 px. The folder/catalog and catalog/chat separators support pointer dragging, arrow keys (Shift for larger steps), Home/End, and double-click to reset. Browser-local width preferences survive navigation/reload; shrinking the window preserves at least 340 px for the catalog. Drawer/overlay panes have no resize handles on mobile.
 
 ## Validation
 
 - `npm run build`: passed (existing large-chunk notices remain).
-- `npm test`: 300 passed, 0 failed after integrating the latest Assets, Move and Output release.
+- `npm test`: 304 passed, 0 failed including the resizable library layout checks.
 - Focused final checks: shader library, selection and chat result tests passed.
 - ESLint on the new library component/model and changed navigation/preset browser: passed.
 - `git diff --check`: passed.
@@ -36,6 +37,8 @@ Implemented on `codex/shader-library`, based on `origin/main` at `2eb82aa`.
 No external AI generation or model download was performed during these local checks. Generation uses the existing Workspace provider setup and error handling.
 
 Release integration also preserves the subsequent Clip / Mix T icon-scroll fix. Browser checks confirmed navigation through Shader, Workspace, Move and Output with no console errors; Open in Workspace preserves the selected shader and unsent chat prompt without adding clips.
+
+Resizable panels were verified at 1600, 1101, 1024 and 390 px: independent dragging, persistence after remount/reload, keyboard adjustments, reset, chat close/reopen, fractional layout bounds and no horizontal page overflow. Automated layout tests cover corrupt preferences, responsive shrinking, hidden panels and drag limits.
 
 ![Desktop](desktop.png)
 

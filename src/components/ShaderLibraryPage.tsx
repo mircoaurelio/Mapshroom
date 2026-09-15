@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { SavedShader, ShaderTemplate } from '../types';
 import { addShaderFolder, filterLibraryShaders, moveShaderToFolder, normalizeLibraryText, readLibraryOrganization, readShaderIds, SHADER_FAVORITES_KEY, type LibraryFilters, type LibraryOrganization } from '../lib/shaderLibrary';
 import { ShaderThumbnail } from './ShaderThumbnail';
+import { useShaderLibraryLayout } from '../lib/useShaderLibraryLayout';
 import './ShaderLibraryPage.css';
 
 interface Props {
@@ -38,6 +39,7 @@ const initialFilters: LibraryFilters = { query: '', source: 'all', template: 'al
 const readLocal = (key: string) => { try { return localStorage.getItem(key); } catch { return null; } };
 
 export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShaderId, chat, onSelect, onOpenWorkspace, onNewShader, onImport }: Props) {
+  const paneId = useId();
   const organizationKey = `mapshroom-v3:shader-library:${sessionId}`;
   const [organization, setOrganization] = useState<LibraryOrganization>(() => readLibraryOrganization(readLocal(organizationKey)));
   const [favorites, setFavorites] = useState(() => new Set(readShaderIds(readLocal(SHADER_FAVORITES_KEY))));
@@ -45,6 +47,7 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
   const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [limit, setLimit] = useState(24);
   const [chatOpen, setChatOpen] = useState(true);
+  const panelLayout = useShaderLibraryLayout(chatOpen);
   const [foldersOpen, setFoldersOpen] = useState(false);
   const [directoryQuery, setDirectoryQuery] = useState('');
   const [expanded, setExpanded] = useState({ mine: true, library: true });
@@ -119,9 +122,9 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
   );
   const activeLocation = filters.view === 'folder' ? organization.folders.find(folder => folder.id === filters.folderId)?.name : filters.view === 'group' ? filters.group : ({ all: 'All shaders', favorites: 'Favorites', recent: 'Recent', mine: 'My shaders', library: 'Library' } as Record<string, string>)[filters.view];
 
-  return <section className={`shader-library-page${chatOpen ? ' with-chat' : ''}${foldersOpen ? ' with-directory' : ''}`} aria-label="Shader library">
+  return <section ref={panelLayout.containerRef} style={panelLayout.style} className={`shader-library-page${chatOpen ? ' with-chat' : ''}${foldersOpen ? ' with-directory' : ''}${panelLayout.resizing ? ' is-resizing' : ''}`} aria-label="Shader library">
     {foldersOpen && <button type="button" className="shader-library-directory-backdrop" aria-label="Close folders" onClick={() => setFoldersOpen(false)} />}
-    <aside className="shader-library-directory" aria-label="Shader folders">
+    <aside id={`${paneId}-directory`} className="shader-library-directory" aria-label="Shader folders">
       <header><strong>LIBRARY</strong><span className="shader-library-directory-actions"><button type="button" className="shader-library-icon-button" aria-label="New folder" onClick={() => setNewFolder('')}><Icon name="plus" /></button><button type="button" className="shader-library-icon-button shader-library-directory-close" aria-label="Close folder panel" onClick={() => setFoldersOpen(false)}><Icon name="close" /></button></span></header>
       <label className="shader-library-search directory-search"><Icon name="search" /><input aria-label="Find a folder" placeholder="Find a folder…" value={directoryQuery} onChange={event => setDirectoryQuery(event.target.value)} /></label>
       <div className="shader-library-directory-scroll">
@@ -143,6 +146,7 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
       </form> : <button type="button" className="secondary-button shader-library-new-folder" onClick={() => setNewFolder('')}><Icon name="plus" />New folder</button>}
     </aside>
 
+    <div className="shader-library-resize-handle shader-library-resize-directory" aria-controls={`${paneId}-directory`} {...panelLayout.separatorProps('directory')} />
     <div className="shader-library-main">
       <header className="shader-library-heading"><div><h1>Shader library</h1><p>Browse, organize and create your visuals.</p></div><div className="shader-library-heading-actions">
         <input ref={fileInput} type="file" className="hidden-input" accept=".glsl,.frag,.fs,.txt,.json" multiple onChange={event => void runImport(Array.from(event.target.files ?? []))} />
@@ -184,7 +188,8 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
         <button type="button" className="primary-button" disabled={!selected} onClick={() => selected && openShader(selected.id)}><Icon name="open" />Open in Workspace</button>
       </div></footer>
     </div>
-    {chatOpen && <aside className="shader-library-chat" aria-label="Shader assistant"><header><strong>Shader assistant</strong><button type="button" className="shader-library-icon-button" aria-label="Close AI chat" onClick={() => setChatOpen(false)}><Icon name="close" /></button></header>
+    {chatOpen && <div className="shader-library-resize-handle shader-library-resize-chat" aria-controls={`${paneId}-chat`} {...panelLayout.separatorProps('chat')} />}
+    {chatOpen && <aside id={`${paneId}-chat`} className="shader-library-chat" aria-label="Shader assistant"><header><strong>Shader assistant</strong><button type="button" className="shader-library-icon-button" aria-label="Close AI chat" onClick={() => setChatOpen(false)}><Icon name="close" /></button></header>
       {selected && <div className="shader-library-chat-context"><ShaderThumbnail shader={selected} /><div><small>Selected shader</small><strong>{selected.name}</strong><button type="button" onClick={() => openShader(selected.id)}><Icon name="open" />Open in Workspace</button></div></div>}
       <div className="shader-library-chat-content">{chat}</div>
     </aside>}
