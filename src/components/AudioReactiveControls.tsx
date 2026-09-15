@@ -343,7 +343,7 @@ function AudioSignalVisualizer({
             </strong>
             <small>
               {source === 'system'
-                ? 'Choose Window, not Browser tab, and enable Share audio to keep the sharing bar out of Output'
+                ? 'Choose Window or Entire screen, then enable Share audio'
                 : 'Waiting for microphone permission'}
             </small>
           </span>
@@ -697,8 +697,8 @@ export function AudioReactivePanelControls({
 
       {preferences.source === 'system' && !isListening ? (
         <p className="audio-reactive-hint">
-          Choose Window and share the whole browser window, not a Browser tab.
-          Enable Share audio to keep the sharing bar out of Output.
+          Choose Window or Entire screen in the browser’s sharing window.
+          Enable Share audio, then click Share.
         </p>
       ) : null}
       {controller.errorMessage ? (

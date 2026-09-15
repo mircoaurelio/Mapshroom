@@ -1,0 +1,72 @@
+.audio-capture-dialog {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 28px;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.audio-capture-dialog[open] {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+}
+
+.audio-capture-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.audio-capture-dialog h2 {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.audio-capture-dialog p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.audio-capture-dialog-instructions {
+  display: grid;
+  gap: 8px;
+}
+
+.audio-capture-dialog-instructions strong {
+  color: var(--text-bright);
+}
+
+.audio-capture-dialog-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: audio-capture-loading 900ms linear infinite;
+}
+
+.audio-capture-dialog .audio-capture-dialog-status {
+  color: var(--accent-pale);
+  font-weight: 600;
+}
+
+.audio-capture-dialog .audio-capture-dialog-note {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+@keyframes audio-capture-loading {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audio-capture-dialog-spinner { animation: none; }
+}

@@ -22,6 +22,7 @@ import { AiPanel } from '../components/AiPanel';
 import { ShaderChatWorkspace } from '../components/ShaderChatWorkspace';
 import { ShaderChatHandoff } from '../components/ShaderChatHandoff';
 import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
+import { AudioCaptureDialog } from '../components/AudioCaptureDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
 import { preserveStageFrame, readStageFrameAspectRatio, replaceStageAsset } from '../lib/assetReplacement';
 import type { VariantResult } from '../lib/assetVariants';
@@ -9285,6 +9286,11 @@ ${errorSnapshot}`,
         open={proBetaSource !== null}
         source={proBetaSource ?? 'asset_generate'}
         onClose={() => setProBetaSource(null)}
+      />
+
+      <AudioCaptureDialog
+        open={audioReactivity.status === 'starting'
+          && audioReactivity.preferences.source === 'system' && !isTauri()}
       />
 
       <ProjectLibraryDialog
