@@ -6667,15 +6667,13 @@ a {
 .timeline-bar-desktop .timeline-sequence-toolbar-actions {
   min-width: 0;
   flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
 .timeline-bar-desktop .timeline-shared-transition-toolbar {
   flex-wrap: nowrap;
-}
-
-.timeline-hold-placeholder {
-  height: var(--timeline-toolbar-control-height, 38px);
-  visibility: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .timeline-sequence-transport {
@@ -6698,6 +6696,7 @@ a {
   width: 126px;
   min-width: 0;
   flex: 0 0 126px;
+  margin-right: auto;
 }
 
 .timeline-bar-desktop .timeline-shared-transition-field-fx {

@@ -82,7 +82,7 @@ function buildStarterShaderSequence(presets: ShaderPresetDefinition[]) {
   const steps = createStarterTimelineSteps(presets);
   return {
     enabled: true,
-    mode: 'randomMix' as const,
+    mode: 'random' as const,
     editorView: 'simple' as const,
     stagePreviewMode: 'timeline' as const,
     focusedStepId: steps[0]?.id ?? null,

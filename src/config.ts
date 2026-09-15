@@ -189,7 +189,7 @@ export function createDefaultProject(
         ],
         shaderSequence: {
           enabled: true,
-          mode: 'randomMix',
+          mode: 'random',
           editorView: 'simple',
           stagePreviewMode: 'timeline',
           focusedStepId: steps[0]?.id ?? null,

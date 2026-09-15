@@ -237,9 +237,7 @@ export function TimelineDialog({
   const randomEnabled =
     timelineProps.sequence.mode === 'random' || timelineProps.sequence.randomChoiceEnabled;
   const audioEnabled = timelineProps.sequence.mode === 'audioReactive';
-  const equalDurationSeconds = audioEnabled
-    ? timelineProps.sequence.sharedSectionDurationSeconds
-    : timelineProps.sequence.steps.find(isTimelineStepEnabled)?.durationSeconds ?? 8;
+  const equalDurationSeconds = timelineProps.sequence.sharedSectionDurationSeconds;
 
   return (
     <div

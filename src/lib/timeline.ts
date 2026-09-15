@@ -1,5 +1,6 @@
 import type {
   SavedShader,
+  ProjectDocument,
   TimelineStub,
   TimelineSequenceMode,
   TimelineTransitionEffect,
@@ -12,10 +13,41 @@ export const TIMELINE_SEQUENCE_MODE_OPTIONS: Array<{
 }> = [
   { value: 'sequence', label: 'Sequence' },
   { value: 'random', label: 'Random' },
-  { value: 'randomMix', label: 'Random Mix' },
-  { value: 'double', label: 'Double' },
-  { value: 'audioReactive', label: 'Audio Reactive' },
 ];
+
+export function normalizeTimelineSequenceMode(
+  mode: unknown,
+  randomChoiceEnabled = false,
+): TimelineSequenceMode {
+  if (mode === 'audioReactive') return 'audioReactive';
+  return randomChoiceEnabled || mode === 'random' || mode === 'randomMix' || mode === 'double'
+    ? 'random'
+    : 'sequence';
+}
+
+export function normalizeProjectTimeline(project: ProjectDocument): ProjectDocument {
+  const sequence = project.timeline?.stub?.shaderSequence;
+  if (!sequence) return project;
+  const mode = normalizeTimelineSequenceMode(sequence.mode, sequence.randomChoiceEnabled);
+  if (sequence.mode === mode && !sequence.randomChoiceEnabled && sequence.sharedTransitionEnabled) {
+    return project;
+  }
+  return {
+    ...project,
+    timeline: {
+      ...project.timeline,
+      stub: {
+        ...project.timeline.stub,
+        shaderSequence: {
+          ...sequence,
+          mode,
+          randomChoiceEnabled: false,
+          sharedTransitionEnabled: true,
+        },
+      },
+    },
+  };
+}
 
 export const TIMELINE_TRANSITION_EFFECT_OPTIONS: Array<{
   value: TimelineTransitionEffect;
@@ -90,6 +122,7 @@ function shouldUseSharedSectionDuration(
 ): boolean {
   return (
     randomChoiceEnabled ||
+    mode === 'sequence' ||
     mode === 'random' ||
     mode === 'randomMix' ||
     mode === 'double'
@@ -101,6 +134,8 @@ export function shouldUseSharedTransition(
   sharedTransitionEnabled: boolean,
 ): boolean {
   return (
+    mode === 'sequence' ||
+    mode === 'random' ||
     mode === 'randomMix' ||
     mode === 'double' ||
     mode === 'audioReactive' ||

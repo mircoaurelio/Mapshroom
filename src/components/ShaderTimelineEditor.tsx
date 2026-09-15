@@ -287,10 +287,6 @@ export function ShaderTimelineEditor({
   const title =
     sequence.mode === 'audioReactive'
       ? 'Audio Sync'
-      : sequence.mode === 'randomMix'
-      ? 'Random Mix'
-      : sequence.mode === 'double'
-        ? 'Double Mix'
       : sequence.mode === 'random'
         ? 'Random Shader Flow'
         : 'Shader Sequence';
@@ -318,12 +314,6 @@ export function ShaderTimelineEditor({
     [assets],
   );
   const isAdvancedView = true;
-  const usesSharedSectionDuration =
-    sequence.mode === 'random' ||
-    sequence.mode === 'randomMix' ||
-    sequence.mode === 'double' ||
-    sequence.mode === 'audioReactive' ||
-    sequence.randomChoiceEnabled;
 
   const enabledStepCount = sequence.steps.filter((step) => !step.disabled).length;
   const requestDelete = (stepId: string, trigger: HTMLButtonElement) => {
@@ -759,7 +749,6 @@ export function ShaderTimelineEditor({
             </div>
           ) : null}
           <div className="timeline-shared-transition-toolbar">
-            {usesSharedSectionDuration ? (
               <div className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
                 <span>
                   {sequence.mode === 'audioReactive'
@@ -825,12 +814,6 @@ export function ShaderTimelineEditor({
                   </div>
                 </div>
               </div>
-            ) : (
-              <div
-                className="timeline-shared-transition-field-section timeline-hold-placeholder"
-                aria-hidden="true"
-              />
-            )}
 
             <AppSelect
               className="timeline-shared-transition-field timeline-shared-transition-field-fx timeline-mix-select"

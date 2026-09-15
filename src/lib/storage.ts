@@ -17,6 +17,7 @@ import {
 } from './bundledProjects';
 import { restoreTransport, snapshotTransport } from './clock';
 import { normalizeProjectShaderSources } from './shaderProfile';
+import { normalizeProjectTimeline } from './timeline';
 import { saveTextFile } from './desktop';
 import { scrubApiKeysFromSettings } from './desktopSecrets';
 import type {
@@ -162,14 +163,14 @@ function normalizePersistedProject(value: unknown): ProjectDocument | null {
   }
 
   try {
-    return normalizeProjectShaderSources({
+    return normalizeProjectTimeline(normalizeProjectShaderSources({
       ...parsed,
       version: APP_VERSION,
       playback: {
         ...parsed.playback,
         transport: restoreTransport(parsed.playback.transport),
       },
-    });
+    }));
   } catch (error) {
     console.warn('Unable to normalize persisted project document.', error);
     return null;

@@ -170,6 +170,8 @@ import {
   applyMixDurationToTimelineSteps,
   isTimelineStepEnabled,
   normalizeTimelineTransitionEffect,
+  normalizeProjectTimeline,
+  normalizeTimelineSequenceMode,
   roundTimelineSeconds,
   shouldUseSharedTransition,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
@@ -1521,7 +1523,7 @@ function withNewTimelineRandomSeed(project: ProjectDocument): ProjectDocument {
 
 function normalizeProject(project: ProjectDocument): ProjectDocument {
   return normalizeProjectDocument(
-    normalizeProjectShaderSources(upgradeLegacyEmptyProject(project)),
+    normalizeProjectTimeline(normalizeProjectShaderSources(upgradeLegacyEmptyProject(project))),
   );
 }
 
@@ -4873,7 +4875,12 @@ export function WorkspaceRoute() {
           ...currentProject.timeline.stub,
           shaderSequence: mode === 'audioReactive'
             ? activateAudioReactiveTimeline(currentProject.timeline.stub.shaderSequence)
-            : { ...currentProject.timeline.stub.shaderSequence, mode },
+            : {
+                ...currentProject.timeline.stub.shaderSequence,
+                mode: normalizeTimelineSequenceMode(mode),
+                randomChoiceEnabled: false,
+                sharedTransitionEnabled: true,
+              },
         },
       },
     }));
