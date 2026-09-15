@@ -24,15 +24,15 @@
 .shader-chat-starters { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; max-width: 100%; }
 .shader-chat-starters button { max-width: 100%; padding: 8px 12px; border: 1px solid #303338; border-radius: 16px; background: #111416; color: #bdc2cb; font: 12px/1.45 Arial, sans-serif; text-align: left; white-space: normal; cursor: pointer; transition: border-color 150ms ease, background 150ms ease; }
 .shader-chat-starters button:hover { border-color: #53826a; background: #14201b; }
-/* Respond to the message area left above the composer, including pane resizing. */
+/* Keep suggestions available on laptops and narrow panes; compact them before
+   using the message area's existing scroll, without moving the composer. */
 @container shader-chat-space (max-height: 420px) {
-  .shader-chat-starters, .shader-chat-starters-invite { display: none; }
+  .shader-chat-welcome { gap: 10px; }
+  .shader-chat-starters { gap: 6px; }
+  .shader-chat-starters button { padding: 6px 10px; }
 }
 @container shader-chat-space (max-height: 130px) {
   .shader-chat-welcome { display: none; }
-}
-@container shader-chat-space (max-width: 280px) {
-  .shader-chat-starters, .shader-chat-starters-invite { display: none; }
 }
 @container shader-chat-space (max-width: 280px) and (max-height: 170px) {
   .shader-chat-welcome { display: none; }
