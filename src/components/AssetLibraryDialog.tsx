@@ -202,7 +202,8 @@ export function AssetLibraryDialog(props: Props) {
         else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { event.preventDefault(); first?.focus(); }
       }
     }}>
-      <header className="ml-header" inert={expandedPreview || extrasOpen || !!pendingDelete}><h2 id="asset-browser-title" title={props.timelineAssignment?.shaderName}>{props.timelineAssignment ? 'Assign Media' : 'Assets'}</h2>
+      <h2 id="asset-browser-title" className="ml-sr-only">{props.timelineAssignment ? 'Assign Media' : 'Assets'}</h2>
+      {!!sources.length && <header className="ml-header" inert={expandedPreview || extrasOpen || !!pendingDelete}>
         {source && <span className="ml-current-photo"><EditableAssetName key={source.id} name={source.name} onSave={name => props.onRenameAsset(source.id, name)} /></span>}
         <div className="ml-header-actions">{!!sources.length && <>
           <button className="ml-icon-button" type="button" aria-label="Paste image" title="Paste" onClick={props.onPasteImage} disabled={props.imageImporting}><Icon name="paste" /></button>
@@ -210,11 +211,11 @@ export function AssetLibraryDialog(props: Props) {
           {props.timelineAssignment && <button className="ghost-button" type="button" onClick={() => { props.timelineAssignment?.onUseLiveStage(); close(); }}>Use Live Stage Asset</button>}
           <button className="primary-button" type="button" disabled={!(selectedVersion ?? source) || !!selectedKind && !selectedVersion || resolution.status !== 'ready'} onClick={() => { const selected = selectedVersion ?? source; if (selected) use(selected); }}>Use selection <span aria-hidden="true">→</span></button>
         </>}{!isPage && <button className="ml-icon-button" type="button" onClick={close} aria-label="Close asset library"><Icon name="close" /></button>}</div>
-      </header>
+      </header>}
       {props.showImportFirstStep && !!sources.length && <div ref={importTipRef} className="ml-notice">Import an image or video, or choose an asset below.<button className="ghost-button" onClick={props.onImportFirstStepDismiss}>Got it</button></div>}
       {props.imageImportMessage && <p className={isPage && /^\d+ assets? added\.$/.test(props.imageImportMessage) ? 'ml-sr-only' : 'ml-notice'} role="status">{props.imageImportMessage}</p>}
       {queue.interrupted && <div className="ml-notice" role="status">Previous processing was interrupted. Saved assets are still available.<button className="ghost-button" onClick={queue.dismissInterrupted}>Dismiss</button></div>}
-      {!sources.length ? <AssetPhotoWelcome importing={props.imageImporting} onChoosePhoto={() => { prepareFirstPhoto(); props.onLoadAsset(); }} onPasteImage={() => { prepareFirstPhoto(); props.onPasteImage(); }} onOpenProject={props.onOpenProject} automaticGeneration={queue.preferences.automatic} generationOptions={<>{automation}{backgroundPreference}</>} /> : <div ref={bodyRef} className="ml-body">
+      {!sources.length ? <AssetPhotoWelcome importing={props.imageImporting} onChoosePhoto={() => { prepareFirstPhoto(); props.onLoadAsset(); }} onPasteImage={() => { prepareFirstPhoto(); props.onPasteImage(); }} onOpenProject={props.onOpenProject} onClose={isPage ? undefined : close} automaticGeneration={queue.preferences.automatic} generationOptions={<>{automation}{backgroundPreference}</>} /> : <div ref={bodyRef} className="ml-body">
         <aside className="ml-source-browser" aria-label="Uploaded assets" inert={expandedPreview || extrasOpen || !!pendingDelete}>
           <div className="ml-source-browser-heading"><span>Images</span><span>{sourceGrid.length}</span></div>
           <button className="ml-add-source" type="button" disabled={props.imageImporting} onClick={() => { prepareFirstPhoto(); props.onLoadAsset(); }}><Icon name="plus" />{props.imageImporting ? 'Importing…' : 'Add image'}</button>
