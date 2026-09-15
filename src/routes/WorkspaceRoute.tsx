@@ -8956,6 +8956,7 @@ ${errorSnapshot}`,
       bundledIds={bundledShaderIds}
       activeShaderId={project.studio.activeShaderId}
       chat={renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}
+      previewSource={{ asset: activeAsset, assetUrl: activeAssetUrl, assetUrlStatus: activeAssetResolution.status }}
       onSelect={shaderId => {
         if (shaderId !== project.studio.activeShaderId) selectShader(shaderId);
       }}

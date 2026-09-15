@@ -288,18 +288,25 @@ async function compileShaderPreviewProgram(
   return bundle;
 }
 
-export async function renderShaderPreviewToDataUrl(
+interface ShaderPreviewOptions {
+  timeSeconds?: number;
+  isActive?: () => boolean;
+  strict?: boolean;
+  preserveSourceAspectRatio?: boolean;
+  maxEdge?: number;
+}
+
+export async function renderShaderPreviewFrame(
   shaderCode: string,
   uniformValues: ShaderUniformValueMap | undefined,
   image: HTMLCanvasElement,
-  overlayImage: HTMLCanvasElement | null,
   rendererRef: { current: ShaderPreviewRenderer | null },
-  options: { timeSeconds?: number; isActive?: () => boolean; strict?: boolean } = {},
+  options: ShaderPreviewOptions = {},
 ) {
   const renderer = getShaderPreviewRenderer(rendererRef);
   if (!renderer) {
     if (options.strict) throw new Error('Preview unavailable');
-    return createPreviewMessageDataUrl('Preview unavailable');
+    return null;
   }
 
   const { gl, canvas: renderCanvas, quadBuffer, texture } = renderer;
@@ -307,10 +314,18 @@ export async function renderShaderPreviewToDataUrl(
   if (options.isActive && !options.isActive()) return null;
   if (!previewProgram) {
     if (options.strict) throw new Error('Shader preview failed to compile');
-    return createPreviewMessageDataUrl('Shader error');
+    return null;
   }
   const { program, positionLocation: posLoc } = previewProgram;
 
+  const maxEdge = Math.max(1, Math.min(PREVIEW_SOURCE_MAX_EDGE, options.maxEdge ?? PREVIEW_SOURCE_MAX_EDGE));
+  const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
+  const width = options.preserveSourceAspectRatio ? Math.max(1, Math.round(image.width * scale)) : PREVIEW_WIDTH;
+  const height = options.preserveSourceAspectRatio ? Math.max(1, Math.round(image.height * scale)) : PREVIEW_HEIGHT;
+  if (renderCanvas.width !== width || renderCanvas.height !== height) {
+    renderCanvas.width = width;
+    renderCanvas.height = height;
+  }
   gl.viewport(0, 0, renderCanvas.width, renderCanvas.height);
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -361,6 +376,22 @@ export async function renderShaderPreviewToDataUrl(
 
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+  gl.disableVertexAttribArray(posLoc);
+  return renderCanvas;
+}
+
+export async function renderShaderPreviewToDataUrl(
+  shaderCode: string,
+  uniformValues: ShaderUniformValueMap | undefined,
+  image: HTMLCanvasElement,
+  overlayImage: HTMLCanvasElement | null,
+  rendererRef: { current: ShaderPreviewRenderer | null },
+  options: ShaderPreviewOptions = {},
+) {
+  const renderCanvas = await renderShaderPreviewFrame(shaderCode, uniformValues, image, rendererRef, options);
+  if (options.isActive && !options.isActive()) return null;
+  if (!renderCanvas) return createPreviewMessageDataUrl('Preview unavailable');
+
   let previewSrc = renderCanvas.toDataURL('image/webp', PREVIEW_IMAGE_QUALITY);
 
   if (overlayImage) {
@@ -380,6 +411,5 @@ export async function renderShaderPreviewToDataUrl(
     }
   }
 
-  gl.disableVertexAttribArray(posLoc);
   return previewSrc;
 }

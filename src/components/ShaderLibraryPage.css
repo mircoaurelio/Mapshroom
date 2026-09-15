@@ -161,3 +161,21 @@
   .is-list .shader-library-card-actions { flex-direction: column; }
   .is-list .shader-library-preview { width: 65px; }
 }
+
+/* Image previews are opt-in. Keep the switch prominent above search and filters. */
+.shader-library-image-toggle { display: flex; align-items: center; gap: 12px; padding: 11px 13px; margin: -8px 0 16px; border: 1px solid var(--text-muted); border-radius: 7px; background: var(--bg-soft); cursor: pointer; flex-shrink: 0; }
+.shader-library-image-toggle input { flex-shrink: 0; width: 19px; height: 19px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.shader-library-image-toggle > span:first-of-type { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.shader-library-image-toggle strong { font-size: 12px; font-weight: 600; }
+.shader-library-image-toggle small { font-size: 11px; color: var(--text-muted); }
+.shader-library-image-toggle-state { margin-left: auto; font-size: 10px; padding: 4px 7px; border-radius: 4px; border: 1px solid var(--line); color: var(--text-muted); }
+.shader-library-image-toggle.is-enabled { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--bg-panel)); }
+.shader-library-image-toggle.is-enabled .shader-library-image-toggle-state { color: var(--accent); border-color: var(--accent); }
+.shader-library-preview .shader-image-thumbnail img { object-fit: contain; }
+.shader-image-animation { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+.shader-image-animation:has(canvas) { background: #050506; }
+.shader-image-animation canvas { display: block; max-width: 100%; max-height: 100%; width: 100%; height: 100%; object-fit: contain; }
+.shader-image-thumbnail .shader-thumbnail-state { font-size: 11px; padding: 10px; text-align: center; }
+@media (max-width: 700px) {
+  .shader-library-image-toggle { margin-top: 0; }
+}

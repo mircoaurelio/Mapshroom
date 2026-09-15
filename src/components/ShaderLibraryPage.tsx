@@ -1,7 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { SavedShader, ShaderTemplate } from '../types';
+import type { AssetRecord, SavedShader, ShaderTemplate } from '../types';
 import { addShaderFolder, filterLibraryShaders, moveShaderToFolder, normalizeLibraryText, readLibraryOrganization, readShaderIds, SHADER_FAVORITES_KEY, type LibraryFilters, type LibraryOrganization } from '../lib/shaderLibrary';
 import { ShaderThumbnail } from './ShaderThumbnail';
+import { ShaderImageThumbnail } from './ShaderImageThumbnail';
+import { ShaderImagePreviewSession } from '../lib/shaderImagePreviewSession';
+import { isInternalCanvasAssetId } from '../lib/bundledAssets';
+import type { AssetObjectUrlStatus } from '../lib/useAssetObjectUrl';
 import { useShaderLibraryLayout } from '../lib/useShaderLibraryLayout';
 import './ShaderLibraryPage.css';
 
@@ -10,6 +14,7 @@ interface Props {
   shaders: SavedShader[];
   bundledIds: ReadonlySet<string>;
   activeShaderId: string;
+  previewSource: { asset: AssetRecord | null; assetUrl: string | null; assetUrlStatus: AssetObjectUrlStatus };
   chat: ReactNode;
   onSelect: (id: string) => void;
   onOpenWorkspace: (id: string) => void;
@@ -38,7 +43,7 @@ function Icon({ name }: { name: IconName }) {
 const initialFilters: LibraryFilters = { query: '', source: 'all', template: 'all', audioOnly: false, favoritesOnly: false, view: 'all', sort: 'updated' };
 const readLocal = (key: string) => { try { return localStorage.getItem(key); } catch { return null; } };
 
-export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShaderId, chat, onSelect, onOpenWorkspace, onNewShader, onImport }: Props) {
+export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShaderId, previewSource, chat, onSelect, onOpenWorkspace, onNewShader, onImport }: Props) {
   const paneId = useId();
   const organizationKey = `mapshroom-v3:shader-library:${sessionId}`;
   const [organization, setOrganization] = useState<LibraryOrganization>(() => readLibraryOrganization(readLocal(organizationKey)));
@@ -47,6 +52,21 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
   const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [limit, setLimit] = useState(24);
   const [chatOpen, setChatOpen] = useState(true);
+  const [imagePreviewEnabled, setImagePreviewEnabled] = useState(false);
+  const [hoveredShaderId, setHoveredShaderId] = useState<string | null>(null);
+  const [focusedShaderId, setFocusedShaderId] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<{ url: string; session: ShaderImagePreviewSession } | null>(null);
+  const previewAsset = previewSource.asset;
+  const previewUrl = previewAsset && !isInternalCanvasAssetId(previewAsset.id) && previewSource.assetUrlStatus === 'ready' ? previewSource.assetUrl : null;
+  const previewKind = previewAsset?.kind ?? 'image';
+  const imageSession = imagePreviewEnabled && previewUrl && imagePreview?.url === previewUrl ? imagePreview.session : null;
+
+  useEffect(() => {
+    if (!imagePreviewEnabled || !previewUrl) return;
+    const session = new ShaderImagePreviewSession(previewUrl, previewKind);
+    const timer = window.setTimeout(() => setImagePreview({ url: previewUrl, session }), 0);
+    return () => { window.clearTimeout(timer); session.dispose(); };
+  }, [imagePreviewEnabled, previewUrl, previewKind]);
   const panelLayout = useShaderLibraryLayout(chatOpen);
   const [foldersOpen, setFoldersOpen] = useState(false);
   const [directoryQuery, setDirectoryQuery] = useState('');
@@ -62,7 +82,9 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
   const groups = useMemo(() => [...new Set(catalog.filter(shader => bundledIds.has(shader.id)).map(shader => shader.group?.trim() || 'Saved'))].sort(), [catalog, bundledIds]);
   const results = useMemo(() => filterLibraryShaders(shaders, bundledIds, favorites, organization, filters), [shaders, bundledIds, favorites, organization, filters]);
   const visible = results.slice(0, limit);
-  const updateFilters = (patch: Partial<LibraryFilters>) => { setFilters(current => ({ ...current, ...patch })); setLimit(24); };
+  const animationId = imageSession && visible.some(shader => shader.id === (hoveredShaderId ?? focusedShaderId)) ? hoveredShaderId ?? focusedShaderId : null;
+  const clearImageHover = () => { setHoveredShaderId(null); setFocusedShaderId(null); };
+  const updateFilters = (patch: Partial<LibraryFilters>) => { setFilters(current => ({ ...current, ...patch })); setLimit(24); clearImageHover(); };
   const navigateFolder = (patch: Partial<LibraryFilters>) => { updateFilters({ view: 'all', group: undefined, folderId: undefined, ...patch }); setFoldersOpen(false); };
 
   useEffect(() => {
@@ -153,6 +175,11 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
         <button type="button" className="secondary-button" disabled={importing} onClick={() => fileInput.current?.click()}><Icon name="import" />{importing ? 'Importing…' : 'Import'}</button>
         <button type="button" className="primary-button" onClick={() => { updateFilters({ ...initialFilters, view: 'mine' }); setChatOpen(true); onNewShader(); }}><Icon name="plus" />New shader</button>
       </div></header>
+      <label className={`shader-library-image-toggle${imagePreviewEnabled ? ' is-enabled' : ''}`}>
+        <input type="checkbox" checked={imagePreviewEnabled} onChange={event => { setImagePreviewEnabled(event.target.checked); clearImageHover(); }} />
+        <span><strong>Preview on your image</strong><small>{imagePreviewEnabled ? previewUrl ? 'Hover a card to animate it' : 'Load an image in Assets to preview shaders' : 'See each shader on your loaded image'}</small></span>
+        <span className="shader-library-image-toggle-state" aria-hidden="true">{imagePreviewEnabled ? 'ON' : 'OFF'}</span>
+      </label>
       <div className="shader-library-toolbar">
         <button type="button" className="secondary-button shader-library-directory-toggle" aria-expanded={foldersOpen} onClick={() => setFoldersOpen(value => !value)}><Icon name="folder" />Folders</button>
         <label className="shader-library-search"><Icon name="search" /><input ref={searchInput} type="search" aria-label="Search shaders" placeholder="Search shaders, tags or descriptions…" value={filters.query} onChange={event => updateFilters({ query: event.target.value })} /><kbd>Ctrl K</kbd></label>
@@ -171,11 +198,17 @@ export function ShaderLibraryPage({ sessionId, shaders, bundledIds, activeShader
         <select aria-label="Sort shaders" value={filters.sort} onChange={event => updateFilters({ sort: event.target.value as LibraryFilters['sort'] })}><option value="updated">Recently updated</option><option value="name">Name A–Z</option></select>
         <div className="shader-library-view-toggle" role="group" aria-label="Shader view"><button type="button" aria-label="Grid view" aria-pressed={layout === 'grid'} onClick={() => setLayout('grid')}><Icon name="grid" /></button><button type="button" aria-label="List view" aria-pressed={layout === 'list'} onClick={() => setLayout('list')}><Icon name="list" /></button></div>
       </div></div>
-      <div className="shader-library-results-scroll">
+      <div className="shader-library-results-scroll" onScroll={() => setHoveredShaderId(null)}>
         {results.length === 0 ? <div className="shader-library-empty"><Icon name="search" /><h2>No shaders here yet</h2><p>{filters.view === 'folder' ? 'Select a shader in All shaders, then use Move to folder.' : 'Try another search or clear your filters.'}</p><button type="button" className="secondary-button" onClick={() => updateFilters(initialFilters)}>Show all shaders</button></div> : <div className={`shader-library-results is-${layout}`}>
-          {visible.map(shader => <article key={shader.id} className={`shader-library-card${shader.id === activeShaderId ? ' is-selected' : ''}`}>
+          {visible.map(shader => <article key={shader.id} className={`shader-library-card${shader.id === activeShaderId ? ' is-selected' : ''}`}
+            onPointerEnter={event => { if (imageSession && event.pointerType !== 'touch') setHoveredShaderId(shader.id); }}
+            onPointerLeave={() => setHoveredShaderId(null)}
+            onPointerDown={() => setFocusedShaderId(null)}
+            onPointerUp={event => { if (imageSession && event.pointerType === 'touch') setFocusedShaderId(shader.id); }}
+            onFocus={event => { if (imageSession && event.target.matches(':focus-visible')) setFocusedShaderId(shader.id); }}
+            onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusedShaderId(null); }}>
             <button type="button" className="shader-library-card-select" aria-label={`Select ${shader.name}`} aria-pressed={shader.id === activeShaderId} onClick={() => chooseShader(shader.id)}>
-              <span className="shader-library-preview"><ShaderThumbnail shader={shader} />{shader.id === activeShaderId && <span className="shader-library-check" aria-hidden="true">✓</span>}</span>
+              <span className="shader-library-preview">{imageSession ? <ShaderImageThumbnail shader={shader} session={imageSession} active={animationId === shader.id} animationPending={Boolean(animationId)} /> : <ShaderThumbnail shader={shader} />}{shader.id === activeShaderId && <span className="shader-library-check" aria-hidden="true">✓</span>}</span>
               <span className="shader-library-card-meta"><strong title={shader.name}>{shader.name}</strong><span className="shader-library-tags"><span>{shader.group?.trim() || 'Saved'}</span><span>{bundledIds.has(shader.id) ? shader.template ?? 'sculpture' : 'My shader'}</span></span></span>
             </button>
             <div className="shader-library-card-actions"><button type="button" className="shader-library-card-open" onClick={() => openShader(shader.id)}><Icon name="open" />Open in Workspace</button><button type="button" className="shader-library-icon-button" aria-label={`${favorites.has(shader.id) ? 'Remove' : 'Add'} ${shader.name} ${favorites.has(shader.id) ? 'from' : 'to'} favorites`} aria-pressed={favorites.has(shader.id)} onClick={() => toggleFavorite(shader.id)}><Icon name="star" /></button></div>
