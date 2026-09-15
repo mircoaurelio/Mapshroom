@@ -13,6 +13,7 @@ import {
 import { isTauri } from './desktop/index.ts';
 import { fetchJson } from './desktopHttp';
 import { hasStoredCloudApiKey } from './desktopSecrets';
+import { AiProviderError } from './aiRequestError';
 
 async function requestGoogleViaDesktopProxy({
   model,
@@ -67,15 +68,13 @@ async function requestGoogleViaDesktopProxy({
     }),
   });
 
-  const payload = (await response.json()) as {
+  const payload = (await response.json().catch(() => null)) as {
     error?: { message?: string };
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   } | null;
 
   if (!response.ok) {
-    throw new Error(
-      payload?.error?.message || `Google AI request failed with status ${response.status}.`,
-    );
+    throw new AiProviderError(response.status, payload);
   }
 
   const text =
@@ -175,7 +174,7 @@ export async function requestGoogleShaderMutation(
         );
       }
       if (error instanceof Error && error.message.trim()) {
-        throw new Error(error.message);
+        throw error;
       }
       throw new Error('Google AI request failed.');
     });

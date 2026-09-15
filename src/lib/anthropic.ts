@@ -10,6 +10,7 @@ import { hasStoredCloudApiKey } from './desktopSecrets';
 import { isTauri } from './desktop/index.ts';
 
 import type { ShaderRequestOptions } from './openai';
+import { AiProviderError } from './aiRequestError';
 
 interface AnthropicPayload {
   content?: Array<{ type?: string; text?: string }>;
@@ -82,7 +83,7 @@ export async function requestAnthropicShaderMutation({
 
   const payload = await response.json().catch(() => null) as AnthropicPayload | null;
   if (!response.ok) {
-    throw new Error(payload?.error?.message || `Anthropic request failed with status ${response.status}.`);
+    throw new AiProviderError(response.status, payload);
   }
   const text = payload?.content
     ?.filter((block) => block.type === 'text')

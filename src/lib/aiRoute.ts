@@ -23,6 +23,17 @@ export function hasConfiguredCloudAi(settings: AiSettings): boolean {
   return hasStoredCloudApiKey(key) && Boolean(model.trim());
 }
 
+export function getAiRouteIdentity(settings: AiSettings, route: AiGenerationRoute): { label: string; model: string } {
+  if (route === 'api') {
+    return {
+      label: { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' }[settings.shaderProvider],
+      model: getCloudAiConfiguration(settings).model.trim() || 'Choose a model',
+    };
+  }
+  if (route === 'local') return { label: 'Local', model: settings.localShaderModel.trim().split('/').pop() || 'Choose a model' };
+  return { label: route === 'perplexity' ? 'Perplexity' : 'ChatGPT', model: '' };
+}
+
 /** A saved chat handoff preference must never bypass an available API. */
 export function resolveAiGenerationRoute(
   settings: AiSettings,

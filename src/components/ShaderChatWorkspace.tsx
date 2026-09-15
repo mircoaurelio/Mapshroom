@@ -24,11 +24,13 @@ interface ShaderChatWorkspaceProps {
   onNewChat: () => void;
   onSuggest: (prompt: string) => void;
   onRetry: (prompt: string) => void;
+  onRetryFailed?: () => void;
+  onOpenAiSettings?: () => void;
 }
 
 export function ShaderChatWorkspace({
   shaderCode, versions, chatHistory, pendingPrompt, handoff, loading, feedback, feedbackTone,
-  composer, performanceSuggestion, codePanel, historyPanel, onRestore, onNewChat, onSuggest, onRetry,
+  composer, performanceSuggestion, codePanel, historyPanel, onRestore, onNewChat, onSuggest, onRetry, onRetryFailed, onOpenAiSettings,
 }: ShaderChatWorkspaceProps) {
   const [tab, setTab] = useState<ChatTab>('chat');
   const [hiddenVersions, setHiddenVersions] = useState<string[]>([]);
@@ -131,7 +133,13 @@ export function ShaderChatWorkspace({
           {pendingPrompt ? <article className="shader-chat-user"><small>You</small><p>{pendingPrompt}</p></article> : null}
           {handoff}
           {loading ? <article className="shader-chat-assistant shader-chat-working"><small>Assistant</small><p><span aria-hidden="true">•••</span> Creating your shader…</p></article> : null}
-          {feedback && !loading ? <article className={`shader-chat-assistant shader-chat-feedback is-${feedbackTone}`}><small>Assistant</small><p>{feedback}</p></article> : null}
+          {feedback && !loading ? <article className={`shader-chat-assistant shader-chat-feedback is-${feedbackTone}`}>
+            <small>Assistant</small><p>{feedback}</p>
+            {feedbackTone === 'error' && onRetryFailed ? <div className="shader-chat-message-actions shader-chat-error-actions">
+              <button type="button" disabled={loading} onClick={() => { followRef.current = true; onRetryFailed(); }}><ShaderChatIcon name="retry" /> Retry request</button>
+              {onOpenAiSettings ? <button type="button" onClick={onOpenAiSettings}>AI settings</button> : null}
+            </div> : null}
+          </article> : null}
           {copyError ? <p className="shader-chat-copy-error" role="alert">{copyError}</p> : null}
         </div>
         <div className="shader-chat-compose-area">

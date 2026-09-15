@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { AiGenerationRoute } from '../lib/aiRoute';
+import { getAiRouteIdentity, type AiGenerationRoute } from '../lib/aiRoute';
+import type { AiSettings } from '../types';
 import { CloudModelIcon } from './CloudModelIcon';
 import { PanelSection } from './PanelSection';
 import { ShaderChatIcon } from './ShaderChatIcon';
@@ -28,6 +29,8 @@ interface AiPanelProps {
   onCopyPrompt?: () => Promise<void>;
   prompt: string;
   selectedRoute: AiGenerationRoute;
+  settings: AiSettings;
+  onOpenSettings: () => void;
   cloudApiConfigured?: boolean;
   aiLoading: boolean;
   feedbackMessage: string;
@@ -47,6 +50,8 @@ export function AiPanel({
   onCopyPrompt,
   prompt,
   selectedRoute,
+  settings,
+  onOpenSettings,
   cloudApiConfigured = false,
   aiLoading,
   feedbackMessage,
@@ -70,9 +75,12 @@ export function AiPanel({
   const showFeedback =
     Boolean(feedbackMessage) && (feedbackTone !== 'error' || feedbackMessage !== shaderError);
   const hasPromptLine = prompt.split('\n').some((line) => line.trim().length > 0);
-  const selectedRouteOption =
-    AI_ROUTE_OPTIONS.find((option) => option.value === selectedRoute) ??
-    AI_ROUTE_OPTIONS[0];
+  const routeOptions = AI_ROUTE_OPTIONS.map(option => {
+    const identity = getAiRouteIdentity(settings, option.value);
+    return { ...option, ...identity, note: identity.model || option.note };
+  });
+  const selectedRouteOption = routeOptions.find(option => option.value === selectedRoute) ?? routeOptions[0];
+  const selectedModelLabel = [selectedRouteOption.label, selectedRouteOption.model].filter(Boolean).join(' · ');
   useEffect(() => {
     if (!copyMessage) return;
     const timeout = window.setTimeout(() => setCopyMessage(''), 1800);
@@ -222,8 +230,9 @@ export function AiPanel({
                 <button
                   type="button"
                   className={`ai-prompt-route-trigger ${routeMenuOpen ? 'active' : ''}`}
-                  aria-label={`Shader AI model: ${selectedRouteOption.label}`}
-                  aria-haspopup="listbox"
+                  aria-label={`Shader AI model: ${selectedModelLabel}`}
+                  title={selectedModelLabel}
+                  aria-haspopup="menu"
                   aria-expanded={routeMenuOpen}
                   onClick={() => setRouteMenuOpen((current) => !current)}
                 >
@@ -239,17 +248,20 @@ export function AiPanel({
                       selectedRouteOption.mark
                     )}
                   </span>
-                  <span>{selectedRouteOption.label}</span>
+                  <span className="ai-prompt-route-identity">
+                    <strong>{selectedRouteOption.label}</strong>
+                    {selectedRouteOption.model ? <small>{selectedRouteOption.model}</small> : null}
+                  </span>
                   <ShaderChatIcon name="chevron" className="ai-prompt-route-chevron" />
                 </button>
                 {routeMenuOpen ? (
-                  <div className="ai-prompt-route-menu" role="listbox" aria-label="Shader AI model">
-                    {AI_ROUTE_OPTIONS.filter(option => !cloudApiConfigured || option.value === 'api' || option.value === 'local').map((option) => (
+                  <div className="ai-prompt-route-menu" role="menu" aria-label="Shader AI model">
+                    {routeOptions.filter(option => !cloudApiConfigured || option.value === 'api' || option.value === 'local').map((option) => (
                       <button
                         key={option.value}
                         type="button"
-                        role="option"
-                        aria-selected={option.value === selectedRoute}
+                        role="menuitemradio"
+                        aria-checked={option.value === selectedRoute}
                         className={option.value === selectedRoute ? 'active' : ''}
                         onClick={() => {
                           onRouteChange(option.value);
@@ -277,6 +289,10 @@ export function AiPanel({
                         ) : null}
                       </button>
                     ))}
+                    <button type="button" role="menuitem" className="ai-prompt-route-settings" onClick={() => {
+                      setRouteMenuOpen(false);
+                      onOpenSettings();
+                    }}>AI settings <span aria-hidden="true">↗</span></button>
                   </div>
                 ) : null}
               </div>

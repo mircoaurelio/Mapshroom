@@ -119,7 +119,7 @@ export function AppSettingsDialog({
   const [draft, setDraft] = useState(() => ({ ...settings }));
   const initialRoute = resolveAiGenerationRoute(settings, initialPath ?? null);
   const [route, setRoute] = useState<AiGenerationRoute>(initialRoute);
-  const [section, setSection] = useState<SettingsSection>('api');
+  const [section, setSection] = useState<SettingsSection>(initialRoute === 'local' ? 'local' : 'api');
   const [visibleKey, setVisibleKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');

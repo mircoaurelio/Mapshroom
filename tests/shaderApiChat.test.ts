@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createServer } from 'vite';
 import { getShaderChatResults } from '../src/lib/shaderChatResults.ts';
 import type { AiSettings, ShaderChatTurn } from '../src/types.ts';
+import { explainAiRequestError } from '../src/lib/aiRequestError.ts';
 
 const shader = `// NAME: API chat result
 uniform float speed; // @min -2 @max 2 @default 0.25
@@ -120,7 +121,10 @@ test('cloud replies and API errors stay in the shader chat, including a stale ch
             prompt: 'Try again',
             currentCode: first,
           }),
-          /Test API key rejected/,
+          (error: unknown) => {
+            assert.equal(explainAiRequestError(error).kind, 'key');
+            return true;
+          },
         );
         assert.equal(
           requests.length,

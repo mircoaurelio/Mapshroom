@@ -149,6 +149,7 @@ import {
   storeAiGenerationRoute,
   type AiGenerationRoute,
 } from '../lib/aiRoute';
+import { explainAiRequestError } from '../lib/aiRequestError';
 import {
   extractShaderApplyLinkFromText,
   loadPendingShaderApplyRequest,
@@ -2087,15 +2088,6 @@ function activateTimelineOnAppEntry(project: ProjectDocument): ProjectDocument {
   };
 }
 
-function sanitizeAiMessage(message: string): string {
-  return message
-    .replaceAll('Google Gemini', 'AI')
-    .replaceAll('OpenAI', 'AI')
-    .replaceAll('Gemini', 'AI')
-    .replaceAll('Google AI', 'AI')
-    .replaceAll('Google', 'AI');
-}
-
 type DesktopResizeTarget = 'left' | 'right' | 'timeline';
 type FilePickerSource = 'library' | 'timeline-picker';
 
@@ -2901,6 +2893,13 @@ export function WorkspaceRoute() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [shaderLoadReport, setShaderLoadReport] = useState<ShaderLoadReport | null>(null);
   const [chatSubmission, setChatSubmission] = useState<{ shaderId: string; prompt: string; versionIds: string[] } | null>(null);
+  const [failedAiRequest, setFailedAiRequest] = useState<{
+    shaderId: string;
+    prompt: string;
+    historyPrompt: string;
+    trigger: 'generate' | 'fix' | 'quick_add';
+    message: string;
+  } | null>(null);
   const initialStoredAiRouteRef = useRef<AiGenerationRoute | null>(
     readStoredAiGenerationRoute(),
   );
@@ -6101,6 +6100,7 @@ export function WorkspaceRoute() {
     setAiPrompt('');
     setAiFeedbackMessage('');
     setChatSubmission(null);
+    setFailedAiRequest(null);
     clearGeneratedShaderRetry();
   };
 
@@ -6539,6 +6539,7 @@ export function WorkspaceRoute() {
     }
 
     const llmTrigger = options?.trigger ?? 'generate';
+    setFailedAiRequest(null);
     const trimmedPrompt = prompt.trim();
     const historyPrompt = options?.historyPrompt?.trim() || trimmedPrompt;
     if (!trimmedPrompt) {
@@ -6797,7 +6798,7 @@ export function WorkspaceRoute() {
         trigger: llmTrigger,
       });
     } catch (error) {
-      const message = error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader generation failed.';
+      const { message } = explainAiRequestError(error, requestSettings.shaderRuntime === 'local');
       const failedOnActiveShader = currentProjectRef.current?.studio.activeShaderId === targetShaderId;
 
       updateProject((currentProject) => {
@@ -6825,6 +6826,7 @@ export function WorkspaceRoute() {
       });
 
       if (failedOnActiveShader) {
+        setFailedAiRequest({ shaderId: targetShaderId, prompt: trimmedPrompt, historyPrompt, trigger: llmTrigger, message });
         setAiFeedbackTone('error');
         setAiFeedbackMessage(message);
         setStatusMessage('Shader generation failed.');
@@ -7067,11 +7069,12 @@ ${compilerError}`;
         });
       })
       .catch((error) => {
-        const message =
-          error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader auto-fix failed.';
-        setCompilerError(message);
-        setAiFeedbackTone('error');
-        setAiFeedbackMessage(message);
+        const { message } = explainAiRequestError(error, project.ai.settings.shaderRuntime === 'local');
+        if (currentProjectRef.current?.studio.activeShaderId === activeShaderId) {
+          setFailedAiRequest({ shaderId: activeShaderId, prompt: repairPrompt, historyPrompt: originalPrompt, trigger: 'fix', message });
+          setAiFeedbackTone('error');
+          setAiFeedbackMessage(message);
+        }
         setStatusMessage('Shader auto-fix failed.');
         clearGeneratedShaderRetry(activeShaderId);
         trackLlmRequest({
@@ -8305,12 +8308,18 @@ ${errorSnapshot}`,
 
   const useDesktopPaneLayout =
     !isMobile && uiPreferences.chromeVisible && uiPreferences.workspaceMode !== 'immersive';
+  const openChatAiSettings = () => {
+    setApiSettingsVariant('settings');
+    setIsApiSettingsOpen(true);
+  };
   const aiPanel = (
     <AiPanel
       compact
       onCopyPrompt={() => navigator.clipboard.writeText(buildExternalChatShaderPrompt(aiPrompt, project.studio.activeShaderCode))}
       prompt={aiPrompt}
       selectedRoute={aiGenerationRoute}
+      settings={project.ai.settings}
+      onOpenSettings={openChatAiSettings}
       cloudApiConfigured={hasConfiguredCloudAi(project.ai.settings)}
       aiLoading={aiLoading}
       feedbackMessage={aiFeedbackMessage}
@@ -8373,6 +8382,14 @@ ${errorSnapshot}`,
       feedback={!chatSubmission || chatSubmission.shaderId === project.studio.activeShaderId ? aiFeedbackMessage : ''}
       feedbackTone={aiFeedbackTone}
       composer={aiPanel}
+      onRetryFailed={failedAiRequest?.shaderId === project.studio.activeShaderId && failedAiRequest.message === aiFeedbackMessage ? () => {
+        if (aiLoading) return;
+        void handleShaderMutation(failedAiRequest.prompt, {
+          historyPrompt: failedAiRequest.historyPrompt,
+          trigger: failedAiRequest.trigger,
+        });
+      } : undefined}
+      onOpenAiSettings={openChatAiSettings}
       performanceSuggestion={shaderLoadReport && optimizationSources.length ? (
         <ShaderPerformanceSuggestion key={shaderLoadReport.key} report={shaderLoadReport}
           sources={optimizationSources} disabled={aiLoading} onUsePrompt={handleOptimizationPrompt} />
@@ -8383,6 +8400,7 @@ ${errorSnapshot}`,
       onNewChat={() => {
         setAiPrompt('');
         setChatSubmission(null);
+        setFailedAiRequest(null);
         setAiFeedbackMessage('');
         if (externalChatRequest?.targetShaderId === project.studio.activeShaderId) {
           removePendingShaderApplyRequest(externalChatRequest.requestId);

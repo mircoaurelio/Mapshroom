@@ -61,6 +61,8 @@
 .shader-chat-working span { color: var(--chat-accent); letter-spacing: 3px; }
 .shader-chat-feedback { margin-top: 18px; }
 .shader-chat-feedback.is-error > p, .shader-chat-copy-error { color: #ffaca5; }
+.shader-chat-error-actions { flex-wrap: wrap; margin-bottom: 14px; }
+.shader-chat-error-actions button { padding: 8px 10px; border: 1px solid #3b3e45; border-radius: 7px; color: #e9eaec; }
 .shader-chat-copy-error { font-size: 12px; }
 .shader-chat-handoff-button { display: inline-flex; align-items: center; gap: 7px; margin: 0 7px 7px 0; padding: 9px 12px; border: 1px solid #3b3e45; border-radius: 8px; background: #171b1d; color: #e9eaec; font: 12px Arial, sans-serif; cursor: pointer; }
 .shader-chat-paste-form { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; padding: 12px; border: 1px solid #303237; border-radius: 9px; background: #121416; scroll-margin-block: 16px; }
@@ -80,6 +82,19 @@
 .shader-chat-workspace .ai-prompt-composer-footer { border-top: 0; gap: 7px; padding: 7px 9px 9px; }
 .shader-chat-workspace .ai-prompt-route-actions { flex: 1; min-width: 0; gap: 7px; }
 .shader-chat-workspace .ai-prompt-route-trigger { min-width: 0; min-height: 30px; border-radius: 7px; padding: 4px 8px; gap: 6px; font-size: 11px; }
+.shader-chat-workspace .ai-prompt-route-select { flex: 1; min-width: 0; }
+.shader-chat-workspace .ai-prompt-route-trigger { width: 100%; }
+.ai-prompt-route-identity { display: grid; min-width: 0; gap: 3px; line-height: 1.3; }
+.ai-prompt-route-identity strong, .ai-prompt-route-identity small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-prompt-route-identity strong { font-size: inherit; }
+.ai-prompt-route-identity small { color: #aeb2ba; font-size: 10px; font-weight: 400; }
+.ai-prompt-route-menu-copy { min-width: 0; overflow-wrap: anywhere; }
+.ai-prompt-route-menu > .ai-prompt-route-settings { display: flex; justify-content: space-between; border-top: 1px solid #34363c; margin-top: 4px; border-radius: 0 0 7px 7px; font-size: 12px; }
+.shader-chat-workspace .ai-prompt-composer { container: ai-composer / inline-size; }
+@container ai-composer (max-width: 380px) {
+  .ai-prompt-clipboard-button > span { display: none; }
+  .shader-chat-workspace .ai-prompt-clipboard-button { flex: 0 0 auto; }
+}
 .shader-chat-workspace .ai-prompt-send-button { flex: 0 0 32px; width: 32px; height: 32px; margin-left: auto; background: var(--chat-accent); color: var(--accent-ink); border: 0; }
 .shader-chat-workspace .ai-prompt-send-button > svg { width: 20px; height: 20px; }
 .shader-chat-workspace .ai-prompt-route-chevron { width: 14px; height: 14px; }

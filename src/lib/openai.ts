@@ -10,6 +10,7 @@ import { hasStoredCloudApiKey } from './desktopSecrets';
 import { isTauri } from './desktop/index.ts';
 
 import type { ShaderChatTurn } from '../types';
+import { AiProviderError } from './aiRequestError';
 
 export interface ShaderRequestOptions {
   apiKey: string;
@@ -102,10 +103,7 @@ export async function requestOpenAiShaderMutation({
   const payload = (await response.json().catch(() => null)) as ResponsesApiPayload | null;
 
   if (!response.ok) {
-    const message =
-      payload?.error?.message ||
-      `OpenAI request failed with status ${response.status}.`;
-    throw new Error(message);
+    throw new AiProviderError(response.status, payload);
   }
 
   if (!payload) {

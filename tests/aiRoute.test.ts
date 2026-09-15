@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   getCloudAiConfiguration,
+  getAiRouteIdentity,
   hasConfiguredCloudAi,
   resolveAiGenerationRoute,
   routeAfterAiSettingsEdit,
@@ -23,6 +24,16 @@ const empty: AiSettings = {
   visionEnabled: false,
   videoGenProvider: 'runway',
 };
+
+test('the chat shows the active provider and its exact configured model, including custom IDs', () => {
+  const settings = { ...empty, openaiShaderModel: 'custom-openai', anthropicShaderModel: 'custom-claude', googleShaderModel: 'custom-gemini' };
+  for (const [provider, label, model] of [['openai', 'OpenAI', 'custom-openai'], ['anthropic', 'Anthropic', 'custom-claude'], ['google', 'Google', 'custom-gemini']] as const) {
+    assert.deepEqual(getAiRouteIdentity({ ...settings, shaderProvider: provider }, 'api'), { label, model });
+  }
+  assert.deepEqual(getAiRouteIdentity({ ...settings, localShaderModel: 'org/local-model' }, 'local'), { label: 'Local', model: 'local-model' });
+  assert.deepEqual(getAiRouteIdentity(settings, 'chatgpt'), { label: 'ChatGPT', model: '' });
+  assert.equal(getAiRouteIdentity({ ...settings, openaiShaderModel: '  ' }, 'api').model, 'Choose a model');
+});
 
 for (const provider of ['openai', 'anthropic', 'google'] as const) {
   test(`${provider}: a configured API replaces stale ChatGPT and Perplexity routes`, () => {
