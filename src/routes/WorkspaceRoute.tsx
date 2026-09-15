@@ -8932,18 +8932,18 @@ ${errorSnapshot}`,
       onImport={importLibraryShaders}
     />
   ) : null;
+  const hasProjectionAsset = project.library.assets.some(asset => !isInternalCanvasAssetId(asset.id));
   const projectionPage = desktopSection === 'move' || desktopSection === 'output' ? (
     <ProjectionPage
       key={project.sessionId}
       section={desktopSection}
       sessionId={project.sessionId}
       transform={stageTransform}
-      assetName={activeAsset?.name ?? null}
+      assetName={hasProjectionAsset ? activeAsset?.name ?? null : null}
       assetAspectRatio={readStageFrameAspectRatio(stageCanvasRef.current) ?? 16 / 9}
-      assetUrl={activeAssetUrl}
+      assetUrl={hasProjectionAsset ? activeAssetUrl : null}
       assetKind={activeAsset?.kind ?? 'image'}
-      assetReady={Boolean(activeAsset && activeAssetUrl && activeAssetResolution.status === 'ready')}
-      shaderReady={Boolean(project.studio.activeShaderCode.trim())}
+      assetReady={Boolean(hasProjectionAsset && activeAsset && activeAssetUrl && activeAssetResolution.status === 'ready')}
       shaderError={compilerError || null}
       outputOpen={outputWindowOpen}
       outputMessage={outputWindowMessage}

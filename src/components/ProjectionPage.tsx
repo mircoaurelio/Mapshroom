@@ -19,7 +19,6 @@ interface ProjectionPageProps {
   assetUrl: string | null;
   assetKind: 'image' | 'video';
   assetReady: boolean;
-  shaderReady: boolean;
   shaderError: string | null;
   outputOpen: boolean;
   outputMessage: string;
@@ -73,10 +72,6 @@ function GuideStep({ number, title, children }: { number: number; title: string;
   return <div className={`projection-guide-step projection-guide-step-${number}`}><span className="projection-step-number">{number}</span><div><strong>{title}</strong><p>{children}</p></div></div>;
 }
 
-function CheckRow({ ready, title, children }: { ready: boolean; title: string; children: ReactNode }) {
-  return <div className="projection-check"><span className={`projection-check-icon ${ready ? 'is-ready' : ''}`}>{ready ? '✓' : '!'}</span><div><strong>{title}</strong><p>{children}</p></div></div>;
-}
-
 function ProjectionPreview({ render, transform, onDistortionChange }: {
   render: ProjectionPageProps['renderPreview'];
   transform: StageTransform;
@@ -88,10 +83,8 @@ function ProjectionPreview({ render, transform, onDistortionChange }: {
 export function ProjectionPage(props: ProjectionPageProps) {
   const { section, transform, sessionId, assetReady, outputOpen, onChange } = props;
   const isMove = section === 'move';
-  const [guideVisible, setGuideVisible] = useState(true);
   const [linked, setLinked] = useState(true);
   const [safeArea, setSafeArea] = useState(false);
-  const [background, setBackground] = useState('#101315');
   const [zoom, setZoom] = useState(1);
   const [positionMessage, setPositionMessage] = useState('');
   const [history, setHistory] = useState<{ past: StageTransform[]; future: StageTransform[] }>({ past: [], future: [] });
@@ -159,8 +152,6 @@ export function ProjectionPage(props: ProjectionPageProps) {
 
   const imageSize = projectionImageSize(transform, viewport, aspectRatio);
   const scale = Math.max(0.001, Math.min((previewSize.width - 48) / viewport.width, (previewSize.height - 48) / viewport.height)) * zoom;
-  const guidesOn = Boolean(transform.showGrid || transform.distortMode);
-  const outputSupported = typeof window.open === 'function';
   const edit = (patch: Partial<StageTransform>, grouped = false) => {
     if (!grouped || Date.now() - lastEdit.current > 400) {
       setHistory((current) => ({ past: [...current.past.slice(-79), transform], future: [] }));
@@ -222,28 +213,38 @@ export function ProjectionPage(props: ProjectionPageProps) {
   const openButton = <button type="button" className="projection-primary" onClick={props.onOpenOutput}>{outputOpen ? 'Show output window' : 'Open output window'}<Icon name="arrow" /></button>;
 
   return <section ref={pageRef} className={`projection-page projection-page-${section}`} aria-label={`${isMove ? 'Move' : 'Output'} page`}>
-    {!isMove && <header className="projection-page-header"><div><h1>Output</h1><p>Preview your projection and send it to a projector or second display.</p></div></header>}
+    {!isMove && <>
+      <header className="projection-page-header">
+        <div><h1>Output preview</h1><p>Preview your projection and send it to a projector or second display.</p></div>
+        <div className="projection-toolbar-actions">
+          <span className="projection-window-status" role="status"><i className={outputOpen ? 'is-open' : ''} />{outputOpen ? 'Window open' : 'Window closed'}</span>
+          {openButton}
+        </div>
+      </header>
+      {(props.outputMessage || props.shaderError) && <div className="projection-output-notices">
+        {props.outputMessage && <p role="status">{props.outputMessage}</p>}
+        {props.shaderError && <p role="status">Shader needs attention. <button type="button" onClick={() => props.onSelectSection('workspace')}>Review shader in Workspace<Icon name="arrow" /></button></p>}
+      </div>}
+    </>}
     <div className="projection-page-body">
       <div className="projection-preview-panel">
         <div className={`projection-preview-toolbar${isMove ? ' projection-preview-toolbar-move' : ''}`}>
           {isMove ? <><span className="projection-preview-label">Reference image <span title={props.assetName ?? ''}>{props.assetName ?? 'No asset selected'}</span></span>
             <div className="projection-toolbar-actions">
-              <button type="button" aria-pressed={guideVisible} onClick={() => setGuideVisible(!guideVisible)}>ⓘ {guideVisible ? 'Hide guide' : 'Show guide'}</button>
               <span className="projection-window-status" role="status"><i className={outputOpen ? 'is-open' : ''} />Output window: {outputOpen ? 'Open' : 'Closed'}</span>
               {openButton}
             </div>
           </> : <>
             <button type="button" onClick={() => setZoom(1)}><Icon name="fit" />Fit preview</button>
             <label className="projection-switch"><input type="checkbox" checked={safeArea} onChange={(event) => setSafeArea(event.target.checked)} /><span />Safe area</label>
-            <label className="projection-background">Background<input type="color" aria-label="Preview background" value={background} onChange={(event) => setBackground(event.target.value)} /></label>
             <button type="button" className="projection-play" onClick={props.onPlayToggle}><Icon name={props.isPlaying ? 'pause' : 'play'} />{props.isPlaying ? 'Pause' : 'Play'}</button>
           </>}
         </div>
-        {isMove && guideVisible && <div className="projection-guide-top">
-          <GuideStep number={1} title="Position">Use your keyboard arrows or the pad to position the image on your structure.</GuideStep>
-          <GuideStep number={2} title="Adjust size">Use W / H to resize. Keep the proportions linked, or adjust each dimension.</GuideStep>
+        {isMove && <div className="projection-guide-top" aria-label="Quick alignment guide">
+          <GuideStep number={1} title="Position">Move the image with the arrow keys or pad.</GuideStep>
+          <GuideStep number={2} title="Adjust size">Resize with W / H. Link them to keep proportions.</GuideStep>
         </div>}
-        <div ref={previewRef} className="projection-preview-area" style={{ background: isMove ? undefined : background }}>
+        <div ref={previewRef} className="projection-preview-area">
           {assetReady ? <div className="projection-output-frame" style={{ width: viewport.width * scale, height: viewport.height * scale }}>
             <div className="projection-render-viewport" style={{ width: viewport.width, height: viewport.height, transform: `scale(${scale})`, '--projection-scale': scale } as CSSProperties}
               tabIndex={isMove ? 0 : undefined} aria-label={isMove ? 'Alignment preview. Arrow keys move the image.' : 'Final output preview'}
@@ -257,7 +258,6 @@ export function ProjectionPage(props: ProjectionPageProps) {
             {!isMove && safeArea && <div className="projection-safe-area" aria-label="Safe area: central 90%" />}
           </div> : <div className="projection-empty"><Icon name="fit" /><h2>Add an image to start</h2><p>Choose the asset you want to align and project.</p><button type="button" className="projection-primary" onClick={() => props.onSelectSection('asset')}>Choose asset<Icon name="arrow" /></button></div>}
         </div>
-        {isMove && guideVisible && <div className="projection-guide-bottom"><GuideStep number={3} title="Match the four corners">Select Distort, then use the fixed corner controls to match your surface. Check the result on your projector.</GuideStep></div>}
         <footer className="projection-preview-footer">
           {isMove ? <><div className="projection-footer-actions"><button type="button" aria-label="Undo framing" title="Undo framing" disabled={!history.past.length} onClick={undo}><Icon name="undo" /></button><button type="button" aria-label="Redo framing" title="Redo framing" disabled={!history.future.length} onClick={redo}><Icon name="redo" /></button>
             <button type="button" disabled={!assetReady} onClick={() => edit({ referenceAspectRatio: naturalRatio, offsetX: 0, offsetY: 0, widthAdjust: 0, heightAdjust: 0 })}><Icon name="fit" />Fit image</button>
@@ -269,8 +269,7 @@ export function ProjectionPage(props: ProjectionPageProps) {
         </footer>
       </div>
 
-      <aside ref={inspectorRef} className="projection-inspector" aria-label={isMove ? 'Mapping controls' : 'Output setup'}>
-        {isMove ? <>
+      {isMove && <aside ref={inspectorRef} className="projection-inspector" aria-label="Mapping controls">
           <fieldset disabled={!assetReady} className="projection-controls-fieldset">
             <section className="projection-mapping-pad-section">
               <MappingPad variant="page" disabled={!assetReady} onAction={handleAction}
@@ -303,18 +302,7 @@ export function ProjectionPage(props: ProjectionPageProps) {
             try { setPositionMessage(importPosition(await file.text()) ?? 'Position imported.'); } catch { setPositionMessage('Unable to read this file.'); }
           }} />
           {!outputViewport && <p className="projection-inspector-footnote">Open Output to match the preview to your display size.</p>}
-        </> : <>
-          <div className="projection-inspector-heading"><h2>Ready to project</h2></div>
-          <div className="projection-output-card"><div className="projection-output-state" role="status"><i className={outputOpen ? 'is-open' : ''} /><div><h3>{outputOpen ? 'Window open' : 'Window closed'}</h3><p>{outputOpen ? 'Your output is connected.' : 'Open a separate view for your display.'}</p></div></div>{openButton}{props.outputMessage && <p className="projection-output-message" role="status">{props.outputMessage}</p>}</div>
-          <section className="projection-control-section"><h3>Preflight checks</h3>
-            <CheckRow ready={assetReady} title={assetReady ? 'Asset ready' : 'Choose an asset'}>{assetReady ? 'Your image is loaded and ready.' : <button type="button" onClick={() => props.onSelectSection('asset')}>Open Assets</button>}</CheckRow>
-            <CheckRow ready={props.shaderReady && !props.shaderError} title={props.shaderError ? 'Shader needs attention' : props.shaderReady ? 'Shader ready' : 'Choose a shader'}>{props.shaderError ? <button type="button" onClick={() => props.onSelectSection('workspace')}>Review shader in Workspace</button> : props.shaderReady ? 'Your shader is selected.' : 'Select a shader in Workspace.'}</CheckRow>
-            <CheckRow ready={outputSupported} title="Output window support">{outputSupported ? 'Available. Allow popups when prompted.' : 'This browser cannot open a separate window.'}</CheckRow>
-            {guidesOn && <CheckRow ready={false} title="Alignment guides are on"><button type="button" onClick={() => edit({ showGrid: false, distortMode: false })}>Hide guides for projection</button></CheckRow>}
-          </section>
-          <section className="projection-control-section projection-output-steps"><h3>Before you open</h3><ol><li><span>1</span>Connect your projector. Use an extended desktop in your display settings.</li><li><span>2</span>Open the output window and choose your projector or second display.</li><li><span>3</span>Enter fullscreen in the output window. Keep these controls on your computer.</li></ol></section>
-        </>}
-      </aside>
+      </aside>}
     </div>
   </section>;
 }
