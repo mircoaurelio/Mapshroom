@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   buildAudioReactiveBindings,
   buildSystemAudioCaptureOptions,
@@ -244,7 +245,7 @@ function getAudioErrorMessage(error: unknown, source: AudioCaptureSource): strin
   if (error instanceof DOMException) {
     if (error.name === 'NotAllowedError') {
       return source === 'system'
-        ? 'Sharing was cancelled. Choose a tab, window, or entire screen and enable audio.'
+        ? 'Sharing was cancelled. Choose Window or Entire screen and enable Share audio to try again.'
         : 'Microphone access was not allowed.';
     }
     if (error.name === 'NotFoundError') {
@@ -459,9 +460,12 @@ export function useAudioReactivity(
 
       stop();
       const source = requestedSource ?? preferencesRef.current.source;
-      setPreferences((current) => ({ ...current, source }));
-      setStatus('starting');
-      setErrorMessage(null);
+      // Commit the loading dialog before opening the native picker, keeping the user gesture.
+      flushSync(() => {
+        setPreferences((current) => ({ ...current, source }));
+        setStatus('starting');
+        setErrorMessage(null);
+      });
 
       if (isTauri()) {
         try {
@@ -567,7 +571,7 @@ export function useAudioReactivity(
         if (!audioTrack) {
           stopMediaStream(stream);
           throw new Error(
-            'No audio was received. Enable “Share audio” in the picker (tab, window, or entire screen).',
+            'No audio was received. Choose Window or Entire screen and enable “Share audio” in the sharing window.',
           );
         }
 
@@ -632,8 +636,6 @@ export function useAudioReactivity(
             ? describeSystemAudioCapture(displaySurface, audioTrack.label)
             : audioTrack.label || 'Microphone',
         );
-        setStatus('listening');
-
         const analyze = (now: number) => {
           const currentEngine = engineRef.current;
           if (!currentEngine || currentEngine.token !== token || currentEngine.analysisBusy) {
@@ -808,6 +810,9 @@ export function useAudioReactivity(
         if (engineRef.current?.token !== token) {
           engine.stopClock();
           engine.stopClock = null;
+        } else {
+          analyze(performance.now());
+          setStatus('listening');
         }
       } catch (error) {
         if (stream) {

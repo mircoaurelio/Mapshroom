@@ -32,7 +32,7 @@ async function run({ source, outputs, profile, ai, gradientSettings }) {
     const settings = suggestSurfaceSettings(rgba, sw, sh, profile.mobile);
     send({ type: 'suggestion', settings });
     let result, refined, mask, resultKey;
-    // RGB stays unchanged for depth; background alpha is applied afterwards.
+    // Each batch receives its selected input (original or saved cutout).
     const aiBlob = await canvas.convertToBlob({ type: 'image/png' });
     for (const kind of outputs) {
       currentKind = kind;
@@ -81,7 +81,7 @@ async function run({ source, outputs, profile, ai, gradientSettings }) {
           ctx.clearRect(0, 0, width, height); ctx.drawImage(temp, 0, 0, width, height); temp.width = temp.height = 1;
           pixels = ctx.getImageData(0, 0, width, height).data;
           if (depth) {
-            for (let i = 0; i < width * height; i++) pixels[i * 4 + 3] = mask?.[i] ?? original[i * 4 + 3];
+            for (let i = 0; i < width * height; i++) pixels[i * 4 + 3] = original[i * 4 + 3];
           } else {
             mask = new Uint8ClampedArray(width * height);
             for (let i = 0; i < mask.length; i++) { mask[i] = pixels[i * 4 + 3]; pixels[i * 4] = original[i * 4]; pixels[i * 4 + 1] = original[i * 4 + 1]; pixels[i * 4 + 2] = original[i * 4 + 2]; }

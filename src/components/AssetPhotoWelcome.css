@@ -7,7 +7,7 @@
 .asset-photo-steps [aria-current='step'] { color: var(--text-bright); }
 .asset-photo-steps [aria-current='step'] > span { color: #052e24; border-color: var(--accent); background: var(--accent); }
 .asset-photo-open { display: inline-flex; align-items: center; gap: 9px; }
-.asset-photo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 20px; }
+.asset-photo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; }
 .asset-photo-drop { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 430px; padding: 30px 26px 22px; text-align: center; border: 1px dashed color-mix(in srgb, var(--accent) 44%, var(--line)); border-radius: 12px; background: radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 65%), var(--bg-panel-soft); }
 .asset-photo-frame { position: absolute; inset: 18px; z-index: -1; opacity: .5; pointer-events: none; }
 .asset-photo-frame span { position: absolute; width: 30px; height: 30px; border-color: var(--line-strong); border-style: solid; }
@@ -28,8 +28,8 @@
 .asset-photo-promises svg { width: 14px; height: 14px; color: var(--accent); }
 .asset-photo-advice { padding: 25px 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-panel-soft); }
 .asset-photo-advice > .asset-photo-eyebrow { font-size: 9px; letter-spacing: .07em; line-height: 1.6; }
-.asset-photo-advice h3 { font-size: 22px; letter-spacing: -.02em; font-weight: 600; color: var(--text-bright); margin: 8px 0 26px; }
-.asset-photo-advice ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 24px; }
+.asset-photo-advice h3 { font-size: 22px; letter-spacing: -.02em; font-weight: 600; color: var(--text-bright); margin: 8px 0 16px; }
+.asset-photo-advice ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
 .asset-photo-advice li { display: flex; align-items: flex-start; gap: 13px; }
 .asset-photo-advice li > svg { width: 26px; height: 26px; flex: none; color: var(--text-muted); }
 .asset-photo-advice strong { font-size: 13px; font-weight: 500; color: var(--text-bright); }
@@ -47,9 +47,33 @@
 .asset-photo-placeholder small { color: var(--text-dim); font-size: 9px; }
 .ml-dialog[data-image-drop-active] .asset-photo-drop { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
 @media (max-width: 1100px) {
-  .asset-photo-layout { grid-template-columns: minmax(0, 1fr) 235px; gap: 14px; }
+  .asset-photo-layout { grid-template-columns: minmax(0, 1fr) 285px; gap: 14px; }
   .asset-photo-advice { padding: 22px 18px; }
   .asset-photo-next { grid-template-columns: 1fr; gap: 15px; }
+}
+
+.asset-photo-camera-scheme { margin:0 0 20px; width:100%; }
+.asset-photo-camera-scheme svg { display:block; width:100%; height:auto; }
+.photo-scheme-panel { fill:var(--bg); stroke:var(--line); stroke-width:1; }
+.photo-scheme-label { fill:var(--text-muted); font:500 10px Inter,sans-serif; letter-spacing:.025em; }
+.photo-scheme-beam { fill:var(--accent); opacity:.09; }
+.photo-scheme-ray { fill:none; stroke:var(--accent); stroke-width:1; opacity:.55; }
+.photo-scheme-axis { stroke-dasharray:4 4; opacity:.7; }
+.photo-scheme-target { fill:var(--bg-panel-raised); stroke:var(--text-dim); stroke-width:1; }
+.photo-scheme-target path { opacity:.5; }
+.photo-scheme-projector { fill:var(--bg-panel-raised); stroke:var(--text-muted); stroke-width:1.4; }
+.photo-scheme-phone { fill:var(--bg); stroke:var(--accent); stroke-width:1.4; }
+.photo-scheme-lens { fill:var(--accent); }
+.photo-scheme-lens-ring { fill:none; stroke:var(--accent); stroke-width:1; opacity:.35; }
+.photo-scheme-caption { fill:var(--accent); font:500 10px Inter,sans-serif; }
+.asset-photo-generation-settings { margin-top:16px; max-width:100%; color:var(--text-muted); text-align:left; font-size:11px; }
+.asset-photo-generation-settings summary { width:fit-content; margin:auto; padding:5px 8px; cursor:pointer; }
+.asset-photo-generation-settings summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.asset-photo-options { display:flex; flex-direction:column; gap:10px; margin-top:12px; max-width:100%; }
+.asset-photo-options .ml-check { font-size:12px; }
+.asset-photo-options .ml-check small { display:none; }
+@media (max-width:760px) {
+  .asset-photo-camera-scheme { max-width:360px; margin-inline:auto; }
 }
 @media (min-width: 761px) and (max-height: 800px) {
   .asset-photo-intro { margin-bottom: 16px; }

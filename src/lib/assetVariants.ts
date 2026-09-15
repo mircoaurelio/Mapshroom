@@ -4,13 +4,14 @@ import type { GradientSettings } from './assetVariantRules.js';
 export type AssetVariantKind = 'background' | 'segmentation' | 'depth' | 'gradient' | 'field' | 'edges';
 export interface AssetDerivation {
   sourceAssetId: string;
+  inputAssetId?: string;
   kind: AssetVariantKind | 'mask' | 'painted';
   width?: number;
   height?: number;
   method?: string;
   surfaceSettings?: GradientSettings;
 }
-export interface VariantResult { blob: Blob; kind: AssetVariantKind; width: number; height: number; method: string; surfaceSettings?: GradientSettings }
+export interface VariantResult { blob: Blob; kind: AssetVariantKind; width: number; height: number; method: string; surfaceSettings?: GradientSettings; inputAssetId?: string }
 export type SaveAssetVariant = (source: AssetRecord, result: VariantResult) => Promise<AssetRecord | null>;
 export const variantOptions: { id: AssetVariantKind; title: string; description: string }[] = [
   { id: 'background', title: 'Remove background', description: 'Transparent image' },

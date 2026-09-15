@@ -61,6 +61,8 @@ interface StageRendererProps {
   stageTransform: StageTransform;
   transport: PlaybackTransport;
   isOutputOnly?: boolean;
+  /** Show the mapped result while keeping corner controls available in Move. */
+  mappingPreview?: boolean;
   /** Disable for deterministic frame-by-frame export. */
   adaptiveQuality?: boolean;
   showGrid?: boolean;
@@ -88,6 +90,8 @@ const DISTORTION_CORNER_LABELS: Record<StageDistortionCorner, string> = {
   bottomLeft: 'bottom left',
 };
 
+// The workspace overlay uses reference-frame controls. Dedicated Move renders
+// its controls separately, on the output container, outside all image transforms.
 const DISTORTION_CONTROL_POINTS = Object.fromEntries(
   STAGE_DISTORTION_CORNERS.map((corner) => [
     corner,
@@ -834,6 +838,7 @@ export function StageRenderer({
   stageTransform,
   transport,
   isOutputOnly = false,
+  mappingPreview = false,
   adaptiveQuality = true,
   showGrid = false,
   onDistortionChange,
@@ -1277,10 +1282,11 @@ export function StageRenderer({
     }
 
     const updateShellSize = () => {
-      const rect = shell.getBoundingClientRect();
+      // Mapping coordinates belong to the layout viewport. A scaled preview
+      // must not feed its screen-space size back into the projection geometry.
       setShellSize({
-        width: Math.max(1, rect.width),
-        height: Math.max(1, rect.height),
+        width: Math.max(1, shell.clientWidth),
+        height: Math.max(1, shell.clientHeight),
       });
     };
 
@@ -2288,7 +2294,7 @@ export function StageRenderer({
     Boolean(stageTransform.distortMode) &&
     Boolean(onDistortionChange);
   const canvasFrameStyle = useMemo<CSSProperties>(() => {
-    if (!isOutputOnly) {
+    if (!isOutputOnly && !mappingPreview) {
       return {};
     }
 
@@ -2298,11 +2304,11 @@ export function StageRenderer({
       canvasCssSize.height,
     );
     return transform ? { transform } : {};
-  }, [canvasCssSize.height, canvasCssSize.width, distortion, isOutputOnly]);
+  }, [canvasCssSize.height, canvasCssSize.width, distortion, isOutputOnly, mappingPreview]);
 
   const startDistortionCornerDrag = (
     corner: StageDistortionCorner,
-    event: ReactPointerEvent<SVGCircleElement>,
+    event: ReactPointerEvent<SVGEllipseElement>,
   ) => {
     if (!onDistortionChange) {
       return;
@@ -2390,7 +2396,7 @@ export function StageRenderer({
 
   const mediaSurfaceStyle = useMemo<CSSProperties>(
     () => {
-      const editingScale = distortEditing ? 0.76 : 1;
+      const editingScale = distortEditing && !mappingPreview ? 0.76 : 1;
       const scaleX =
         Math.max(MIN_STAGE_SCALE, 1 + stageTransform.widthAdjust / shellSize.width) *
         editingScale;
@@ -2405,7 +2411,7 @@ export function StageRenderer({
         transform: `translate(${stageTransform.offsetX}px, ${stageTransform.offsetY}px) rotate(${rotationDegrees}deg) scale(${scaleX}, ${scaleY})`,
       };
     },
-    [distortEditing, shellSize.height, shellSize.width, stageTransform],
+    [distortEditing, mappingPreview, shellSize.height, shellSize.width, stageTransform],
   );
 
   const hasRequiredInputSource = requiredInputSources.length > 0;
@@ -2554,9 +2560,9 @@ export function StageRenderer({
               >
                 <polygon
                   className="stage-distort-grid-surface"
-                  points="0,0 1000,0 1000,1000 0,1000"
+                  points={mappingPreview ? STAGE_DISTORTION_CORNERS.map((corner) => { const point = getStageDistortionPoint(distortion, corner); return `${point.x * 1000},${point.y * 1000}`; }).join(' ') : '0,0 1000,0 1000,1000 0,1000'}
                 />
-                {DISTORTION_GRID_STEPS.map((step) => (
+                {!mappingPreview && DISTORTION_GRID_STEPS.map((step) => (
                   <line
                     key={`vertical-${step}`}
                     className="stage-distort-grid-line"
@@ -2566,7 +2572,7 @@ export function StageRenderer({
                     y2="1000"
                   />
                 ))}
-                {DISTORTION_GRID_STEPS.map((step) => (
+                {!mappingPreview && DISTORTION_GRID_STEPS.map((step) => (
                   <line
                     key={`horizontal-${step}`}
                     className="stage-distort-grid-line"
@@ -2576,26 +2582,31 @@ export function StageRenderer({
                     y2={step * 1000}
                   />
                 ))}
-                {STAGE_DISTORTION_CORNERS.map((corner) => {
+                {!mappingPreview && STAGE_DISTORTION_CORNERS.map((corner) => {
                   const point = DISTORTION_CONTROL_POINTS[corner];
                   return (
-                    <circle
+                    <ellipse
                       key={corner}
                       className="stage-distort-handle"
                       data-distort-corner={corner}
                       cx={point.x * 1000}
                       cy={point.y * 1000}
-                      r="28"
+                      rx="28"
+                      ry="28"
                       role="button"
                       tabIndex={0}
                       aria-label={`Drag ${DISTORTION_CORNER_LABELS[corner]} distortion corner`}
                       onPointerDown={(event) => startDistortionCornerDrag(corner, event)}
+                      onKeyDown={(event) => {
+                        const directions: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+                        if (directions[event.key]) { event.preventDefault(); event.stopPropagation(); nudgeDistortionCorner(corner, ...directions[event.key]); }
+                      }}
                     />
                   );
                 })}
               </svg>
 
-              {STAGE_DISTORTION_CORNERS.map((corner) => {
+              {!mappingPreview && STAGE_DISTORTION_CORNERS.map((corner) => {
                 const point = DISTORTION_CONTROL_POINTS[corner];
                 return (
                   <span
@@ -2610,7 +2621,7 @@ export function StageRenderer({
                 );
               })}
 
-              {STAGE_DISTORTION_CORNERS.map((corner) => {
+              {!mappingPreview && STAGE_DISTORTION_CORNERS.map((corner) => {
                 const point = DISTORTION_CONTROL_POINTS[corner];
                 const cornerLabel = DISTORTION_CORNER_LABELS[corner];
                 return (

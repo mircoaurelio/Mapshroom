@@ -1,6 +1,6 @@
 import { RangeInput } from './RangeInput';
 import { AudioReactiveRange } from './AudioReactiveRange';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type {
   ShaderUniformDefinition,
   ShaderUniformMap,
@@ -11,6 +11,7 @@ import {
   resolveAudioReactiveValue,
   type AudioReactiveBinding,
   type AudioCaptureSource,
+  type AudioMappingMode,
   type AudioReactiveFrame,
   type AudioReactiveSignal,
 } from '../lib/audioReactivity';
@@ -91,11 +92,19 @@ function AudioSourceIcon() {
   );
 }
 
-function PowerIcon() {
+function AudioSettingsIcon() {
   return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-      <path d="M8 1.75v5" />
-      <path d="M4.35 3.55a5.25 5.25 0 1 0 7.3 0" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <path d="m9.5 3-.6 2.2-1.7 1-2.2-.6-2.5 4.3L4.1 11v2L2.5 14.1 5 18.4l2.2-.6 1.7 1 .6 2.2h5l.6-2.2 1.7-1 2.2.6 2.5-4.3L19.9 13v-2l1.6-1.1L19 5.6l-2.2.6-1.7-1-.6-2.2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function RandomMapIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M2 4h2l8 8h2M2 12h2l8-8h2M11.5 1.5 14 4l-2.5 2.5M11.5 9.5 14 12l-2.5 2.5" />
     </svg>
   );
 }
@@ -334,7 +343,7 @@ function AudioSignalVisualizer({
             </strong>
             <small>
               {source === 'system'
-                ? 'Choose Window, not Browser tab, and enable Share audio to keep the sharing bar out of Output'
+                ? 'Choose Window or Entire screen, then enable Share audio'
                 : 'Waiting for microphone permission'}
             </small>
           </span>
@@ -607,18 +616,13 @@ export function AudioReactivePanelControls({
   const { preferences, uiFrame, status } = controller;
   const isListening = status === 'listening';
   const isStarting = status === 'starting';
-  const displayedBpm =
-    preferences.bpmMode === 'manual' ? preferences.manualBpm : uiFrame.bpm;
-  const inputHealth =
-    status === 'error'
-      ? 'Check input'
-      : isListening
-        ? 'Healthy'
-        : isStarting
-          ? 'Connecting'
-          : 'Ready';
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsId = useId();
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
-  const autoMapShader = () => {
+  const mapShader = (mode: AudioMappingMode) => {
+    // Both updates are queued in order; generation reads the chosen mapping mode.
+    controller.setMappingMode(mode);
     controller.configureShaderBindings(
       shaderId,
       uniformDefinitions,
@@ -635,43 +639,6 @@ export function AudioReactivePanelControls({
       }`}
       aria-label="Audio reactive"
     >
-      <div className="audio-reactive-panel-heading">
-        <span className="audio-reactive-panel-title">
-          <WaveIcon />
-          Audio Reactive
-        </span>
-        <span className="audio-reactive-status">
-          <span
-            className="audio-reactive-status-dot"
-            aria-hidden="true"
-          />
-          {isListening ? 'Live' : isStarting ? 'Starting…' : 'Ready'}
-        </span>
-        <button
-          type="button"
-          className="audio-reactive-power-button"
-          aria-label={isListening ? 'Turn off Audio Reactive' : 'Start Audio Reactive'}
-          title={isListening ? 'Turn off Audio Reactive' : 'Start Audio Reactive'}
-          disabled={isStarting}
-          onClick={() => {
-            if (isListening) {
-              controller.stop();
-              controller.setModeEnabled(false);
-              return;
-            }
-            void controller.start();
-          }}
-        >
-          <PowerIcon />
-        </button>
-      </div>
-
-      <AudioSignalVisualizer
-        frame={uiFrame}
-        isStarting={isStarting}
-        source={preferences.source}
-      />
-
       <div className="audio-reactive-source-row">
         <span className="audio-reactive-source-select-shell">
           <AudioSourceIcon />
@@ -690,20 +657,18 @@ export function AudioReactivePanelControls({
             <option value="system">Windows / browser audio</option>
           </select>
         </span>
-        <span className={`audio-reactive-health audio-reactive-health-${status}`}>
-          {inputHealth}
-        </span>
-        <span className="audio-reactive-bpm">
-          <strong>{Math.round(displayedBpm)}</strong>
-          <small>BPM</small>
-        </span>
-        <span
-          className={`audio-reactive-beat-indicator ${
-            uiFrame.beat > 0.35 ? 'audio-reactive-beat-indicator-active' : ''
-          }`}
-          style={{ opacity: 0.32 + uiFrame.beat * 0.68 }}
-          aria-label="Beat indicator"
-        />
+        <button
+          ref={settingsButtonRef}
+          type="button"
+          className="audio-reactive-settings-button"
+          aria-label="Audio Reactive settings"
+          title="Audio Reactive settings"
+          aria-expanded={settingsOpen}
+          aria-controls={settingsId}
+          onClick={() => setSettingsOpen((open) => !open)}
+        >
+          <AudioSettingsIcon />
+        </button>
         {isListening ? (
           <button
             type="button"
@@ -724,10 +689,16 @@ export function AudioReactivePanelControls({
         )}
       </div>
 
+      <AudioSignalVisualizer
+        frame={uiFrame}
+        isStarting={isStarting}
+        source={preferences.source}
+      />
+
       {preferences.source === 'system' && !isListening ? (
         <p className="audio-reactive-hint">
-          Choose Window and share the whole browser window, not a Browser tab.
-          Enable Share audio to keep the sharing bar out of Output.
+          Choose Window or Entire screen in the browser’s sharing window.
+          Enable Share audio, then click Share.
         </p>
       ) : null}
       {controller.errorMessage ? (
@@ -736,8 +707,20 @@ export function AudioReactivePanelControls({
         </p>
       ) : null}
 
-      <details className="audio-reactive-tempo">
-        <summary aria-label="Audio timing controls" title="Audio timing controls" />
+      <div
+        className="audio-reactive-tempo"
+        id={settingsId}
+        role="region"
+        aria-label="Audio timing settings"
+        hidden={!settingsOpen}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            setSettingsOpen(false);
+            settingsButtonRef.current?.focus();
+          }
+        }}
+      >
         <div className="audio-reactive-tempo-grid">
           <label>
             <span>Clock</span>
@@ -772,7 +755,7 @@ export function AudioReactivePanelControls({
           >
             Tap
           </button>
-          <label>
+          <label className="audio-reactive-offset-field">
             <span>Offset</span>
             <input
               className="audio-reactive-number"
@@ -785,62 +768,29 @@ export function AudioReactivePanelControls({
             />
             <small>ms</small>
           </label>
-          <label className="audio-reactive-mapping-field">
-            <span>Slider mapping</span>
-            <select
-              className="audio-reactive-select"
-              value={preferences.mappingMode}
-              onChange={(event) =>
-                controller.setMappingMode(
-                  event.target.value === 'random' ? 'random' : 'cohesive',
-                )
-              }
-            >
-              <option value="cohesive">Cohesive bands</option>
-              <option value="random">Random signals</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            className="audio-reactive-remap-button"
-            onClick={() =>
-              controller.configureShaderBindings(
-                shaderId,
-                uniformDefinitions,
-                uniformValues,
-                shaderCode,
-                true,
-              )
-            }
-          >
-            Remap shader
-          </button>
         </div>
-      </details>
+      </div>
       <div className="audio-reactive-slider-heading">
-        <span className="audio-reactive-slider-actions">
+        <div className="audio-reactive-slider-actions">
           <button
             type="button"
             className="audio-reactive-remap-button"
-            onClick={autoMapShader}
+            title="Automatically match sliders to audio signals"
+            onClick={() => mapShader('cohesive')}
           >
             <AutoMapIcon />
-            Auto map
+            Auto Map
           </button>
-          <select
-            className="audio-reactive-mapping-select"
-            aria-label="Slider mapping mode"
-            value={preferences.mappingMode}
-            onChange={(event) =>
-              controller.setMappingMode(
-                event.target.value === 'random' ? 'random' : 'cohesive',
-              )
-            }
+          <button
+            type="button"
+            className="audio-reactive-remap-button"
+            title="Randomize audio signals and slider ranges"
+            onClick={() => mapShader('random')}
           >
-            <option value="cohesive">Cohesive</option>
-            <option value="random">Random</option>
-          </select>
-        </span>
+            <RandomMapIcon />
+            Random Map
+          </button>
+        </div>
       </div>
     </section>
   );

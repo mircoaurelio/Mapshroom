@@ -14,7 +14,6 @@ interface WorkspaceToolbarProps {
   showMoveButton: boolean;
   moveMode: boolean;
   audioReactiveEnabled: boolean;
-  audioReactiveListening: boolean;
   audioReactiveSource: AudioCaptureSource;
   onOpenProjects: () => void;
   onSaveProjectFile: () => void;
@@ -73,7 +72,6 @@ export function WorkspaceToolbar({
   showMoveButton,
   moveMode,
   audioReactiveEnabled,
-  audioReactiveListening,
   audioReactiveSource,
   onOpenProjects,
   onSaveProjectFile,
@@ -384,7 +382,6 @@ export function WorkspaceToolbar({
               onClick={() => toggleMenu('audio')}
             >
               Audio Reactive
-              {audioReactiveListening ? <small>Live</small> : null}
             </button>
             {openMenu === 'audio' ? (
               <div id="toolbar-audio-menu" className="toolbar-menu-panel toolbar-audio-source-menu" role="menu" aria-label="Audio Reactive sources">

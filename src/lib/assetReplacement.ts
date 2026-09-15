@@ -5,10 +5,17 @@ export function validStageAspectRatio(value: number | null | undefined): number 
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-function hasStageCalibration(transform: StageTransform): boolean {
-  return [transform.offsetX, transform.offsetY, transform.widthAdjust, transform.heightAdjust, transform.rotationDegrees]
+/** Position alone does not change the image's proportions. */
+export function hasStageFrameCalibration(transform: StageTransform): boolean {
+  return [transform.widthAdjust, transform.heightAdjust, transform.rotationDegrees]
     .some(value => Number.isFinite(value) && value !== 0) ||
     Object.values(normalizeStageDistortion(transform.distortion)).some(point => point.x !== 0 || point.y !== 0);
+}
+
+function hasStageCalibration(transform: StageTransform): boolean {
+  // A positioned image still needs its saved frame when another asset replaces it.
+  return hasStageFrameCalibration(transform) || [transform.offsetX, transform.offsetY]
+    .some(value => Number.isFinite(value) && value !== 0);
 }
 
 export function getCalibratedStageAspectRatio(transform: StageTransform): number | undefined {
