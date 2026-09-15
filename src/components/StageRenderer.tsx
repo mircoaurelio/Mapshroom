@@ -2534,16 +2534,6 @@ export function StageRenderer({
                 <circle className="stage-distort-output-corner" cx="0" cy="1000" r="18" />
               </svg>
             ) : null}
-            {personalPreviewGuideActive ? (
-              <svg
-                className="stage-repeat-guide-trace"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <rect x="1" y="1" width="98" height="98" pathLength="1" />
-              </svg>
-            ) : null}
           </div>
 
           {distortEditing && shellRef.current?.parentElement
@@ -2693,6 +2683,16 @@ export function StageRenderer({
             : null}
         </div>
       </div>
+      {personalPreviewGuideActive ? (
+        <svg
+          className="stage-repeat-guide-trace"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <rect x="0" y="0" width="100" height="100" pathLength="1" />
+        </svg>
+      ) : null}
       {showPinnedIndicator && !isOutputOnly ? (
         <button
           type="button"
