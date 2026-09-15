@@ -1201,7 +1201,7 @@ export function TimelineStageRenderer({
       audioBindings: AudioReactiveBindingMap,
     ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues' | 'audioBindings' | 'liveUniformBindings' | 'loadSources'> => {
       const loadSources = [{ id: targetShader?.id ?? activeShaderId,
-        name: targetShader?.name ?? 'Shader corrente', code: shaderCode }];
+        name: targetShader?.name ?? 'Current shader', code: shaderCode }];
       const liveUniformBindings = createLiveUniformBindings(targetShader?.id ?? activeShaderId, uniformValues);
       const sourceAssetId = useAssignedAssetAsBase ? assignedSource?.assetId : asset?.id;
       if (!sourceAssetId || isInternalCanvasAssetId(sourceAssetId)) {

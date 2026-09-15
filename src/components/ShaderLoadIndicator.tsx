@@ -26,9 +26,9 @@ export function ShaderLoadIndicator({ report }: { report: ShaderLoadReport }) {
         <strong>{title}</strong>
         <span>{report.sources.map(source => source.name).join(' + ')}</span>
         <span>{shaderLoadSummary(report)}</span>
-        {report.sources.length > 1 || report.layerCount > 1 ? <span>La misura riguarda il mix completo: non identifica da sola il componente più costoso.</span> : null}
-        {reasons.length ? <><span>Possibili costi nel codice, da verificare:</span><ul>{reasons.map(reason => <li key={reason}>{reason}</li>)}</ul></> : null}
-        <span>Nella chat trovi un prompt per cercare ottimizzazioni preservando l’effetto.</span>
+        {report.sources.length > 1 || report.layerCount > 1 ? <span>This measures the complete mix; it does not identify the most expensive component on its own.</span> : null}
+        {reasons.length ? <><span>Possible costs in the code to investigate:</span><ul>{reasons.map(reason => <li key={reason}>{reason}</li>)}</ul></> : null}
+        <span>The chat has a suggested prompt to optimize the shader while preserving the effect.</span>
       </div>
     </div>
   );

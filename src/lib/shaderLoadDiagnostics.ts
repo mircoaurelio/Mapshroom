@@ -18,10 +18,10 @@ export function inspectShaderCost(source: string): string[] {
   const textureReads = [...code.matchAll(/\b(?:texture|texture2D|textureLod|textureGrad|texelFetch)\s*\(/g)].length;
   const expensiveMath = [...code.matchAll(/\b(?:sin|cos|tan|pow|exp|log)\s*\(/g)].length;
   const clues: string[] = [];
-  if (loops) clues.push(`${loops === 1 ? 'Un ciclo ripete' : `${loops} cicli ripetono`} calcoli nel codice del pixel; iterazioni e lavoro ripetuto possono pesare sulla GPU.`);
-  if (textureReads >= 4) clues.push(`Il codice contiene ${textureReads} punti di lettura dell’immagine: campionamenti ripetuti possono aumentare il costo.`);
-  if (/\b\w*(?:noise|fbm)\w*\s*\(/i.test(code)) clues.push('Il codice usa funzioni di rumore: più livelli o valutazioni ripetute possono essere costosi.');
-  if (expensiveMath >= 8) clues.push('Sono presenti molte funzioni matematiche come sin, cos o pow: alcune espressioni potrebbero essere riutilizzate.');
+  if (loops) clues.push(`${loops === 1 ? 'One loop repeats' : `${loops} loops repeat`} calculations in the pixel code; iterations and repeated work may increase GPU load.`);
+  if (textureReads >= 4) clues.push(`The code contains ${textureReads} image sampling calls: repeated texture reads may increase the cost.`);
+  if (/\b\w*(?:noise|fbm)\w*\s*\(/i.test(code)) clues.push('The code uses noise functions: multiple layers or repeated evaluations may be expensive.');
+  if (expensiveMath >= 8) clues.push('The code uses many math functions such as sin, cos or pow: some results could be reused.');
   return clues.slice(0, 3);
 }
 
@@ -37,16 +37,16 @@ export function currentShaderLoadSources(report: ShaderLoadReport | null, active
 }
 
 export function shaderLoadTitle(report: ShaderLoadReport): string {
-  return report.warning === 'frame' ? 'Anteprima poco fluida'
-    : report.sources.length > 1 || report.layerCount > 1 ? 'Mix impegnativo' : 'Shader impegnativo';
+  return report.warning === 'frame' ? 'Slow preview'
+    : report.sources.length > 1 || report.layerCount > 1 ? 'High mix load' : 'High shader load';
 }
 
 export function shaderLoadSummary(report: ShaderLoadReport): string {
   const fps = Math.max(1, Math.round(1000 / report.frameMs));
   const size = `${report.width} × ${report.height}`;
   return report.warning === 'gpu' && report.gpuMs !== null
-    ? `La GPU impiega circa ${report.gpuMs.toFixed(1)} ms per l’anteprima a ${size}, oltre i 16,7 ms disponibili per 60 fps. Fluidità osservata: circa ${fps} fps.`
-    : `L’anteprima a ${size} procede a circa ${fps} fps. Non c’è conferma che il rallentamento dipenda dallo shader: anche video, altre app o il dispositivo possono contribuire.`;
+    ? `The GPU takes about ${report.gpuMs.toFixed(1)} ms to render the preview at ${size}, above the 16.7 ms budget for 60 fps. Observed frame rate: about ${fps} fps.`
+    : `The preview at ${size} is running at about ${fps} fps. The shader has not been confirmed as the cause: videos, other apps or the device may also contribute.`;
 }
 
 export function shaderLoadReasons(report: ShaderLoadReport): string[] {
@@ -59,13 +59,13 @@ export function buildShaderOptimizationPrompt(report: ShaderLoadReport, target: 
   const clues = inspectShaderCost(target.code);
   const mixed = report.sources.length > 1 || report.layerCount > 1;
   return [
-    `Rendi più efficiente lo shader «${target.name}» mantenendone il più possibile l’aspetto e le caratteristiche.`,
-    `Misure locali della preview: ${shaderLoadSummary(report)}`,
-    mixed ? 'La misura riguarda l’intero mix, non il singolo shader: non attribuire tutto il costo a questo componente.' : '',
-    clues.length ? `Possibili punti da verificare nel codice, non cause dimostrate: ${clues.join(' ')}` : 'Individua nel codice i calcoli ridondanti e le letture di texture che si possono riutilizzare.',
-    'Dai priorità a riutilizzo di risultati e campionamenti, spostamento dei calcoli invarianti fuori dai cicli e semplificazioni matematiche equivalenti. Usa uscite anticipate solo se non cambiano il risultato visivo.',
-    'Preserva composizione, colori, dettaglio, profondità, trasparenza, maschere, movimento e velocità dell’animazione. Mantieni nomi, intervalli e comportamento dei controlli esistenti e la compatibilità con audio, mix e timeline.',
-    'Mantieni la risoluzione e il frame rate. Non convertire lo shader in un video o in un loop precalcolato. Prima di ridurre iterazioni, livelli o dettagli visibili, spiega il compromesso e proponilo come opzione separata.',
-    'Restituisci lo shader completo compatibile con il progetto e riassumi le ottimizzazioni. Non promettere un guadagno di prestazioni senza una nuova misura sul dispositivo.',
+    `Make the shader “${target.name}” more efficient while preserving its appearance and features as closely as possible.`,
+    `Local preview measurements: ${shaderLoadSummary(report)}`,
+    mixed ? 'The measurement covers the entire mix, not the individual shader: do not attribute the full cost to this component.' : '',
+    clues.length ? `Possible code issues to investigate, not proven causes: ${clues.join(' ')}` : 'Identify redundant calculations and texture reads that can be reused.',
+    'Prioritize reusing results and samples, moving loop-invariant calculations outside loops, and equivalent mathematical simplifications. Use early exits only when they preserve the visual result.',
+    'Preserve composition, colors, detail, depth, transparency, masks, motion and animation speed. Keep the names, ranges and behavior of existing controls, and maintain compatibility with audio, mixes and the timeline.',
+    'Keep the resolution and frame rate unchanged. Do not convert the shader into a video or a precomputed loop. Before reducing iterations, layers or visible detail, explain the tradeoff and propose it as a separate option.',
+    'Return the complete shader compatible with the project and summarize the optimizations in English. Do not promise a performance improvement without measuring it again on the device.',
   ].filter(Boolean).join('\n\n');
 }

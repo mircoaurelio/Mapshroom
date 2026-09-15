@@ -1998,7 +1998,7 @@ export function StageRenderer({
           ...measurement, key: sampleTag, warning: loadWarning,
           width: canvas.width, height: canvas.height, layerCount: compiledLayers.length,
           sources: uniqueShaderLoadSources(resolvedLayers.flatMap(layer => layer.loadSources ?? [{
-            id: 'preview', name: 'Shader corrente', code: layer.shaderCode,
+            id: 'preview', name: 'Current shader', code: layer.shaderCode,
           }])),
         } : null;
         setShaderLoadReport(report);

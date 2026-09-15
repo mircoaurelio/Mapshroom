@@ -18,17 +18,17 @@ export function ShaderPerformanceSuggestion({ report, sources, disabled, onUsePr
   return <aside className="shader-performance-suggestion" aria-labelledby={id}>
     <strong id={id}><span aria-hidden="true">⚠</span> {shaderLoadTitle(report)}</strong>
     <p>{report.warning === 'gpu'
-      ? 'Proviamo ad alleggerire lo shader conservando il suo aspetto.'
-      : 'La preview rallenta. Possiamo verificare il codice, ma la causa potrebbe essere altrove.'}</p>
-    {sources.length > 1 ? <label>Shader da ottimizzare
+      ? 'Let’s make the shader lighter while preserving its appearance.'
+      : 'The preview is slowing down. We can check the code, but the cause may be elsewhere.'}</p>
+    {sources.length > 1 ? <label>Shader to optimize
       <select value={source.id} disabled={disabled} onChange={event => setSelectedId(event.target.value)}>
         {sources.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select>
     </label> : <span className="shader-performance-target">{source.name}</span>}
     <div className="shader-performance-actions">
-      <details><summary>Leggi il prompt</summary><p>{prompt}</p></details>
-      <button type="button" disabled={disabled} onClick={() => onUsePrompt(source, prompt)}>Usa il prompt</button>
+      <details><summary>Read prompt</summary><p>{prompt}</p></details>
+      <button type="button" disabled={disabled} onClick={() => onUsePrompt(source, prompt)}>Use prompt</button>
     </div>
-    <small>Lo aggiungo alla bozza. Puoi modificarlo prima di inviarlo.</small>
+    <small>Adds to your draft. You can edit it before sending.</small>
   </aside>;
 }

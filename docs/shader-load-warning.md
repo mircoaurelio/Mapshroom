@@ -1,34 +1,34 @@
-# Diagnosi del carico shader e prompt di ottimizzazione
+# Shader load diagnostics and optimization prompts
 
-## Comportamento
+## Behavior
 
-L’anteprima dell’editor mostra un triangolo giallo quando rileva carico persistente. Hover, focus da tastiera o click aprono il tooltip; Escape lo chiude. Il tooltip riporta i nomi degli shader effettivamente disegnati, risoluzione, fluidità e, quando disponibile, costo GPU. I dati mostrati sono uno snapshot della finestra che ha attivato l’avviso, non un contatore aggiornato ad ogni frame.
+The editor preview displays a small yellow warning icon when it detects sustained load. Hover, keyboard focus or a click opens the tooltip; Escape closes it. The tooltip identifies the shaders actually being drawn and shows the resolution, frame rate and GPU cost when available. Measurements are a snapshot of the window that triggered the warning, not a live counter.
 
-La chat aggiunge una scheda sopra al composer, visibile anche nelle conversazioni esistenti. Si può leggere il prompt prima di usarlo. «Usa il prompt» seleziona lo shader e lo step corretti, attiva la preview focalizzata e aggiunge il testo alla bozza esistente; l’invio resta un’azione esplicita. Il prompt richiede ottimizzazioni equivalenti prima di eventuali compromessi visivi e preserva colori, dettaglio, trasparenza, maschere, movimento, controlli, audio e timeline.
+The chat displays a suggestion above the composer, including in existing conversations. Users can read the prompt before using it. “Use prompt” selects the correct shader and timeline step, enables the focused preview and appends the text to the existing draft. Sending remains an explicit action. The prompt prioritizes equivalent optimizations before visual tradeoffs and preserves colors, detail, transparency, masks, motion, controls, audio and timeline compatibility. All interface copy and generated prompts are in English.
 
-Nei mix si mostra il costo totale. Le sorgenti originali seguono i layer attraverso prefissi, transizioni, pin, mix manuali e compositing: non si scambia il programma generato del mix per il codice di uno dei componenti. La chat permette di scegliere il componente e propone inizialmente quello con più indizi utilizzabili nel codice, senza presentarlo come una classifica misurata. Le revisioni cambiate, rimosse o sostituite dal fallback di compilazione non ricevono prompt basati su una vecchia diagnosi.
+For mixes, the warning reports the total cost. Original sources follow the layers through namespacing, transitions, pinning, manual mixing and compositing, so generated mix code is not confused with an individual shader. The chat lets users choose a component and initially suggests the source with the most actionable code clues, without presenting this as a measured ranking. Changed, removed or compilation-fallback revisions cannot receive prompts based on stale diagnostics.
 
-## Misure e limiti
+## Measurements and limitations
 
-- Timer GPU asincrono, al massimo cinque nuove query al secondo nel normale editor; massimo quattro query in coda. Nessun rendering aggiuntivo e nessuna attesa sincrona della GPU.
-- Un secondo di assestamento, poi finestre di almeno 1,2 secondi e 12 frame. Due finestre consecutive con almeno tre campioni GPU e percentile 80 oltre 16,7 ms attivano «Shader impegnativo» o «Mix impegnativo».
-- Senza conferma GPU, due finestre con intervallo medio dei frame oltre 40 ms attivano «Anteprima poco fluida», senza accusare lo shader.
-- Tre finestre con intervallo medio sotto 32 ms e GPU sotto 12 ms, quando misurabile, spengono l’avviso. Cambio di codice, sorgente, identità dello shader o risoluzione, scheda nascosta, compilazione e ripristino del contesto azzerano il campionamento.
-- I cicli, i punti di lettura delle texture, il rumore e le funzioni matematiche sono **indizi statici**, non cause dimostrate. I commenti GLSL sono esclusi. L’analisi non gira nel render loop.
-- React riceve aggiornamenti solo quando cambia lo stato dell’avviso. Nessun rating permanente, telemetria o modifica automatica della qualità. Output, export e preview di solo mapping non mostrano il warning.
+- Asynchronous GPU timing: at most five new queries per second in the normal editor and four pending queries. No additional rendering or synchronous GPU waits.
+- One second of settling time, followed by windows of at least 1.2 seconds and 12 frames. Two consecutive windows with at least three GPU samples and an 80th percentile above 16.7 ms trigger “High shader load” or “High mix load”.
+- Without GPU confirmation, two windows with a mean frame interval above 40 ms trigger “Slow preview”, without blaming the shader.
+- Three windows with a mean frame interval below 32 ms and GPU time below 12 ms, when measurable, clear the warning. Changes to code, input, shader identity or resolution, hidden tabs, compilation and context restoration reset sampling.
+- Loops, texture sampling calls, noise and math functions are static clues, not proven causes. GLSL comments are excluded. Code analysis does not run in the render loop.
+- React receives updates only when the warning state changes. No permanent ratings, telemetry or automatic quality changes. Output, exports and mapping-only previews do not show the warning.
 
-## Esperimento dei loop precalcolati
+## Shelved precomputed loop experiment
 
-Questo branch parte da `e58a980` e non include l’esperimento dei loop. Nella copia locale originale `C:/Progetti/personal/mapshroom/MapshroomV3`, `SHADER_LOOPS_ENABLED = false` disabilita inizializzazione e preparazione; il controllo è nascosto. I sorgenti dell’esperimento e i video già salvati rimangono disponibili per riprenderlo in futuro. Le vecchie preferenze di preview leggera non vengono caricate.
+This branch starts from `e58a980` and does not include the loop experiment. In the original local checkout at `C:/Progetti/personal/mapshroom/MapshroomV3`, `SHADER_LOOPS_ENABLED = false` disables initialization and preparation, and the control is hidden. Experiment sources and saved videos remain available for future work. Previous light-preview preferences are not loaded.
 
-## Verifica del 15 settembre 2026
+## Verification on September 15, 2026
 
-Editor reale su `http://127.0.0.1:5199/`, browser Chromium integrato, nessun warning forzato:
+Real editor at `http://127.0.0.1:5199/`, integrated Chromium browser, without forcing warnings:
 
-- Zone Fractal + Hue Scanner, statua, viewport di stress 3200×1800, buffer effettivo 1831×1132: snapshot di circa **31,4 ms GPU / 23 fps**, warning presente. Tooltip con cinque cicli e cinque punti di lettura; card nella chat.
-- Mix New Shader + Zone Fractal con pin: snapshot di circa **85,9 ms GPU / 14 fps**; diagnosi del mix e scelta dei due componenti. Il prompt per Zone Fractal apre lo step Zone Fractal, include il limite della misura complessiva e non avvia richieste AI.
-- Il prompt conserva la bozza già scritta; Escape chiude il tooltip. Passando a New Shader senza pin scompaiono icona e card. Viewport riportato a 1280×720. Nessun errore console nella prova.
-- `npm test`: 320 test superati, incluse misure persistenti, picchi isolati, recupero, GPU assente, shader molto lenti, reset delle misure e diagnosi obsolete.
-- Build TypeScript/Vite riuscita. Lint mirato: zero errori; warning preesistenti nei renderer timeline e nella route.
+- Zone Fractal + Hue Scanner with the statue, stress viewport 3200×1800 and actual buffer 1831×1132: approximately **31.4 ms GPU / 23 fps**, with the warning visible. The tooltip identified five loops and five image sampling calls, and the chat displayed the suggestion.
+- New Shader + pinned Zone Fractal: approximately **85.9 ms GPU / 14 fps**, with mix diagnostics and both components available. The Zone Fractal prompt opens its timeline step, includes the scope of the mix measurement and does not initiate AI requests.
+- Existing draft text is preserved, and Escape closes the tooltip. Switching to New Shader without pinning clears the icon and suggestion. The viewport was restored to 1280×720. No console errors during the test.
+- `npm test`: 320 tests passed, including sustained load, isolated spikes, recovery, unavailable GPU timing, very slow shaders, measurement resets and stale diagnostics.
+- TypeScript/Vite build succeeded. Targeted lint: zero errors, with existing warnings in the timeline renderer and workspace route.
 
-Sono misure locali della preview e non una garanzia di prestazioni su altri dispositivi. Nessuna pubblicazione eseguita.
+These are local preview measurements, not performance guarantees for other devices. Changes have not been published.
