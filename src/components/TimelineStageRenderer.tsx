@@ -30,7 +30,6 @@ import {
   buildTimelinePinStackShaderOutputShaderCode,
   buildTimelinePinShaderAlphaOverlayShaderCode,
   buildTimelineTransitionShaderCode,
-  buildTimelineDoubleLayerShaderCode,
 } from '../lib/timelineShader';
 import { collectNestedTimelineSamplerSources } from '../lib/timelineSamplerBindings';
 import { getBundledAssetUrl, isInternalCanvasAssetId } from '../lib/bundledAssets';
@@ -145,8 +144,6 @@ type TimelineSequenceStep = TimelineStub['shaderSequence']['steps'][number];
 
 interface TimelineRenderLayer {
   playbackProgress?: TimelinePlaybackProgress;
-  /** Complementary masks already divide coverage; don't halve their brightness. */
-  coverageLayer?: boolean;
   loadSources: ShaderLoadSource[];
   kind: TimelineRenderLayerKind;
   shaderCode: string;
@@ -1455,11 +1452,7 @@ export function TimelineStageRenderer({
       // gate because those consumers wait for compilation explicitly.
       const liveGatingActive =
         shouldResolveLiveTimelineState && transport.isPlaying && !midiManualMix?.enabled;
-      // Double preloads and draws the masked program. Checking the unwrapped
-      // code would keep this gate closed for the entire mix, then cut to next.
-      const transitionProgramReady = compiledShaderCodes.has(
-        doubleStream ? buildTimelineDoubleLayerShaderCode(transitionShaderCode) : transitionShaderCode,
-      );
+      const transitionProgramReady = compiledShaderCodes.has(transitionShaderCode);
 
       if (liveGatingActive && !transitionProgramReady) {
         return {
@@ -1587,22 +1580,13 @@ export function TimelineStageRenderer({
     primaryState: ResolvedTimelineState,
     secondaryState: ResolvedTimelineState,
   ): TimelineRenderLayer[] => {
-    const seed = getTimelineTransitionSeed('double-primary', 'double-secondary', doublePrimaryRandomSeedSalt);
-    return [primaryState, secondaryState].map((state, index) => {
-      const layer = buildTimelineRenderLayer(state, index === 0 ? 'primary' : 'secondary');
-      return {
-        ...layer,
-        coverageLayer: true,
-        shaderCode: buildTimelineDoubleLayerShaderCode(layer.shaderCode),
-        uniformValues: {
-          ...layer.uniformValues,
-          u_double_secondary: index === 1,
-          u_double_time: transportTimeSeconds,
-          u_double_seed: seed,
-        },
-      };
-    });
-  }, [buildTimelineRenderLayer, doublePrimaryRandomSeedSalt, transportTimeSeconds]);
+    // Each stream owns its current/next transition. Equal layer weights keep
+    // both visible without adding an effect outside the configured mix window.
+    return [
+      buildTimelineRenderLayer(primaryState, 'primary'),
+      buildTimelineRenderLayer(secondaryState, 'secondary'),
+    ];
+  }, [buildTimelineRenderLayer]);
 
   const buildTransitionPreloadLayer = useCallback((
     state: NonNullable<typeof timelineState>,
@@ -2094,7 +2078,7 @@ export function TimelineStageRenderer({
       }
 
       const layerOpacity = totalOpacity / layers.length;
-      return layers.map((layer) => createStageRenderLayer(layer, layer.coverageLayer ? totalOpacity : layerOpacity));
+      return layers.map((layer) => createStageRenderLayer(layer, layerOpacity));
     };
     const activeModeLayerTransition = modeLayerTransitionRef.current;
     const effectiveModeTransitionNowMs = activeModeLayerTransition
@@ -2386,16 +2370,12 @@ export function TimelineStageRenderer({
         continue;
       }
 
-      const preloadLayer = shaderSequence.mode === 'double' && !candidate.shaderCode.includes('uniform bool u_double_secondary;')
-        ? { ...candidate, shaderCode: buildTimelineDoubleLayerShaderCode(candidate.shaderCode),
-            uniformDefinitions: parseUniforms(buildTimelineDoubleLayerShaderCode(candidate.shaderCode)) }
-        : candidate;
-      const preloadKey = getStageRenderLayerWarmupKey(preloadLayer);
+      const preloadKey = getStageRenderLayerWarmupKey(candidate);
       if (visiblePreloadKeys.has(preloadKey)) {
         continue;
       }
 
-      dedupedPreloads.set(preloadKey, preloadLayer);
+      dedupedPreloads.set(preloadKey, candidate);
     }
 
     return Array.from(dedupedPreloads.values());

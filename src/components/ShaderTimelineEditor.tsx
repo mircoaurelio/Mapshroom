@@ -806,7 +806,7 @@ export function ShaderTimelineEditor({
                           ? 'Advance shaders when the music changes section'
                           : 'Waiting for Audio Reactive capture'
                         : option.value === 'double'
-                          ? 'Two independent shader flows with a moving organic mask'
+                          ? 'Two overlaid shader flows using the selected effect and Mix T'
                           : undefined
                     }
                     onClick={() => onModeChange(option.value)}

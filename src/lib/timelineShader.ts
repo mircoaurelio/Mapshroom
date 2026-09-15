@@ -32,29 +32,6 @@ const overlayShaderCodeMemo = createShaderCodeMemo(128);
 const inputShaderCodeMemo = createShaderCodeMemo(128);
 const pinShaderCodeMemo = createShaderCodeMemo(64);
 const doubleShaderCodeMemo = createShaderCodeMemo(64);
-const doubleLayerCodeMemo = createShaderCodeMemo(128);
-
-/** Two complementary spatial layers, each with its own reusable program.
- * Test coverage/skip hidden pixels before evaluating the expensive shader body.
- * Uniform names and sampler bindings stay intact across the wrapper.
- */
-export function buildTimelineDoubleLayerShaderCode(code: string): string {
-  return doubleLayerCodeMemo(code, () => `// NAME: Double layer
-${stripShaderNameHeader(code).replace(/\bprocessColor\b/g, 'mapshroomDoubleContent')}
-uniform bool u_double_secondary;
-uniform float u_double_time;
-uniform float u_double_seed;
-vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) {
-    vec2 p = (uv - 0.5) * vec2(resolution.x / max(resolution.y, 1.0), 1.0);
-    float t = u_double_time * 0.35 + u_double_seed * 6.283185;
-    float field = sin(p.x * 5.0 + sin(p.y * 3.0 + t) + t * 0.7)
-                + sin(p.y * 4.0 - t * 0.6) * 0.65;
-    float secondary = smoothstep(-0.18, 0.18, field);
-    float coverage = u_double_secondary ? secondary : 1.0 - secondary;
-    if (coverage <= 0.0) return vec4(0.0);
-    return mapshroomDoubleContent(tex, uv, time, resolution) * coverage;
-}`);
-}
 
 function stripShaderNameHeader(code: string): string {
   return code.replace(/^\s*\/\/\s*NAME:.*$/im, '').trim();

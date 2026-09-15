@@ -5,7 +5,6 @@ import { ProjectionPage } from '../../src/components/ProjectionPage';
 import { createDefaultProject } from '../../src/config';
 import { putAssetBlob, deleteAssetBlob } from '../../src/lib/storage';
 import { createTimelineShaderStep } from '../../src/lib/timeline';
-import { buildTimelineDoubleLayerShaderCode } from '../../src/lib/timelineShader';
 import { parseUniforms } from '../../src/lib/shader';
 import type { AssetRecord } from '../../src/types';
 import '../../src/index.css';
@@ -70,11 +69,10 @@ for (const section of ['move', 'output'] as const) for (const ratio of [0.5, 1, 
   report.textContent = lines.join('\n');
 }
 
-// The two masks must preserve full brightness together while showing both
-// distinct shader outputs. Verify pixels, uniforms and actual WebGL compilation.
+// Equal layer weights must preserve brightness and both shader contributions.
 const project = createDefaultProject('double-layer-test');
 const source = 'vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) { return vec4(u_color, 1.0); }';
-const shaderCode = buildTimelineDoubleLayerShaderCode('uniform vec3 u_color;\n' + source);
+const shaderCode = 'uniform vec3 u_color;\n' + source;
 for (const sameColor of [true, false]) {
   const root = createRoot(host);
   let canvas: HTMLCanvasElement | null = null;
@@ -85,24 +83,23 @@ for (const sameColor of [true, false]) {
         stageTransform={project.mapping.stageTransform} transport={project.playback.transport}
         onCanvasReady={value => { canvas = value; }}
         onCompilerError={error => { if (error) { clearTimeout(timeout); reject(new Error(error)); } }}
-        renderLayers={[false, true].map(secondary => ({ shaderCode, uniformDefinitions: parseUniforms(shaderCode), opacity: 1, uniformValues: { u_double_secondary: secondary, u_double_time: 4, u_double_seed: .2, u_color: sameColor ? [1, 1, 1] : secondary ? [0, 0, 1] : [1, 0, 0] } }))}
+        renderLayers={[false, true].map(secondary => ({ shaderCode, uniformDefinitions: parseUniforms(shaderCode), opacity: .5, uniformValues: { u_color: sameColor ? [1, 1, 1] : secondary ? [0, 0, 1] : [1, 0, 0] } }))}
         onFrameRendered={frame => {
           if (!frame.allProgramsReady || !frame.layersInSync || !canvas) return;
           const gl = canvas.getContext('webgl2')!, pixels = new Uint8Array(canvas.width * canvas.height * 4);
           gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-          let red = 0, blue = 0;
           for (let i = 0; i < pixels.length; i += 4) {
-            if (pixels[i] > 245) red++;
-            if (pixels[i + 2] > 245) blue++;
             const brightness = sameColor ? pixels[i] : pixels[i] + pixels[i + 2];
             if (brightness < 252 || brightness > 258) { clearTimeout(timeout); reject(new Error(`Seam or dim pixel: ${brightness}`)); return; }
+            if (!sameColor && (Math.abs(pixels[i] - 128) > 1 || Math.abs(pixels[i + 2] - 128) > 1)) {
+              clearTimeout(timeout); reject(new Error('Layers do not contribute equally')); return;
+            }
           }
           clearTimeout(timeout);
-          if (!sameColor && Math.min(red, blue) < canvas.width * canvas.height * .1) reject(new Error('One layer is missing'));
-          else resolve();
+          resolve();
         }} />);
     });
-    lines.push(`PASS Double ${sameColor ? 'complementary masks preserve brightness' : 'both colored layers visible without dark seams'}`);
+    lines.push(`PASS Double ${sameColor ? 'equal weights preserve brightness' : 'both colored layers contribute equally'}`);
   } catch (error) { failed = true; lines.push(`FAIL Double: ${error}`); }
   finally { root.unmount(); }
   report.textContent = lines.join('\n');
