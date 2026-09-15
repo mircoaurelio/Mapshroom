@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { WorkspaceMode } from '../types';
 import type { AudioCaptureSource } from '../lib/audioReactivity';
 import { FeedbackDialog } from './FeedbackDialog';
-type ToolbarMenuKey = 'file';
+type ToolbarMenuKey = 'file' | 'audio';
 
 interface WorkspaceToolbarProps {
   isPlaying: boolean;
@@ -211,11 +211,6 @@ export function WorkspaceToolbar({
                 <button type="button" role="menuitem" className="toolbar-menu-item" onClick={() => { onNewShader(); closeMenu(); }}>New Shader</button>
                 <button type="button" role="menuitem" className="toolbar-menu-item" onClick={() => { onOpenPresetBrowser(); closeMenu(); }}>Presets</button>
                 <div className="toolbar-menu-divider" role="separator" />
-                <span className="toolbar-menu-section-label">Audio Reactive{audioReactiveListening ? ' · Live' : ''}</span>
-                <button type="button" role="menuitemradio" aria-checked={audioReactiveEnabled && audioReactiveSource === 'microphone'} className="toolbar-menu-item" onClick={() => { onStartAudioReactive('microphone'); closeMenu(); }}>Microphone</button>
-                <button type="button" role="menuitemradio" aria-checked={audioReactiveEnabled && audioReactiveSource === 'system'} className="toolbar-menu-item" onClick={() => { onStartAudioReactive('system'); closeMenu(); }}>Computer audio</button>
-                {audioReactiveEnabled && <button type="button" role="menuitem" className="toolbar-menu-item" onClick={() => { onToggleAudioReactive(); closeMenu(); }}>Turn audio reactive off</button>}
-                <div className="toolbar-menu-divider" role="separator" />
                 <span className="toolbar-menu-section-label">View</span>
                 <button
                   type="button"
@@ -373,6 +368,44 @@ export function WorkspaceToolbar({
                 >
                   Privacy
                 </Link>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="toolbar-menu-shell toolbar-menu-shell-align-right toolbar-audio-reactive-shell">
+            <button
+              type="button"
+              className={`secondary-button toolbar-menu-button toolbar-audio-reactive-button ${
+                audioReactiveEnabled ? 'toolbar-audio-reactive-button-active' : ''
+              } ${openMenu === 'audio' ? 'toolbar-menu-button-active' : ''}`}
+              aria-haspopup="menu"
+              aria-expanded={openMenu === 'audio'}
+              aria-controls="toolbar-audio-menu"
+              onClick={() => toggleMenu('audio')}
+            >
+              Audio Reactive
+              {audioReactiveListening ? <small>Live</small> : null}
+            </button>
+            {openMenu === 'audio' ? (
+              <div id="toolbar-audio-menu" className="toolbar-menu-panel toolbar-audio-source-menu" role="menu" aria-label="Audio Reactive sources">
+                <button type="button" role="menuitemradio"
+                  aria-checked={audioReactiveEnabled && audioReactiveSource === 'microphone'}
+                  className="toolbar-menu-item"
+                  onClick={() => { closeMenu(); onStartAudioReactive('microphone'); }}>
+                  Microphone
+                </button>
+                <button type="button" role="menuitemradio"
+                  aria-checked={audioReactiveEnabled && audioReactiveSource === 'system'}
+                  className="toolbar-menu-item"
+                  onClick={() => { closeMenu(); onStartAudioReactive('system'); }}>
+                  Computer audio
+                </button>
+                {audioReactiveEnabled ? (
+                  <button type="button" role="menuitem" className="toolbar-menu-item"
+                    onClick={() => { closeMenu(); onToggleAudioReactive(); }}>
+                    Turn audio reactive off
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>

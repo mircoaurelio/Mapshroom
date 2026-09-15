@@ -29,7 +29,10 @@ export function normalizeProjectTimeline(project: ProjectDocument): ProjectDocum
   const sequence = project.timeline?.stub?.shaderSequence;
   if (!sequence) return project;
   const mode = normalizeTimelineSequenceMode(sequence.mode, sequence.randomChoiceEnabled);
-  if (sequence.mode === mode && !sequence.randomChoiceEnabled && sequence.sharedTransitionEnabled) {
+  const timing = updateTimelineSharedSettings({ ...sequence, mode });
+  if (sequence.mode === mode && !sequence.randomChoiceEnabled && sequence.sharedTransitionEnabled &&
+      sequence.sharedSectionDurationSeconds === timing.sharedSectionDurationSeconds &&
+      sequence.sharedTransitionDurationSeconds === timing.sharedTransitionDurationSeconds) {
     return project;
   }
   return {
@@ -39,13 +42,34 @@ export function normalizeProjectTimeline(project: ProjectDocument): ProjectDocum
       stub: {
         ...project.timeline.stub,
         shaderSequence: {
-          ...sequence,
+          ...timing,
           mode,
           randomChoiceEnabled: false,
           sharedTransitionEnabled: true,
         },
       },
     },
+  };
+}
+
+export function updateTimelineSharedSettings(
+  sequence: TimelineStub['shaderSequence'],
+  patch: Partial<Pick<TimelineStub['shaderSequence'],
+    'sharedSectionDurationSeconds' | 'sharedTransitionDurationSeconds' |
+    'sharedTransitionEffect' | 'sharedTransitionEnabled'>> = {},
+): TimelineStub['shaderSequence'] {
+  const requestedClip = patch.sharedSectionDurationSeconds ?? sequence.sharedSectionDurationSeconds ?? 8;
+  const sharedSectionDurationSeconds = clampTimelineStepDuration(
+    sequence.mode === 'audioReactive' ? Math.max(1, requestedClip) : requestedClip,
+  );
+  return {
+    ...sequence,
+    ...patch,
+    sharedSectionDurationSeconds,
+    sharedTransitionDurationSeconds: clampTransitionDuration(
+      sharedSectionDurationSeconds,
+      patch.sharedTransitionDurationSeconds ?? sequence.sharedTransitionDurationSeconds ?? 0.75,
+    ),
   };
 }
 

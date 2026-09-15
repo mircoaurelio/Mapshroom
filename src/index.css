@@ -6676,6 +6676,28 @@ a {
   min-width: 0;
 }
 
+.timeline-clip-duration {
+  margin-right: auto;
+}
+
+.mobile-timeline-duration-card > .duration-input {
+  align-self: start;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto 26px;
+  width: 100%;
+  height: auto;
+}
+
+.mobile-timeline-duration-card > .duration-input > label {
+  grid-column: 1 / -1;
+  width: auto;
+  margin: 0 0 3px;
+}
+
+.mobile-timeline-duration-card > .duration-input > input {
+  width: 100%;
+}
+
 .timeline-sequence-transport {
   display: flex;
   justify-content: center;
@@ -6724,7 +6746,40 @@ a {
 
   .timeline-bar-desktop .timeline-sequence-toolbar-actions,
   .timeline-bar-desktop .timeline-shared-transition-toolbar {
-    flex-wrap: wrap;
+    display: contents;
+  }
+
+  .timeline-bar-desktop .timeline-sequence-copy {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .timeline-bar-desktop .timeline-sequence-transport {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .timeline-bar-desktop .timeline-clip-duration {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  .timeline-bar-desktop .timeline-shared-transition-field-fx {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: end;
+  }
+
+  .timeline-bar-desktop .timeline-mix-duration {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .timeline-bar-desktop .timeline-mode-switch {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
   }
 
   .timeline-bar-desktop .timeline-mode-switch {

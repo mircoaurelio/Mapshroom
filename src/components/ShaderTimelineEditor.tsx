@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { bindHorizontalWheelScroll } from '../lib/horizontalScroll';
 import {
-  clampTimelineStepDuration,
   roundTimelineSeconds,
   TIMELINE_SEQUENCE_MODE_OPTIONS,
   TIMELINE_TRANSITION_EFFECT_OPTIONS,
@@ -14,6 +13,7 @@ import { TimelineStepOverflowActions } from './TimelineStepOverflowActions';
 import { TimelineDeleteConfirmation, type TimelineDeleteRequest } from './TimelineDeleteConfirmation';
 import { ShuffleIcon } from './ShuffleIcon';
 import { AppSelect } from './AppSelect';
+import { DurationInput } from './DurationInput';
 import type {
   AssetRecord,
   AssetKind,
@@ -205,14 +205,6 @@ function DragHandleIcon() {
       <path d="M3 5.25h10" />
       <path d="M3 8h10" />
       <path d="M3 10.75h10" />
-    </svg>
-  );
-}
-
-function StepperChevronIcon({ direction }: { direction: 'up' | 'down' }) {
-  return (
-    <svg viewBox="0 0 12 12" aria-hidden="true">
-      <path d={direction === 'up' ? 'm3 7.25 3-3 3 3' : 'm3 4.75 3 3 3-3'} />
     </svg>
   );
 }
@@ -749,75 +741,18 @@ export function ShaderTimelineEditor({
             </div>
           ) : null}
           <div className="timeline-shared-transition-toolbar">
-              <div className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-section">
-                <span>
-                  {sequence.mode === 'audioReactive'
-                    ? 'Minimum Hold'
-                    : 'Hold'}
-                </span>
-                <div className="timeline-number-stepper">
-                  <input
-                    className="text-field"
-                    type="number"
-                    aria-label={
-                      sequence.mode === 'audioReactive'
-                        ? 'Minimum audio section hold in seconds'
-                        : 'Section time in seconds'
-                    }
-                    min={sequence.mode === 'audioReactive' ? 1 : 0.5}
-                    max={600}
-                    step={0.5}
-                    value={sequence.sharedSectionDurationSeconds}
-                    onChange={(event) =>
-                      onSharedTransitionChange({
-                        sharedSectionDurationSeconds: Number(event.target.value),
-                      })
-                    }
-                  />
-                  <div className="timeline-number-stepper-controls">
-                    <button
-                      type="button"
-                      aria-label="Increase section time"
-                      title="Increase section time"
-                      disabled={sequence.sharedSectionDurationSeconds >= 600}
-                      onClick={() =>
-                        onSharedTransitionChange({
-                          sharedSectionDurationSeconds: clampTimelineStepDuration(
-                            sequence.sharedSectionDurationSeconds + 0.5,
-                          ),
-                        })
-                      }
-                    >
-                      <StepperChevronIcon direction="up" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Decrease section time"
-                      title="Decrease section time"
-                      disabled={
-                        sequence.sharedSectionDurationSeconds <=
-                        (sequence.mode === 'audioReactive' ? 1 : 0.5)
-                      }
-                      onClick={() =>
-                        onSharedTransitionChange({
-                          sharedSectionDurationSeconds: clampTimelineStepDuration(
-                            Math.max(
-                              sequence.mode === 'audioReactive' ? 1 : 0.5,
-                              sequence.sharedSectionDurationSeconds - 0.5,
-                            ),
-                          ),
-                        })
-                      }
-                    >
-                      <StepperChevronIcon direction="down" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+            <DurationInput
+              className="timeline-clip-duration"
+              label={sequence.mode === 'audioReactive' ? 'Minimum clip' : 'Clip duration'}
+              value={sequence.sharedSectionDurationSeconds}
+              min={sequence.mode === 'audioReactive' ? 1 : 0.5}
+              max={600}
+              onCommit={(seconds) => onSharedTransitionChange({ sharedSectionDurationSeconds: seconds })}
+            />
 
             <AppSelect
               className="timeline-shared-transition-field timeline-shared-transition-field-fx timeline-mix-select"
-              label="Mix"
+              label="Effect"
               value={sequence.sharedTransitionEffect}
               options={TIMELINE_TRANSITION_EFFECT_OPTIONS}
               onChange={(effect) =>
@@ -828,24 +763,15 @@ export function ShaderTimelineEditor({
               }
             />
 
-            <label className="field timeline-compact-field timeline-shared-transition-field timeline-shared-transition-field-mix">
-              <span>Time</span>
-              <input
-                className="text-field"
-                type="number"
-                aria-label="Mix time in seconds"
-                min={0}
-                max={600}
-                step={0.05}
-                value={sequence.sharedTransitionDurationSeconds}
-                onChange={(event) =>
-                  onSharedTransitionChange({
-                    sharedTransitionEnabled: true,
-                    sharedTransitionDurationSeconds: Number(event.target.value),
-                  })
-                }
-              />
-            </label>
+            <DurationInput
+              className="timeline-mix-duration"
+              label="Mix duration"
+              value={sequence.sharedTransitionDurationSeconds}
+              min={0}
+              max={sequence.sharedSectionDurationSeconds}
+              step={0.25}
+              onCommit={(seconds) => onSharedTransitionChange({ sharedTransitionEnabled: true, sharedTransitionDurationSeconds: seconds })}
+            />
           </div>
 
           <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">

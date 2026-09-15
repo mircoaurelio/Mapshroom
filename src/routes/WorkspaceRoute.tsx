@@ -167,7 +167,7 @@ import {
   getEffectiveTransitionDurationSeconds,
   getTimelineCycleSteps,
   resolveShaderTimelineState,
-  applyMixDurationToTimelineSteps,
+  updateTimelineSharedSettings,
   isTimelineStepEnabled,
   normalizeTimelineTransitionEffect,
   normalizeProjectTimeline,
@@ -4896,46 +4896,12 @@ export function WorkspaceRoute() {
   ) => {
     updateProject((currentProject) => {
       const shaderSequence = currentProject.timeline.stub.shaderSequence;
-      const nextSharedTransitionDurationSeconds = clampTransitionDuration(
-        600,
-        patch.sharedTransitionDurationSeconds ??
-          shaderSequence.sharedTransitionDurationSeconds,
-      );
-      const usesSharedTransition = shouldUseSharedTransition(
-        shaderSequence.mode,
-        patch.sharedTransitionEnabled ?? shaderSequence.sharedTransitionEnabled,
-      );
-      const nextSteps =
-        patch.sharedTransitionDurationSeconds !== undefined
-          ? applyMixDurationToTimelineSteps(
-              shaderSequence.steps,
-              nextSharedTransitionDurationSeconds,
-            )
-          : shaderSequence.steps;
-
       return {
         ...currentProject,
         timeline: {
           stub: {
             ...currentProject.timeline.stub,
-            shaderSequence: {
-              ...shaderSequence,
-              ...patch,
-              sharedTransitionDurationSeconds: usesSharedTransition
-                ? nextSharedTransitionDurationSeconds
-                : shaderSequence.sharedTransitionDurationSeconds,
-              sharedSectionDurationSeconds: clampTimelineStepDuration(
-                shaderSequence.mode === 'audioReactive'
-                  ? Math.max(
-                      1,
-                      patch.sharedSectionDurationSeconds ??
-                        shaderSequence.sharedSectionDurationSeconds,
-                    )
-                  : patch.sharedSectionDurationSeconds ??
-                      shaderSequence.sharedSectionDurationSeconds,
-              ),
-              steps: nextSteps,
-            },
+            shaderSequence: updateTimelineSharedSettings(shaderSequence, patch),
           },
         },
       };
@@ -5357,53 +5323,8 @@ export function WorkspaceRoute() {
   const handleMobileEqualDurationChange = useCallback((durationSeconds: number) => {
     if (!Number.isFinite(durationSeconds)) return;
 
-    updateProject((currentProject) => {
-      const shaderSequence = currentProject.timeline.stub.shaderSequence;
-      const equalDurationSeconds = clampTimelineStepDuration(
-        shaderSequence.mode === 'audioReactive'
-          ? Math.max(1, durationSeconds)
-          : durationSeconds,
-      );
-      if (shaderSequence.mode === 'audioReactive') {
-        return {
-          ...currentProject,
-          timeline: {
-            stub: {
-              ...currentProject.timeline.stub,
-              shaderSequence: {
-                ...shaderSequence,
-                sharedSectionDurationSeconds: equalDurationSeconds,
-              },
-            },
-          },
-        };
-      }
-
-      const steps = shaderSequence.steps.map((step) => ({
-        ...step,
-        durationSeconds: equalDurationSeconds,
-        transitionDurationSeconds: clampTransitionDuration(
-          equalDurationSeconds,
-          step.transitionDurationSeconds,
-        ),
-      }));
-
-      return {
-        ...currentProject,
-        timeline: {
-          stub: {
-            ...currentProject.timeline.stub,
-            durationSeconds: equalDurationSeconds * steps.filter(isTimelineStepEnabled).length,
-            shaderSequence: {
-              ...shaderSequence,
-              sharedSectionDurationSeconds: equalDurationSeconds,
-              steps,
-            },
-          },
-        },
-      };
-    });
-  }, [updateProject]);
+    handleTimelineSharedTransitionChange({ sharedSectionDurationSeconds: durationSeconds });
+  }, [handleTimelineSharedTransitionChange]);
 
   const handleMappingAction = (action: MappingAction) => {
     updateProject((currentProject) => ({

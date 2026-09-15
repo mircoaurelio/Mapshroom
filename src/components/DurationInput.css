@@ -1,0 +1,61 @@
+.duration-input {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 3px 4px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-panel-soft);
+}
+
+.duration-input > label {
+  width: 47px;
+  flex: 0 0 47px;
+  margin-right: 3px;
+  color: var(--text-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  line-height: 1.15;
+}
+
+.duration-input > input {
+  width: 42px;
+  min-width: 0;
+  height: 26px;
+  padding: 0 1px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-bright);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.duration-input > button {
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: rgba(161, 161, 170, 0.06);
+  color: var(--text-muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.duration-input > button:hover:not(:disabled) {
+  border-color: var(--line);
+  background: rgba(161, 161, 170, 0.15);
+  color: var(--text-bright);
+}
+
+.duration-input > button:disabled { opacity: 0.3; cursor: default; }
+.duration-input > input:focus-visible,
+.duration-input > button:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.duration-input-unit { color: var(--text-dim); font-size: 10px; }
+.duration-input-help { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

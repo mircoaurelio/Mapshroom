@@ -5,6 +5,7 @@ import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
 import type { AudioReactiveRuntime } from '../lib/audioReactivity';
 import type { AssetRecord, AssetKind, PlaybackTransport, SavedShader, TimelineSequenceMode, TimelineStub, TimelineTransitionEffect } from '../types';
 import { ShaderTimelineEditor } from './ShaderTimelineEditor';
+import { DurationInput } from './DurationInput';
 import type { ImageTransfer } from '../lib/imageTransfer';
 
 interface TimelineBarProps {
@@ -294,25 +295,20 @@ export function TimelineDialog({
                 </small>
               </button>
             ) : null}
-            <label className="mobile-timeline-setting-card mobile-timeline-duration-card">
-              <span>{audioEnabled ? 'Minimum hold' : 'Time per shader'}</span>
-              <span className="mobile-timeline-duration-input">
-                <input
-                  type="number"
-                  min={audioEnabled ? 1 : 0.5}
-                  max={36000}
-                  step={0.5}
-                  value={roundTimelineSeconds(equalDurationSeconds)}
-                  onChange={(event) => onMobileEqualDurationChange(Number(event.target.value))}
-                />
-                <b>sec</b>
-              </span>
+            <div className="mobile-timeline-setting-card mobile-timeline-duration-card">
+              <DurationInput
+                label={audioEnabled ? 'Minimum clip' : 'Clip duration'}
+                value={equalDurationSeconds}
+                min={audioEnabled ? 1 : 0.5}
+                max={600}
+                onCommit={onMobileEqualDurationChange}
+              />
               <small>
                 {audioEnabled
                   ? `Wait at least ${roundTimelineSeconds(equalDurationSeconds)}s between changes`
                   : `${enabledStepCount} shaders · ${formatTimelineTime(equalDurationSeconds * enabledStepCount)} total`}
               </small>
-            </label>
+            </div>
           </div>
           <div className="mobile-timeline-transport-card">
             <div>
