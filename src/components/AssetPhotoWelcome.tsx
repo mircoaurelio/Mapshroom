@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { ProjectorPhotoDiagram } from './ProjectorPhotoDiagram';
 import { defaultVariantKinds, variantOptions } from '../lib/assetVariants';
 import './AssetPhotoWelcome.css';
@@ -17,14 +17,33 @@ function PhotoIcon({ name }: { name: PhotoIconName }) {
   </svg>;
 }
 
-export function AssetPhotoWelcome({ importing, onChoosePhoto, onPasteImage, onOpenProject, generationOptions, automaticGeneration = true }: {
+function PhotoAdvice() {
+  return <>
+    <ProjectorPhotoDiagram />
+    <ul>
+      <li><PhotoIcon name="front" /><div><strong>Same position. Same angle.</strong><p>Move the projector aside. Place your phone’s camera lens where the projector lens was, pointing in the same direction.</p></div></li>
+      <li><PhotoIcon name="light" /><div><strong>Evenly lit</strong><p>Keep details visible, without deep shadows or glare.</p></div></li>
+      <li><PhotoIcon name="clear" /><div><strong>Nothing in the way</strong><p>Include the whole surface, with nothing in front.</p></div></li>
+    </ul>
+  </>;
+}
+
+export function AssetPhotoWelcome({ importing, onChoosePhoto, onPasteImage, onOpenProject, onClose, generationOptions, automaticGeneration = true }: {
   importing: boolean;
   onChoosePhoto: () => void;
   onPasteImage: () => void;
   onOpenProject: () => void;
+  onClose?: () => void;
   generationOptions?: ReactNode;
   automaticGeneration?: boolean;
 }) {
+  const panelRef = useRef<HTMLDialogElement>(null);
+  const panelTitleId = useId();
+  const [panel, setPanel] = useState<'tips' | 'settings'>('tips');
+  const openPanel = (next: typeof panel) => {
+    setPanel(next);
+    panelRef.current?.showModal();
+  };
   return <div className="asset-photo-welcome">
     <div className="asset-photo-intro">
       <ol className="asset-photo-steps" aria-label="Set up your surface">
@@ -32,7 +51,10 @@ export function AssetPhotoWelcome({ importing, onChoosePhoto, onPasteImage, onOp
         <li><span>2</span>Analysis</li>
         <li><span>3</span>Effects</li>
       </ol>
-      <button className="ghost-button asset-photo-open" type="button" onClick={onOpenProject}><PhotoIcon name="folder" />Open project</button>
+      <div className="asset-photo-intro-actions">
+        <button className="ghost-button asset-photo-open" type="button" onClick={onOpenProject}><PhotoIcon name="folder" />Open project</button>
+        {onClose && <button className="ml-icon-button" type="button" onClick={onClose} aria-label="Close asset library">×</button>}
+      </div>
     </div>
     <div className="asset-photo-layout">
       <section className="asset-photo-drop" aria-labelledby="asset-photo-title" aria-busy={importing}>
@@ -45,23 +67,24 @@ export function AssetPhotoWelcome({ importing, onChoosePhoto, onPasteImage, onOp
         <span className="asset-photo-drop-hint">or drop it here · JPG, PNG, WebP</span>
         <button type="button" className="ghost-button asset-photo-paste" onClick={onPasteImage} disabled={importing}>Paste from clipboard</button>
         <div className="asset-photo-promises"><span><PhotoIcon name="check" />Original preserved</span><span><PhotoIcon name="check" />{automaticGeneration ? 'Versions prepared automatically' : 'Generate versions when you’re ready'}</span></div>
-        {generationOptions && <details className="asset-photo-generation-settings"><summary>Generation settings</summary><div className="asset-photo-options">{generationOptions}</div></details>}
+        <div className="asset-photo-help-actions">
+          <button className="ghost-button asset-photo-tips-button" type="button" aria-haspopup="dialog" onClick={() => openPanel('tips')}>Photo tips</button>
+          {generationOptions && <button className="ghost-button" type="button" aria-haspopup="dialog" onClick={() => openPanel('settings')}>Generation settings</button>}
+        </div>
       </section>
       <aside className="asset-photo-advice" aria-labelledby="asset-photo-advice-title">
         <span className="asset-photo-eyebrow">A little preparation goes a long way</span>
         <h3 id="asset-photo-advice-title">A good photo</h3>
-        <ProjectorPhotoDiagram />
-        <ul>
-          <li><PhotoIcon name="front" /><div><strong>Same position. Same angle.</strong><p>Move the projector aside. Place your phone’s camera lens where the projector lens was, pointing in the same direction.</p></div></li>
-          <li><PhotoIcon name="light" /><div><strong>Evenly lit</strong><p>Keep details visible, without deep shadows or glare.</p></div></li>
-          <li><PhotoIcon name="clear" /><div><strong>Nothing in the way</strong><p>Include the whole surface, with nothing in front.</p></div></li>
-        </ul>
-        <div className="asset-photo-advice-note"><PhotoIcon name="image" /><p>Your photo is the starting point.<br />The effects come next.</p></div>
+        <PhotoAdvice />
       </aside>
     </div>
     <section className="asset-photo-next" aria-labelledby="asset-photo-next-title">
       <div><h3 id="asset-photo-next-title">One photo. New possibilities.</h3><p>Your generated versions will appear here after you upload a photo.</p></div>
       <div className="asset-photo-placeholders">{variantOptions.filter(option => defaultVariantKinds.includes(option.id)).map(option => <div key={option.id} className="asset-photo-placeholder"><PhotoIcon name="image" /><span>{option.title}</span><small>Waiting for your photo</small></div>)}</div>
     </section>
+    <dialog ref={panelRef} className="asset-photo-panel" aria-labelledby={panelTitleId} onKeyDown={event => event.stopPropagation()}>
+      <div className="asset-photo-panel-heading"><h3 id={panelTitleId}>{panel === 'tips' ? 'A good photo' : 'Generation settings'}</h3><button className="ml-icon-button" type="button" aria-label={panel === 'tips' ? 'Close photo tips' : 'Close generation settings'} onClick={() => panelRef.current?.close()}>×</button></div>
+      {panel === 'tips' ? <div className="asset-photo-advice"><PhotoAdvice /></div> : <div className="asset-photo-options">{generationOptions}</div>}
+    </dialog>
   </div>;
 }
