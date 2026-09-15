@@ -279,7 +279,7 @@ export function AiPanel({
                 ) : null}
               </div>
               {compact ? <button type="button" className="ai-prompt-clipboard-button" aria-label="Copy and paste options" title={copyMessage || 'Copy prompt or paste shader'} aria-haspopup="menu" aria-expanded={pasteMenuOpen} onClick={() => setPasteMenuOpen(value => !value)}>
-                <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="3" width="10" height="13" rx="2" /><path d="M4 6H3v12h10v-1" /></svg><span role="status">{copyMessage || 'Copia e incolla'}</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="3" width="10" height="13" rx="2" /><path d="M4 6H3v12h10v-1" /></svg><span role="status">{copyMessage || 'Copy and paste'}</span>
               </button> : null}
               <button
                 type="button"

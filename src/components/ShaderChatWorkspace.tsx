@@ -99,8 +99,8 @@ export function ShaderChatWorkspace({
             followRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 96;
           }}>
           {showWelcome ? <div className="shader-chat-welcome">
-            <p className="shader-chat-greeting">Ciao! Che cosa ti piacerebbe creare? Raccontami la tua idea oppure scegli uno spunto qui sotto.</p>
-            <div className="shader-chat-starters" role="group" aria-label="Spunti per iniziare">
+            <p className="shader-chat-greeting">Hi! What would you like to create? Describe your idea<span className="shader-chat-starters-invite"> or choose a suggestion below</span>.</p>
+            <div className="shader-chat-starters" role="group" aria-label="Suggestions to get started">
               {suggestions.map(text => <button key={text} type="button" onClick={() => onSuggest(text)}>{text}</button>)}
             </div>
           </div> : null}
