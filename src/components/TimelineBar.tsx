@@ -297,7 +297,8 @@ export function TimelineDialog({
             ) : null}
             <div className="mobile-timeline-setting-card mobile-timeline-duration-card">
               <DurationInput
-                label={audioEnabled ? 'Minimum clip' : 'Clip duration'}
+                label="Clip"
+                description={audioEnabled ? 'Minimum clip duration before an audio change.' : 'Total clip duration, including the mix.'}
                 value={equalDurationSeconds}
                 min={audioEnabled ? 1 : 0.5}
                 max={600}

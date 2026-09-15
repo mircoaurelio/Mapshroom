@@ -6680,22 +6680,20 @@ a {
   margin-right: auto;
 }
 
-.mobile-timeline-duration-card > .duration-input {
-  align-self: start;
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto 26px;
-  width: 100%;
-  height: auto;
+.timeline-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
-.mobile-timeline-duration-card > .duration-input > label {
-  grid-column: 1 / -1;
-  width: auto;
-  margin: 0 0 3px;
+.mobile-timeline-duration-card > .duration-input {
+  align-self: start;
+  width: 100%;
 }
 
 .mobile-timeline-duration-card > .duration-input > input {
-  width: 100%;
+  flex: 1;
+  width: 0;
 }
 
 .timeline-sequence-transport {
@@ -6765,21 +6763,10 @@ a {
     justify-self: start;
   }
 
-  .timeline-bar-desktop .timeline-shared-transition-field-fx {
-    grid-column: 1;
+  .timeline-bar-desktop .timeline-right-controls {
+    grid-column: 1 / -1;
     grid-row: 2;
-    justify-self: end;
-  }
-
-  .timeline-bar-desktop .timeline-mix-duration {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .timeline-bar-desktop .timeline-mode-switch {
-    grid-column: 3;
-    grid-row: 2;
-    justify-self: end;
+    justify-content: flex-end;
   }
 
   .timeline-bar-desktop .timeline-mode-switch {

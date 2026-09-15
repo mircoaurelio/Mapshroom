@@ -743,64 +743,67 @@ export function ShaderTimelineEditor({
           <div className="timeline-shared-transition-toolbar">
             <DurationInput
               className="timeline-clip-duration"
-              label={sequence.mode === 'audioReactive' ? 'Minimum clip' : 'Clip duration'}
+              label="Clip"
+              description={sequence.mode === 'audioReactive' ? 'Minimum clip duration before an audio change.' : 'Total clip duration, including the mix.'}
               value={sequence.sharedSectionDurationSeconds}
               min={sequence.mode === 'audioReactive' ? 1 : 0.5}
               max={600}
               onCommit={(seconds) => onSharedTransitionChange({ sharedSectionDurationSeconds: seconds })}
             />
 
-            <AppSelect
-              className="timeline-shared-transition-field timeline-shared-transition-field-fx timeline-mix-select"
-              label="Effect"
-              value={sequence.sharedTransitionEffect}
-              options={TIMELINE_TRANSITION_EFFECT_OPTIONS}
-              onChange={(effect) =>
-                onSharedTransitionChange({
-                  sharedTransitionEnabled: true,
-                  sharedTransitionEffect: effect,
-                })
-              }
-            />
+            <div className="timeline-right-controls">
+              <DurationInput
+                className="timeline-mix-duration"
+                label="Mix T"
+                description="Mix time within each clip; cannot exceed Clip."
+                value={sequence.sharedTransitionDurationSeconds}
+                min={0}
+                max={sequence.sharedSectionDurationSeconds}
+                onCommit={(seconds) => onSharedTransitionChange({ sharedTransitionEnabled: true, sharedTransitionDurationSeconds: seconds })}
+              />
 
-            <DurationInput
-              className="timeline-mix-duration"
-              label="Mix duration"
-              value={sequence.sharedTransitionDurationSeconds}
-              min={0}
-              max={sequence.sharedSectionDurationSeconds}
-              step={0.25}
-              onCommit={(seconds) => onSharedTransitionChange({ sharedTransitionEnabled: true, sharedTransitionDurationSeconds: seconds })}
-            />
-          </div>
-
-          <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
-            {TIMELINE_SEQUENCE_MODE_OPTIONS.filter(
-              (option) =>
-                option.value !== 'audioReactive' ||
-                audioReactiveAvailable ||
-                sequence.mode === 'audioReactive',
-            ).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={sequence.mode === option.value}
-                className={`timeline-mode-button ${
-                  sequence.mode === option.value ? 'timeline-mode-button-active' : ''
-                }`}
-                title={
-                  option.value === 'audioReactive'
-                    ? audioReactiveListening
-                      ? 'Advance shaders when the music changes section'
-                      : 'Waiting for Audio Reactive capture'
-                    : undefined
+              <AppSelect
+                className="timeline-shared-transition-field timeline-shared-transition-field-fx timeline-mix-select"
+                label="Effect"
+                value={sequence.sharedTransitionEffect}
+                options={TIMELINE_TRANSITION_EFFECT_OPTIONS}
+                onChange={(effect) =>
+                  onSharedTransitionChange({
+                    sharedTransitionEnabled: true,
+                    sharedTransitionEffect: effect,
+                  })
                 }
-                onClick={() => onModeChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
+              />
+
+              <div className="timeline-mode-switch" role="tablist" aria-label="Timeline modes">
+                {TIMELINE_SEQUENCE_MODE_OPTIONS.filter(
+                  (option) =>
+                    option.value !== 'audioReactive' ||
+                    audioReactiveAvailable ||
+                    sequence.mode === 'audioReactive',
+                ).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={sequence.mode === option.value}
+                    className={`timeline-mode-button ${
+                      sequence.mode === option.value ? 'timeline-mode-button-active' : ''
+                    }`}
+                    title={
+                      option.value === 'audioReactive'
+                        ? audioReactiveListening
+                          ? 'Advance shaders when the music changes section'
+                          : 'Waiting for Audio Reactive capture'
+                        : undefined
+                    }
+                    onClick={() => onModeChange(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
         </div>
