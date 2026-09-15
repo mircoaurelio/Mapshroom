@@ -736,13 +736,14 @@ export function ShaderTimelineEditor({
       <div className="timeline-sequence-toolbar">
         <div className="timeline-sequence-copy">
           <div className="timeline-sequence-title-row">
-            {transportControls}
             <strong className="timeline-sequence-title">
               {title} - {sequence.steps.length} shader{sequence.steps.length === 1 ? '' : 's'} -{' '}
               {formatStepDuration(totalDurationSeconds)}
             </strong>
           </div>
         </div>
+
+        <div className="timeline-sequence-transport">{transportControls}</div>
 
         <div className="timeline-sequence-toolbar-actions">
           {midiTimelineControlActive ? (
@@ -824,7 +825,12 @@ export function ShaderTimelineEditor({
                   </div>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <div
+                className="timeline-shared-transition-field-section timeline-hold-placeholder"
+                aria-hidden="true"
+              />
+            )}
 
             <AppSelect
               className="timeline-shared-transition-field timeline-shared-transition-field-fx timeline-mix-select"

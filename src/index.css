@@ -6641,11 +6641,15 @@ a {
   align-items: center;
 }
 
-.timeline-bar-desktop .timeline-sequence-toolbar,
-.timeline-bar-desktop .timeline-sequence-toolbar-actions,
-.timeline-bar-desktop .timeline-shared-transition-toolbar,
+.timeline-bar-desktop .timeline-sequence-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
+  align-items: center;
+}
+
 .timeline-bar-desktop .timeline-sequence-title-row {
   flex-wrap: nowrap;
+  min-height: 30px;
 }
 
 .timeline-bar-desktop .timeline-sequence-copy {
@@ -6661,16 +6665,31 @@ a {
 }
 
 .timeline-bar-desktop .timeline-sequence-toolbar-actions {
-  flex: 0 0 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
-.timeline-sequence-title-row > .playback-controls {
+.timeline-bar-desktop .timeline-shared-transition-toolbar {
+  flex-wrap: nowrap;
+}
+
+.timeline-hold-placeholder {
+  height: var(--timeline-toolbar-control-height, 38px);
+  visibility: hidden;
+}
+
+.timeline-sequence-transport {
+  display: flex;
+  justify-content: center;
+}
+
+.timeline-sequence-transport > .playback-controls {
   position: static;
   flex: 0 0 auto;
   padding: 0.1rem;
 }
 
-.timeline-sequence-title-row .playback-control-button {
+.timeline-sequence-transport .playback-control-button {
   width: 1.75rem;
   height: 1.75rem;
 }
@@ -6700,30 +6719,13 @@ a {
 
 @container timelinePane (max-width: 1100px) {
   .timeline-bar-desktop .timeline-sequence-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.15rem;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: start;
   }
 
-  .timeline-bar-desktop .timeline-sequence-copy {
-    width: 100%;
-  }
-
-  .timeline-bar-desktop .timeline-sequence-title-row,
   .timeline-bar-desktop .timeline-sequence-toolbar-actions,
   .timeline-bar-desktop .timeline-shared-transition-toolbar {
     flex-wrap: wrap;
-  }
-
-  .timeline-bar-desktop .timeline-sequence-toolbar-actions {
-    width: 100%;
-    align-items: center;
-    justify-content: flex-start;
-  }
-
-  .timeline-bar-desktop .timeline-shared-transition-toolbar {
-    width: auto;
-    flex: 0 1 auto;
   }
 
   .timeline-bar-desktop .timeline-mode-switch {
