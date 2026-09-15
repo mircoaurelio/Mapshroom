@@ -27,7 +27,12 @@ function editor(integrated = true, deferSave = false) {
       style: { setProperty() {} },
       classList: { add() {}, remove() {}, toggle() {} },
       addEventListener() {}, setAttribute() {}, querySelector: (selector: string) => node(selector), querySelectorAll: () => [],
-      getContext: () => ({ clearRect() {}, putImageData: (image: { data: Uint8ClampedArray }) => { pixels = image.data; } }),
+      getContext: () => ({
+        clearRect() {},
+        putImageData: (image: { data: Uint8ClampedArray }) => { pixels = image.data; },
+        drawImage: (image: { pixels: Uint8ClampedArray }) => { pixels = image.pixels; },
+        getImageData: () => ({ data: new Uint8ClampedArray(pixels) }),
+      }),
       toBlob: (done: (blob: Blob | null) => void) => done(new Blob([pixels], { type: 'image/png' })),
     };
   }
@@ -48,6 +53,7 @@ function editor(integrated = true, deferSave = false) {
   };
   const context = createContext({
     URL, URLSearchParams, Blob, File, ArrayBuffer, Uint8Array, Uint8ClampedArray, crypto, AbortController,
+    createImageBitmap: async (file: File) => ({ pixels: new Uint8ClampedArray(await file.arrayBuffer()), close() {} }),
     ImageData: class { data: Uint8ClampedArray; constructor(data: Uint8ClampedArray) { this.data = data; } },
     Worker: class { postMessage(message: Record<string, unknown>) { workerRequests.push(message); } terminate() { terminated++; } },
     ResizeObserver: class { observe() {} disconnect() { disconnected = true; } },
@@ -262,4 +268,48 @@ test('PNG preparation failure restores the previous depth and releases the busy 
   assert.equal(app.run('busy'), false);
   assert.deepEqual([...app.run('renderedPixels')], pixels);
   assert.equal(app.requests().length, 0);
+});
+
+test('Mask and Depth panels start in Compare, while painting uses Result', () => {
+  const app = editor();
+  for (const panel of ['refine', 'depth']) {
+    app.run(`selectPanel('${panel}')`);
+    assert.equal(app.run('elements.compare.value'), '50');
+    assert.equal(app.run('elements.originalLayer.style.clipPath'), 'inset(0 50% 0 0)');
+  }
+  app.run("selectPanel('draw')");
+  assert.equal(app.run('elements.compare.value'), '0');
+});
+
+test('depth adjustments preserve the chosen comparison position and explicit preview modes', () => {
+  const app = editor();
+  app.run('restoreSavedDepth(new Uint8ClampedArray([200,200,200,255,100,100,100,80]), 2, 1, "depth");');
+  for (const position of ['23', '50', '77', '0', '100']) {
+    app.run(`elements.compare.value = '${position}'; elements.depthContrast.value = '125'; renderDepthPreview();`);
+    assert.equal(app.run('elements.compare.value'), position);
+    assert.equal(app.run('elements.handle.style.left'), `${position}%`);
+    assert.equal(app.run('elements.originalLayer.style.clipPath'), `inset(0 ${100 - Number(position)}% 0 0)`);
+  }
+});
+
+test('loading a mask comparison uses original RGB without replacing the edited mask', async () => {
+  const app = editor();
+  app.run('basePixels[7] = 0; maskBaseline = new Uint8ClampedArray(basePixels);');
+  const resultBefore = [...app.run('basePixels')];
+  await app.run(`loadOriginal({originalBuffer:new Uint8ClampedArray([50,60,70,255,80,90,100,255]).buffer, originalName:'original.png'}, loadGeneration)`);
+  assert.deepEqual([...app.run('sourcePixels')], [50,60,70,255,80,90,100,255]);
+  assert.deepEqual([...app.run('basePixels')], resultBefore);
+  assert.deepEqual([...app.run('maskBaseline')], resultBefore);
+  assert.equal(app.run('sourceFile.name'), 'original.png');
+  assert.equal(app.run('elements.original.src'), app.run('sourceUrl'));
+  app.dispose();
+});
+
+test('a late original image load cannot replace the next opened image', async () => {
+  const app = editor();
+  const before = [...app.run('sourcePixels')];
+  const loading = app.run('loadOriginal({originalBuffer:new Uint8ClampedArray(8).buffer}, loadGeneration)');
+  app.run('loadGeneration++');
+  assert.equal(await loading, false);
+  assert.deepEqual([...app.run('sourcePixels')], before);
 });

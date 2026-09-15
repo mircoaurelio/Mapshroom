@@ -174,7 +174,7 @@ function selectPanel(panel) {
   });
   if (panel === 'draw' && sourceFile) setDrawActive(true);
   if (panel === 'depth') setDepthPreviewActive(true);
-  elements.compare.value = '0'; updateCompare();
+  elements.compare.value = ['refine', 'depth'].includes(panel) ? '50' : '0'; updateCompare();
   if (!['draw', 'depth'].includes(panel) && sourceFile) notifyHost('ready', 'Mask tools ready.', currentResultKind());
 }
 
@@ -307,7 +307,7 @@ async function redo() {
   showToast(`Redid ${target.label}.`);
 }
 
-async function openFile(file, savedDepth = null) {
+async function openFile(file, input = null) {
   if (disposed) return;
   if (!file?.type.startsWith('image/')) { notifyHost('error', 'Choose a JPG, PNG, or WEBP image.'); return; }
   if (file.size > 45 * 1024 * 1024) { notifyHost('error', 'Choose an image smaller than 45 MB.'); return; }
@@ -374,32 +374,22 @@ async function openFile(file, savedDepth = null) {
       ? 'Generate depth from the original photo. The result saves automatically to your media library.'
       : 'Generate depth from the original photo.';
     setExportDisabled(false);
-    elements.compare.value = '0';
+    elements.compare.value = '50';
+    updateCompare();
     renderMask();
     cropRect = { x: 0.08, y: 0.08, width: 0.84, height: 0.84 };
     setCropActive(false);
     scheduleFrame(fitStage);
-    if (savedDepth) {
+    if (input?.savedDepthId) {
       try {
-        restoreSavedDepth(sourcePixels, imageWidth, imageHeight, savedDepth.resultId);
+        restoreSavedDepth(sourcePixels, imageWidth, imageHeight, input.savedDepthId);
         depthCanRegenerate = false;
-        if (savedDepth.originalBuffer instanceof ArrayBuffer) {
-          const originalFile = new File([savedDepth.originalBuffer], savedDepth.originalName || 'original.png', { type: savedDepth.originalMimeType || 'image/png' });
-          const bitmap = await createImageBitmap(originalFile).catch(() => null);
-          if (bitmap) try {
-            if (disposed || generation !== loadGeneration) return;
-            sourceContext.clearRect(0, 0, imageWidth, imageHeight);
-            sourceContext.drawImage(bitmap, 0, 0, imageWidth, imageHeight);
-            sourcePixels = sourceContext.getImageData(0, 0, imageWidth, imageHeight).data;
-            basePixels = pixelsWithAlpha(sourcePixels, depthMaskAlpha);
-            maskBaseline = new Uint8ClampedArray(basePixels);
-            sourceFile = originalFile;
-            URL.revokeObjectURL(sourceUrl);
-            sourceUrl = URL.createObjectURL(originalFile);
-            elements.original.src = sourceUrl;
-            depthCanRegenerate = true;
-          } finally { bitmap.close(); }
+        if (await loadOriginal(input, generation)) {
+          basePixels = pixelsWithAlpha(sourcePixels, depthMaskAlpha);
+          maskBaseline = new Uint8ClampedArray(basePixels);
+          depthCanRegenerate = true;
         }
+        if (disposed || generation !== loadGeneration) return;
         setDepthGenerating(false);
         selectPanel('depth');
         elements.depthStatus.textContent = depthCanRegenerate
@@ -410,14 +400,39 @@ async function openFile(file, savedDepth = null) {
         notifyHost('error', 'The saved depth map could not be opened. Close the editor and try again.', 'depth');
       }
     } else {
+      // Keep the opened mask pixels as the result. Only its comparison and
+      // restore-brush source come from the original photo.
+      await loadOriginal(input, generation);
+      if (disposed || generation !== loadGeneration) return;
       notifyHost('ready', 'Image loaded. Adjust the mask or generate depth.', 'mask');
     }
-    if (!savedDepth && elements.autoSegment.checked && elements.model.value !== 'manual') {
+    if (!input?.savedDepthId && elements.autoSegment.checked && elements.model.value !== 'manual') {
       schedule(() => segment(), 0);
     }
   };
   image.onerror = () => { pendingImages.delete(image); if (!disposed && generation === loadGeneration) notifyHost('error', 'The image could not be opened.'); };
   image.src = sourceUrl;
+}
+
+async function loadOriginal(input, generation) {
+  if (!(input?.originalBuffer instanceof ArrayBuffer)) return false;
+  const originalFile = new File([input.originalBuffer], input.originalName || 'original.png', { type: input.originalMimeType || 'image/png' });
+  const bitmap = await createImageBitmap(originalFile).catch(() => null);
+  if (!bitmap) return false;
+  try {
+    if (disposed || generation !== loadGeneration) return false;
+    const canvas = document.createElement('canvas');
+    canvas.width = imageWidth;
+    canvas.height = imageHeight;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(bitmap, 0, 0, imageWidth, imageHeight);
+    sourcePixels = context.getImageData(0, 0, imageWidth, imageHeight).data;
+    sourceFile = originalFile;
+    URL.revokeObjectURL(sourceUrl);
+    sourceUrl = URL.createObjectURL(originalFile);
+    elements.original.src = sourceUrl;
+    return true;
+  } finally { bitmap.close(); }
 }
 
 function fitStage() {
@@ -699,7 +714,6 @@ function renderDepthPreview() {
   if (!pixels) return;
   renderedPixels = pixels;
   elements.canvas.getContext('2d').putImageData(new ImageData(pixels, imageWidth, imageHeight), 0, 0);
-  elements.compare.value = '0';
   updateCompare();
 }
 

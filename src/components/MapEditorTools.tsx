@@ -26,8 +26,8 @@ export const MapEditorTools = memo(function MapEditorTools() {
     <div className="map-editor-preview">
       <div className="map-editor-preview-toolbar"><div role="group" aria-label="Image preview" className="map-editor-segmented">
         <button className="toggle-chip" type="button" data-preview-mode="100" aria-pressed="false">Original</button>
-        <button className="toggle-chip" type="button" data-preview-mode="50" aria-pressed="false">Compare</button>
-        <button className="toggle-chip" type="button" data-preview-mode="0" aria-pressed="true">Result</button>
+        <button className="toggle-chip" type="button" data-preview-mode="50" aria-pressed="true">Compare</button>
+        <button className="toggle-chip" type="button" data-preview-mode="0" aria-pressed="false">Result</button>
       </div><span id="fileName" className="map-editor-filename" /></div>
       <div className="map-editor-stage" aria-label="Image editing preview">
         <div id="emptyState" className="map-editor-placeholder">Loading image…</div>
@@ -35,14 +35,16 @@ export const MapEditorTools = memo(function MapEditorTools() {
           <div id="checkerboard" className="checkerboard" />
           <canvas id="resultCanvas" aria-label="Image editing canvas" />
           <div id="originalLayer" className="original-layer"><img id="originalImage" alt="Original image" /></div>
-          <div id="compareHandle" className="compare-handle" aria-hidden="true"><span>↔</span></div>
+          <div className="compare-frame">
+            <div id="compareHandle" className="compare-handle" aria-hidden="true"><span>↔</span></div>
+            <input id="compareRange" className="compare-range" type="range" min="0" max="100" defaultValue="50" aria-label="Compare original and result" />
+          </div>
           <div id="brushCursor" className="brush-cursor" aria-hidden="true" />
           <div id="cropOverlay" className="crop-overlay"><div id="cropBox" className="crop-box">
             <span className="crop-grid crop-grid-v one" /><span className="crop-grid crop-grid-v two" /><span className="crop-grid crop-grid-h one" /><span className="crop-grid crop-grid-h two" />
             {(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const).map((corner, index) => <button key={corner} type="button" className={`crop-handle ${corner}`} data-crop-handle={corner} aria-label={`Resize crop from ${['top left', 'top', 'top right', 'right', 'bottom right', 'bottom', 'bottom left', 'left'][index]}`} />)}
           </div></div>
           <canvas id="wandCanvas" className="wand-canvas" aria-label="AI selection canvas" />
-          <input id="compareRange" className="compare-range" type="range" min="0" max="100" defaultValue="0" aria-label="Compare original and result" />
         </div>
         <div id="dropOverlay" className="map-editor-drop-overlay">Drop image here</div>
         <div id="busyOverlay" className="map-editor-busy hidden" role="status"><div className="map-editor-spinner" /><strong id="busyTitle">Processing image…</strong><div className="map-editor-progress"><div id="progressBar" /></div><span id="busyDetail" /></div>

@@ -25,3 +25,18 @@ export const defaultVariantKinds: AssetVariantKind[] = ['background', 'gradient'
 export function sourceForAsset(asset: AssetRecord | undefined | null, assets: AssetRecord[]) {
   return assets.find(item => item.id === asset?.derivation?.sourceAssetId) ?? asset ?? null;
 }
+
+export function mapEditorOriginalForAsset(asset: AssetRecord | null, assets: AssetRecord[]) {
+  const derivation = asset?.derivation;
+  if (!derivation) return null;
+  // Depth compares with its inference input; a removed background compares with
+  // the original photo, even after several rounds of mask editing.
+  const sourceIds = derivation.kind === 'depth'
+    ? [derivation.inputAssetId, derivation.sourceAssetId]
+    : ['background', 'mask'].includes(derivation.kind) ? [derivation.sourceAssetId] : [];
+  for (const id of sourceIds) {
+    const original = assets.find(item => item.id === id && item.id !== asset?.id);
+    if (original) return original;
+  }
+  return null;
+}

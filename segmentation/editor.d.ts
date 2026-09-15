@@ -7,14 +7,14 @@ export interface EditorSaveResult {
   width: number;
   height: number;
 }
-export interface SavedDepthInput {
-  resultId: string;
+export interface EditorImageInput {
+  savedDepthId?: string;
   originalBuffer?: ArrayBuffer | null;
   originalName?: string;
   originalMimeType?: string;
 }
 export interface ImageEditorController {
-  open(file: File, savedDepth?: SavedDepthInput | null): Promise<void>;
+  open(file: File, input?: EditorImageInput | null): Promise<void>;
   save(): Promise<void>;
   dispose(): void;
 }

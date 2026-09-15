@@ -30,7 +30,7 @@ import { ApiSettingsDialog } from '../components/ApiSettingsDialog';
 import { AudioCaptureDialog } from '../components/AudioCaptureDialog';
 import { AssetLibraryDialog } from '../components/AssetLibraryDialog';
 import { preserveStageFrame, readStageFrameAspectRatio, replaceStageAsset } from '../lib/assetReplacement';
-import type { VariantResult } from '../lib/assetVariants';
+import { mapEditorOriginalForAsset, type VariantResult } from '../lib/assetVariants';
 import {
   captureImageTransfer,
   fetchImageFile,
@@ -4301,9 +4301,7 @@ export function WorkspaceRoute() {
     return project.library.assets.find((asset) => asset.id === segmentationQueue[0]) ?? null;
   }, [project, segmentationQueue]);
   const segmentationAssetResolution = useAssetObjectUrl(segmentationAsset);
-  const segmentationOriginalAsset = useMemo(() => segmentationPanel === 'depth' && segmentationAsset?.derivation?.kind === 'depth'
-    ? project?.library.assets.find(asset => asset.id === (segmentationAsset.derivation?.inputAssetId ?? segmentationAsset.derivation?.sourceAssetId)) ?? null
-    : null, [project, segmentationAsset, segmentationPanel]);
+  const segmentationOriginalAsset = useMemo(() => mapEditorOriginalForAsset(segmentationAsset, project?.library.assets ?? []), [project, segmentationAsset]);
   const segmentationOriginalResolution = useAssetObjectUrl(segmentationOriginalAsset);
   const surfaceAsset = useMemo(() => project?.library.assets.find(asset => asset.id === surfaceAssetId) ?? null, [project, surfaceAssetId]);
   const surfaceAssetResolution = useAssetObjectUrl(surfaceAsset);

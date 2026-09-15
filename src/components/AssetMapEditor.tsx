@@ -95,10 +95,12 @@ export function AssetMapEditor({ asset, assetUrl, initialPanel = 'refine', origi
       try {
         const blob = await load(assetUrl);
         // A missing source must not make an otherwise valid saved depth map unusable.
-        const original = isSavedDepth && originalAssetUrl ? await load(originalAssetUrl).catch(() => null) : null;
+        const original = originalAssetUrl ? await load(originalAssetUrl).catch(() => null) : null;
         const originalBuffer = original ? await original.arrayBuffer() : null;
         if (disposed) return;
-        await runtime.open(new File([blob], assetName ?? 'image.png', { type: blob.type || assetMimeType || 'image/png' }), isSavedDepth ? { resultId: assetId, originalBuffer, originalName, originalMimeType: original?.type } : null);
+        await runtime.open(new File([blob], assetName ?? 'image.png', { type: blob.type || assetMimeType || 'image/png' }), {
+          savedDepthId: isSavedDepth ? assetId : undefined, originalBuffer, originalName, originalMimeType: original?.type,
+        });
       } catch { if (!disposed) { setStatus('error'); setMessage('This image could not be opened. Close the editor and import it again.'); } }
     })();
     return () => { disposed = true; abort.abort(); runtime.dispose(); if (controller.current === runtime) controller.current = null; };
