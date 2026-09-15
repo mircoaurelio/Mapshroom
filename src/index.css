@@ -3638,8 +3638,27 @@ a {
   height: 14px;
   border: 0;
   border-radius: 2px;
-  background: #29292d;
+  background: linear-gradient(rgba(var(--audio-signal-rgb), 0.07), rgba(var(--audio-signal-rgb), 0.07)), #29292d;
   pointer-events: none;
+}
+
+.audio-uniform-range-interactive,
+.audio-uniform-range-interactive input[type='range'] {
+  touch-action: none;
+  user-select: none;
+}
+
+.audio-uniform-range-interactive::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: var(--audio-range-hover-position, -10px);
+  width: 2px;
+  height: 14px;
+  z-index: 5;
+  background: #d4d4d8;
+  pointer-events: none;
+  opacity: var(--audio-range-hover-opacity, 0);
 }
 
 .audio-uniform-range-stack input[type='range'] {
@@ -3655,7 +3674,19 @@ a {
   z-index: 1;
   height: 12px;
   border: 0;
-  background: #505054;
+  background: rgba(var(--audio-signal-rgb), 0.22);
+  pointer-events: none;
+}
+
+.audio-uniform-live-marker {
+  position: absolute;
+  top: 5px;
+  z-index: 4;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--audio-signal-color);
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -3663,45 +3694,55 @@ a {
   z-index: 2;
 }
 
-.audio-uniform-control-active .audio-uniform-main-range::-webkit-slider-runnable-track {
-  background: var(--range-hover-background);
-}
-
-.audio-uniform-control-active .audio-uniform-main-range::-moz-range-track {
-  background: var(--range-hover-background);
-}
-
 .audio-uniform-bound-range {
   z-index: 3;
   pointer-events: none;
 }
 
-.audio-uniform-bound-range:hover,
-.audio-uniform-bound-range:focus-visible {
-  z-index: 4;
-}
-
 .audio-uniform-bound-range::-webkit-slider-runnable-track {
   border-color: transparent !important;
-  background: var(--range-hover-background) !important;
+  background: transparent !important;
 }
 
 .audio-uniform-bound-range::-moz-range-track,
 .audio-uniform-bound-range::-moz-range-progress {
   border-color: transparent !important;
-  background: var(--range-hover-background) !important;
+  background: transparent !important;
 }
 
-.audio-uniform-bound-range::-webkit-slider-thumb {
+input.audio-uniform-bound-range::-webkit-slider-thumb {
+  height: 18px;
+  margin-top: -2px;
+  border-radius: 3px;
+  background: #d4d4d8;
   cursor: inherit;
   pointer-events: auto;
 }
 
-.audio-uniform-bound-range::-moz-range-thumb {
+input.audio-uniform-bound-range::-moz-range-thumb {
+  height: 18px;
+  border-radius: 3px;
+  background: #d4d4d8;
   cursor: inherit;
   pointer-events: auto;
 }
 
+input.audio-uniform-bound-range:focus-visible {
+  outline: none;
+}
+
+.audio-uniform-bound-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--audio-signal-color);
+  outline-offset: 2px;
+}
+
+.audio-uniform-bound-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--audio-signal-color);
+  outline-offset: 2px;
+}
+
+.audio-uniform-control:has([data-dragging='min']) .audio-uniform-range-values > span:first-child,
+.audio-uniform-control:has([data-dragging='max']) .audio-uniform-range-values > span:last-child,
 .audio-uniform-control:has(.audio-uniform-bound-range-min:focus-visible) .audio-uniform-range-values > span:first-child,
 .audio-uniform-control:has(.audio-uniform-bound-range-max:focus-visible) .audio-uniform-range-values > span:last-child {
   color: #d4d4d8;

@@ -1,4 +1,5 @@
 import { RangeInput } from './RangeInput';
+import { AudioReactiveRange } from './AudioReactiveRange';
 import { useEffect, useRef, useState } from 'react';
 import type {
   ShaderUniformDefinition,
@@ -864,13 +865,6 @@ export function AudioReactiveUniformSlider({
     frame: controller.uiFrame,
     integer: definition.type === 'int',
   });
-  const minPercent = binding
-    ? ((binding.min - definition.min) / (definition.max - definition.min || 1)) * 100
-    : 0;
-  const maxPercent = binding
-    ? ((binding.max - definition.min) / (definition.max - definition.min || 1)) * 100
-    : 100;
-
   const updateBinding = (patch: Partial<AudioReactiveBinding>) => {
     if (!binding) {
       return;
@@ -884,77 +878,33 @@ export function AudioReactiveUniformSlider({
         isActive ? `audio-uniform-control-active audio-uniform-signal-${binding?.signal}` : ''
       }`}
     >
-      <div className="audio-uniform-range-stack">
-        {isActive && binding ? (
-          <span
-            className="audio-uniform-active-zone"
-            style={{
-              left: `${minPercent}%`,
-              width: `${Math.max(0, maxPercent - minPercent)}%`,
-            }}
-            aria-hidden="true"
-          />
-        ) : null}
-        <RangeInput
-          className="audio-uniform-main-range"
-          aria-label={name}
-          aria-readonly={isActive}
+      {isActive && binding ? (
+        <AudioReactiveRange
+          name={name}
           min={definition.min}
           max={definition.max}
           step={step}
-          value={liveValue}
+          lower={binding.min}
+          upper={binding.max}
+          liveValue={liveValue}
+          onBoundChange={(bound, value) => updateBinding({ [bound]: value })}
           onHoverValueChange={onHoverValueChange}
-          onPointerDown={(event) => {
-            if (isActive) event.preventDefault();
-          }}
-          onChange={(event) => {
-            if (!isActive) {
-              onBaseValueChange(Number(event.target.value));
-            }
-          }}
-          onKeyDown={(event) => {
-            if (isActive) {
-              event.preventDefault();
-              return;
-            }
-            handleVerticalRangeKey(event, onBaseValueChange);
-          }}
         />
-        {isActive && binding ? (
-          <>
-            <RangeInput
-              className="audio-uniform-bound-range audio-uniform-bound-range-min"
-              aria-label={`Audio minimum for ${name}`}
-              title={`Minimum audio value: ${formatValue(binding.min, definition)}`}
-              min={definition.min}
-              max={definition.max}
-              step={step}
-              value={binding.min}
-              onHoverValueChange={onHoverValueChange}
-              onChange={(event) =>
-                updateBinding({
-                  min: Math.min(Number(event.target.value), binding.max),
-                })
-              }
-            />
-            <RangeInput
-              className="audio-uniform-bound-range audio-uniform-bound-range-max"
-              aria-label={`Audio maximum for ${name}`}
-              title={`Maximum audio value: ${formatValue(binding.max, definition)}`}
-              min={definition.min}
-              max={definition.max}
-              step={step}
-              value={binding.max}
-              onHoverValueChange={onHoverValueChange}
-              onChange={(event) =>
-                updateBinding({
-                  max: Math.max(Number(event.target.value), binding.min),
-                })
-              }
-            />
-          </>
-        ) : null}
-      </div>
+      ) : (
+        <div className="audio-uniform-range-stack">
+          <RangeInput
+            className="audio-uniform-main-range"
+            aria-label={name}
+            min={definition.min}
+            max={definition.max}
+            step={step}
+            value={baseValue}
+            onHoverValueChange={onHoverValueChange}
+            onChange={(event) => onBaseValueChange(Number(event.target.value))}
+            onKeyDown={(event) => handleVerticalRangeKey(event, onBaseValueChange)}
+          />
+        </div>
+      )}
 
       {isActive && binding ? (
         <div
