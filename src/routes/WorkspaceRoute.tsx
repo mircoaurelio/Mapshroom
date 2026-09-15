@@ -4040,7 +4040,7 @@ export function WorkspaceRoute() {
   }, [isMobile, isMobileTimelineOpen, uiPreferences.mobileUiMode]);
 
   useEffect(() => {
-    if (aiFeedbackTone !== 'success' && aiFeedbackTone !== 'error') return;
+    if (aiFeedbackTone !== 'success') return;
     const timer = setTimeout(() => {
       setAiFeedbackMessage('');
       setAiFeedbackTone('idle');
@@ -6695,7 +6695,8 @@ export function WorkspaceRoute() {
         versionId,
         retryInFlight: false,
       };
-      let appliedToActiveShader = false;
+      // React may defer the updater below. Read the current target before scheduling it.
+      const isActiveAtCompletion = currentProjectRef.current?.studio.activeShaderId === targetShaderId;
 
       updateProject((currentProject) => {
         const targetShader = currentProject.studio.savedShaders.find(
@@ -6705,7 +6706,7 @@ export function WorkspaceRoute() {
           return currentProject;
         }
 
-        appliedToActiveShader = currentProject.studio.activeShaderId === targetShaderId;
+        const appliedToActiveShader = currentProject.studio.activeShaderId === targetShaderId;
         const nextShaderVersion = createShaderVersion(historyPrompt, nextName, nextCode, versionId);
         const nextShaderVersions = [
           ...(appliedToActiveShader
@@ -6769,13 +6770,13 @@ export function WorkspaceRoute() {
       setAiPrompt((currentPrompt) =>
         currentPrompt.trim() === trimmedPrompt ? '' : currentPrompt,
       );
-      if (validationError && appliedToActiveShader) {
+      if (validationError && isActiveAtCompletion) {
         setPreferLiveShaderCompilePreview(true);
         applyCompilerFeedback(validationError);
         setStatusMessage(
           `Shader returned with GLSL errors. Keeping the previous valid render for ${nextName}.`,
         );
-      } else if (appliedToActiveShader) {
+      } else if (isActiveAtCompletion) {
         setPreferLiveShaderCompilePreview(true);
         setAiFeedbackTone('success');
         setAiFeedbackMessage(`Shader applied to the stage: ${nextName}.`);
@@ -6797,11 +6798,9 @@ export function WorkspaceRoute() {
       });
     } catch (error) {
       const message = error instanceof Error ? sanitizeAiMessage(error.message) : 'Shader generation failed.';
-      let failedOnActiveShader = false;
+      const failedOnActiveShader = currentProjectRef.current?.studio.activeShaderId === targetShaderId;
 
       updateProject((currentProject) => {
-        failedOnActiveShader = currentProject.studio.activeShaderId === targetShaderId;
-
         return {
           ...currentProject,
           studio: {
@@ -6826,7 +6825,6 @@ export function WorkspaceRoute() {
       });
 
       if (failedOnActiveShader) {
-        setCompilerError(message);
         setAiFeedbackTone('error');
         setAiFeedbackMessage(message);
         setStatusMessage('Shader generation failed.');
