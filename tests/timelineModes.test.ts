@@ -97,3 +97,18 @@ test('Double survives save normalization, including old random-choice projects',
   assert.equal(next.timeline.stub.shaderSequence.steps, sequence.steps);
   assert.equal(normalizeProjectTimeline(next), next);
 });
+
+test('random and Double fade into the actual first shader of the next shuffled cycle', () => {
+  for (const mode of ['random', 'double'] as const) for (const salt of ['primary', 'secondary', 'other']) {
+    const at = (timeSeconds: number, loop = true) => resolveShaderTimelineState({
+      ...sequence, mode, shaders, timeSeconds, loop, randomSeedSalt: salt,
+    })!;
+    for (const boundary of [18, 36, 54]) {
+      const outgoing = at(boundary - .001), incoming = at(boundary);
+      assert.ok(outgoing.isTransitioning);
+      assert.ok(outgoing.transitionProgress > .99);
+      assert.equal(outgoing.nextShader?.id, incoming.currentShader.id);
+    }
+    assert.equal(at(18, false).nextShader, null);
+  }
+});

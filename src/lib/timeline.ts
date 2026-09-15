@@ -663,7 +663,14 @@ export function resolveShaderTimelineState({
         return null;
       }
 
-      const nextStep = cycleSteps[index + 1] ?? (loop ? cycleSteps[0] : null);
+      // The next shuffled cycle may start with a different shader. Fade into
+      // that actual first step so the loop boundary cannot introduce a cut.
+      const nextStep = cycleSteps[index + 1] ?? (loop ? getTimelineCycleSteps({
+        mode: effectiveMode,
+        steps: timedPlaybackSteps,
+        cycleIndex: cycleIndex + 1,
+        randomSeedSalt,
+      })[0] : null);
       const nextShader = nextStep ? shaderMap.get(nextStep.shaderId) ?? null : null;
       const localTimeSeconds = Math.max(0, Math.min(durationSeconds, resolvedTime - cursor));
       const effectiveTransitionEffect =

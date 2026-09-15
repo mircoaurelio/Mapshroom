@@ -16,3 +16,11 @@ Double can still be demanding with expensive individual shaders. These changes r
 - Manual browser checks: direct library card → Workspace without selecting first; the same action while Output is open; full Double playback with the sample statue; Move and Output navigation; save/reload retains Double and the chosen timeline shader.
 
 Run browser fixtures through `npm exec vite -- --config vite.shader-test.config.ts`, then open the HTML paths above. Each reports its results in the page and sets `body[data-status="ok"]` on success.
+
+## Follow-up: gradual Double playback
+
+Double's live compilation gate was checking the unmasked transition code, while its preload queue compiled the masked code. The gate therefore held the outgoing shader throughout the mix and cut at the next step. It now checks the actual masked program. Mix progress is also isolated per stream, preventing the two independently shuffled streams from resetting each other's progress when they encounter the same shader pair.
+
+Both streams now share the transport clock and the Clip / Mix T durations, so two incoming shaders fade in while two outgoing shaders fade out. The former 1.35x secondary clock no longer shortens one mix. At a shuffled loop boundary, the transition targets the actual first shader of the upcoming cycle, avoiding a last-frame switch to another shader.
+
+`tests/browser/double-live-mix.html` drives the real WebGL renderer with live playback enabled through 20 deterministic transport positions. It compares the output to an independently assembled reference with two simultaneous shader pairs, including intermediate fades and loop boundaries. It failed at the first intermediate mix sample before the correction and passes afterward. The original geometry fixtures did not cover the live compilation gate.

@@ -60,7 +60,6 @@ import {
 import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
 import type { ShaderLoadReport, ShaderLoadSource } from '../lib/shaderLoadDiagnostics';
 
-const DOUBLE_SECONDARY_SPEED = 1.35;
 const PRELOAD_TRANSITION_PROGRESS = 0.001;
 const PRELOAD_LOOKAHEAD_EPSILON_SECONDS = 0.01;
 const STANDARD_PRELOAD_LOOKAHEAD_DEPTH = 2;
@@ -819,7 +818,8 @@ export function TimelineStageRenderer({
     [timelineNowMs, transport],
   );
   const timelineNowEpochMs = performance.timeOrigin + timelineNowMs;
-  const secondaryTimelineTimeSeconds = transportTimeSeconds * DOUBLE_SECONDARY_SPEED;
+  // Both outgoing/incoming pairs share Clip and Mix T. Only their shuffle differs.
+  const secondaryTimelineTimeSeconds = transportTimeSeconds;
 
   useEffect(() => {
     const previousTransportSnapshot = previousTransportSnapshotRef.current;
@@ -1084,6 +1084,7 @@ export function TimelineStageRenderer({
     shaderSequence.sharedTransitionDurationSeconds,
     shaderSequence.sharedTransitionEffect,
     shaderSequence.singleStepLoopEnabled,
+    shaderSequence.sharedSectionDurationSeconds,
     playbackTimelineSteps,
     transport.loop,
   ]);
@@ -1405,6 +1406,7 @@ export function TimelineStageRenderer({
 
   const buildTimelineRenderLayer = useCallback((
     state: NonNullable<typeof timelineState>,
+    doubleStream?: 'primary' | 'secondary',
   ): TimelineRenderLayer => {
     const timelineLayerOptions = {
       preferStepSnapshot: shouldResolveLiveTimelineState,
@@ -1427,7 +1429,9 @@ export function TimelineStageRenderer({
         timelineRandomSeedToken,
         doublePrimaryRandomSeedSalt,
       );
-      const pairKey = `${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}:${transitionOccurrenceSalt}`;
+      // Identical pairs can occur in either shuffled stream at different times.
+      // Their held mix progress must not reset or advance each other.
+      const pairKey = `${doubleStream ?? 'timeline'}:${state.currentStep.id}:${state.nextStep.id}:${state.transitionEffect}:${transitionOccurrenceSalt}`;
       const transitionSeed = getTimelineTransitionSeed(
         state.currentStep.id,
         state.nextStep.id,
@@ -1447,7 +1451,11 @@ export function TimelineStageRenderer({
       // gate because those consumers wait for compilation explicitly.
       const liveGatingActive =
         shouldResolveLiveTimelineState && transport.isPlaying && !midiManualMix?.enabled;
-      const transitionProgramReady = compiledShaderCodes.has(transitionShaderCode);
+      // Double preloads and draws the masked program. Checking the unwrapped
+      // code would keep this gate closed for the entire mix, then cut to next.
+      const transitionProgramReady = compiledShaderCodes.has(
+        doubleStream ? buildTimelineDoubleLayerShaderCode(transitionShaderCode) : transitionShaderCode,
+      );
 
       if (liveGatingActive && !transitionProgramReady) {
         return buildSingleShaderLayer(currentLayer);
@@ -1567,7 +1575,7 @@ export function TimelineStageRenderer({
   ): TimelineRenderLayer[] => {
     const seed = getTimelineTransitionSeed('double-primary', 'double-secondary', doublePrimaryRandomSeedSalt);
     return [primaryState, secondaryState].map((state, index) => {
-      const layer = buildTimelineRenderLayer(state);
+      const layer = buildTimelineRenderLayer(state, index === 0 ? 'primary' : 'secondary');
       return {
         ...layer,
         coverageLayer: true,
