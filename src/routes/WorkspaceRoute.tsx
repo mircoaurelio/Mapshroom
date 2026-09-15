@@ -8956,7 +8956,6 @@ ${errorSnapshot}`,
           showMoveButton={desktopSection === 'workspace'}
           moveMode={stageTransform.moveMode}
           audioReactiveEnabled={audioReactivity.preferences.modeEnabled}
-          audioReactiveListening={audioReactivity.status === 'listening'}
           audioReactiveSource={audioReactivity.preferences.source}
           onOpenProjects={() => {
             trackUiClick('open_projects');
