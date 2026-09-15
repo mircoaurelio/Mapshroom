@@ -17,6 +17,7 @@ interface ShaderChatWorkspaceProps {
   feedback: string;
   feedbackTone: 'idle' | 'loading' | 'success' | 'error';
   composer: ReactNode;
+  performanceSuggestion?: ReactNode;
   codePanel: ReactNode;
   historyPanel: ReactNode;
   onRestore: (id: string) => void;
@@ -27,7 +28,7 @@ interface ShaderChatWorkspaceProps {
 
 export function ShaderChatWorkspace({
   shaderCode, versions, chatHistory, pendingPrompt, handoff, loading, feedback, feedbackTone,
-  composer, codePanel, historyPanel, onRestore, onNewChat, onSuggest, onRetry,
+  composer, performanceSuggestion, codePanel, historyPanel, onRestore, onNewChat, onSuggest, onRetry,
 }: ShaderChatWorkspaceProps) {
   const [tab, setTab] = useState<ChatTab>('chat');
   const [hiddenVersions, setHiddenVersions] = useState<string[]>([]);
@@ -134,6 +135,7 @@ export function ShaderChatWorkspace({
           {copyError ? <p className="shader-chat-copy-error" role="alert">{copyError}</p> : null}
         </div>
         <div className="shader-chat-compose-area">
+          {performanceSuggestion}
           {composer}
           <small className="shader-chat-keyboard-hint">Enter to send · Shift + Enter for a new line</small>
         </div>

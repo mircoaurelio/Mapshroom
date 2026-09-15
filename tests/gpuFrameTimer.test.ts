@@ -17,3 +17,15 @@ test('GPU queries stay bounded, never read unavailable results and discard disjo
   assert.equal(reads,4);assert.equal(deleted,5);
   disjoint=false;timer.begin('c');timer.dispose();assert.equal(deleted,6);
 });
+
+test('idle GPU timer does not query the driver between sparse samples', () => {
+  let polls = 0;
+  const gl = {
+    getExtension: () => ({ TIME_ELAPSED_EXT: 1, GPU_DISJOINT_EXT: 2 }),
+    isContextLost: () => false,
+    getParameter: () => { polls++; return false; },
+  } as unknown as WebGL2RenderingContext;
+  const timer = new GpuFrameTimer(gl);
+  for (let i = 0; i < 60; i++) assert.deepEqual(timer.poll(), []);
+  assert.equal(polls, 0);
+});

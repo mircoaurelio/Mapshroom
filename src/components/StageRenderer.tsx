@@ -44,6 +44,9 @@ import { shouldForceVideoTransportSeek } from '../lib/videoTransport';
 import { AdaptiveRenderQuality, OUTPUT_PIXEL_LIMIT, PREVIEW_PIXEL_LIMIT, stagePixelRatio } from '../lib/renderQuality';
 import { GpuFrameTimer } from '../lib/gpuFrameTimer';
 import { readRenderRuntimeOptions } from '../lib/renderRuntimeOptions';
+import { ShaderLoadMonitor, type ShaderLoadWarning } from '../lib/shaderLoadMonitor';
+import { ShaderLoadIndicator } from './ShaderLoadIndicator';
+import { uniqueShaderLoadSources, type ShaderLoadReport, type ShaderLoadSource } from '../lib/shaderLoadDiagnostics';
 
 interface StageRendererProps {
   asset: AssetRecord | null;
@@ -79,6 +82,7 @@ interface StageRendererProps {
   onCompilerError?: (message: string) => void;
   onCompiledShaderCodesChange?: (compiledShaderCodes: ReadonlySet<string>) => void;
   onFrameRendered?: (frame: StageFrameInfo) => void;
+  onShaderLoadChange?: (report: ShaderLoadReport | null) => void;
 }
 
 const DISTORTION_GRID_STEPS = Array.from({ length: 9 }, (_, index) => (index + 1) / 10);
@@ -122,6 +126,7 @@ export interface StageRenderInputSource {
 }
 
 export interface StageRenderLayer {
+  loadSources?: ShaderLoadSource[];
   shaderCode: string;
   uniformDefinitions: ShaderUniformMap;
   uniformValues: ShaderUniformValueMap;
@@ -854,6 +859,7 @@ export function StageRenderer({
   onCompilerError,
   onCompiledShaderCodesChange,
   onFrameRendered,
+  onShaderLoadChange,
 }: StageRendererProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -895,6 +901,14 @@ export function StageRenderer({
   const qualityCodesRef = useRef<string[]>([]);
   const qualityGenerationRef = useRef(0);
   const lastGpuTimeRef = useRef<number | null>(null);
+  const shaderLoadMonitorRef = useRef<ShaderLoadMonitor | null>(null);
+  shaderLoadMonitorRef.current ??= new ShaderLoadMonitor();
+  const [shaderLoadReport, setShaderLoadReport] = useState<ShaderLoadReport | null>(null);
+  const onShaderLoadChangeRef = useRef(onShaderLoadChange);
+  onShaderLoadChangeRef.current = onShaderLoadChange;
+  const shaderLoadWarningRef = useRef<ShaderLoadWarning>(null);
+  const lastLoadQueryAtRef = useRef(0);
+  const loadSourceGenerationRef = useRef(0);
   const diagnosticsEnabledRef = useRef(readRenderRuntimeOptions(window.location).diagnostics);
   const diagnosticsOutputRef = useRef<HTMLOutputElement | null>(null);
   const lastDiagnosticsAtRef = useRef(0);
@@ -1076,6 +1090,19 @@ export function StageRenderer({
         .join('\u0001'),
     [requiredInputSources],
   );
+  // Preload changes and animated uniforms must not restart measurement.
+  const loadInputSignature = useMemo(() => [
+    defaultInputSource,
+    ...resolvedRenderLayers.flatMap(layer => [layer.inputSource, layer.overlaySource,
+      layer.transitionInputSources?.from, layer.transitionInputSources?.to,
+      layer.transitionOverlaySources?.from, layer.transitionOverlaySources?.to,
+      ...Object.values(layer.samplerSources ?? {})]),
+  ].map(source => source ? `${source.sourceKey}:${source.url}:${source.status}` : '').join('\0') +
+    JSON.stringify(resolvedRenderLayers.map(layer => layer.loadSources?.map(source => source.id))),
+  [defaultInputSource, resolvedRenderLayers]);
+  useEffect(() => {
+    loadSourceGenerationRef.current += 1;
+  }, [loadInputSignature, glContextGeneration]);
   const preferredAspectSourceId = useMemo(() => {
     if (defaultInputSource) {
       return defaultInputSource.sourceKey;
@@ -1829,6 +1856,17 @@ export function StageRenderer({
   ]);
 
   useEffect(() => {
+    const clearLoadWarning = (timestamp: number) => {
+      shaderLoadMonitorRef.current!.reset(timestamp);
+      lastQualityFrameRef.current = 0;
+      if (shaderLoadWarningRef.current !== null) {
+        shaderLoadWarningRef.current = null;
+        setShaderLoadReport(null);
+        onShaderLoadChangeRef.current?.(null);
+      }
+    };
+    const handleVisibilityChange = () => clearLoadWarning(performance.now());
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     const render = (timestamp: number) => {
       const gl = glRef.current;
       const canvas = canvasRef.current;
@@ -1850,6 +1888,7 @@ export function StageRenderer({
       );
 
       if (!gl || !canvas || !buffer || compiledLayers.length === 0) {
+        clearLoadWarning(timestamp);
         onFrameRenderedRef.current?.({
           layersInSync: false,
           allProgramsReady,
@@ -1918,8 +1957,10 @@ export function StageRenderer({
         quality.select(qualityCodesRef.current.join('\0'), timestamp, maxPixels);
         lastGpuTimeRef.current = null;
       }
-      const sampleTag = `${qualityGenerationRef.current}:${canvas.width}x${canvas.height}`;
-      const measurePerformance = experimentalQualityRef.current || diagnosticsEnabledRef.current;
+      const sampleTag = `${qualityGenerationRef.current}:${loadSourceGenerationRef.current}:${canvas.width}x${canvas.height}`;
+      // The workspace requests reports. Mapping-only previews and exports do not.
+      const monitorLoad = !isOutputOnlyRef.current && adaptiveQualityRef.current && Boolean(onShaderLoadChangeRef.current);
+      const measurePerformance = monitorLoad || experimentalQualityRef.current || diagnosticsEnabledRef.current;
       const gpuSamples = measurePerformance ? gpuTimerRef.current?.poll().filter(sample => sample.tag === sampleTag) ?? [] : [];
       const gpuMs = gpuSamples.length ? Math.max(...gpuSamples.map(sample => sample.ms)) : null;
       if (gpuMs !== null) lastGpuTimeRef.current = gpuMs;
@@ -1946,9 +1987,33 @@ export function StageRenderer({
           (layer, index) => layer.shaderCode === resolvedLayers[index]?.shaderCode,
         );
 
+      const loadWarning = shaderLoadMonitorRef.current!.sample({
+        now: timestamp, key: sampleTag, frameMs, gpuMs,
+        valid: monitorLoad && !document.hidden && layersInSync && allProgramsReady,
+      });
+      if (loadWarning !== shaderLoadWarningRef.current) {
+        shaderLoadWarningRef.current = loadWarning;
+        const measurement = shaderLoadMonitorRef.current!.measurement;
+        const report: ShaderLoadReport | null = loadWarning && measurement ? {
+          ...measurement, key: sampleTag, warning: loadWarning,
+          width: canvas.width, height: canvas.height, layerCount: compiledLayers.length,
+          sources: uniqueShaderLoadSources(resolvedLayers.flatMap(layer => layer.loadSources ?? [{
+            id: 'preview', name: 'Shader corrente', code: layer.shaderCode,
+          }])),
+        } : null;
+        setShaderLoadReport(report);
+        onShaderLoadChangeRef.current?.(report);
+      }
+
       try {
-        if (measureFrame && measurePerformance) {
-          gpuTimerRef.current?.begin(`${qualityGenerationRef.current}:${canvas.width}x${canvas.height}`);
+        // Five asynchronous samples per second in normal previews. Diagnostics
+        // retain their finer cadence; no synchronous GPU reads or extra draws.
+        if (measurePerformance && !document.hidden && (
+          (measureFrame && (experimentalQualityRef.current || diagnosticsEnabledRef.current)) ||
+          (monitorLoad && timestamp - lastLoadQueryAtRef.current >= 200)
+        )) {
+          gpuTimerRef.current?.begin(sampleTag);
+          lastLoadQueryAtRef.current = timestamp;
         }
         const currentTransport = transportRef.current;
         const transportTime = getTransportTimeSeconds(currentTransport, timestamp);
@@ -2250,6 +2315,7 @@ export function StageRenderer({
           performance: performanceInfo,
         });
       } catch (error) {
+        clearLoadWarning(timestamp);
         const nextWarning =
           error instanceof Error ? error.message : 'Stage render frame failed.';
         if (renderWarningRef.current !== nextWarning) {
@@ -2279,6 +2345,8 @@ export function StageRenderer({
 
     rafRef.current = requestAnimationFrame(render);
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      onShaderLoadChangeRef.current?.(null);
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
       }
@@ -2478,6 +2546,9 @@ export function StageRenderer({
             window.setTimeout(() => URL.revokeObjectURL(url), 1000);
           }}>Export performance</button>
         </div>
+      ) : null}
+      {!isOutputOnly && adaptiveQuality && !showEmptyState && shaderLoadReport ? (
+        <ShaderLoadIndicator report={shaderLoadReport} />
       ) : null}
       <div
         ref={mediaSurfaceRef}

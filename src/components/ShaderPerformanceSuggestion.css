@@ -1,0 +1,15 @@
+.shader-performance-suggestion { margin: 0 0 10px; padding: 11px 12px; border: 1px solid #f5c65b40; border-radius: 10px; background: #f5c65b09; font-size: 12px; line-height: 1.45; }
+.shader-performance-suggestion > strong { display: flex; align-items: center; gap: 7px; color: #f5c65b; font-weight: 600; }
+.shader-performance-suggestion > p { margin: 6px 0; color: #c3c6cb; }
+.shader-performance-target { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e9eaec; }
+.shader-performance-suggestion > label { display: grid; gap: 4px; color: #c3c6cb; }
+.shader-performance-suggestion select { width: 100%; min-width: 0; padding: 5px; border: 1px solid #444; border-radius: 5px; background: #18191c; color: #e9eaec; }
+.shader-performance-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 7px 12px; margin-top: 8px; }
+.shader-performance-actions > details { flex: 1 1 100px; min-width: 0; }
+.shader-performance-actions summary { padding-block: 6px; cursor: pointer; color: #c3c6cb; }
+.shader-performance-actions details > p { max-height: 130px; overflow: auto; padding: 8px; margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; background: #0b0c0e; border-radius: 5px; font-size: 11px; }
+.shader-performance-actions > button { padding: 6px 9px; border: 1px solid #f5c65b70; border-radius: 6px; background: #f5c65b16; color: #f5d890; font: inherit; cursor: pointer; }
+.shader-performance-actions > button:disabled { cursor: default; opacity: .5; }
+.shader-performance-actions > button:hover:not(:disabled) { background: #f5c65b28; }
+.shader-performance-actions > button:focus-visible, .shader-performance-actions summary:focus-visible { outline: 2px solid #f5c65b; outline-offset: 2px; }
+.shader-performance-suggestion > small { display: block; margin-top: 7px; color: #9ca1aa; font-size: 10px; }

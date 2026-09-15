@@ -14,7 +14,7 @@ export class GpuFrameTimer {
   get available() { return this.ext !== null; }
   poll(): Array<{ tag: string; ms: number }> {
     const { gl, ext } = this;
-    if (!ext || gl.isContextLost()) return [];
+    if (!ext || this.pending.length === 0 || gl.isContextLost()) return [];
     if (gl.getParameter(ext.GPU_DISJOINT_EXT)) {
       this.pending.forEach(({ query }) => gl.deleteQuery(query));
       this.pending = [];

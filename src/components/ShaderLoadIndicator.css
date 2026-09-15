@@ -1,0 +1,50 @@
+.shader-load-indicator {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 22;
+  color: #f5c65b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.shader-load-indicator > button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid #f5c65b55;
+  border-radius: 8px;
+  background: #181610ee;
+}
+
+.shader-load-indicator > button svg { width: 18px; height: 18px; }
+.shader-load-indicator > button:focus-visible { outline: 2px solid #f5c65b; outline-offset: 3px; }
+
+.shader-load-tooltip {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: 38px;
+  width: min(320px, calc(100vw - 64px));
+  max-height: min(420px, 60dvh);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #f5c65b55;
+  border-radius: 10px;
+  background: #18191cf5;
+  color: #e8e8ea;
+  box-shadow: 0 6px 20px #0005;
+}
+
+.shader-load-tooltip strong { color: #f5c65b; }
+.shader-load-tooltip span { display: block; margin-top: 6px; }
+.shader-load-tooltip ul { margin: 6px 0; padding-left: 17px; }
+.shader-load-tooltip li + li { margin-top: 6px; }
+.shader-load-indicator::after { content: ''; position: absolute; bottom: 30px; right: 0; width: 30px; height: 8px; }
+.shader-load-tooltip[hidden] { display: none; }
+.shader-load-indicator[data-open="true"] > .shader-load-tooltip { display: block; }

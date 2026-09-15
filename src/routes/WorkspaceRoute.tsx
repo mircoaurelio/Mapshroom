@@ -21,6 +21,8 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { AiPanel } from '../components/AiPanel';
 import { ShaderChatWorkspace } from '../components/ShaderChatWorkspace';
+import { ShaderPerformanceSuggestion } from '../components/ShaderPerformanceSuggestion';
+import { currentShaderLoadSources, type ShaderLoadReport, type ShaderLoadSource } from '../lib/shaderLoadDiagnostics';
 import { ShaderLibraryPage } from '../components/ShaderLibraryPage';
 import { parseShaderImport } from '../lib/shaderLibrary';
 import { ShaderChatHandoff } from '../components/ShaderChatHandoff';
@@ -2903,6 +2905,7 @@ export function WorkspaceRoute() {
     loadUiPreferences(DEFAULT_UI_PREFERENCES),
   );
   const [aiPrompt, setAiPrompt] = useState('');
+  const [shaderLoadReport, setShaderLoadReport] = useState<ShaderLoadReport | null>(null);
   const [chatSubmission, setChatSubmission] = useState<{ shaderId: string; prompt: string; versionIds: string[] } | null>(null);
   const initialStoredAiRouteRef = useRef<AiGenerationRoute | null>(
     readStoredAiGenerationRoute(),
@@ -8338,6 +8341,27 @@ ${errorSnapshot}`,
     />
   );
 
+  const optimizationSources = currentShaderLoadSources(shaderLoadReport,
+    project.studio.activeShaderId, project.studio.activeShaderCode, project.studio.savedShaders);
+  const handleOptimizationPrompt = (source: ShaderLoadSource, prompt: string) => {
+    const previousDraft = aiPrompt;
+    const current = currentProjectRef.current;
+    if (!current || !currentShaderLoadSources(shaderLoadReport, current.studio.activeShaderId,
+      current.studio.activeShaderCode, current.studio.savedShaders).some(item => item.id === source.id && item.code === source.code)) return;
+    const step = current.timeline.stub.shaderSequence.steps.find(item =>
+      item.id === editingTimelineStepId && item.shaderId === source.id)
+      ?? current.timeline.stub.shaderSequence.steps.find(item => item.shaderId === source.id);
+    if (step) {
+      selectTimelineStepForEditing(step.id, {
+        stagePreviewMode: 'focused', selectionTransition: 'cut',
+        focusStudioOnMobile: false, suppressStatus: true, showRepeatTip: false,
+      });
+    } else if (current.studio.activeShaderId !== source.id) selectShader(source.id);
+    // Keep any writing already in the composer. Only the normal send action submits.
+    setAiPrompt(previousDraft.trim() ? `${previousDraft}\n\n${prompt}` : prompt);
+    window.requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('.shader-chat-workspace .prompt-field')?.focus());
+  };
+
   const renderChatWorkspace = (codePanel: ReactNode, historyPanel: ReactNode) => (
     <ShaderChatWorkspace
       shaderCode={project.studio.activeShaderCode}
@@ -8361,6 +8385,10 @@ ${errorSnapshot}`,
       feedback={!chatSubmission || chatSubmission.shaderId === project.studio.activeShaderId ? aiFeedbackMessage : ''}
       feedbackTone={aiFeedbackTone}
       composer={aiPanel}
+      performanceSuggestion={shaderLoadReport && optimizationSources.length ? (
+        <ShaderPerformanceSuggestion key={shaderLoadReport.key} report={shaderLoadReport}
+          sources={optimizationSources} disabled={aiLoading} onUsePrompt={handleOptimizationPrompt} />
+      ) : null}
       codePanel={codePanel}
       historyPanel={historyPanel}
       onRestore={restoreShaderVersion}
@@ -8708,6 +8736,7 @@ ${errorSnapshot}`,
         onDistortionChange={updateStageDistortion}
         onPinnedIndicatorClick={handlePinnedIndicatorClick}
         onNavigateToTimelineStep={handleStageNavigateToTimelineStep}
+        onShaderLoadChange={setShaderLoadReport}
         onCompilerError={applyCompilerFeedback}
         onCanvasReady={(canvas) => { stageCanvasRef.current = canvas; }}
       />

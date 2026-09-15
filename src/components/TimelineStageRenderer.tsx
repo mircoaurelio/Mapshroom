@@ -57,6 +57,7 @@ import {
   type AudioReactiveRuntime,
 } from '../lib/audioReactivity';
 import { resolveAudioReactiveTimelineState } from '../lib/audioTimeline';
+import type { ShaderLoadReport, ShaderLoadSource } from '../lib/shaderLoadDiagnostics';
 
 const DOUBLE_SECONDARY_SPEED = 1.35;
 const PRELOAD_TRANSITION_PROGRESS = 0.001;
@@ -144,6 +145,7 @@ type ResolvedTimelineState = NonNullable<ReturnType<typeof resolveShaderTimeline
 type TimelineSequenceStep = TimelineStub['shaderSequence']['steps'][number];
 
 interface TimelineRenderLayer {
+  loadSources: ShaderLoadSource[];
   kind: TimelineRenderLayerKind;
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
@@ -166,6 +168,7 @@ interface TimelineRenderLayer {
 }
 
 interface ResolvedShaderLayer {
+  loadSources: ShaderLoadSource[];
   shaderCode: string;
   uniformValues: ShaderUniformValueMap;
   audioBindings: AudioReactiveBindingMap;
@@ -244,6 +247,7 @@ function buildManualMixLayer(mix: ManualShaderMix<TimelineRenderLayer>): Timelin
       ...prefixLiveUniformBindings({ bindings: to.liveUniformBindings, namespace: 'timeline_to' }),
     },
     usedFallback: from.usedFallback || to.usedFallback,
+    loadSources: [...from.loadSources, ...to.loadSources],
     transitionInputSources: { from: from.inputSource ?? null, to: to.inputSource ?? null },
     samplerSources: collectNestedTimelineSamplerSources(from, to),
   };
@@ -401,6 +405,7 @@ interface TimelineStageRendererProps {
   onRenderStateChange?: (state: StageRendererState) => void;
   onCompilerError?: (message: string) => void;
   onFrameRendered?: (frame: StageFrameInfo) => void;
+  onShaderLoadChange?: (report: ShaderLoadReport | null) => void;
 }
 
 export function TimelineStageRenderer({
@@ -438,6 +443,7 @@ export function TimelineStageRenderer({
   onRenderStateChange,
   onCompilerError,
   onFrameRendered,
+  onShaderLoadChange,
 }: TimelineStageRendererProps) {
   const [timelineNowMs, setTimelineNowMs] = useState(() => performance.now());
   const [pinTransitionNowMs, setPinTransitionNowMs] = useState(() => performance.now());
@@ -1193,15 +1199,18 @@ export function TimelineStageRenderer({
       shaderCode: string,
       uniformValues: ShaderUniformValueMap,
       audioBindings: AudioReactiveBindingMap,
-    ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues' | 'audioBindings' | 'liveUniformBindings'> => {
+    ): Pick<ResolvedShaderLayer, 'shaderCode' | 'uniformValues' | 'audioBindings' | 'liveUniformBindings' | 'loadSources'> => {
+      const loadSources = [{ id: targetShader?.id ?? activeShaderId,
+        name: targetShader?.name ?? 'Shader corrente', code: shaderCode }];
       const liveUniformBindings = createLiveUniformBindings(targetShader?.id ?? activeShaderId, uniformValues);
       const sourceAssetId = useAssignedAssetAsBase ? assignedSource?.assetId : asset?.id;
       if (!sourceAssetId || isInternalCanvasAssetId(sourceAssetId)) {
-        return { shaderCode, uniformValues, audioBindings, liveUniformBindings };
+        return { shaderCode, uniformValues, audioBindings, liveUniformBindings, loadSources };
       }
 
       return {
         shaderCode: buildTimelineInputShaderCode({ shaderCode }),
+        loadSources,
         uniformValues: {
           ...buildInputUniformValues(
             // Per-step fit/positioning applies only to explicitly assigned media.
@@ -1286,6 +1295,7 @@ export function TimelineStageRenderer({
       return {
         kind: 'single',
         shaderCode: layer.shaderCode,
+        loadSources: layer.loadSources,
         uniformValues: layer.uniformValues,
         audioBindings: layer.audioBindings,
         liveUniformBindings: layer.liveUniformBindings,
@@ -1299,6 +1309,7 @@ export function TimelineStageRenderer({
       return {
         kind: 'single',
         shaderCode: layer.shaderCode,
+        loadSources: layer.loadSources,
         uniformValues: layer.uniformValues,
         audioBindings: layer.audioBindings,
         liveUniformBindings: layer.liveUniformBindings,
@@ -1313,6 +1324,7 @@ export function TimelineStageRenderer({
       shaderCode: buildTimelineOverlayShaderCode({
         shaderCode: layer.shaderCode,
       }),
+      loadSources: layer.loadSources,
       uniformValues: {
         u_timeline_has_overlay: true,
         ...buildOverlayUniformValues('u_timeline_overlay', layer.assetSettings),
@@ -1527,6 +1539,7 @@ export function TimelineStageRenderer({
           }),
         },
         usedFallback: currentLayer.usedFallback || nextLayer.usedFallback,
+        loadSources: [...currentLayer.loadSources, ...(nextMediaReady ? nextLayer.loadSources : [])],
         transitionInputSources: {
           from: currentLayer.inputSource ?? null,
           to: nextMediaReady
@@ -1611,6 +1624,7 @@ export function TimelineStageRenderer({
         }),
       },
       usedFallback: primaryLayer.usedFallback || secondaryLayer.usedFallback,
+      loadSources: [...primaryLayer.loadSources, ...secondaryLayer.loadSources],
       transitionInputSources: {
         from: primaryLayer.inputSource ?? null,
         to: secondaryLayer.inputSource ?? null,
@@ -1708,6 +1722,7 @@ export function TimelineStageRenderer({
         from: currentLayer.inputSource ?? null,
         to: nextLayer.inputSource ?? null,
       },
+      loadSources: [...currentLayer.loadSources, ...nextLayer.loadSources],
       transitionOverlaySources: {
         from: currentLayer.overlaySource ?? null,
         to: nextLayer.overlaySource ?? null,
@@ -1720,6 +1735,7 @@ export function TimelineStageRenderer({
     opacity: number,
   ): StageRenderLayer => ({
     shaderCode: layer.shaderCode,
+    loadSources: layer.loadSources,
     uniformDefinitions: parseUniforms(layer.shaderCode),
     uniformValues: layer.uniformValues,
     audioBindings: layer.audioBindings,
@@ -2542,6 +2558,7 @@ export function TimelineStageRenderer({
       onRenderStateChange={onRenderStateChange}
       onCompiledShaderCodesChange={setCompiledShaderCodes}
       onFrameRendered={onFrameRendered}
+      onShaderLoadChange={onShaderLoadChange}
       onCompilerError={(message) => {
         if (!onCompilerError) {
           return;
