@@ -221,3 +221,45 @@ test('saving is blocked while history restores an image', async () => {
   await app.run('saveResult()');
   assert.equal(app.results().length, 0);
 });
+
+test('failed regeneration retains the saved depth raster, alpha and matching preview', async () => {
+  const app = editor();
+  const pixels = [200, 200, 200, 255, 100, 100, 100, 80];
+  app.run(`restoreSavedDepth(new Uint8ClampedArray(${JSON.stringify(pixels)}), 2, 1, 'existing-depth'); setDepthPreviewActive(true);`);
+  await app.run('generateDepthMap()');
+  await app.run("depthWorker.onmessage({data:{type:'error',message:'Model unavailable'}})");
+  assert.deepEqual([...app.run('renderedPixels')], pixels);
+  await app.run('saveResult()');
+  assert.equal(app.results()[0].resultId, 'existing-depth');
+  assert.deepEqual([...new Uint8Array(app.results()[0].buffer as ArrayBuffer)], pixels);
+});
+
+test('mask edits are reflected when reopening depth without running inference again', () => {
+  const app = editor();
+  app.run(`restoreSavedDepth(new Uint8ClampedArray([200,200,200,255,100,100,100,80]), 2, 1, 'existing-depth');
+    elements.threshold.value = '8'; elements.feather.value = '4'; elements.spill.value = '0';
+    basePixels[7] = 0; renderMask(true); setDepthPreviewActive(true);`);
+  assert.deepEqual([...app.run('buildDepthPixels()')], [200,200,200,255,100,100,100,0]);
+  assert.equal(app.requests().length, 0);
+});
+
+test('changing the preview background does not paint the exported mask white', async () => {
+  const app = editor();
+  app.run(`elements.checkerboard.dataset.background = 'white';
+    elements.threshold.value = '8'; elements.feather.value = '4'; elements.spill.value = '0';
+    basePixels[7] = 0; renderMask(true);`);
+  await app.run('saveResult()');
+  assert.deepEqual([...new Uint8Array(app.results()[0].buffer as ArrayBuffer)], [255,0,0,255,0,0,0,255]);
+});
+
+test('PNG preparation failure restores the previous depth and releases the busy state', async () => {
+  const app = editor();
+  const pixels = [200,200,200,255,100,100,100,80];
+  app.run(`restoreSavedDepth(new Uint8ClampedArray(${JSON.stringify(pixels)}), 2, 1, 'existing-depth'); setDepthPreviewActive(true);
+    const createCanvas = document.createElement;
+    document.createElement = () => { const canvas = createCanvas(); canvas.toBlob = done => done(null); return canvas; };`);
+  await app.run('generateDepthMap()');
+  assert.equal(app.run('busy'), false);
+  assert.deepEqual([...app.run('renderedPixels')], pixels);
+  assert.equal(app.requests().length, 0);
+});

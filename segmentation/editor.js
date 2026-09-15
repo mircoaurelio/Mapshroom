@@ -99,6 +99,8 @@ let depthHeight = 0;
 let depthMode = 'bw';
 let depthPreviewActive = false;
 let depthMaskAlpha = null;
+let pendingDepthMaskAlpha = null;
+let maskDirtyForDepth = false;
 let depthResultId = null;
 let savedDepthPixels = null;
 let savedDepthMode = 'bw';
@@ -205,7 +207,7 @@ function captureState(label) {
   return {
     label, pixels, baselinePixels, sourcePixels, imageWidth, imageHeight, sourceWidth, sourceHeight,
     controlValues, depthMode, depthPreviewActive, depthData, depthWidth, depthHeight, depthMaskAlpha, depthResultId, savedDepthPixels, savedDepthMode, depthPreserveAlpha, depthCanRegenerate,
-    hardMaskEnabled, depthInvert: elements.depthInvert.checked, drawBaselinePixels,
+    hardMaskEnabled, depthInvert: elements.depthInvert.checked, drawBaselinePixels, maskDirtyForDepth,
     fileName: sourceFile?.name || 'artwork.png', bytes: pixels.byteLength + baselinePixels.byteLength,
   };
 }
@@ -248,6 +250,7 @@ async function restoreState(state) {
   basePixels = new Uint8ClampedArray(state.pixels);
   maskBaseline = new Uint8ClampedArray(state.baselinePixels);
   drawBaselinePixels = state.drawBaselinePixels;
+  maskDirtyForDepth = state.maskDirtyForDepth;
   ({ depthMode, depthPreviewActive, depthData, depthWidth, depthHeight, depthMaskAlpha, depthResultId, savedDepthPixels, savedDepthMode, depthPreserveAlpha, depthCanRegenerate, hardMaskEnabled } = state);
   for (const [id, value] of Object.entries(state.controlValues)) { const input = $(`#${id}`); if (input) input.value = value; }
   elements.depthInvert.checked = state.depthInvert;
@@ -277,7 +280,7 @@ async function restoreState(state) {
   elements.fileMeta.textContent = `${imageWidth} × ${imageHeight} · ${formatBytes(blob.size)}`;
   clearWandSelection();
   setCropActive(false);
-  if (root.dataset.editorPanel === 'depth' && depthData?.length) { depthPreviewActive = true; renderDepthPreview(); } else { depthPreviewActive = false; renderMask(); }
+  if (root.dataset.editorPanel === 'depth' && depthData?.length) setDepthPreviewActive(true); else { depthPreviewActive = false; renderMask(); }
   scheduleFrame(fitStage);
   restoringHistory = false;
   setDepthGenerating(false);
@@ -348,6 +351,8 @@ async function openFile(file, savedDepth = null) {
     depthWidth = 0;
     depthHeight = 0;
     depthMaskAlpha = null;
+    pendingDepthMaskAlpha = null;
+    maskDirtyForDepth = false;
     depthResultId = null;
     savedDepthPixels = null;
     depthPreserveAlpha = false;
@@ -380,8 +385,8 @@ async function openFile(file, savedDepth = null) {
         depthCanRegenerate = false;
         if (savedDepth.originalBuffer instanceof ArrayBuffer) {
           const originalFile = new File([savedDepth.originalBuffer], savedDepth.originalName || 'original.png', { type: savedDepth.originalMimeType || 'image/png' });
-          const bitmap = await createImageBitmap(originalFile);
-          try {
+          const bitmap = await createImageBitmap(originalFile).catch(() => null);
+          if (bitmap) try {
             if (disposed || generation !== loadGeneration) return;
             sourceContext.clearRect(0, 0, imageWidth, imageHeight);
             sourceContext.drawImage(bitmap, 0, 0, imageWidth, imageHeight);
@@ -492,7 +497,7 @@ worker.onmessage = ({ data }) => {
     }
     maskBaseline = new Uint8ClampedArray(basePixels);
     drawBaselinePixels = null;
-    renderMask();
+    renderMask(true);
     clearWandSelection();
     setWandActive(false);
     elements.wandModeMinus.disabled = false;
@@ -503,7 +508,7 @@ worker.onmessage = ({ data }) => {
     const coverage = (removedPixels / (imageWidth * imageHeight) * 100).toFixed(1);
     const operation = pendingWandAction === 'minus' ? 'removed' : 'restored';
     showToast(`AI selection confirmed and ${operation} (${coverage}% · confidence ${Math.round(data.score * 100)}%).`);
-    notifyHost('ready', 'AI selection applied. The masked asset is ready.');
+    notifyHost('ready', 'AI selection applied. The masked asset is ready.', currentResultKind());
   }
   if (data.type === 'result') {
     busy = false;
@@ -515,7 +520,7 @@ worker.onmessage = ({ data }) => {
     drawBaselinePixels = null;
     elements.canvas.width = imageWidth;
     elements.canvas.height = imageHeight;
-    renderMask();
+    renderMask(true);
     elements.progress.style.width = '100%';
     schedule(() => elements.busy.classList.add('hidden'), 350);
     updateModelUI();
@@ -528,7 +533,7 @@ worker.onmessage = ({ data }) => {
       ? 'Background removed. Next, click Generate depth map.'
       : 'Background removed. Refine the mask or use the asset.';
     showToast(message);
-    notifyHost('ready', message);
+    notifyHost('ready', message, currentResultKind());
   }
   if (data.type === 'error') {
     busy = false;
@@ -548,8 +553,9 @@ worker.onmessage = ({ data }) => {
   }
 };
 
-function renderMask() {
+function renderMask(maskEdited = false) {
   if (disposed) return;
+  if (maskEdited) maskDirtyForDepth = true;
   syncControls();
   if (!basePixels) return;
   renderedPixels = new Uint8ClampedArray(basePixels);
@@ -583,6 +589,7 @@ function refinePixel(index) {
 
 function renderMaskRegion(bounds) {
   if (!renderedPixels || !bounds) return;
+  maskDirtyForDepth = true;
   const left = Math.max(0, Math.floor(bounds.left));
   const right = Math.min(imageWidth - 1, Math.ceil(bounds.right));
   const top = Math.max(0, Math.floor(bounds.top));
@@ -699,6 +706,12 @@ function renderDepthPreview() {
 function setDepthPreviewActive(active) {
   depthPreviewActive = active && Boolean(depthData?.length);
   if (depthPreviewActive) {
+    if (maskDirtyForDepth) {
+      renderMask();
+      depthMaskAlpha = alphaChannel(renderedPixels);
+      if (savedDepthPixels) savedDepthPixels = pixelsWithAlpha(savedDepthPixels, depthMaskAlpha);
+      maskDirtyForDepth = false;
+    }
     renderDepthPreview();
     notifyHost('ready', 'Depth map ready. Adjust it or save a depth copy.', 'depth');
   } else {
@@ -727,16 +740,14 @@ async function generateDepthMap() {
   maskedCanvas.getContext('2d').putImageData(new ImageData(maskedPixels, imageWidth, imageHeight), 0, 0);
   busy = true;
   setDepthGenerating(true);
+  notifyHost('processing', 'Preparing depth input…', 'depth');
+  try {
   const maskedBlob = await new Promise((resolve) => maskedCanvas.toBlob(resolve, 'image/png'));
+  if (disposed) return;
   if (!maskedBlob) {
-    busy = false;
-    setDepthGenerating(false);
-    showToast('The masked depth input could not be prepared.', true);
-    return;
+    throw new Error('The depth input could not be prepared.');
   }
-  depthMaskAlpha = nextDepthMaskAlpha;
-  savedDepthPixels = null;
-  depthPreserveAlpha = false;
+  pendingDepthMaskAlpha = nextDepthMaskAlpha;
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Generating depth map…';
   elements.busyDetail.textContent = 'Preparing the depth model. The first run may take longer.';
@@ -746,6 +757,9 @@ async function generateDepthMap() {
   const buffer = await maskedBlob.arrayBuffer();
   if (disposed) return;
   depthWorker.postMessage({ type: 'estimate', buffer, mimeType: 'image/png', model: 'onnx-community/depth-anything-v2-small', device: 'wasm' }, [buffer]);
+  } catch {
+    if (!disposed) await depthWorker.onmessage({ data: { type: 'error', message: 'The depth input could not be prepared.' } });
+  }
 }
 
 function setDepthGenerating(generating) {
@@ -763,6 +777,11 @@ depthWorker.onmessage = async ({ data }) => {
     elements.busyTitle.textContent = 'Estimating depth…';
     elements.progress.style.width = '92%';
   } else if (data.type === 'result') {
+    if (pendingDepthMaskAlpha) depthMaskAlpha = pendingDepthMaskAlpha;
+    pendingDepthMaskAlpha = null;
+    savedDepthPixels = null;
+    depthPreserveAlpha = false;
+    maskDirtyForDepth = false;
     depthData = new Uint8Array(data.pixels);
     depthWidth = data.width;
     depthHeight = data.height;
@@ -781,12 +800,14 @@ depthWorker.onmessage = async ({ data }) => {
       showToast('Depth map ready. Adjust it, then download the result.');
     }
   } else if (data.type === 'error') {
+    pendingDepthMaskAlpha = null;
     busy = false;
     elements.busy.classList.add('hidden');
     setDepthGenerating(false);
     elements.depthStatus.textContent = 'Depth generation failed. The other tools are still available.';
     showToast(`Depth map failed: ${data.message}`, true);
-    notifyHost('ready', 'Depth generation failed; Mask and Draw remain available.', 'mask');
+    if (depthPreviewActive && depthData?.length) renderDepthPreview(); else renderMask();
+    notifyHost('ready', depthData?.length ? 'Depth generation failed. The previous depth map is still available.' : 'Depth generation failed; Mask and Draw remain available.', currentResultKind());
   }
 };
 
@@ -1012,6 +1033,7 @@ function drawWandLine(from, to) {
 async function confirmWandRemoval() {
   if (!sourceFile || wandPoints.length === 0 || busy || exportingResult || disposed) return;
   busy = true;
+  notifyHost('processing', 'Applying AI selection…');
   elements.busy.classList.remove('hidden');
   elements.busyTitle.textContent = 'Finding the selected area…';
   elements.busyDetail.textContent = 'Preparing the selection model. The first run may take longer.';
@@ -1283,7 +1305,8 @@ function downloadCanvas(canvas, suffix) {
 function buildBinaryExport(kind) {
   if (!renderedPixels || !sourcePixels) return null;
   const pixels = new Uint8ClampedArray(imageWidth * imageHeight * 4);
-  const background = elements.checkerboard.dataset.background;
+  // Preview swatches must not change the projection mask's exported background.
+  const background = integrated ? 'black' : elements.checkerboard.dataset.background;
   const backgroundRgb = background === 'white'
     ? [255, 255, 255]
     : background === 'green'
@@ -1430,7 +1453,7 @@ listen(elements.resetDraw, 'click', () => {
   commitHistory('drawing reset');
   basePixels = new Uint8ClampedArray(drawBaselinePixels);
   drawBaselinePixels = null;
-  renderMask();
+  renderMask(true);
   showToast('Surface drawing reset.');
 });
 listen(elements.generateDepth, 'click', generateDepthMap);
@@ -1470,7 +1493,7 @@ listen(elements.resetBrush, 'click', () => {
   if (!maskBaseline) return;
   commitHistory('manual edit reset');
   basePixels = new Uint8ClampedArray(maskBaseline);
-  renderMask();
+  renderMask(true);
   showToast('Manual mask edits reset.');
 });
 listen(elements.hardMask, 'click', () => {
@@ -1488,7 +1511,7 @@ listen(elements.hardMask, 'click', () => {
     root.querySelectorAll('.swatch').forEach((item) => item.classList.toggle('active', item.dataset.background === 'black'));
     elements.checkerboard.dataset.background = 'black';
   }
-  renderMask();
+  renderMask(true);
   showToast(hardMaskEnabled ? 'Hard mask enabled: alpha is now fully opaque or transparent.' : 'Soft alpha edges restored.');
 });
 listen(elements.canvas, 'pointerdown', (event) => {
@@ -1534,8 +1557,8 @@ listen(elements.autoSegment, 'change', () => {
   if (elements.autoSegment.checked && sourceFile && elements.model.value !== 'manual' && !busy) segment();
 });
 
-listen(root, 'keydown', (event) => {
-  if (event.target?.closest('input, textarea, select, [contenteditable=true]')) return;
+listen(root.closest?.('[role="dialog"]') || root, 'keydown', (event) => {
+  if (event.target?.closest('input:not([type=range]):not([type=checkbox]), textarea, select, [contenteditable=true]')) return;
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
   const key = event.key.toLowerCase();
   if (key === 'z') {
@@ -1550,7 +1573,7 @@ listen(root, 'keydown', (event) => {
 [['threshold', 'thresholdValue', '%'], ['feather', 'featherValue', ' px'], ['spill', 'spillValue', '%']].forEach(([key, outputId, suffix]) => {
   listen(elements[key], 'input', () => {
     root.querySelector(`#${outputId}`).value = `${elements[key].value}${suffix}`;
-    renderMask();
+    renderMask(true);
   });
 });
 

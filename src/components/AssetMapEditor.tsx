@@ -94,7 +94,8 @@ export function AssetMapEditor({ asset, assetUrl, initialPanel = 'refine', origi
     void (async () => {
       try {
         const blob = await load(assetUrl);
-        const original = isSavedDepth && originalAssetUrl ? await load(originalAssetUrl) : null;
+        // A missing source must not make an otherwise valid saved depth map unusable.
+        const original = isSavedDepth && originalAssetUrl ? await load(originalAssetUrl).catch(() => null) : null;
         const originalBuffer = original ? await original.arrayBuffer() : null;
         if (disposed) return;
         await runtime.open(new File([blob], assetName ?? 'image.png', { type: blob.type || assetMimeType || 'image/png' }), isSavedDepth ? { resultId: assetId, originalBuffer, originalName, originalMimeType: original?.type } : null);
