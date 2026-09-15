@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+import { ProjectorPhotoDiagram } from './ProjectorPhotoDiagram';
 import { defaultVariantKinds, variantOptions } from '../lib/assetVariants';
 import './AssetPhotoWelcome.css';
 
@@ -15,11 +17,13 @@ function PhotoIcon({ name }: { name: PhotoIconName }) {
   </svg>;
 }
 
-export function AssetPhotoWelcome({ importing, onChoosePhoto, onPasteImage, onOpenProject }: {
+export function AssetPhotoWelcome({ importing, onChoosePhoto, onPasteImage, onOpenProject, generationOptions, automaticGeneration = true }: {
   importing: boolean;
   onChoosePhoto: () => void;
   onPasteImage: () => void;
   onOpenProject: () => void;
+  generationOptions?: ReactNode;
+  automaticGeneration?: boolean;
 }) {
   return <div className="asset-photo-welcome">
     <div className="asset-photo-intro">
@@ -36,19 +40,21 @@ export function AssetPhotoWelcome({ importing, onChoosePhoto, onPasteImage, onOp
         <div className="asset-photo-upload-icon"><PhotoIcon name="upload" /></div>
         <span className="asset-photo-eyebrow">Start with your surface</span>
         <h3 id="asset-photo-title">Upload a photo.<br />Make it your canvas.</h3>
-        <p>Take a front-facing photo of the object or space<br className="asset-photo-desktop-break" /> you want to bring to life.</p>
+        <p>Take a photo from the same perspective<br className="asset-photo-desktop-break" /> as your projector.</p>
         <button className="primary-button asset-photo-choose" type="button" onClick={onChoosePhoto} disabled={importing}><PhotoIcon name="upload" />{importing ? 'Adding your photo…' : 'Choose a photo'}</button>
         <span className="asset-photo-drop-hint">or drop it here · JPG, PNG, WebP</span>
         <button type="button" className="ghost-button asset-photo-paste" onClick={onPasteImage} disabled={importing}>Paste from clipboard</button>
-        <div className="asset-photo-promises"><span><PhotoIcon name="check" />Original preserved</span><span><PhotoIcon name="check" />Versions prepared automatically</span></div>
+        <div className="asset-photo-promises"><span><PhotoIcon name="check" />Original preserved</span><span><PhotoIcon name="check" />{automaticGeneration ? 'Versions prepared automatically' : 'Generate versions when you’re ready'}</span></div>
+        {generationOptions && <details className="asset-photo-generation-settings"><summary>Generation settings</summary><div className="asset-photo-options">{generationOptions}</div></details>}
       </section>
       <aside className="asset-photo-advice" aria-labelledby="asset-photo-advice-title">
         <span className="asset-photo-eyebrow">A little preparation goes a long way</span>
         <h3 id="asset-photo-advice-title">A good photo</h3>
+        <ProjectorPhotoDiagram />
         <ul>
-          <li><PhotoIcon name="front" /><div><strong>Straight on</strong><p>Face the surface directly, from your projector’s point of view.</p></div></li>
-          <li><PhotoIcon name="light" /><div><strong>Evenly lit</strong><p>Keep the details visible. Avoid deep shadows and strong glare.</p></div></li>
-          <li><PhotoIcon name="clear" /><div><strong>Nothing in the way</strong><p>Include the whole surface, without people or objects in front.</p></div></li>
+          <li><PhotoIcon name="front" /><div><strong>Same position. Same angle.</strong><p>Move the projector aside. Place your phone’s camera lens where the projector lens was, pointing in the same direction.</p></div></li>
+          <li><PhotoIcon name="light" /><div><strong>Evenly lit</strong><p>Keep details visible, without deep shadows or glare.</p></div></li>
+          <li><PhotoIcon name="clear" /><div><strong>Nothing in the way</strong><p>Include the whole surface, with nothing in front.</p></div></li>
         </ul>
         <div className="asset-photo-advice-note"><PhotoIcon name="image" /><p>Your photo is the starting point.<br />The effects come next.</p></div>
       </aside>

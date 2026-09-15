@@ -40,7 +40,7 @@ interface MappingPadProps {
   distortMode?: boolean;
   showFirstStep?: boolean;
   disabled?: boolean;
-  variant?: 'default' | 'overlay';
+  variant?: 'default' | 'overlay' | 'page';
 }
 
 type PrecisionDirection = 'left' | 'right' | null;
@@ -372,7 +372,7 @@ export function MappingPad({
     }
   };
 
-  if (distortMode) {
+  if (distortMode && variant !== 'page') {
     return (
       <div
         className={`mapping-control-shell mapping-control-shell-${variant} mapping-control-shell-distort-compact`}
@@ -504,9 +504,7 @@ export function MappingPad({
           {positionPanel === 'import' ? (
             <>
               <p className="mapping-position-panel-copy">
-                Load a Mapshroom <strong>.json</strong> position file, or paste JSON
-                copied from the download panel. It changes only movement, size,
-                precision, rotation, and distortion—your asset and shaders stay untouched.
+                Load a position file or paste JSON to restore position, size, precision, rotation and corners.
               </p>
               <div className="mapping-position-panel-button-grid">
                 <button
@@ -745,7 +743,13 @@ export function MappingPad({
         </div>
       ) : null}
 
-      {!distortMode ? (
+      {distortMode && variant === 'page' ? <div className="mapping-page-distort-help">
+        <strong>Four-corner distortion</strong>
+        <p>Use the arrows or drag the center dot. Controls stay on the preview frame.</p>
+        <button type="button" onClick={onResetDistortion} disabled={disabled || !onResetDistortion}>Reset corners</button>
+      </div> : null}
+
+      {!distortMode || variant === 'page' ? (
         <div className={`mapping-pad mapping-pad-${variant}`}>
         {MAPPING_PAD_ACTIONS.map((item) => {
           if (item.kind === 'precision') {
@@ -757,6 +761,13 @@ export function MappingPad({
                   item.accent ? 'mapping-pad-button-accent' : ''
                 } ${previewPrecision !== null ? 'mapping-precision-pad-dragging' : ''}`}
                 aria-label="Adjust precision. Click a side or drag horizontally."
+                aria-keyshortcuts="ArrowLeft ArrowRight"
+                onKeyDown={(event) => {
+                  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onPrecisionChange?.(clampPrecision(precision + (event.key === 'ArrowLeft' ? -1 : 1)));
+                }}
                 onPointerDown={handlePrecisionPointerDown}
                 onPointerMove={handlePrecisionPointerMove}
                 onPointerUp={handlePrecisionPointerUp}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getCalibratedStageAspectRatio, preserveStageFrame, readStageFrameAspectRatio, replaceStageAsset } from '../src/lib/assetReplacement.ts';
+import { hasStageFrameCalibration, getCalibratedStageAspectRatio, preserveStageFrame, readStageFrameAspectRatio, replaceStageAsset } from '../src/lib/assetReplacement.ts';
 import { createMappingPositionFile, parseMappingPositionFile } from '../src/lib/mappingPosition.ts';
 import type { ProjectDocument, StageTransform } from '../src/types';
 
@@ -96,4 +96,29 @@ test('saved projects and exported positions retain the frame, while old position
   const oldPosition = parseMappingPositionFile(JSON.stringify(createMappingPositionFile(mapping)));
   assert.equal(oldPosition.referenceAspectRatio, undefined);
   assert.equal(oldPosition.offsetX, mapping.offsetX);
+});
+
+test('a new photo never inherits the empty stage or an uncalibrated image ratio', () => {
+  const untouched = { ...uncalibrated, distortion: undefined };
+  assert.equal(preserveStageFrame(untouched, 16 / 9).referenceAspectRatio, undefined);
+  const stale = { ...untouched, referenceAspectRatio: 16 / 9 };
+  const changed = preserveStageFrame(stale, 16 / 9);
+  assert.equal(changed.referenceAspectRatio, undefined);
+  assert.equal(changed.offsetX, stale.offsetX);
+  assert.equal(changed.offsetY, stale.offsetY);
+  // Resized/rotated/warped frames remain portable across generated versions.
+  for (const calibrated of [{ ...stale, widthAdjust: 12 }, { ...stale, rotationDegrees: 2 }, { ...stale, distortion: mapping.distortion }]) {
+    assert.equal(preserveStageFrame(calibrated, .5), calibrated);
+  }
+});
+
+
+test('Move can recover a positioned photo ratio while asset replacement retains its saved frame', () => {
+  const positioned = { ...uncalibrated, offsetX: 120, offsetY: -80, referenceAspectRatio: 2 / 3 };
+  assert.equal(hasStageFrameCalibration(positioned), false);
+  assert.equal(preserveStageFrame(positioned, 16 / 9), positioned);
+  assert.equal(getCalibratedStageAspectRatio(positioned), 2 / 3);
+  for (const adjustment of [{ widthAdjust: 12 }, { heightAdjust: -20 }, { rotationDegrees: 4 }, { distortion: mapping.distortion }]) {
+    assert.equal(hasStageFrameCalibration({ ...positioned, ...adjustment }), true);
+  }
 });

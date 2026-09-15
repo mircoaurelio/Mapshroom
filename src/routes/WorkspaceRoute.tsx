@@ -43,6 +43,8 @@ import { AssetSurfacesDialog, type SurfaceEditorInitialOptions } from '../compon
 import type { SurfaceOutput } from '../lib/surfaceMapping/types';
 import { type MobilePanelKey, MobileChrome } from '../components/MobileChrome';
 import { MappingPad, type MappingAction } from '../components/MappingPad';
+import { ProjectionPage } from '../components/ProjectionPage';
+import { StageRenderer } from '../components/StageRenderer';
 import { MobilePrecisionOverlay } from '../components/MobilePrecisionOverlay';
 import { MobileUniformOverlay } from '../components/MobileUniformOverlay';
 import { PlaybackControls } from '../components/PlaybackControls';
@@ -4312,7 +4314,7 @@ export function WorkspaceRoute() {
   }, [project, segmentationQueue]);
   const segmentationAssetResolution = useAssetObjectUrl(segmentationAsset);
   const segmentationOriginalAsset = useMemo(() => segmentationPanel === 'depth' && segmentationAsset?.derivation?.kind === 'depth'
-    ? project?.library.assets.find(asset => asset.id === segmentationAsset.derivation?.sourceAssetId) ?? null
+    ? project?.library.assets.find(asset => asset.id === (segmentationAsset.derivation?.inputAssetId ?? segmentationAsset.derivation?.sourceAssetId)) ?? null
     : null, [project, segmentationAsset, segmentationPanel]);
   const segmentationOriginalResolution = useAssetObjectUrl(segmentationOriginalAsset);
   const surfaceAsset = useMemo(() => project?.library.assets.find(asset => asset.id === surfaceAssetId) ?? null, [project, surfaceAssetId]);
@@ -4748,7 +4750,7 @@ export function WorkspaceRoute() {
       lastModified: Math.max(Date.now(), (existingDepthAsset?.lastModified ?? 0) + 1),
       createdAt: existingDepthAsset?.createdAt ?? new Date().toISOString(),
       sourceType: 'uploaded',
-      derivation: { ...existingDepthAsset?.derivation, sourceAssetId: sourceAsset.derivation?.sourceAssetId ?? sourceAsset.id, kind: resultKind === 'depth' ? 'depth' : resultKind === 'draw' ? 'painted' : 'background', width: options.width, height: options.height },
+      derivation: { ...existingDepthAsset?.derivation, sourceAssetId: sourceAsset.derivation?.sourceAssetId ?? sourceAsset.id, inputAssetId: sourceAsset.derivation?.kind === 'depth' ? sourceAsset.derivation.inputAssetId ?? sourceAsset.derivation.sourceAssetId : sourceAsset.id, kind: resultKind === 'depth' ? 'depth' : resultKind === 'draw' ? 'painted' : 'background', width: options.width, height: options.height },
     };
     const saved = await putAssetBlob(maskedAsset.id, blob);
     if (!saved) {
@@ -4783,7 +4785,7 @@ export function WorkspaceRoute() {
       name: `${surfaceAsset.name.replace(/\.[^.]+$/, '')}-surfaces-${output}.png`,
       mimeType: 'image/png', size: blob.size, lastModified: Date.now(),
       createdAt: new Date().toISOString(), sourceType: 'uploaded',
-      derivation: { sourceAssetId: surfaceAsset.derivation?.sourceAssetId ?? surfaceAsset.id, kind: output === 'regions' ? 'segmentation' : output, surfaceSettings: { zones: settings.zones, smoothing: settings.smoothing } },
+      derivation: { sourceAssetId: surfaceAsset.derivation?.sourceAssetId ?? surfaceAsset.id, inputAssetId: surfaceAsset.id, kind: output === 'regions' ? 'segmentation' : output, surfaceSettings: { zones: settings.zones, smoothing: settings.smoothing } },
     };
     if (!await putAssetBlob(outputAsset.id, blob)) return false;
     const referenceAspectRatio = readStageFrameAspectRatio(stageCanvasRef.current);
@@ -4802,7 +4804,7 @@ export function WorkspaceRoute() {
       ...source, id: crypto.randomUUID(), name: `${source.name.replace(/\.[^.]+$/, '')}-${result.kind}.png`,
       mimeType: 'image/png', kind: 'image', size: result.blob.size, lastModified: Date.now(),
       createdAt: new Date().toISOString(), sourceType: 'generated',
-      derivation: { sourceAssetId: source.id, kind: result.kind, width: result.width, height: result.height, method: result.method, surfaceSettings: result.surfaceSettings },
+      derivation: { sourceAssetId: source.id, inputAssetId: result.inputAssetId, kind: result.kind, width: result.width, height: result.height, method: result.method, surfaceSettings: result.surfaceSettings },
     };
     if (!await putAssetBlob(output.id, result.blob)) return null;
     if (assetVersionProjectRef.current?.sessionId !== sessionId || !assetVersionProjectRef.current.library.assets.some(asset => asset.id === source.id)) {
@@ -6306,7 +6308,7 @@ export function WorkspaceRoute() {
   }, [isMobile]);
 
   useEffect(() => {
-    if (isMobile || !desktopStageKeyboardArmed) {
+    if (isMobile || !desktopStageKeyboardArmed || desktopPage === 'output' || project?.mapping.stageTransform.moveMode) {
       return;
     }
 
@@ -6343,7 +6345,7 @@ export function WorkspaceRoute() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [cyclePreviewShader, desktopStageKeyboardArmed, hasDesktopDialogOpen, isMobile]);
+  }, [cyclePreviewShader, desktopStageKeyboardArmed, hasDesktopDialogOpen, isMobile, desktopPage, project?.mapping.stageTransform.moveMode]);
 
   useEffect(() => {
     if (hasDesktopDialogOpen) {
@@ -8825,18 +8827,78 @@ ${errorSnapshot}`,
     onboardingActive={showOnboardingGuide}
     onAssetsFirstStepAdvance={() => setShowAssetImportFirstStep(true)}
   />;
-  const sectionHeader = desktopSection === 'move' || desktopSection === 'output' ? (
-    <header className="workspace-page-header">
-      <div>
-        <h2>{desktopSection === 'move' ? 'Move' : 'Output'}</h2>
-        <p>{desktopSection === 'move'
-          ? 'Align your projection using the controls below. Changes appear in the Output window.'
-          : 'Open the live output on your projector or second display.'}</p>
-      </div>
-      <button type="button" className="primary-button" onClick={() => { trackUiClick('open_output'); handleOutputWindowOpen(); }}>
-        {outputWindowOpen ? 'Show output window' : 'Open output window'}
-      </button>
-    </header>
+  const projectionPage = desktopSection === 'move' || desktopSection === 'output' ? (
+    <ProjectionPage
+      key={project.sessionId}
+      section={desktopSection}
+      sessionId={project.sessionId}
+      transform={stageTransform}
+      assetName={activeAsset?.name ?? null}
+      assetAspectRatio={readStageFrameAspectRatio(stageCanvasRef.current) ?? 16 / 9}
+      assetUrl={activeAssetUrl}
+      assetKind={activeAsset?.kind ?? 'image'}
+      assetReady={Boolean(activeAsset && activeAssetUrl && activeAssetResolution.status === 'ready')}
+      shaderReady={Boolean(project.studio.activeShaderCode.trim())}
+      shaderError={compilerError || null}
+      outputOpen={outputWindowOpen}
+      outputMessage={outputWindowMessage}
+      isPlaying={project.playback.transport.isPlaying}
+      onChange={(patch) => updateProject((current) => ({
+        ...current,
+        mapping: { ...current.mapping, stageTransform: { ...current.mapping.stageTransform, ...patch } },
+      }))}
+      onOpenOutput={() => { trackUiClick('open_output'); handleOutputWindowOpen(); }}
+      onPlayToggle={handlePlayToggle}
+      onSelectSection={selectDesktopSection}
+      onExport={handleMappingPositionExport}
+      keyboardEnabled={!hasDesktopDialogOpen}
+      getPositionJson={createCurrentMappingPositionJson}
+      renderPreview={(previewTransform, onDistortionChange) => desktopSection === 'move' ? (
+        <StageRenderer
+          asset={activeAsset}
+          assetUrl={activeAssetUrl}
+          assetUrlStatus={activeAssetResolution.status}
+          shaderCode="vec4 processColor(sampler2D tex, vec2 uv, float time, vec2 resolution) { return texture(tex, uv); }"
+          uniformDefinitions={{}}
+          uniformValues={{}}
+          stageTransform={previewTransform}
+          transport={project.playback.transport}
+          mappingPreview
+          showGrid={Boolean(previewTransform.showGrid || previewTransform.distortMode)}
+          onDistortionChange={onDistortionChange}
+        />
+      ) : (
+        <TimelineStageRenderer
+          asset={activeAsset}
+          assets={project.library.assets}
+          assetUrl={activeAssetUrl}
+          assetUrlStatus={activeAssetResolution.status}
+          activeShaderId={project.studio.activeShaderId}
+          activeShaderName={project.studio.activeShaderName}
+          activeShaderCode={project.studio.activeShaderCode}
+          activeUniformValues={project.studio.uniformValues}
+          uniformRuntime={uniformRuntime}
+          audioBindingsByShaderId={audioReactivity.preferences.modeEnabled ? audioReactivity.preferences.bindingsByShaderId : undefined}
+          audioRuntime={audioReactivity.runtime}
+          savedShaders={project.studio.savedShaders}
+          timeline={project.timeline.stub}
+          pinnedStepId={project.timeline.stub.shaderSequence.pinnedStepId}
+          shaderCompileNonce={shaderCompileNonce}
+          stageTransform={previewTransform}
+          transport={project.playback.transport}
+          midiManualMix={{
+            enabled: midiManualMixEnabled,
+            currentStepId: midiManualMixCurrentStep?.id ?? null,
+            nextStepId: midiManualMixNextStep?.id ?? null,
+            followingStepId: midiManualMixFollowingStep?.id ?? null,
+            progress: midiManualMix.progress,
+          }}
+          isOutputOnly
+          showGrid={Boolean(previewTransform.showGrid)}
+          onCompilerError={applyCompilerFeedback}
+        />
+      )}
+    />
   ) : null;
   const assetLibraryView = (
       <AssetLibraryDialog
@@ -9103,9 +9165,7 @@ ${errorSnapshot}`,
                     ) : null}
 
                     <div className="workspace-desktop-stage">
-                      {sectionHeader}
-                      {stageViewport}
-                      {desktopSection === 'output' && <p className="workspace-output-status" role="status">{outputWindowMessage || (outputWindowOpen ? 'Output window connected.' : 'Output window is closed.')}</p>}
+                      {projectionPage ?? stageViewport}
                     </div>
 
                     <div
@@ -9162,7 +9222,7 @@ ${errorSnapshot}`,
               {workspaceNavigation}
               <div className="workspace-section-content">
                 <div className="workspace-immersive-content" hidden={desktopSection === 'asset'}>
-                  <div className="workspace-desktop-stage">{sectionHeader}{stageViewport}</div>
+                  <div className="workspace-desktop-stage">{projectionPage ?? stageViewport}</div>
                   {desktopSection === 'workspace' && uiPreferences.sidebarVisible && <aside className="workspace-sidebar" data-onboarding-area="controls"><div className="workspace-sidebar-scroll">{renderChatWorkspace(desktopCodePanel, desktopHistoryPanel)}{studioPanel}{timelineStepAssetPanel}</div></aside>}
                 </div>
                 {assetLibraryView}
