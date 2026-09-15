@@ -1,6 +1,7 @@
 import { createUniformRuntime } from '../lib/uniformRuntime';
 import { renameShader } from '../lib/renameShader';
 import { preserveShaderVersion } from '../lib/shaderHistory';
+import { isCurrentShaderEdit, resolveEditingShaderSync } from '../lib/shaderSelection';
 import { chooseRandomShaderReplacement } from '../lib/randomShader';
 import { enableTimelineStep } from '../lib/enableTimelineStep';
 import { useDismissOnOutsideClick } from '../lib/useDismissOnOutsideClick';
@@ -4110,7 +4111,7 @@ export function WorkspaceRoute() {
 
     if (nextUniformValues !== project.studio.uniformValues || nextName !== project.studio.activeShaderName) {
       setProject((currentProject) => {
-        if (!currentProject) {
+        if (!currentProject || !isCurrentShaderEdit(currentProject, project)) {
           return currentProject;
         }
 
@@ -4144,6 +4145,7 @@ export function WorkspaceRoute() {
     }
 
     updateProject((currentProject) => {
+      if (!isCurrentShaderEdit(currentProject, project)) return currentProject;
       const activeShader = currentProject.studio.savedShaders.find(
         (shader) => shader.id === currentProject.studio.activeShaderId,
       );
@@ -4190,8 +4192,7 @@ export function WorkspaceRoute() {
   }, [
     compileFeedbackVersion,
     compilerError,
-    project?.studio.activeShaderCode,
-    project?.studio.activeShaderId,
+    project,
     updateProject,
   ]);
 
@@ -4223,29 +4224,13 @@ export function WorkspaceRoute() {
       return;
     }
 
-    const activeShaderNeedsSync = project.studio.activeShaderId !== editingShader.id;
-
-    if (!activeShaderNeedsSync) {
+    if (!resolveEditingShaderSync(project, project, editingTimelineStepId)) {
       return;
     }
 
     updateProject((currentProject) => {
-      const currentEditingStep = currentProject.timeline.stub.shaderSequence.steps.find(
-        (step) => step.id === editingTimelineStepId,
-      );
-      const currentEditingShader = currentEditingStep
-        ? currentProject.studio.savedShaders.find(
-            (shader) => shader.id === currentEditingStep.shaderId,
-          ) ?? null
-        : null;
-
-      if (!currentEditingStep || !currentEditingShader) {
-        return currentProject;
-      }
-
-      if (currentProject.studio.activeShaderId === currentEditingShader.id) {
-        return currentProject;
-      }
+      const currentEditingShader = resolveEditingShaderSync(currentProject, project, editingTimelineStepId);
+      if (!currentEditingShader) return currentProject;
 
       return {
         ...currentProject,
@@ -4264,11 +4249,9 @@ export function WorkspaceRoute() {
       };
     });
 
-    if (activeShaderNeedsSync) {
-      setCompilerError(editingShader.compileError ?? '');
-      setPreferLiveShaderCompilePreview(false);
-      setStudioPreviewOverride(false);
-    }
+    setCompilerError(editingShader.compileError ?? '');
+    setPreferLiveShaderCompilePreview(false);
+    setStudioPreviewOverride(false);
   }, [editingTimelineStepId, project, updateProject]);
 
   useEffect(() => {
@@ -4290,7 +4273,7 @@ export function WorkspaceRoute() {
       return;
     }
 
-    updateProject((currentProject) => ({
+    updateProject((currentProject) => isCurrentShaderEdit(currentProject, project) ? ({
       ...currentProject,
       studio: {
         ...currentProject.studio,
@@ -4306,7 +4289,7 @@ export function WorkspaceRoute() {
             : shader,
         ),
       },
-    }));
+    }) : currentProject);
   }, [activeTimelineDraft, project, updateProject]);
 
   const activeAsset = useMemo(() => {
@@ -5034,7 +5017,11 @@ export function WorkspaceRoute() {
       }),
     );
     if (shouldRelinkSelection) {
+      const sessionId = currentProjectRef.current?.sessionId;
       window.setTimeout(() => {
+        const current = currentProjectRef.current;
+        if (!current || current.sessionId !== sessionId ||
+          current.timeline.stub.shaderSequence.focusedStepId !== stepId) return;
         void selectTimelineStepForEditing(stepId, {
           suppressStatus: true,
           focusStudioOnMobile: false,
